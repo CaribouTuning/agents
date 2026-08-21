@@ -37,6 +37,11 @@
       "name": "z-platform-specialist",
       "displayName": "Z Platform Specialist",
       "description": "Z33/Z34/Z35 chassis engineering. Suspension, transmission, braking, thermal management."
+    },
+    {
+      "name": "turbo-kit-engineer",
+      "displayName": "Turbo Kit Engineer",
+      "description": "Complete turbo kit design with manufacturing-ready specifications. 350Z single turbo kit design, manifold engineering, piping layout, intercooler integration, ECU tuning."
     }
   ],
   "skills": [
@@ -53,8 +58,8 @@
       "displayName": "Z Platform Chassis"
     },
     {
-      "name": "dyno-testing",
-      "displayName": "Dyno & Performance Testing"
+      "name": "turbo-kit-350z-vq35de",
+      "displayName": "Complete Single Turbo Kit for 2006 350Z"
     }
   ]
 }
