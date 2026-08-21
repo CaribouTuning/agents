@@ -1,0 +1,60 @@
+{
+  "name": "nissan-z-vq-performance",
+  "displayName": "Nissan Z & VQ Performance Engineering",
+  "version": "1.0.0",
+  "description": "Complete ECU tuning, engine optimization, and platform engineering for Nissan Z (Z33/Z34/Z35) and VQ engine performance builds. Expert agents for ECU tuning, reverse engineering, VQ optimization, and Z platform chassis engineering.",
+  "author": "Performance Engineering Team",
+  "category": "automotive-performance",
+  "keywords": [
+    "nissan",
+    "z-car",
+    "vq-engine",
+    "ecu-tuning",
+    "performance-engineering",
+    "turbo",
+    "boost"
+  ],
+  "engines": {
+    "claude-code": ">=1.0.0"
+  },
+  "agents": [
+    {
+      "name": "ecu-tuner",
+      "displayName": "ECU Tuner",
+      "description": "Expert ECU tuning for Nissan Z and VQ. ROM mapping, fuel strategies, boost control, dyno correlation."
+    },
+    {
+      "name": "ecu-coder",
+      "displayName": "ECU Coder",
+      "description": "ECU reverse engineering and ROM modification. Binary analysis, assembly patching, bootloader exploitation."
+    },
+    {
+      "name": "vq-engineer",
+      "displayName": "VQ Engine Engineer",
+      "description": "VQ engine specialist. Modification limits, reliability analysis, performance scaling strategies."
+    },
+    {
+      "name": "z-platform-specialist",
+      "displayName": "Z Platform Specialist",
+      "description": "Z33/Z34/Z35 chassis engineering. Suspension, transmission, braking, thermal management."
+    }
+  ],
+  "skills": [
+    {
+      "name": "ecu-tuning",
+      "displayName": "ECU Tuning Fundamentals"
+    },
+    {
+      "name": "vq-engineering",
+      "displayName": "VQ Engine Architecture"
+    },
+    {
+      "name": "z-platform",
+      "displayName": "Z Platform Chassis"
+    },
+    {
+      "name": "dyno-testing",
+      "displayName": "Dyno & Performance Testing"
+    }
+  ]
+}
