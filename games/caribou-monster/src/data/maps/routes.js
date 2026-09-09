@@ -50,8 +50,22 @@ export const ROUTE201 = defineMap('route201', {
     { id: 'r1_t2', x: 17, y: 12, look: 'lass', trainer: 'r1_lass', facing: 'left', sight: 4, movement: 'still' },
     {
       id: 'r1_walker', x: 15, y: 20, look: 'oldMan', name: 'Rambler', movement: 'wander', facing: 'down',
-      dialogue: ['Tall grass hides wild Pokémon. Walk through it and one will find you soon enough.',
-        'Weaken it in battle first, then throw a ball. Throwing at a healthy one is throwing money away.'],
+      dialogue: [
+        {
+          when: { caught: 20 },
+          lines: ['{caught} caught. You do not need an old man explaining balls to you any more.',
+            'Go north. That is the only advice left that is worth anything.'],
+        },
+        {
+          when: { badges: 1 },
+          lines: ['Badge on you. The grass will not trouble you much now.',
+            'It troubles everyone at the start though. That is what it is for.'],
+        },
+        {
+          lines: ['Tall grass hides wild Pokémon. Walk through it and one will find you soon enough.',
+            'Weaken it in battle first, then throw a ball. Throwing at a healthy one is throwing money away.'],
+        },
+      ],
     },
   ],
   encounters: {
@@ -99,8 +113,28 @@ export const ROUTE207 = defineMap('route207', {
     { id: 'r2_t2', x: 18, y: 12, look: 'hiker', trainer: 'r2_hiker', facing: 'left', sight: 4, movement: 'still' },
     {
       id: 'r2_grunt_watch', x: 16, y: 3, look: 'grunt', name: 'Galactic Grunt', movement: 'lookAround', facing: 'down',
-      dialogue: ['Readings are up forty percent since last week. Something under that hill is waking up.',
-        'And no, I am not going to explain what that means to a kid with a backpack.'],
+      dialogue: [
+        {
+          when: { flag: 'beatCommander' },
+          lines: ['You are the one who went in after Mars. I know exactly who you are.',
+            'The readings did not stop when you came out. They went up.',
+            'Go home. Genuinely. That is not a threat, it is advice.'],
+        },
+        {
+          when: { flag: 'enteredCave' },
+          lines: ['You have been down there. Do not bother denying it, the dust is on you.',
+            'Readings are up forty percent since last week. Something under that hill is waking up.'],
+        },
+        {
+          when: { joined: true },
+          lines: ['Readings are up forty percent since last week. Something under that hill is waking up.',
+            'And no, I am not explaining that to a circuit trainer with a rating and a backpack.'],
+        },
+        {
+          lines: ['Readings are up forty percent since last week. Something under that hill is waking up.',
+            'And no, I am not going to explain what that means to a kid with a backpack.'],
+        },
+      ],
     },
   ],
   encounters: {

@@ -232,24 +232,33 @@ for (const dev of DEVICES) {
         }
         await page.screenshot({ path: path.join(OUT, `${dev.name}-4-circuit.png`) });
 
-        // Enter the open event by tapping its row.
+        // Enter the open event by tapping its row, then confirming.
         const evPt = await page.evaluate(() => {
           const s = window.CARIBOU.screens.top;
           s.tab = 1; s.index = 0; s.scroll = 0;
-          const b = s._listBox();
-          return { x: b.x + b.w / 2, y: b.y + 4 + 3 };
+          const b = s._panel();
+          return { x: b.x + b.w / 2, y: b.y + 4 + s._rowH() / 2 };
         });
         await tapLogical(evPt.x, evPt.y);
+        const asked = await page.evaluate(() => !!window.CARIBOU.screens.top.confirm);
+        check(dev.name, 'entering an event asks first', asked);
+        const yes = await page.evaluate(() => {
+          const s = window.CARIBOU.screens.top;
+          const b = s._confirmBox();
+          const w = Math.floor((b.w - 20) / 2);
+          return { x: b.x + 7 + w / 2, y: b.y + b.h - 20 + 7 };
+        });
+        await tapLogical(yes.x, yes.y);
         await page.waitForTimeout(300);
         scr2 = await screenName();
-        check(dev.name, 'tapping an event opens the bracket', scr2 === 'TournamentScreen', scr2);
+        check(dev.name, 'confirming opens the bracket', scr2 === 'TournamentScreen', scr2);
         await page.screenshot({ path: path.join(OUT, `${dev.name}-5-bracket.png`) });
 
         if (scr2 === 'TournamentScreen') {
           // WITHDRAW is the second button; tapping it must return to the hub.
           const btn = await page.evaluate(() => {
             const b = window.CARIBOU.screens.top._btnBox();
-            return { x: b.x + b.w / 2, y: b.y + 15 + 6 };
+            return { x: b.x + b.w / 2, y: b.y + 16 + 7 };
           });
           await tapLogical(btn.x, btn.y);
           await page.waitForTimeout(300);
@@ -260,7 +269,7 @@ for (const dev of DEVICES) {
         // The BACK chip closes the hub.
         const back = await page.evaluate(() => {
           const b = window.CARIBOU.screens.top.game.display;
-          return { x: b.width - 46 + 20, y: b.height - 14 + 6 };
+          return { x: b.width - 46 + 20, y: 6 };
         });
         await tapLogical(back.x, back.y);
         await page.waitForTimeout(250);

@@ -166,6 +166,70 @@ export function expBar(ctx, x, y, w, frac) {
   rect(ctx, x, y, Math.round(w * Math.max(0, Math.min(1, frac))), 2, PAL.expBlue);
 }
 
+// ---- banners, rows and pills -------------------------------------------
+// The pieces a DS-era menu is actually made of: a coloured title band, a
+// filled selection row, and small labelled chips. Screens built from these
+// look like they came from the same machine as the battle HUD.
+
+/** A colour-filled title band with light text and an optional right caption. */
+export function titleBar(ctx, x, y, w, text, opts = {}) {
+  const h = opts.h || 13;
+  const col = opts.color || PAL.uiFrame;
+  rect(ctx, x, y, w, h, shade(col, -0.3));
+  rect(ctx, x, y, w, h - 1, col);
+  rect(ctx, x + 1, y + 1, w - 2, 1, shade(col, 0.28));
+  if (text) drawText(ctx, text, x + 5, y + Math.floor((h - GLYPH_H) / 2), {
+    color: opts.textColor || PAL.uiTextLight, shadow: shade(col, -0.45),
+  });
+  if (opts.right) drawTextRight(ctx, opts.right, x + w - 5, y + Math.floor((h - GLYPH_H) / 2), {
+    color: opts.rightColor || shade(col, 0.55), shadow: shade(col, -0.45),
+  });
+  return h;
+}
+
+/**
+ * The selected row in a list. A filled bar reads as "this one" from across a
+ * room in a way a lone cursor arrow never does on a phone.
+ */
+export function rowHighlight(ctx, x, y, w, h, color) {
+  const col = color || PAL.uiSelect;
+  rect(ctx, x, y, w, h, shade(col, -0.25));
+  rect(ctx, x, y, w, h - 1, col);
+  rect(ctx, x + 1, y + 1, w - 2, 1, shade(col, 0.3));
+}
+
+/** A small colour chip with a short caption. Returns the width it used. */
+export function pill(ctx, text, x, y, opts = {}) {
+  const col = opts.color || PAL.uiFrameLight;
+  const w = opts.w || text.length * CHAR_ADVANCE + 7;
+  const h = opts.h || 9;
+  rect(ctx, x, y, w, h, shade(col, -0.35));
+  rect(ctx, x, y, w, h - 1, col);
+  rect(ctx, x + 1, y + 1, w - 2, 1, shade(col, 0.3));
+  drawTextCentered(ctx, text, x + w / 2, y + 1, {
+    color: opts.textColor || '#ffffff', shadow: shade(col, -0.5),
+  });
+  return w;
+}
+
+/** A framed progress meter. `notch` draws a tick, e.g. the next rank. */
+export function meterBar(ctx, x, y, w, frac, color, opts = {}) {
+  const h = opts.h || 5;
+  rect(ctx, x, y, w, h, PAL.uiFrame);
+  rect(ctx, x + 1, y + 1, w - 2, h - 2, shade(PAL.uiFrame, 0.35));
+  const fw = Math.max(0, Math.round((w - 2) * Math.max(0, Math.min(1, frac))));
+  if (fw > 0) {
+    rect(ctx, x + 1, y + 1, fw, h - 2, color || PAL.uiHighlight);
+    rect(ctx, x + 1, y + 1, fw, 1, shade(color || PAL.uiHighlight, 0.35));
+  }
+  return h;
+}
+
+/** Divider rule, the width of a panel's inner field. */
+export function rule(ctx, x, y, w, color) {
+  rect(ctx, x, y, w, 1, color || PAL.uiBgAlt);
+}
+
 // ---- chips -------------------------------------------------------------
 
 export function typeChip(ctx, type, x, y, opts = {}) {

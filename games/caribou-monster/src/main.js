@@ -23,6 +23,7 @@ import { MultiplayerScreen } from './ui/multiplayer.js';
 import { TradeScreen } from './ui/trade.js';
 import { DebugScreen } from './ui/debug.js';
 import { CircuitScreen, TournamentScreen, PressScreen } from './ui/circuit.js';
+import { resolveDialogue, worldSnapshot } from './game/overworld/gossip.js';
 import { createGameState, healParty, setStoryFlag } from './game/state.js';
 import { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } from './game/monster.js';
 import { createBattle } from './game/battle/engine.js';
@@ -55,6 +56,7 @@ class Game {
     this.controlsLayout = getLayout;
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
+    this.gossipForTest = { resolveDialogue, worldSnapshot };
     // The World Circuit career. It reads and writes state.circuit, so it is
     // rebuilt cheaply rather than serialized.
     this.career = new Career(this);

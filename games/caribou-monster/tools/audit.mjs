@@ -16,6 +16,8 @@ import { ITEMS } from '../src/data/items.js';
 import { TRAINERS } from '../src/data/trainers.js';
 import { PROS, TOURNAMENTS, RANKS, PRO_LIST, roundsFor, pointsForFinish } from '../src/data/circuit.js';
 import { HEADLINES, BODIES, PRESS_QUESTIONS, OUTLETS, ANALYSTS } from '../src/data/news.js';
+import { matches, isKnownSlot, worldSnapshot } from '../src/game/overworld/gossip.js';
+import { createGameState } from '../src/game/state.js';
 
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
@@ -254,6 +256,91 @@ for (const sp of Object.values(SPECIES)) {
 
 for (const it of Object.values(ITEMS)) {
   if (it.use?.kind === 'tm' && !MOVES[it.use.move]) err(`[item ${it.id}] TM teaches unknown move ${it.use.move}`);
+}
+
+// ---- conditional dialogue ---------------------------------------------------
+// NPC lines are data, and data that never runs is data that rots. Every branch
+// is checked here: the conditions have to be ones the resolver understands,
+// the slots have to be ones it can fill, and every tree has to end in a line
+// that is always true — otherwise an NPC would one day say nothing at all.
+
+const SNAP = worldSnapshot(createGameState({ name: 'Audit' }));
+
+function checkLine(tag, line) {
+  if (typeof line !== 'string') { err(`${tag} has a non-string line`); return; }
+  for (const m of line.matchAll(/\{(\w+)\}/g)) {
+    if (!isKnownSlot(m[1])) err(`${tag} uses unknown slot {${m[1]}}`);
+  }
+  // Each authored line becomes its own dialogue page. The narrowest screen the
+  // game supports fits 33 characters across and 3 lines down, so anything over
+  // 99 characters splits mid-sentence across two pages.
+  if (line.length > 99) warn(`${tag} has a ${line.length}-character line; it will split across two pages in portrait`);
+}
+
+function checkCondition(tag, when) {
+  if (!when) return;
+  // `matches` refuses any clause it does not know, so a typo'd condition is a
+  // branch that can never fire. Prove each clause is one it accepts.
+  const clauses = Array.isArray(when) ? when : [when];
+  for (const c of clauses) {
+    for (const [k, v] of Object.entries(c)) {
+      if (k === 'all' || k === 'any') { for (const sub of v) checkCondition(tag, sub); continue; }
+      if (k === 'not') { checkCondition(tag, v); continue; }
+      // A single-clause probe: if the resolver rejects the key outright it
+      // returns false for both a satisfied and an unsatisfied snapshot.
+      const probe = { [k]: v };
+      let understood = false;
+      try {
+        matches(probe, SNAP);
+        understood = matches({}, SNAP) === true && matchKnown(k);
+      } catch { understood = false; }
+      if (!understood) err(`${tag} uses unknown condition "${k}"`);
+    }
+  }
+}
+
+const KNOWN_CLAUSES = new Set([
+  'all', 'any', 'not', 'flag', 'notFlag', 'badges', 'maxBadges', 'caught', 'party',
+  'leadLevel', 'starter', 'joined', 'rank', 'titles', 'streak', 'champion',
+  'beatRival', 'inEvent', 'topTen', 'hype', 'respect',
+]);
+function matchKnown(k) { return KNOWN_CLAUSES.has(k); }
+
+function checkDialogue(tag, dialogue) {
+  if (!dialogue) return;
+  if (!Array.isArray(dialogue)) { err(`${tag} dialogue is not a list`); return; }
+  const flat = dialogue.every((d) => typeof d === 'string');
+  if (flat) { dialogue.forEach((l) => checkLine(tag, l)); return; }
+
+  let hasFallback = false;
+  dialogue.forEach((entry, i) => {
+    if (typeof entry === 'string') { checkLine(tag, entry); hasFallback = true; return; }
+    checkCondition(`${tag}[${i}]`, entry.when);
+    if (!entry.when) hasFallback = true;
+    const groups = entry.pool || (entry.lines ? [entry.lines] : []);
+    if (!groups.length) err(`${tag}[${i}] has neither lines nor a pool`);
+    groups.forEach((g, j) => {
+      if (!Array.isArray(g) || !g.length) { err(`${tag}[${i}] pool entry ${j} is empty`); return; }
+      g.forEach((l) => checkLine(`${tag}[${i}]`, l));
+    });
+    if (!entry.when && i !== dialogue.length - 1) {
+      warn(`${tag}[${i}] is unconditional but not last; nothing after it can ever fire`);
+    }
+  });
+  if (!hasFallback) err(`${tag} has no unconditional fallback; this NPC can fall silent`);
+}
+
+for (const map of Object.values(MAPS)) {
+  for (const n of map.npcs) {
+    checkDialogue(`[${map.id}/${n.id}] dialogue`, n.dialogue);
+    checkDialogue(`[${map.id}/${n.id}] after`, n.after);
+    if (n.dialogueAfter) checkDialogue(`[${map.id}/${n.id}] dialogueAfter`, n.dialogueAfter.lines);
+  }
+  for (const sg of map.signs || []) {
+    for (const m of String(sg.text).matchAll(/\{(\w+)\}/g)) {
+      if (!isKnownSlot(m[1])) err(`[${map.id}] sign at ${sg.x},${sg.y} uses unknown slot {${m[1]}}`);
+    }
+  }
 }
 
 // ---- World Circuit ---------------------------------------------------------

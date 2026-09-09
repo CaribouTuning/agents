@@ -38,6 +38,7 @@ controls.
 | **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, the Oreburgh Gym and its badge |
 | **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, trainer card, save/load, EASY and NORMAL difficulty |
 | **World Circuit** | A second career track: 6 sanctioned tournaments, 12 professional trainers, an Elo world ranking, Circuit Points, promotions, a press feed and post-event press conferences |
+| **Living world** | Conditional NPC dialogue: everyone reacts to your starter, badges, Pokédex, story flags, circuit rank, titles and how you talk to the press — and names the trainer who is *actually* world number one |
 | **Co-op** | Room codes, a shared overworld, link trades and link battles |
 | **Debug** | A developer menu behind OPTIONS: teleport, give monsters/items/money, set flags, force battles, inspect the network |
 
@@ -77,6 +78,45 @@ Link battles against the other player count towards the same ranking — but onl
 when both clients played the match to a conclusion. A forfeit, a timeout or a
 disconnect ends the session and moves nothing, because a ranking built on
 unverified results is not a ranking.
+
+---
+
+## The world talks back
+
+Every NPC line is data with a condition attached. `game/overworld/gossip.js`
+builds a snapshot of the save — flags, badges, Pokédex, party, circuit standing,
+press reputation — and picks the first branch whose condition holds:
+
+```js
+dialogue: [
+  { when: { champion: true }, lines: ['{player}. {player}! You are number one in the WORLD.', ...] },
+  { when: { topTen: true },   lines: ['You are number {place} in the world!', ...] },
+  { when: { joined: true },   pool: [[...], [...], [...]] },   // rotates per talk
+  { lines: ['Professor Rowan is handing out Pokémon today.'] },  // always true, last
+]
+```
+
+Slots are filled from live state, which is what stops the world drifting out of
+step with itself. `{champion}` is whoever genuinely tops the world ranking right
+now — so Tam, the kid in Twinleaf, spends the early game telling you how
+untouchable Nadia Sable is, and ends it telling *you* that he had somebody
+else's posters up for years. `{starter}`, `{lead}`, `{place}`, `{rating}`,
+`{lastTitle}`, `{rival}` and `{headline}` all read the same way. Signs are
+templated too: the notice board in the Battle Hall carries the current world
+number one and your own line under it.
+
+Reputation is a real input. The press conference after each event trades Hype
+against Respect, and NPCs read both — the Wire's reporter has a folder on you if
+you give good copy, the groundskeeper mentions that the locker room speaks well
+of you if you don't.
+
+Two tools keep it honest. `tools/audit.mjs` refuses any condition the resolver
+does not understand, any template slot it cannot fill, and any NPC whose branches
+could all miss (an NPC that falls silent is a bug, not a mood).
+`tools/dialoguetest.mjs` drives a synthetic save through twelve career stages —
+no starter, first badge, the cave, joined, mid-event, titles, all-hype,
+all-respect, world number one — asks every NPC in every map at each one, and
+fails on a branch that never fires anywhere. Dead dialogue is dead content.
 
 ---
 
@@ -137,7 +177,7 @@ src/
   render/   canvas · palette · font · tiles · sprites · monsterart · worldrender
   data/     types · moves · species · items · trainers · music · circuit · news · maps/
   game/     monster · party/state · inventory · pokedex · storyflags · evolution
-            battle/{engine,ai} · overworld/{world,scripts} · circuit/{circuit,news,career}
+            battle/{engine,ai} · overworld/{world,scripts,gossip} · circuit/{circuit,news,career}
   net/      protocol · adapters · NetworkManager · RoomManager
   save/     SaveManager
   ui/       screen · kit · controls · dialogue · overworld · battle · menus
@@ -176,6 +216,7 @@ node tools/coop.mjs index.html /tmp/co # full two-player session
 node tools/touch.mjs index.html /tmp/t # touch-only run at four device sizes
 node tools/audit.mjs                   # static world audit — softlocks, warps, data
 node tools/circuittest.mjs             # World Circuit careers, brackets, press, saves
+node tools/dialoguetest.mjs            # every NPC branch, across twelve career stages
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```
@@ -188,8 +229,8 @@ the world is playable: every warp lands somewhere you can stand, every arrival
 leaves at least one legal move, every map can be left again, and every NPC,
 item and sign can actually be reached. It also cross-checks every species,
 move, item and trainer reference. It also checks the circuit: every pro's
-species pool, every bracket size, every rank gate's reachability, and every
-news template's slots. A softlock costs a player their session and is entirely
+species pool, every bracket size, every rank gate's reachability, every news
+template's slot, and every NPC dialogue condition, slot and fallback. A softlock costs a player their session and is entirely
 preventable at build time — run it before shipping.
 
 `tools/touch.mjs` uses no keyboard and no debug API — every step is a real tap

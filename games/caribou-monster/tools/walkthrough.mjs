@@ -197,8 +197,12 @@ check('the desk registers the player and opens the circuit', joined.joined && jo
   `${joined.screen} joined=${joined.joined}`);
 await page.screenshot({ path: path.join(OUT, '04-circuit-hub.png') });
 
-// Enter the Rookie Cup from the EVENTS tab.
+// Enter the Rookie Cup from the EVENTS tab. Entering asks first, so that is
+// two presses: pick the event, then confirm.
 await page.evaluate(() => { const s = window.CARIBOU.screens.top; s.tab = 1; s.index = 0; s.scroll = 0; });
+await tap('KeyZ', 1, 300);
+const asked = await page.evaluate(() => !!window.CARIBOU.screens.top.confirm);
+check('entering an event asks for confirmation first', asked);
 await tap('KeyZ', 1, 500);
 const bracket = await page.evaluate(() => ({
   screen: window.CARIBOU.screens.top.constructor.name,
@@ -271,6 +275,39 @@ check('the run settles into a press conference', press.screen === 'PressScreen' 
   `${press.screen} active=${press.active}`);
 await page.screenshot({ path: path.join(OUT, '08-press.png') });
 await tap('KeyZ', 3, 350);
+
+// --- the town notices ---
+// The same NPC, asked the same way, must say different things as the world
+// changes around them. This is the check that the dialogue system is wired to
+// the live save and not to a fixed script.
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.overworld.world.load('twinleaf', 10, 9, 'up');
+});
+await wait(500);
+const talkToTam = () => page.evaluate(async () => {
+  const g = window.CARIBOU;
+  const tam = g.overworld.world.entities.find((e) => e.id === 'bv_kid');
+  if (!tam) return null;
+  // Ask directly through the same resolver the A button uses.
+  return g.dialogueForTest ? g.gossipForTest.resolveDialogue(tam.data.dialogue, g.state, 0) : null;
+});
+const early = await talkToTam();
+check('the town kid has something to say', !!early && early.length > 0, (early || []).join(' / '));
+
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  const c = g.state.circuit;
+  c.joined = true;
+  c.titles = ['rookie_cup', 'sinnoh_open', 'regional_invitational'];
+  c.cp = 3000; c.rating = 2200;
+  for (const id of Object.keys(c.pros)) c.pros[id].rating = 900;
+});
+const late = await talkToTam();
+check('the same kid says something else once you are world number one',
+  !!late && JSON.stringify(late) !== JSON.stringify(early), (late || []).join(' / '));
+check('and names the player as the one on top',
+  !!late && late.some((l) => /world/i.test(l) && l.includes('Matthew')), (late || [])[0]);
 
 // The career must survive a save/load round trip.
 const trip = await page.evaluate(async () => {

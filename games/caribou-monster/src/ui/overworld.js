@@ -23,6 +23,7 @@ import { addItem } from '../game/inventory.js';
 import { recordSeen, recordCaught } from '../game/pokedex.js';
 import { awardBadge, healParty, setStoryFlag, progress } from '../game/state.js';
 import { scriptFor } from '../game/overworld/scripts.js';
+import { resolveDialogue, fillText } from '../game/overworld/gossip.js';
 import { renderMonster } from '../render/monsterart.js';
 import { musicFor } from '../data/music.js';
 import { net } from '../net/NetworkManager.js';
@@ -156,7 +157,8 @@ export class OverworldScreen extends Screen {
     if (!target) return;
     audio.sfx('select');
 
-    if (target.type === 'sign') { this.say(target.sign.text); return; }
+    // Signs are templated too, so a noticeboard can carry a live standing.
+    if (target.type === 'sign') { this.say(fillText(target.sign.text, this.game.state)); return; }
     if (target.type === 'flavour') { this.say(target.text); return; }
     if (target.type === 'pc') { this.game.openPC(); return; }
     if (target.type === 'item') { this._pickUp(target.entity); return; }
@@ -195,8 +197,17 @@ export class OverworldScreen extends Screen {
     if (d.trainer) { this._trainerTalk(e); return; }
     if (d.script) { this.runScript(d.script, e); return; }
 
-    let lines = d.dialogue || ['...'];
-    if (d.dialogueAfter && this.game.state.flags[d.dialogueAfter.flag]) lines = d.dialogueAfter.lines;
+    // Everyone remembers how many times you have bothered them today, which is
+    // what lets a pooled remark rotate instead of repeating.
+    e.talkCount = (e.talkCount || 0) + 1;
+
+    let lines = resolveDialogue(d.dialogue, this.game.state, e.talkCount - 1);
+    // The older `dialogueAfter` shape still works; conditional dialogue is
+    // simply the general case of it.
+    if (d.dialogueAfter && this.game.state.flags[d.dialogueAfter.flag]) {
+      lines = resolveDialogue(d.dialogueAfter.lines, this.game.state, e.talkCount - 1);
+    }
+    if (!lines || !lines.length) lines = ['...'];
     const speaker = d.name || null;
     this.say(lines.join('\f'), { speaker });
   }
@@ -208,7 +219,9 @@ export class OverworldScreen extends Screen {
     if (t.id === 'cave_commander') { this.runScript('commander', e); return; }
 
     if (this.game.state.flags[`beat_${t.id}`]) {
-      const after = e.data.after || [t.defeat];
+      const after = resolveDialogue(e.data.after || [t.defeat], this.game.state, e.talkCount || 0)
+        || [t.defeat];
+      e.talkCount = (e.talkCount || 0) + 1;
       this.say(after.join('\f'), { speaker: t.name });
       return;
     }

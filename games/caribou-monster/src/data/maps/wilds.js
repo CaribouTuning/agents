@@ -53,8 +53,23 @@ export const ROUTE202 = defineMap('route202', {
     },
     {
       id: 'ww_hiker', x: 20, y: 10, look: 'hiker', name: 'Ferris', movement: 'lookAround', facing: 'down',
-      dialogue: ['The trees whisper because the wind comes off the quarry face. Not ghosts. Probably not ghosts.',
-        'Oreburgh is straight north. You cannot miss it — it is the loud bit.'],
+      dialogue: [
+        {
+          when: { titles: 1 },
+          lines: ['You are the one off the results sheet. The {lastTitle}, was it not?',
+            'I walk this route four times a week and nothing at all happens to me. Suits me fine.',
+            'Oreburgh is straight north. Still is.'],
+        },
+        {
+          when: { badges: 1 },
+          lines: ['Badge already. You came through here about a week ago with nothing on you.',
+            'The trees whisper because the wind comes off the quarry face. Not ghosts. Probably not ghosts.'],
+        },
+        {
+          lines: ['The trees whisper because the wind comes off the quarry face. Not ghosts. Probably not ghosts.',
+            'Oreburgh is straight north. You cannot miss it — it is the loud bit.'],
+        },
+      ],
     },
   ],
   encounters: {
@@ -96,8 +111,19 @@ export const OREBURGH_GATE = defineMap('oreburgh_gate', {
     { id: 'sf_t2', x: 18, y: 11, look: 'gruntF', trainer: 'cave_grunt2', facing: 'left', sight: 4, movement: 'still' },
     {
       id: 'sf_boss', x: 12, y: 3, look: 'boss', trainer: 'cave_commander', facing: 'down', sight: 3, movement: 'still',
-      after: ['One trainer. Noted.',
-        'Keep the charm. It only answers to the mountain, and the mountain is not finished with either of us.'],
+      after: [
+        {
+          when: { champion: true },
+          lines: ['One trainer. Noted.',
+            'They tell me you are number one in the world now. Ratings. Points. Applause.',
+            'None of it will matter to the thing under this hill. Keep the charm anyway.'],
+        },
+        {
+          lines: ['One trainer. Noted.',
+            'Keep the charm. It answers only to the mountain.',
+            'And the mountain is not finished with either of us.'],
+        },
+      ],
     },
   ],
   encounters: {
