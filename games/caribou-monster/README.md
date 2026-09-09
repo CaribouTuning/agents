@@ -1,12 +1,13 @@
 # Caribou Monster
 
-A mobile-first, two-player monster-catching RPG in the shape of a DS-era
-handheld game. Built for phones, in plain JavaScript, with no engine and no
-asset pipeline — every sprite, tile, note and sound effect is generated at
-runtime from data.
+A mobile-first, two-player Pokémon RPG in the shape of a DS-era handheld game.
+Built for phones, in plain JavaScript, with no engine and no asset pipeline —
+every sprite, tile, note and sound effect is generated at runtime from data.
 
-**Region:** Karivon · **Rivals:** Team Meridian · **Legendary:** Lumaros, the
-Everlight Caribou.
+**Region:** Sinnoh · **Rivals:** Team Galactic · **Legendary:** Dialga.
+
+Real Pokémon names, types, base stats, abilities and learnsets. A private fan
+project for two players; not for distribution.
 
 ---
 
@@ -32,7 +33,7 @@ controls.
 | | |
 |---|---|
 | **World** | 14 maps: Brackenvale Town, Route 1, Whisperwood Forest, Aldermere City, Route 2, Stonefall Cave and eight interiors |
-| **Monsters** | 37 species with full stats, natures, genders, IVs/EVs, shinies, learnsets and evolution lines |
+| **Pokémon** | 54 species with real base stats, types, abilities, natures, genders, IVs/EVs, shinies, learnsets and evolution lines |
 | **Moves** | 119, all data-driven, with the 17-type chart, STAB, criticals, accuracy, five status conditions, confusion, flinch and stat stages |
 | **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, the Aldermere Gym and its badge |
 | **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Monster Centre, Pokédex, trainer card, save/load, EASY and NORMAL difficulty |
@@ -139,11 +140,20 @@ node tools/battletest.mjs              # 400 AI battles + determinism check
 node tools/play.mjs /tmp/shots         # drive every screen, screenshot each
 node tools/coop.mjs index.html /tmp/co # full two-player session
 node tools/touch.mjs index.html /tmp/t # touch-only run at four device sizes
+node tools/audit.mjs                   # static world audit — softlocks, warps, data
+node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```
 
 `build.py` has no dependencies. It walks the import graph, refuses circular
 imports, and emits one file.
+
+`tools/audit.mjs` walks every map with the game's own movement rules and proves
+the world is playable: every warp lands somewhere you can stand, every arrival
+leaves at least one legal move, every map can be left again, and every NPC,
+item and sign can actually be reached. It also cross-checks every species,
+move, item and trainer reference. A softlock costs a player their session and
+is entirely preventable at build time — run it before shipping.
 
 `tools/touch.mjs` uses no keyboard and no debug API — every step is a real tap
 at a real screen coordinate, on four device shapes including high-DPR phones.

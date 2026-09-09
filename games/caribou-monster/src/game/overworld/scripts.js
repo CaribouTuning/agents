@@ -11,23 +11,23 @@ import { FLAGS } from '../storyflags.js';
 
 export const SCRIPTS = {};
 
-// ---- Professor Aspen: choosing a starter ---------------------------------
+// ---- Professor Rowan: choosing a starter ---------------------------------
 
 SCRIPTS.starter = async (ctx) => {
   const st = ctx.state;
   if (st.flags[FLAGS.GOT_STARTER]) {
-    await ctx.say('Prof. Aspen: How is it settling in? Keep it close and it will keep you close.');
+    await ctx.say('Prof. Rowan: How is it settling in? Keep it close and it will keep you close.');
     return;
   }
 
-  await ctx.say('Prof. Aspen: There you are.\fI have three young monsters here and nobody to raise them. Take a look.');
+  await ctx.say('Prof. Rowan: There you are.\fI have three young Pokémon here and nobody to raise them. Take a look.');
 
   let chosen = -1;
   while (chosen < 0) {
     const pick = await ctx.ask('Which one will you take?', [
       'Turtwig', 'Chimchar', 'Piplup', 'Look again',
     ]);
-    if (pick === 3) { await ctx.say('Prof. Aspen: Take your time. This is not a small decision.'); continue; }
+    if (pick === 3) { await ctx.say('Prof. Rowan: Take your time. This is not a small decision.'); continue; }
 
     const line = STARTER_LINES[pick];
     const sp = getSpecies(line.base);
@@ -42,18 +42,18 @@ SCRIPTS.starter = async (ctx) => {
   const mon = createMonster(base, 5);
   mon.ot = st.player.name;
   mon.otId = st.player.id;
-  mon.caughtAt = 'aspen_lab';
+  mon.caughtAt = 'rowan_lab';
   st.party.push(mon);
   st.starterBase = base;
   ctx.dex.caught(base);
 
   ctx.sfx('caught');
   await ctx.say(`${getSpecies(base).name} joined your team!`);
-  await ctx.say('Prof. Aspen: Good choice. They all are.\fTake this too — you will want to know what you are looking at out there.');
-  ctx.give('monsterdex', 1);
+  await ctx.say('Prof. Rowan: Good choice. They all are.\fTake this too — you will want to know what you are looking at out there.');
+  ctx.give('pokedex', 1);
   ctx.give('pokeball', 5);
-  await ctx.say('You received the MonsterDex and 5 Poké Balls!');
-  await ctx.say('Prof. Aspen: Aldermere City is north, past Whisperwood.\fThe road there is the whole point. Go and walk it.');
+  await ctx.say('You received the Pokédex and 5 Poké Balls!');
+  await ctx.say('Prof. Rowan: Oreburgh City is north, past Route 202.\fThe road there is the whole point. Go and walk it.');
 
   ctx.setFlag(FLAGS.GOT_STARTER);
   ctx.shareMilestone(FLAGS.GOT_STARTER);
@@ -120,12 +120,12 @@ SCRIPTS.rival2 = async (ctx) => {
     x: ctx.player.x, y: ctx.player.y - 2, dir: 'down', name: 'Rival',
   });
   await ctx.wait(0.3);
-  await ctx.say('Rival: Aldermere already? You have been busy.\fSo have I. Show me.');
+  await ctx.say('Rival: Oreburgh already? You have been busy.\fSo have I. Show me.');
 
   const t = rivalTeam(st, 'rival_2');
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (won) {
-    await ctx.say('Rival: You have been busier. Noted.\fGarnet is in that grey building. She does not go easy on anyone.');
+    await ctx.say('Rival: You have been busier. Noted.\fRoark is in that grey building. She does not go easy on anyone.');
     ctx.setFlag(FLAGS.BEAT_RIVAL_2);
   } else {
     await ctx.say('Rival: Better luck next time. The Centre is right there — the red roof.');
@@ -182,23 +182,23 @@ SCRIPTS.gymLeader = async (ctx, npc) => {
   for (const line of npc.data.after || []) await ctx.say(`${t.name}: ${line}`, { speaker: t.name });
 };
 
-// ---- Team Meridian ---------------------------------------------------------------
+// ---- Team Galactic ---------------------------------------------------------------
 
 SCRIPTS.commander = async (ctx, npc) => {
   const t = getTrainer(npc.data.trainer);
   if (ctx.state.flags[`beat_${t.id}`]) {
-    for (const line of npc.data.after || []) await ctx.say(`Vesper: ${line}`, { speaker: 'Vesper' });
+    for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
     return;
   }
   await ctx.say('A figure in a long coat is standing over a seam of pale light in the rock.');
-  await ctx.say(`Vesper: ${t.intro}`, { speaker: 'Vesper' });
+  await ctx.say(`Mars: ${t.intro}`, { speaker: 'Mars' });
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (!won) return;
-  await ctx.say(`Vesper: ${t.defeat}`, { speaker: 'Vesper' });
+  await ctx.say(`Mars: ${t.defeat}`, { speaker: 'Mars' });
   await ctx.say('The light in the seam pulses once, slowly, like something turning over in its sleep.');
   ctx.setFlag(FLAGS.BEAT_COMMANDER);
   ctx.shareMilestone(FLAGS.BEAT_COMMANDER);
-  for (const line of npc.data.after || []) await ctx.say(`Vesper: ${line}`, { speaker: 'Vesper' });
+  for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
 };
 
 export function scriptFor(name) { return SCRIPTS[name] || null; }

@@ -11,10 +11,10 @@ const add = (id, o) => { TRAINERS[id] = T(id, o); };
 
 const mon = (species, level, moves, extra = {}) => ({ species, level, moves, ...extra });
 
-// ---- Route 1 -----------------------------------------------------------
+// ---- Route 201 -----------------------------------------------------------
 add('r1_youngster', {
   name: 'Youngster Cal', cls: 'Youngster', look: 'youngster', ai: 0, prize: 240,
-  intro: 'My monsters and I trained all summer for this!',
+  intro: 'My Pokémon and I trained all summer for this!',
   defeat: 'All summer... for that?',
   team: [mon(13, 5, ['tackle', 'growl']), mon(10, 6, ['tackle', 'growl'])],
 });
@@ -25,7 +25,7 @@ add('r1_lass', {
   team: [mon(15, 6, ['tackle', 'leer']), mon(18, 6, ['bugbite', 'strugglebug'])],
 });
 
-// ---- Whisperwood Forest -------------------------------------------------
+// ---- Route 202 -------------------------------------------------
 add('ww_bug1', {
   name: 'Bug Catcher Denny', cls: 'Bug Catcher', look: 'bugCatcher', ai: 0, prize: 224,
   intro: 'The forest is full of bugs! I caught most of them myself.',
@@ -45,13 +45,13 @@ add('ww_lass', {
   team: [mon(22, 8, ['pound', 'defensecurl']), mon(20, 8, ['absorb', 'growth'])],
 });
 add('ww_grunt', {
-  name: 'Meridian Grunt', cls: 'Team Meridian', look: 'grunt', ai: 1, prize: 480,
-  intro: 'Team Meridian is measuring this forest. Move along or be measured.',
+  name: 'Galactic Grunt', cls: 'Team Galactic', look: 'grunt', ai: 1, prize: 480,
+  intro: 'Team Galactic is measuring this forest. Move along or be measured.',
   defeat: 'Fine. Measure it yourself.',
   team: [mon(24, 9, ['astonish', 'supersonic']), mon(18, 10, ['bugbite', 'furycutter'])],
 });
 
-// ---- Aldermere Gym -------------------------------------------------------
+// ---- Oreburgh Gym -------------------------------------------------------
 add('gym1_hiker1', {
   name: 'Hiker Bost', cls: 'Hiker', look: 'hiker', ai: 1, prize: 560,
   intro: 'Rock is not slow. Rock is patient. There is a difference.',
@@ -66,22 +66,23 @@ add('gym1_worker', {
 });
 add('gym1_hiker2', {
   name: 'Hiker Jun', cls: 'Hiker', look: 'hiker', ai: 1, prize: 640,
-  intro: 'Get past me and Garnet is next. Nobody gets past me.',
+  intro: 'Get past me and Roark is next. Nobody gets past me.',
   defeat: 'Somebody got past me.',
   team: [mon(26, 13, ['rockthrow', 'defensecurl', 'magnitude']), mon(24, 12, ['astonish', 'bite'])],
 });
 add('gym1_leader', {
-  name: 'Garnet', cls: 'Gym Leader', look: 'leaderRock', ai: 2, prize: 2400, leader: true,
-  badge: 1, badgeName: 'Quarry Badge', tm: 'tm01',
-  intro: 'Aldermere was cut out of the hillside by people who did not give up.\nShow me you have the same in you.',
-  defeat: 'Straight through the stone. That is the Quarry Badge — you have earned it.',
+  name: 'Roark', cls: 'Gym Leader', look: 'leaderRock', ai: 2, prize: 2400, leader: true,
+  badge: 1, badgeName: 'Coal Badge', tm: 'tm01',
+  intro: 'Oreburgh was cut out of the hillside by people who did not give up.\nShow me you have the same in you.',
+  defeat: 'Straight through the stone. That is the Coal Badge — you have earned it.',
   team: [
-    mon(26, 14, ['rockthrow', 'defensecurl', 'magnitude']),
-    mon(28, 15, ['rockthrow', 'harden', 'rocktomb', 'bulldoze']),
+    mon(26, 12, ['rockthrow', 'defensecurl', 'magnitude']),
+    mon(28, 12, ['rockthrow', 'harden', 'rocktomb']),
+    mon(52, 14, ['rockthrow', 'defensecurl', 'rocktomb', 'bulldoze']),
   ],
 });
 
-// ---- Route 2 --------------------------------------------------------------
+// ---- Route 207 --------------------------------------------------------------
 add('r2_youngster', {
   name: 'Youngster Pell', cls: 'Youngster', look: 'youngster', ai: 1, prize: 480,
   intro: 'Past this route the caves start. Better warm up on me.',
@@ -90,27 +91,27 @@ add('r2_youngster', {
 });
 add('r2_hiker', {
   name: 'Hiker Marl', cls: 'Hiker', look: 'hiker', ai: 1, prize: 680,
-  intro: 'Stonefall Cave eats hikers. I am the one it spat back out.',
+  intro: 'Oreburgh Gate eats hikers. I am the one it spat back out.',
   defeat: 'Back down the hill I go.',
   team: [mon(26, 16, ['rockthrow', 'magnitude']), mon(29, 16, ['karatechop', 'lowkick'])],
 });
 
-// ---- Stonefall Cave --------------------------------------------------------
+// ---- Oreburgh Gate --------------------------------------------------------
 add('cave_grunt1', {
-  name: 'Meridian Grunt', cls: 'Team Meridian', look: 'grunt', ai: 1, prize: 720,
-  intro: 'This cave belongs to Team Meridian now. Turn around.',
+  name: 'Galactic Grunt', cls: 'Team Galactic', look: 'grunt', ai: 1, prize: 720,
+  intro: 'This cave belongs to Team Galactic now. Turn around.',
   defeat: 'The commander is not going to like this.',
   team: [mon(24, 16, ['bite', 'supersonic', 'wingattack']), mon(26, 16, ['rockthrow', 'defensecurl'])],
 });
 add('cave_grunt2', {
-  name: 'Meridian Grunt', cls: 'Team Meridian', look: 'gruntF', ai: 1, prize: 760,
+  name: 'Galactic Grunt', cls: 'Team Galactic', look: 'gruntF', ai: 1, prize: 760,
   intro: 'You are standing where the light comes through. Move.',
   defeat: 'Stand wherever you like.',
   team: [mon(25, 17, ['bite', 'confusion']), mon(29, 17, ['karatechop', 'furyswipes'])],
 });
 add('cave_commander', {
-  name: 'Commander Vesper', cls: 'Team Meridian', look: 'boss', ai: 2, prize: 3000,
-  intro: 'The Everlight sleeps under this hill, and Meridian intends to wake it.\nYou are one trainer. Reconsider.',
+  name: 'Commander Mars', cls: 'Team Galactic', look: 'boss', ai: 2, prize: 3000,
+  intro: 'The Everlight sleeps under this hill, and Galactic intends to wake it.\nYou are one trainer. Reconsider.',
   defeat: 'One trainer. Noted. We will not make that mistake twice.',
   team: [
     mon(25, 18, ['bite', 'confusion', 'airslash']),
@@ -130,7 +131,7 @@ add('rival_1', {
 });
 add('rival_2', {
   name: 'Rival', cls: 'Rival', look: 'rivalBoy', ai: 2, prize: 900, rival: true,
-  intro: 'Aldermere already? You have been busy. So have I.',
+  intro: 'Oreburgh already? You have been busy. So have I.',
   defeat: 'You have been busier. Noted.',
   team: [mon(11, 12, ['quickattack', 'wingattack', 'growl']), mon(15, 12, ['spark', 'leer']), 'RIVAL_STARTER:13'],
 });

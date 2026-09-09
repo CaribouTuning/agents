@@ -40,8 +40,8 @@ export class MainMenuScreen extends Screen {
   get entries() {
     const st = this.game.state;
     const out = [];
-    if (st.flags.gotStarter) out.push({ key: 'dex', text: 'MONSTERDEX' });
-    if (st.party.length) out.push({ key: 'party', text: 'MONSTERS' });
+    if (st.flags.gotStarter) out.push({ key: 'dex', text: 'POKéDEX' });
+    if (st.party.length) out.push({ key: 'party', text: 'POKéMON' });
     out.push({ key: 'bag', text: 'BAG' });
     out.push({ key: 'card', text: st.player.name.toUpperCase() });
     out.push({ key: 'link', text: 'LINK' });
@@ -211,7 +211,7 @@ export class PartyScreen extends Screen {
     if (this.detail) { this._renderDetail(ctx, W, H); return; }
 
     const party = this.game.state.party;
-    label(ctx, this.prompt || 'Choose a monster.', 6, 4, { color: PAL.uiTextLight, shadow: PAL.black });
+    label(ctx, this.prompt || 'Choose a Pokémon.', 6, 4, { color: PAL.uiTextLight, shadow: PAL.black });
 
     party.forEach((m, i) => {
       const r = this._rowRect(i);
@@ -372,7 +372,7 @@ export class BagScreen extends Screen {
       const targetIdx = this.mode === 'use' && this.target != null ? this.target : null;
       if (targetIdx == null) {
         this.game.screens.push(new PartyScreen(this.game, {
-          mode: 'pick', prompt: `Use ${item.name} on which monster?`,
+          mode: 'pick', prompt: `Use ${item.name} on which Pokémon?`,
           onPick: (i) => { if (i != null) this._apply(item, st.party[i]); },
         }));
         return;
@@ -383,7 +383,7 @@ export class BagScreen extends Screen {
     if (u.kind === 'repel') {
       removeItem(st.inventory, item.id, 1);
       st.repelSteps = u.steps;
-      this._say(`${item.name} used. Weak monsters will stay away.`);
+      this._say(`${item.name} used. Weak Pokémon will stay away.`);
       audio.sfx('select');
       return;
     }

@@ -283,7 +283,7 @@ function doCatch(battle, sideIdx, ball, out) {
   const foe = activeOf(foeSide);
 
   if (battle.kind !== 'wild') {
-    out.push({ t: 'text', s: 'You cannot throw a ball at another trainer’s monster!' });
+    out.push({ t: 'text', s: 'You cannot throw a ball at another trainer’s Pokémon!' });
     return;
   }
   out.push({ t: 'text', s: `${side.name} threw a ${ball.name}!` });
@@ -309,7 +309,7 @@ function doCatch(battle, sideIdx, ball, out) {
   } else {
     out.push({ t: 'wobble', count: shakes, caught: false });
     const lines = [
-      'Oh no! The monster broke free!',
+      'Oh no! The Pokémon broke free!',
       'Aww! It appeared to be caught!',
       'Aargh! Almost had it!',
       'Shoot! It was so close, too!',

@@ -12,7 +12,7 @@ export const FLAGS = {
   LEFT_TOWN: 'leftTown',
   ENTERED_FOREST: 'enteredForest',
   FOREST_GRUNT: 'forestGrunt',
-  REACHED_ALDERMERE: 'reachedAldermere',
+  REACHED_ALDERMERE: 'reachedOreburgh',
   BEAT_RIVAL_2: 'beatRival2',
   BADGE_1: 'badge1',
   ENTERED_CAVE: 'enteredCave',
@@ -46,7 +46,7 @@ export function storyProgress(flags) {
 
 export function progressLabel(n) {
   return [
-    'Just starting out', 'On the road', 'In Whisperwood', 'Through the forest',
-    'In Aldermere', 'One badge', 'Into Stonefall', 'Faced Meridian',
+    'Just starting out', 'On the road', 'In Route 202', 'Through the forest',
+    'In Oreburgh', 'One badge', 'Into Oreburgh Gate', 'Faced Galactic',
   ][Math.min(n, 7)];
 }

@@ -92,8 +92,8 @@ export class BattleScreen extends Screen {
 
     const t = this.battle.sides[this.foeSide].trainer;
     audio.playMusic(
-      battleMusic(this.battle.kind, { leader: t && t.leader, villain: t && t.cls === 'Team Meridian' }),
-      battleMusicKey(this.battle.kind, { leader: t && t.leader, villain: t && t.cls === 'Team Meridian' }),
+      battleMusic(this.battle.kind, { leader: t && t.leader, villain: t && t.cls === 'Team Galactic' }),
+      battleMusicKey(this.battle.kind, { leader: t && t.leader, villain: t && t.cls === 'Team Galactic' }),
     );
 
     if (this.battle.kind === 'wild' && foe) {
@@ -441,7 +441,7 @@ export class BattleScreen extends Screen {
     const item = entry.item;
     if (item.use.kind === 'ball' && this.battle.kind !== 'wild') {
       audio.sfx('deny');
-      this._say('You cannot catch another trainer’s monster!');
+      this._say('You cannot catch another trainer’s Pokémon!');
       return;
     }
     if (this.pvp) { audio.sfx('deny'); this._say('Items are switched off in link battles.'); return; }
@@ -648,7 +648,7 @@ export class BattleScreen extends Screen {
       const dest = receiveMonster(st, mon);
       st.stats.caught++;
       const newEntry = recordCaught(st.dex, mon.species);
-      if (newEntry) this.queue.push({ t: 'text', s: `${displayName(mon)}'s data was added to the MonsterDex.` });
+      if (newEntry) this.queue.push({ t: 'text', s: `${displayName(mon)}'s data was added to the Pokédex.` });
       if (dest && dest.where === 'box') {
         this.queue.push({ t: 'text', s: `Your party is full, so ${displayName(mon)}\nwas sent to ${dest.boxName}.` });
       }
@@ -664,8 +664,8 @@ export class BattleScreen extends Screen {
       audio.playMusic(MUSIC.victory, 'victory');
     }
     if (b.result === 'lose') {
-      this.queue.push({ t: 'text', s: `${st.player.name} is out of usable monsters!` });
-      this.queue.push({ t: 'text', s: `${st.player.name} panicked and ran all the way\nto the last Monster Centre...` });
+      this.queue.push({ t: 'text', s: `${st.player.name} is out of usable Pokémon!` });
+      this.queue.push({ t: 'text', s: `${st.player.name} panicked and ran all the way\nto the last Pokémon Center...` });
     }
     if (this.pendingEvolve) { this._startEvolve(); return; }
     this.queue.push({ t: 'finish' });
@@ -898,7 +898,7 @@ export class BattleScreen extends Screen {
   _drawCommand(ctx, W, H) {
     const y = this._boxY();
     window9(ctx, 4, y, W - 8, 42);
-    const names = ['FIGHT', 'BAG', 'MONSTERS', this.pvp ? 'FORFEIT' : (this.battle.kind === 'wild' ? 'RUN' : 'RUN')];
+    const names = ['FIGHT', 'BAG', 'POKéMON', this.pvp ? 'FORFEIT' : (this.battle.kind === 'wild' ? 'RUN' : 'RUN')];
     const cols = [PAL.uiDanger, '#e08a30', '#3f9060', '#5a6a94'];
     this._commandRects().forEach((r, i) => {
       const sel = i === this.cmdIndex;
@@ -979,7 +979,7 @@ export class BattleScreen extends Screen {
     ctx.globalAlpha = 0.55; rect(ctx, 0, 0, W, H, PAL.black); ctx.globalAlpha = 1;
     const bx = 6, by = 14;
     window9(ctx, bx - 4, by - 10, 164, party.length * 22 + 18);
-    label(ctx, this.mode === MODE.SWITCH ? 'Send out which monster?' : 'Switch to which monster?', bx, by - 6);
+    label(ctx, this.mode === MODE.SWITCH ? 'Send out which Pokémon?' : 'Switch to which Pokémon?', bx, by - 6);
     party.forEach((m, i) => {
       const iy = by + i * 22;
       const sel = i === this.partyIndex;

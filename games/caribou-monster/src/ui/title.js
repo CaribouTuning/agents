@@ -114,11 +114,11 @@ export class TitleScreen extends Screen {
 
     // Logo.
     const cx = W / 2;
-    drawTextCentered(ctx, 'CARIBOU', cx - 1, 22, { color: '#0a0e18', scale: 2 });
-    drawTextCentered(ctx, 'CARIBOU', cx, 21, { color: '#f8e070', scale: 2 });
-    drawTextCentered(ctx, 'MONSTER', cx - 1, 39, { color: '#0a0e18', scale: 2 });
-    drawTextCentered(ctx, 'MONSTER', cx, 38, { color: '#e8f4ff', scale: 2 });
-    drawTextCentered(ctx, 'K A R I V O N   R E G I O N', cx, 56, { color: '#9ab8ff' });
+    drawTextCentered(ctx, 'POK\u00e9MON', cx - 1, 20, { color: '#0a0e18', scale: 3 });
+    drawTextCentered(ctx, 'POK\u00e9MON', cx, 18, { color: '#f8e070', scale: 3 });
+    drawTextCentered(ctx, 'CARIBOU VERSION', cx - 1, 42, { color: '#0a0e18', scale: 1 });
+    drawTextCentered(ctx, 'CARIBOU VERSION', cx, 41, { color: '#e8f4ff', scale: 1 });
+    drawTextCentered(ctx, 'S I N N O H   R E G I O N', cx, 54, { color: '#9ab8ff' });
 
     const { x, y, w } = this._menuBox();
     const opts = this.options;
@@ -422,7 +422,7 @@ export class CharacterScreen extends Screen {
       drawChar(ctx, `cc2:${this.look}`, lookFor(this.look), 'down', Math.floor(this.t * 5) % 3, W / 2 - 8, 42);
       drawTextCentered(ctx, this.name, W / 2, 68);
       drawTextCentered(ctx, this.difficulty.toUpperCase(), W / 2, 80, { color: PAL.uiSelect });
-      drawTextCentered(ctx, 'Brackenvale Town is waiting.', W / 2, 96, { color: PAL.uiTextDim });
+      drawTextCentered(ctx, 'Twinleaf Town is waiting.', W / 2, 96, { color: PAL.uiTextDim });
       drawTextCentered(ctx, 'A: begin      B: back', W / 2, H - 22, { color: PAL.uiTextLight, shadow: PAL.black });
     }
   }

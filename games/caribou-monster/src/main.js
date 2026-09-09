@@ -26,7 +26,7 @@ import { createGameState, healParty, setStoryFlag } from './game/state.js';
 import { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } from './game/monster.js';
 import { createBattle } from './game/battle/engine.js';
 import { getSpecies } from './data/species.js';
-import { getMap } from './data/maps/index.js';
+import { getMap, MAPS } from './data/maps/index.js';
 import { randomSeed } from './core/rng.js';
 import { saveManager } from './save/SaveManager.js';
 import { net } from './net/NetworkManager.js';
@@ -51,6 +51,8 @@ class Game {
     this.netForTest = net;
     // Lets the touch test aim at the real on-screen control positions.
     this.controlsLayout = getLayout;
+    this.mapsForTest = { MAPS };
+    this.dialogueForTest = dialogue;
   }
 
   async boot(canvas) {
@@ -305,7 +307,7 @@ class Game {
 
   requestPvp() {
     if (!net.hasPartner) { this._flash('No partner connected.'); return; }
-    if (!this.state.party.some((m) => !isFainted(m))) { this._flash('Your monsters need healing first.'); return; }
+    if (!this.state.party.some((m) => !isFainted(m))) { this._flash('Your Pokémon need healing first.'); return; }
     this.rooms.pvp.request();
   }
 

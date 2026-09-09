@@ -68,7 +68,7 @@ await page.waitForTimeout(900);
 await shot('03-town');
 
 // The lab.
-await run(() => window.CARIBOU.teleport('aspen_lab'));
+await run(() => window.CARIBOU.teleport('rowan_lab'));
 await page.waitForTimeout(900);
 await shot('04-lab');
 
@@ -115,28 +115,28 @@ await run(() => {
 await page.waitForTimeout(400);
 
 // Overworld route with grass.
-await run(() => window.CARIBOU.teleport('route1'));
+await run(() => window.CARIBOU.teleport('route201'));
 await page.waitForTimeout(900);
 await shot('10-route1');
 
-await run(() => window.CARIBOU.teleport('whisperwood'));
+await run(() => window.CARIBOU.teleport('route202'));
 await page.waitForTimeout(900);
 await shot('11-forest');
 
-await run(() => window.CARIBOU.teleport('aldermere'));
+await run(() => window.CARIBOU.teleport('oreburgh'));
 await page.waitForTimeout(900);
 await shot('12-city');
 
-await run(() => window.CARIBOU.teleport('aldermere_gym'));
+await run(() => window.CARIBOU.teleport('oreburgh_gym'));
 await page.waitForTimeout(900);
 await shot('13-gym');
 
-await run(() => window.CARIBOU.teleport('stonefall'));
+await run(() => window.CARIBOU.teleport('oreburgh_gate'));
 await page.waitForTimeout(900);
 await shot('14-cave');
 
 // Wild battle.
-await run(() => { window.CARIBOU.teleport('route1'); });
+await run(() => { window.CARIBOU.teleport('route201'); });
 await page.waitForTimeout(700);
 await run(() => window.CARIBOU.startWildBattle(13, 6));
 await page.waitForTimeout(900);

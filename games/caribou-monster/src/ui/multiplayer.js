@@ -232,7 +232,7 @@ export class MultiplayerScreen extends Screen {
       if (i === this.index) cursor(ctx, box.x + 4, y);
       label(ctx, o.text, box.x + 12, y, { color: o.k === 'back' ? PAL.uiTextDim : PAL.uiText });
     });
-    drawTextRight(ctx, 'CARIBOU LINK', W - 6, 8, { color: '#9ee0a0', shadow: PAL.black });
+    drawTextRight(ctx, 'LINK', W - 6, 8, { color: '#9ee0a0', shadow: PAL.black });
   }
 
   _renderJoin(ctx, W, H) {

@@ -329,8 +329,8 @@ export class World {
     if (sign) return { type: 'sign', sign };
     const def = this.defAt(tx, ty);
     if (def.name === 'PC') return { type: 'pc' };
-    if (def.name === 'bookshelf') return { type: 'flavour', text: 'Shelves of well-thumbed books about monsters.' };
-    if (def.name === 'TV') return { type: 'flavour', text: 'A documentary about migrating monsters is on.' };
+    if (def.name === 'bookshelf') return { type: 'flavour', text: 'Shelves of well-thumbed books about Pokémon.' };
+    if (def.name === 'TV') return { type: 'flavour', text: 'A documentary about migrating Pokémon is on.' };
     if (def.name === 'bed') return { type: 'flavour', text: 'Neatly made. It looks very comfortable.' };
     if (def.water) return { type: 'flavour', text: 'The water is clear and deep.' };
     return null;

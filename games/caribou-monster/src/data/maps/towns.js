@@ -1,7 +1,7 @@
 import { defineMap } from './define.js';
 
-export const BRACKENVALE = defineMap('brackenvale', {
-  name: 'Brackenvale Town', kind: 'town', music: 'town',
+export const TWINLEAF = defineMap('twinleaf', {
+  name: 'Twinleaf Town', kind: 'town', music: 'town',
   tiles: [
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTT',
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTT',
@@ -25,38 +25,38 @@ export const BRACKENVALE = defineMap('brackenvale', {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 14, y: 0, to: 'route1', tx: 12, ty: 26, dir: 'up', edge: true },
-    { x: 15, y: 0, to: 'route1', tx: 13, ty: 26, dir: 'up', edge: true },
+    { x: 14, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true },
+    { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true },
     { x: 5, y: 12, to: 'player_house', tx: 5, ty: 6, dir: 'up' },
     { x: 22, y: 12, to: 'rival_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 6, y: 5, to: 'aspen_lab', tx: 6, ty: 8, dir: 'up' },
+    { x: 6, y: 5, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
   ],
   signs: [
-    { x: 3, y: 16, text: 'BRACKENVALE TOWN\nWhere every road out is uphill.' },
-    { x: 26, y: 16, text: 'Route 1 ahead.\nTall grass — carry a monster with you.' },
+    { x: 3, y: 16, text: 'TWINLEAF TOWN\nWhere every road out is uphill.' },
+    { x: 26, y: 16, text: 'Route 201 ahead.\nTall grass — carry a Pokémon with you.' },
   ],
   npcs: [
     {
       id: 'bv_kid', x: 10, y: 8, look: 'kid', name: 'Tam', movement: 'wander', facing: 'down',
-      dialogue: ['Professor Aspen gave you a monster?! Lucky!',
+      dialogue: ['Professor Rowan gave you a Pokémon?! Lucky!',
         'Mum says the grass past the town is full of Starly. I am not allowed up there yet.'],
     },
     {
       id: 'bv_oldman', x: 20, y: 15, look: 'oldMan', name: 'Hollis', movement: 'lookAround', facing: 'left',
-      dialogue: ['Sixty years I have lived in Brackenvale, and the aurora has never once come this far south.',
+      dialogue: ['Sixty years I have lived in Twinleaf, and the aurora has never once come this far south.',
         'Lately though? Three nights running. Something is stirring up north.'],
     },
     {
       id: 'bv_woman', x: 24, y: 8, look: 'mom', name: 'Bev', movement: 'still', facing: 'down',
-      dialogue: ['If your monsters get tired, the Monster Centre in Aldermere will patch them up free of charge.',
+      dialogue: ['If your Pokémon get tired, the Pokémon Center in Oreburgh will patch them up free of charge.',
         'Just walk up to the counter and say yes.'],
     },
   ],
-  healPoint: { map: 'brackenvale', x: 5, y: 13 },
+  healPoint: { map: 'twinleaf', x: 5, y: 13 },
 });
 
-export const ALDERMERE = defineMap('aldermere', {
-  name: 'Aldermere City', kind: 'town', music: 'city',
+export const OREBURGH = defineMap('oreburgh', {
+  name: 'Oreburgh City', kind: 'town', music: 'city',
   tiles: [
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
@@ -84,35 +84,35 @@ export const ALDERMERE = defineMap('aldermere', {
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 14, y: 0, to: 'route2', tx: 12, ty: 16, dir: 'up', edge: true },
-    { x: 15, y: 0, to: 'route2', tx: 13, ty: 16, dir: 'up', edge: true },
-    { x: 14, y: 23, to: 'whisperwood', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 15, y: 23, to: 'whisperwood', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 6, y: 6, to: 'aldermere_center', tx: 6, ty: 6, dir: 'up' },
-    { x: 25, y: 6, to: 'aldermere_mart', tx: 5, ty: 5, dir: 'up' },
-    { x: 5, y: 14, to: 'aldermere_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 26, y: 14, to: 'aldermere_house2', tx: 5, ty: 6, dir: 'up' },
-    { x: 14, y: 18, to: 'aldermere_gym', tx: 7, ty: 14, dir: 'up' },
-    { x: 15, y: 18, to: 'aldermere_gym', tx: 8, ty: 14, dir: 'up' },
+    { x: 14, y: 0, to: 'route207', tx: 12, ty: 16, dir: 'up', edge: true },
+    { x: 15, y: 0, to: 'route207', tx: 13, ty: 16, dir: 'up', edge: true },
+    { x: 14, y: 23, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 15, y: 23, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 6, y: 6, to: 'oreburgh_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 25, y: 6, to: 'oreburgh_mart', tx: 5, ty: 5, dir: 'up' },
+    { x: 5, y: 14, to: 'oreburgh_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 26, y: 14, to: 'oreburgh_house2', tx: 5, ty: 6, dir: 'up' },
+    { x: 14, y: 18, to: 'oreburgh_gym', tx: 7, ty: 14, dir: 'up' },
+    { x: 15, y: 18, to: 'oreburgh_gym', tx: 8, ty: 14, dir: 'up' },
   ],
   signs: [
-    { x: 3, y: 22, text: 'ALDERMERE CITY\nCut from the hillside, stone by stone.' },
-    { x: 26, y: 22, text: 'ALDERMERE GYM\nLeader: GARNET\n"The quarry does not blink."' },
+    { x: 3, y: 22, text: 'OREBURGH CITY\nCut from the hillside, stone by stone.' },
+    { x: 26, y: 22, text: 'OREBURGH GYM\nLeader: ROARK\n"The quarry does not blink."' },
   ],
   npcs: [
     {
       id: 'al_clerkgirl', x: 10, y: 9, look: 'lass', name: 'Odie', movement: 'wander', facing: 'down',
-      dialogue: ['The red roof is the Monster Centre and the blue one is the Mart. Everybody mixes them up once.',
+      dialogue: ['The red roof is the Pokémon Center and the blue one is the Mart. Everybody mixes them up once.',
         'Only once, though. The Mart does not heal anything.'],
     },
     {
       id: 'al_worker', x: 21, y: 11, look: 'worker', name: 'Dell', movement: 'lookAround', facing: 'left',
-      dialogue: ['Garnet runs the gym and the quarry both. Rock types, obviously.',
+      dialogue: ['Roark runs the gym and the quarry both. Rock types, obviously.',
         'Grass and Water tear straight through rock. That is not a secret, it is just true.'],
     },
     {
       id: 'al_scientist', x: 19, y: 21, look: 'scientist', name: 'Ines', movement: 'still', facing: 'down',
-      dialogue: ['Team Meridian has people up on Route 2 taking light readings. Odd hobby for a group with matching coats.',
+      dialogue: ['Team Galactic has people up on Route 207 taking light readings. Odd hobby for a group with matching coats.',
         'They keep saying "the Everlight". I have read every book in this city and found the word twice.'],
     },
     {
@@ -120,5 +120,5 @@ export const ALDERMERE = defineMap('aldermere', {
       dialogue: ['Trainers heal free here. Costs the city a fortune and nobody has ever suggested stopping.'],
     },
   ],
-  healPoint: { map: 'aldermere_center', x: 6, y: 5 },
+  healPoint: { map: 'oreburgh_center', x: 6, y: 5 },
 });

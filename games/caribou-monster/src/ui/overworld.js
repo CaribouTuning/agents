@@ -256,7 +256,7 @@ export class OverworldScreen extends Screen {
       if (this.game.save) { this.game.save.markDirty(); this.game.save.maybeAutosave(st, true); }
       const map = getMap(warp.to);
       if (map.kind === 'cave') setStoryFlag(st, 'enteredCave', true);
-      if (warp.to === 'whisperwood') setStoryFlag(st, 'enteredForest', true);
+      if (warp.to === 'route202') setStoryFlag(st, 'enteredForest', true);
     }, { outMs: warp.edge ? 240 : 300, inMs: warp.edge ? 260 : 320 });
   }
 

@@ -11,38 +11,38 @@ const add = (...a) => { const it = I(...a); ITEMS[it.id] = it; return it; };
 
 // ---- Poké Balls -------------------------------------------------------
 add('pokeball', 'Poké Ball', 'Poké Balls', 200,
-  { kind: 'ball', rate: 1 }, 'A device for catching wild monsters.');
+  { kind: 'ball', rate: 1 }, 'A device for catching wild Pokémon.');
 add('greatball', 'Great Ball', 'Poké Balls', 600,
   { kind: 'ball', rate: 1.5 }, 'A good ball with a higher catch rate than a Poké Ball.');
 add('ultraball', 'Ultra Ball', 'Poké Balls', 1200,
   { kind: 'ball', rate: 2 }, 'An ultra-performance ball with a very high catch rate.');
 add('netball', 'Net Ball', 'Poké Balls', 1000,
   { kind: 'ball', rate: 1, bonusTypes: ['Bug', 'Water'], bonus: 3 },
-  'Works especially well on Bug and Water monsters.');
+  'Works especially well on Bug and Water Pokémon.');
 
 // ---- Medicine ---------------------------------------------------------
 add('potion', 'Potion', 'Medicine', 300,
-  { kind: 'heal', amount: 20 }, 'Restores 20 HP to one monster.');
+  { kind: 'heal', amount: 20 }, 'Restores 20 HP to one Pokémon.');
 add('superpotion', 'Super Potion', 'Medicine', 700,
-  { kind: 'heal', amount: 50 }, 'Restores 50 HP to one monster.');
+  { kind: 'heal', amount: 50 }, 'Restores 50 HP to one Pokémon.');
 add('hyperpotion', 'Hyper Potion', 'Medicine', 1200,
-  { kind: 'heal', amount: 120 }, 'Restores 120 HP to one monster.');
+  { kind: 'heal', amount: 120 }, 'Restores 120 HP to one Pokémon.');
 add('maxpotion', 'Max Potion', 'Medicine', 2500,
-  { kind: 'heal', amount: 9999 }, 'Fully restores one monster’s HP.');
+  { kind: 'heal', amount: 9999 }, 'Fully restores one Pokémon’s HP.');
 add('revive', 'Revive', 'Medicine', 1500,
-  { kind: 'revive', fraction: 0.5 }, 'Revives a fainted monster with half its HP.');
+  { kind: 'revive', fraction: 0.5 }, 'Revives a fainted Pokémon with half its HP.');
 add('maxrevive', 'Max Revive', 'Medicine', 4000,
-  { kind: 'revive', fraction: 1 }, 'Revives a fainted monster with full HP.');
+  { kind: 'revive', fraction: 1 }, 'Revives a fainted Pokémon with full HP.');
 add('antidote', 'Antidote', 'Medicine', 100,
-  { kind: 'cure', status: ['PSN'] }, 'Cures a poisoned monster.');
+  { kind: 'cure', status: ['PSN'] }, 'Cures a poisoned Pokémon.');
 add('parlyzheal', 'Paralyze Heal', 'Medicine', 200,
-  { kind: 'cure', status: ['PAR'] }, 'Cures a paralysed monster.');
+  { kind: 'cure', status: ['PAR'] }, 'Cures a paralysed Pokémon.');
 add('burnheal', 'Burn Heal', 'Medicine', 250,
-  { kind: 'cure', status: ['BRN'] }, 'Cures a burned monster.');
+  { kind: 'cure', status: ['BRN'] }, 'Cures a burned Pokémon.');
 add('iceheal', 'Ice Heal', 'Medicine', 250,
-  { kind: 'cure', status: ['FRZ'] }, 'Thaws out a frozen monster.');
+  { kind: 'cure', status: ['FRZ'] }, 'Thaws out a frozen Pokémon.');
 add('awakening', 'Awakening', 'Medicine', 250,
-  { kind: 'cure', status: ['SLP'] }, 'Wakes a sleeping monster.');
+  { kind: 'cure', status: ['SLP'] }, 'Wakes a sleeping Pokémon.');
 add('fullheal', 'Full Heal', 'Medicine', 600,
   { kind: 'cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] },
   'Cures any status problem.');
@@ -51,11 +51,11 @@ add('ether', 'Ether', 'Medicine', 1200,
 
 // ---- Items ------------------------------------------------------------
 add('repel', 'Repel', 'Items', 350,
-  { kind: 'repel', steps: 100 }, 'Keeps weak wild monsters away for 100 steps.');
+  { kind: 'repel', steps: 100 }, 'Keeps weak wild Pokémon away for 100 steps.');
 add('superrepel', 'Super Repel', 'Items', 500,
-  { kind: 'repel', steps: 200 }, 'Keeps weak wild monsters away for 200 steps.');
+  { kind: 'repel', steps: 200 }, 'Keeps weak wild Pokémon away for 200 steps.');
 add('escaperope', 'Escape Rope', 'Items', 550,
-  { kind: 'escape' }, 'Returns you to the last Monster Centre you visited.');
+  { kind: 'escape' }, 'Returns you to the last Pokémon Center you visited.');
 add('oranberry', 'Oran Berry', 'Items', 80,
   { kind: 'heal', amount: 10 }, 'A berry that restores 10 HP.', { held: { kind: 'pinch-heal', amount: 10 } });
 add('sitrusberry', 'Sitrus Berry', 'Items', 200,
@@ -75,7 +75,7 @@ add('leafstone', 'Leaf Stone', 'Items', 2100, { kind: 'stone', stone: 'leaf' }, 
 // ---- TMs ---------------------------------------------------------------
 const tm = (n, moveId, name, price) =>
   add(`tm${String(n).padStart(2, '0')}`, `TM${String(n).padStart(2, '0')} ${name}`, 'TMs', price,
-    { kind: 'tm', move: moveId }, `Teaches ${name} to a compatible monster.`, { tmNumber: n, move: moveId });
+    { kind: 'tm', move: moveId }, `Teaches ${name} to a compatible Pokémon.`, { tmNumber: n, move: moveId });
 
 tm(1, 'rocktomb', 'Rock Tomb', 3000);
 tm(2, 'aerialace', 'Aerial Ace', 3000);
@@ -90,17 +90,17 @@ tm(8, 'doubleteam', 'Double Team', 2000);
 add('runningshoes', 'Running Shoes', 'Key Items', 0, { kind: 'key' },
   'Hold the B button to move at double speed.', { key: true });
 add('townmap', 'Town Map', 'Key Items', 0, { kind: 'map' },
-  'A map of the whole Karivon region.', { key: true });
-add('monsterdex', 'MonsterDex', 'Key Items', 0, { kind: 'dex' },
-  'A digital encyclopedia that records every monster you meet.', { key: true });
+  'A map of the whole Sinnoh region.', { key: true });
+add('pokedex', 'Pokédex', 'Key Items', 0, { kind: 'dex' },
+  'A digital encyclopedia that records every Pokémon you meet.', { key: true });
 add('bicycle', 'Bicycle', 'Key Items', 0, { kind: 'bike' },
   'A folding bicycle. Much faster than walking.', { key: true });
 add('oldrod', 'Old Rod', 'Key Items', 0, { kind: 'rod' },
   'An old fishing rod. Use it at the water’s edge.', { key: true });
 add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
   'A cold, faintly glowing charm. It hums near old stone.', { key: true });
-add('gymbadge1', 'Quarry Badge', 'Key Items', 0, null,
-  'Proof of victory over the Aldermere Gym.', { key: true, badge: 1 });
+add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
+  'Proof of victory over the Oreburgh Gym.', { key: true, badge: 1 });
 
 export function getItem(id) { return ITEMS[id]; }
 export const ITEM_IDS = Object.keys(ITEMS);

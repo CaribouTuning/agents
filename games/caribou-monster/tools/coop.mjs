@@ -122,9 +122,9 @@ if (code) {
   // --- position sync -----------------------------------------------------
   await A.evaluate(() => {
     const g = window.CARIBOU;
-    g.teleport('route1');
+    g.teleport('route201');
   });
-  await B.evaluate(() => window.CARIBOU.teleport('route1'));
+  await B.evaluate(() => window.CARIBOU.teleport('route201'));
   await wait(1400);
   await A.evaluate(() => {
     const w = window.CARIBOU.overworld.world;

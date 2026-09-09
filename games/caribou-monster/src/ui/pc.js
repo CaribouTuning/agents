@@ -24,7 +24,7 @@ export class PCScreen extends Screen {
     this.pane = 'box';        // box | party
     this.partyIdx = 0;
     this.held = null;         // { from:'box'|'party', index }
-    this.message = 'Move monsters between your party and the boxes.';
+    this.message = 'Move Pokémon between your party and the boxes.';
     this.confirmRelease = null;
   }
 
@@ -84,7 +84,7 @@ export class PCScreen extends Screen {
       // Drop into the box.
       if (this.held.from === 'party') {
         if (box.mons.length >= BOX_SIZE) { audio.sfx('deny'); this.message = 'This box is full.'; return; }
-        if (this.game.state.party.length <= 1) { audio.sfx('deny'); this.message = 'You need at least one monster with you!'; return; }
+        if (this.game.state.party.length <= 1) { audio.sfx('deny'); this.message = 'You need at least one Pokémon with you!'; return; }
         partyToBox(this.game.state, this.held.index, this.box);
         this.message = 'Stored.';
       } else {
@@ -119,7 +119,7 @@ export class PCScreen extends Screen {
     }
     const mon = st.party[this.partyIdx];
     if (!mon) { audio.sfx('deny'); return; }
-    if (st.party.length <= 1) { audio.sfx('deny'); this.message = 'That is your only monster!'; return; }
+    if (st.party.length <= 1) { audio.sfx('deny'); this.message = 'That is your only Pokémon!'; return; }
     audio.sfx('select');
     this.held = { from: 'party', index: this.partyIdx };
     this.message = `${displayName(mon)} picked up. Choose a box slot.`;

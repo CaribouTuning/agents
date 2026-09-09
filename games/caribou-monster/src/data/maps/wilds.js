@@ -1,7 +1,7 @@
 import { defineMap } from './define.js';
 
-export const WHISPERWOOD = defineMap('whisperwood', {
-  name: 'Whisperwood Forest', kind: 'route', music: 'forest',
+export const ROUTE202 = defineMap('route202', {
+  name: 'Route 202', kind: 'route', music: 'forest',
   tiles: [
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
     'T...........::...........T',
@@ -25,17 +25,17 @@ export const WHISPERWOOD = defineMap('whisperwood', {
     'T....""""...::....""""...T',
     'T..YYYY.....::.....YYYY..T',
     'T..YYYY.....::.....YYYY..T',
-    'T...........::...........T',
+    'T.........S.::...........T',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
-    { x: 12, y: 23, to: 'route1', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 13, y: 23, to: 'route1', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'aldermere', tx: 14, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'aldermere', tx: 15, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 23, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'oreburgh', tx: 14, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'oreburgh', tx: 15, ty: 22, dir: 'up', edge: true },
   ],
   signs: [
-    { x: 10, y: 22, text: 'WHISPERWOOD FOREST\nStay on the path and you will come out the other side.' },
+    { x: 10, y: 22, text: 'ROUTE 202\nStay on the path and you will come out the other side.' },
   ],
   objects: [
     { id: 'ww_ether', x: 1, y: 10, item: 'ether', qty: 1 },
@@ -49,21 +49,21 @@ export const WHISPERWOOD = defineMap('whisperwood', {
     {
       id: 'ww_t4', x: 15, y: 4, look: 'grunt', trainer: 'ww_grunt', facing: 'left', sight: 4, movement: 'still',
       after: ['Fine. Measure it yourself. We are done here anyway.',
-        'Commander Vesper only wanted to know how far the light reaches. It reaches further every night.'],
+        'Commander Mars only wanted to know how far the light reaches. It reaches further every night.'],
     },
     {
       id: 'ww_hiker', x: 20, y: 10, look: 'hiker', name: 'Ferris', movement: 'lookAround', facing: 'down',
       dialogue: ['The trees whisper because the wind comes off the quarry face. Not ghosts. Probably not ghosts.',
-        'Aldermere is straight north. You cannot miss it — it is the loud bit.'],
+        'Oreburgh is straight north. You cannot miss it — it is the loud bit.'],
     },
   ],
   encounters: {
-    grass: { min: 4, max: 8, table: [[18, 25], [20, 20], [22, 20], [10, 15], [24, 10], [15, 10]] },
+    grass: { min: 4, max: 8, table: [[18, 20], [38, 16], [20, 14], [22, 14], [10, 12], [41, 10], [42, 8], [24, 4], [15, 2]] },
   },
 });
 
-export const STONEFALL = defineMap('stonefall', {
-  name: 'Stonefall Cave', kind: 'cave', music: 'cave',
+export const OREBURGH_GATE = defineMap('oreburgh_gate', {
+  name: 'Oreburgh Gate', kind: 'cave', music: 'cave',
   tiles: [
     'CCCCCCCCCCCCCCCCCCCCCCCC',
     'CccccccccccccccccccccccC',
@@ -79,12 +79,12 @@ export const STONEFALL = defineMap('stonefall', {
     'CccccccccccccccccccccccC',
     'CccCCCCcccccccccccCCCccC',
     'CccccccccccccccccccccccC',
-    'CccccccccccRccccccccccCC',
+    'CccccRccccccccccccccccCC',
     'CCCCCCCCCCCccCCCCCCCCCCC',
   ],
   warps: [
-    { x: 11, y: 15, to: 'route2', tx: 12, ty: 1, dir: 'down' },
-    { x: 12, y: 15, to: 'route2', tx: 13, ty: 1, dir: 'down' },
+    { x: 11, y: 15, to: 'route207', tx: 12, ty: 1, dir: 'down' },
+    { x: 12, y: 15, to: 'route207', tx: 13, ty: 1, dir: 'down' },
   ],
   objects: [
     { id: 'sf_escape', x: 2, y: 1, item: 'escaperope', qty: 1 },
@@ -102,6 +102,6 @@ export const STONEFALL = defineMap('stonefall', {
   ],
   encounters: {
     grass: null,
-    cave: { min: 9, max: 14, table: [[24, 35], [26, 30], [29, 20], [34, 10], [28, 5]] },
+    cave: { min: 9, max: 14, table: [[24, 30], [26, 26], [29, 16], [46, 10], [34, 8], [50, 5], [28, 3], [53, 2]] },
   },
 });

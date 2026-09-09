@@ -3112,7 +3112,7 @@ const list = [
     id: 2, name: 'Grotle', types: ['Grass'], base: S(75, 89, 85, 55, 65, 36),
     catchRate: 45, baseExp: 141, growth: 'mediumSlow', genderRatio: 0.875,
     height: 1.1, weight: 97.0, abilities: ['Overgrow'],
-    dex: 'It knows where pure water wells up. It carries fellow monsters there on its back.',
+    dex: 'It knows where pure water wells up. It carries fellow Pokémon there on its back.',
     learnset: [[1, 'tackle'], [1, 'razorleaf'], [13, 'defensecurl'], [17, 'bite'], [22, 'megadrain'],
       [27, 'bulldoze'], [32, 'synthesis'], [37, 'crunch'], [42, 'gigadrain'], [47, 'leafstorm']],
     evolutions: [{ method: 'level', level: 32, into: 3 }],
@@ -3124,7 +3124,7 @@ const list = [
     id: 3, name: 'Torterra', types: ['Grass', 'Ground'], base: S(95, 109, 105, 75, 85, 56),
     catchRate: 45, baseExp: 236, growth: 'mediumSlow', genderRatio: 0.875,
     height: 2.2, weight: 310.0, abilities: ['Overgrow'],
-    dex: 'Small monsters nest on its back. Ancient people believed the world rode on one.',
+    dex: 'Small Pokémon nest on its back. Ancient people believed the world rode on one.',
     learnset: [[1, 'woodhammer'], [1, 'razorleaf'], [17, 'bite'], [22, 'megadrain'], [27, 'earthquake'],
       [32, 'synthesis'], [39, 'crunch'], [46, 'gigadrain'], [53, 'stoneedge'], [60, 'leafstorm']],
     evolutions: [],
@@ -3430,7 +3430,7 @@ const list = [
     id: 28, name: 'Onix', types: ['Rock', 'Ground'], base: S(35, 45, 160, 30, 45, 70),
     catchRate: 45, baseExp: 108, growth: 'mediumFast', genderRatio: 0.5,
     height: 8.8, weight: 210.0, abilities: ['Rock Head'],
-    dex: 'It burrows at fifty miles an hour, leaving tunnels that other monsters move into.',
+    dex: 'It burrows at fifty miles an hour, leaving tunnels that other Pokémon move into.',
     learnset: [[1, 'tackle'], [1, 'harden'], [10, 'rockthrow'], [14, 'rocktomb'], [19, 'bulldoze'],
       [24, 'irondefense'], [30, 'rockslide'], [36, 'earthquake'], [42, 'stoneedge'], [48, 'irontail']],
     evolutions: [],
@@ -3540,16 +3540,208 @@ const list = [
 
   // ---- Legendary -------------------------------------------------------
   {
-    id: 37, name: 'Lumaros', types: ['Ice', 'Psychic'], base: S(90, 95, 90, 125, 110, 100),
-    catchRate: 3, baseExp: 300, growth: 'slow', genderRatio: -1, legendary: true,
-    height: 2.4, weight: 186.0, abilities: ['Everlight'],
-    dex: 'The Everlight Caribou. Karivon legend says the aurora is the light spilling from its antlers.',
-    learnset: [[1, 'confusion'], [1, 'iceshard'], [20, 'icywind'], [30, 'psybeam'], [40, 'calmmind'],
-      [50, 'icebeam'], [60, 'psychic'], [70, 'blizzard']],
+    id: 37, name: 'Dialga', types: ['Steel', 'Dragon'], base: S(100, 120, 120, 150, 100, 90),
+    catchRate: 30, baseExp: 306, growth: 'slow', genderRatio: -1, legendary: true,
+    height: 5.4, weight: 683.0, abilities: ['Pressure'],
+    dex: 'It has the power to control time. It appears in Sinnoh myths as an ancient deity.',
+    learnset: [[1, 'dragonbreath'], [1, 'metalclaw'], [16, 'irondefense'], [24, 'rockslide'],
+      [32, 'dragonclaw'], [40, 'flashcannon'], [48, 'irontail'], [56, 'earthquake'], [64, 'stoneedge']],
     evolutions: [],
-    art: { key: 'lumaros', arch: 'stag', features: ['antlers', 'halo', 'collar', 'gem'],
-      build: { bodyW: 0.27, bodyH: 0.15, headR: 0.13 },
-      colors: { primary: '#e8dcc0', secondary: '#c8b088', accent: '#f8e070', belly: '#f8f4e8' } },
+    art: { key: 'dialga', arch: 'quadruped', features: ['crest', 'spikes', 'gem', 'armour'],
+      build: { bodyW: 0.30, bodyH: 0.21, headR: 0.17, legLen: 0.17, legW: 0.12 },
+      colors: { primary: '#8fa8d8', secondary: '#4a5a8a', accent: '#d8dff0', belly: '#c8d4ec', eye: '#e04838' } },
+  },
+  // ---- Route 202 / 207 / Oreburgh Gate -------------------------------------
+  {
+    id: 38, name: 'Wurmple', types: ['Bug'], base: S(40, 45, 35, 20, 30, 20),
+    catchRate: 255, baseExp: 56, growth: 'mediumFast', genderRatio: 0.5,
+    height: 0.3, weight: 3.6, abilities: ['Shield Dust'],
+    dex: 'It sticks to tree branches with the suction cups on its rear and spits a sticky silk.',
+    learnset: [[1, 'tackle'], [1, 'poisonsting'], [5, 'strugglebug'], [15, 'bugbite']],
+    evolutions: [{ method: 'level', level: 7, into: 39 }],
+    art: { key: 'wurmple', arch: 'bug', features: ['horn'],
+      build: { bodyW: 0.20, bodyH: 0.14, headR: 0.12 },
+      colors: { primary: '#e05a5a', secondary: '#f0e0a0', accent: '#f8f0c0', belly: '#f0b0a0' } },
+  },
+  {
+    id: 39, name: 'Silcoon', types: ['Bug'], base: S(50, 35, 55, 25, 25, 15),
+    catchRate: 120, baseExp: 72, growth: 'mediumFast', genderRatio: 0.5,
+    height: 0.6, weight: 10.0, abilities: ['Shed Skin'],
+    dex: 'It anchors itself with silk and waits, drinking only rainwater, for its body to change.',
+    learnset: [[1, 'harden']],
+    evolutions: [{ method: 'level', level: 10, into: 40 }],
+    art: { key: 'silcoon', arch: 'blob', features: [],
+      build: { bodyW: 0.22, bodyH: 0.24 },
+      colors: { primary: '#f0ece0', secondary: '#d8d0bc', accent: '#e05a5a', belly: '#f8f4ec' } },
+  },
+  {
+    id: 40, name: 'Beautifly', types: ['Bug', 'Flying'], base: S(60, 70, 50, 100, 50, 65),
+    catchRate: 45, baseExp: 178, growth: 'mediumFast', genderRatio: 0.5,
+    height: 1.0, weight: 28.4, abilities: ['Swarm'],
+    dex: 'Its favourite food is sweet pollen. It will cross a whole route for a flowering meadow.',
+    learnset: [[1, 'absorb'], [1, 'gust'], [13, 'strugglebug'], [24, 'silverwind'],
+      [31, 'airslash'], [38, 'gigadrain'], [45, 'energyball']],
+    evolutions: [],
+    art: { key: 'beautifly', arch: 'bug', features: ['wingsBug', 'crest'],
+      build: { bodyW: 0.18, bodyH: 0.13, headR: 0.13 },
+      colors: { primary: '#f0c840', secondary: '#c04848', accent: '#f07898', belly: '#f8e0a0' } },
+  },
+  {
+    id: 41, name: 'Combee', types: ['Bug', 'Flying'], base: S(30, 30, 42, 30, 42, 70),
+    catchRate: 120, baseExp: 49, growth: 'mediumSlow', genderRatio: 0.875,
+    height: 0.3, weight: 5.5, abilities: ['Honey Gather'],
+    dex: 'Three of them share one body. They gather honey and carry it back to their hive.',
+    learnset: [[1, 'gust'], [1, 'silverwind'], [15, 'bugbite'], [22, 'airslash']],
+    evolutions: [],
+    art: { key: 'combee', arch: 'bug', features: ['wingsBug'],
+      build: { bodyW: 0.17, bodyH: 0.14, headR: 0.13 },
+      colors: { primary: '#f0c040', secondary: '#c88820', accent: '#f8e8a0', belly: '#f8d870' } },
+  },
+  {
+    id: 42, name: 'Cherubi', types: ['Grass'], base: S(45, 35, 45, 62, 53, 35),
+    catchRate: 190, baseExp: 55, growth: 'mediumFast', genderRatio: 0.5,
+    height: 0.4, weight: 3.3, abilities: ['Chlorophyll'],
+    dex: 'The small ball on its side holds the nutrients it needs to evolve. It is said to be sweet.',
+    learnset: [[1, 'tackle'], [5, 'growth'], [10, 'absorb'], [19, 'magicalleaf'], [27, 'gigadrain']],
+    evolutions: [{ method: 'level', level: 25, into: 43 }],
+    art: { key: 'cherubi', arch: 'blob', features: ['leaf', 'earsRound'],
+      build: { bodyW: 0.19, bodyH: 0.19 },
+      colors: { primary: '#f090b0', secondary: '#d0688c', accent: '#68b850', belly: '#f8c0d0' } },
+  },
+  {
+    id: 43, name: 'Cherrim', types: ['Grass'], base: S(70, 60, 70, 87, 78, 85),
+    catchRate: 75, baseExp: 158, growth: 'mediumFast', genderRatio: 0.5,
+    height: 0.5, weight: 9.3, abilities: ['Flower Gift'],
+    dex: 'When the sun comes out its petals open wide, and it is a different creature entirely.',
+    learnset: [[1, 'magicalleaf'], [1, 'growth'], [27, 'gigadrain'], [38, 'energyball'], [47, 'leafstorm']],
+    evolutions: [],
+    art: { key: 'cherrim', arch: 'blob', features: ['bloom', 'earsRound'],
+      build: { bodyW: 0.20, bodyH: 0.19 },
+      colors: { primary: '#f8b8c8', secondary: '#68b850', accent: '#f0e070', belly: '#fcd8e0' } },
+  },
+  {
+    id: 44, name: 'Shellos', types: ['Water'], base: S(76, 48, 48, 57, 62, 34),
+    catchRate: 190, baseExp: 65, growth: 'mediumFast', genderRatio: 0.5,
+    height: 0.3, weight: 6.3, abilities: ['Sticky Hold'],
+    dex: 'Its shape and colour differ from coast to coast. Squeezing one is not recommended.',
+    learnset: [[1, 'mudslap'], [1, 'watergun'], [13, 'bodyslam'], [25, 'waterpulse'], [33, 'brine']],
+    evolutions: [{ method: 'level', level: 30, into: 45 }],
+    art: { key: 'shellos', arch: 'blob', features: ['earsTuft'],
+      build: { bodyW: 0.21, bodyH: 0.16 },
+      colors: { primary: '#e07898', secondary: '#a8486a', accent: '#f8d0e0', belly: '#f0a8c0' } },
+  },
+  {
+    id: 45, name: 'Gastrodon', types: ['Water', 'Ground'], base: S(111, 83, 68, 92, 82, 39),
+    catchRate: 75, baseExp: 166, growth: 'mediumFast', genderRatio: 0.5,
+    height: 0.9, weight: 29.9, abilities: ['Sticky Hold'],
+    dex: 'It lost its shell long ago. Its soft body oozes a purple fluid when it is attacked.',
+    learnset: [[1, 'waterpulse'], [1, 'mudslap'], [30, 'bodyslam'], [41, 'earthquake'],
+      [50, 'surf'], [58, 'hydropump']],
+    evolutions: [],
+    art: { key: 'gastrodon', arch: 'serpent', features: ['earsTuft'],
+      build: { bodyW: 0.26, bodyH: 0.15, headR: 0.15 },
+      colors: { primary: '#e07898', secondary: '#8a4058', accent: '#f8d0e0', belly: '#f0b0c4' } },
+  },
+  {
+    id: 46, name: 'Bronzor', types: ['Steel', 'Psychic'], base: S(57, 24, 86, 24, 86, 23),
+    catchRate: 255, baseExp: 60, growth: 'mediumFast', genderRatio: -1,
+    height: 0.5, weight: 60.5, abilities: ['Levitate'],
+    dex: 'Implements shaped like it were found in an ancient tomb. Its patterned back is polished smooth.',
+    learnset: [[1, 'tackle'], [1, 'confusion'], [13, 'irondefense'], [21, 'psybeam'], [29, 'flashcannon']],
+    evolutions: [{ method: 'level', level: 33, into: 47 }],
+    art: { key: 'bronzor', arch: 'blob', features: ['gem'],
+      build: { bodyW: 0.22, bodyH: 0.15 },
+      colors: { primary: '#6a8a90', secondary: '#48606a', accent: '#b8d0d4', belly: '#88a4aa', eye: '#e0403c' } },
+  },
+  {
+    id: 47, name: 'Bronzong', types: ['Steel', 'Psychic'], base: S(67, 89, 116, 79, 116, 33),
+    catchRate: 90, baseExp: 175, growth: 'mediumFast', genderRatio: -1,
+    height: 1.3, weight: 187.0, abilities: ['Levitate'],
+    dex: 'It was worshipped as a bringer of rain. It rings out when it summons rain clouds.',
+    learnset: [[1, 'confusion'], [1, 'flashcannon'], [33, 'psychic'], [41, 'irontail'], [49, 'earthquake']],
+    evolutions: [],
+    art: { key: 'bronzong', arch: 'golem', features: ['gem', 'crest'],
+      build: { bodyW: 0.26, bodyH: 0.22 },
+      colors: { primary: '#4a7a80', secondary: '#2f545c', accent: '#7ad0d8', belly: '#5e9098', eye: '#e0403c' } },
+  },
+  {
+    id: 48, name: 'Magikarp', types: ['Water'], base: S(20, 10, 55, 15, 20, 80),
+    catchRate: 255, baseExp: 40, growth: 'slow', genderRatio: 0.5,
+    height: 0.9, weight: 10.0, abilities: ['Swift Swim'],
+    dex: 'Famously weak and famously determined. It can leap over a mountain if it tries hard enough.',
+    learnset: [[1, 'tackle'], [15, 'tackle']],
+    evolutions: [{ method: 'level', level: 20, into: 49 }],
+    art: { key: 'magikarp', arch: 'fish', features: ['fins'],
+      build: { bodyW: 0.24, bodyH: 0.17, headR: 0.14 },
+      colors: { primary: '#e05a3c', secondary: '#f0d060', accent: '#f8e8a0', belly: '#f0a880' } },
+  },
+  {
+    id: 49, name: 'Gyarados', types: ['Water', 'Flying'], base: S(95, 125, 79, 60, 100, 81),
+    catchRate: 45, baseExp: 189, growth: 'slow', genderRatio: 0.5,
+    height: 6.5, weight: 235.0, abilities: ['Intimidate'],
+    dex: 'Once it appears, its rage does not stop until everything around it is levelled.',
+    learnset: [[1, 'bite'], [1, 'aquajet'], [25, 'icefang'], [32, 'crunch'],
+      [41, 'surf'], [49, 'hydropump'], [56, 'irontail']],
+    evolutions: [],
+    art: { key: 'gyarados', arch: 'serpent', features: ['horn', 'spikes', 'mane'],
+      build: { bodyW: 0.30, bodyH: 0.16, headR: 0.17 },
+      colors: { primary: '#4a90c8', secondary: '#2a5f90', accent: '#f0d060', belly: '#e8d8a0', eye: '#e04838' } },
+  },
+  {
+    id: 50, name: 'Chingling', types: ['Psychic'], base: S(45, 30, 50, 65, 50, 45),
+    catchRate: 120, baseExp: 57, growth: 'fast', genderRatio: 0.5,
+    height: 0.2, weight: 0.6, abilities: ['Levitate'],
+    dex: 'A tiny orb in its mouth rings when it hops. The sound is too high for people to hear.',
+    learnset: [[1, 'astonish'], [1, 'confusion'], [16, 'psybeam'], [24, 'calmmind'], [32, 'psychic']],
+    evolutions: [],
+    art: { key: 'chingling', arch: 'blob', features: ['gem'],
+      build: { bodyW: 0.17, bodyH: 0.16 },
+      colors: { primary: '#f0e070', secondary: '#c8b040', accent: '#e05a5a', belly: '#f8f0b0' } },
+  },
+  {
+    id: 51, name: 'Bonsly', types: ['Rock'], base: S(50, 80, 95, 10, 45, 10),
+    catchRate: 255, baseExp: 58, growth: 'mediumFast', genderRatio: 0.5,
+    height: 0.5, weight: 15.0, abilities: ['Rock Head'],
+    dex: 'It expels moisture from its eyes to regulate its body, which looks a great deal like crying.',
+    learnset: [[1, 'tackle'], [1, 'defensecurl'], [10, 'rockthrow'], [18, 'rocktomb'], [26, 'rockslide']],
+    evolutions: [{ method: 'level', level: 28, into: 52 }],
+    art: { key: 'bonsly', arch: 'blob', features: ['sprout'],
+      build: { bodyW: 0.19, bodyH: 0.17 },
+      colors: { primary: '#8a6a48', secondary: '#5e472e', accent: '#68b850', belly: '#a88a64' } },
+  },
+  {
+    id: 52, name: 'Sudowoodo', types: ['Rock'], base: S(70, 100, 115, 30, 65, 30),
+    catchRate: 65, baseExp: 144, growth: 'mediumFast', genderRatio: 0.5,
+    height: 1.2, weight: 38.0, abilities: ['Rock Head'],
+    dex: 'It disguises itself as a tree to avoid attention. Its arms wilt if it is watered.',
+    learnset: [[1, 'rockthrow'], [1, 'defensecurl'], [30, 'rockslide'], [38, 'stoneedge'], [46, 'doubleedge']],
+    evolutions: [],
+    art: { key: 'sudowoodo', arch: 'biped', features: ['sprout', 'crest'],
+      build: { bodyW: 0.19, bodyH: 0.21, headR: 0.17 },
+      colors: { primary: '#8a6a48', secondary: '#5e472e', accent: '#68b850', belly: '#a88a64' } },
+  },
+  {
+    id: 53, name: 'Riolu', types: ['Fighting'], base: S(40, 70, 40, 35, 40, 60),
+    catchRate: 75, baseExp: 57, growth: 'mediumSlow', genderRatio: 0.875,
+    height: 0.7, weight: 20.2, abilities: ['Steadfast'],
+    dex: 'It reads the emotions of others through waves it senses. It is tougher than it looks.',
+    learnset: [[1, 'quickattack'], [1, 'lowkick'], [12, 'karatechop'], [19, 'machpunch'], [26, 'brickbreak']],
+    evolutions: [{ method: 'level', level: 30, into: 54 }],
+    art: { key: 'riolu', arch: 'biped', features: ['earsPointed', 'thinTail', 'collar'],
+      build: { bodyW: 0.16, bodyH: 0.18, headR: 0.18 },
+      colors: { primary: '#3a68b0', secondary: '#20283a', accent: '#f0e0a0', belly: '#d8d0c0' } },
+  },
+  {
+    id: 54, name: 'Lucario', types: ['Fighting', 'Steel'], base: S(70, 110, 70, 115, 70, 90),
+    catchRate: 45, baseExp: 184, growth: 'mediumSlow', genderRatio: 0.875,
+    height: 1.2, weight: 54.0, abilities: ['Steadfast'],
+    dex: 'It senses the feelings of others from half a mile away. There is no lying to it.',
+    learnset: [[1, 'machpunch'], [1, 'metalclaw'], [32, 'brickbreak'], [40, 'closecombat'],
+      [48, 'flashcannon'], [56, 'stoneedge']],
+    evolutions: [],
+    art: { key: 'lucario', arch: 'biped', features: ['earsPointed', 'thinTail', 'spikes', 'collar'],
+      build: { bodyW: 0.18, bodyH: 0.20, headR: 0.18 },
+      colors: { primary: '#3a68b0', secondary: '#101828', accent: '#f0e070', belly: '#e8dcc0' } },
   },
 ];
 
@@ -3769,38 +3961,38 @@ const add = (...a) => { const it = I(...a); ITEMS[it.id] = it; return it; };
 
 // ---- Poké Balls -------------------------------------------------------
 add('pokeball', 'Poké Ball', 'Poké Balls', 200,
-  { kind: 'ball', rate: 1 }, 'A device for catching wild monsters.');
+  { kind: 'ball', rate: 1 }, 'A device for catching wild Pokémon.');
 add('greatball', 'Great Ball', 'Poké Balls', 600,
   { kind: 'ball', rate: 1.5 }, 'A good ball with a higher catch rate than a Poké Ball.');
 add('ultraball', 'Ultra Ball', 'Poké Balls', 1200,
   { kind: 'ball', rate: 2 }, 'An ultra-performance ball with a very high catch rate.');
 add('netball', 'Net Ball', 'Poké Balls', 1000,
   { kind: 'ball', rate: 1, bonusTypes: ['Bug', 'Water'], bonus: 3 },
-  'Works especially well on Bug and Water monsters.');
+  'Works especially well on Bug and Water Pokémon.');
 
 // ---- Medicine ---------------------------------------------------------
 add('potion', 'Potion', 'Medicine', 300,
-  { kind: 'heal', amount: 20 }, 'Restores 20 HP to one monster.');
+  { kind: 'heal', amount: 20 }, 'Restores 20 HP to one Pokémon.');
 add('superpotion', 'Super Potion', 'Medicine', 700,
-  { kind: 'heal', amount: 50 }, 'Restores 50 HP to one monster.');
+  { kind: 'heal', amount: 50 }, 'Restores 50 HP to one Pokémon.');
 add('hyperpotion', 'Hyper Potion', 'Medicine', 1200,
-  { kind: 'heal', amount: 120 }, 'Restores 120 HP to one monster.');
+  { kind: 'heal', amount: 120 }, 'Restores 120 HP to one Pokémon.');
 add('maxpotion', 'Max Potion', 'Medicine', 2500,
-  { kind: 'heal', amount: 9999 }, 'Fully restores one monster’s HP.');
+  { kind: 'heal', amount: 9999 }, 'Fully restores one Pokémon’s HP.');
 add('revive', 'Revive', 'Medicine', 1500,
-  { kind: 'revive', fraction: 0.5 }, 'Revives a fainted monster with half its HP.');
+  { kind: 'revive', fraction: 0.5 }, 'Revives a fainted Pokémon with half its HP.');
 add('maxrevive', 'Max Revive', 'Medicine', 4000,
-  { kind: 'revive', fraction: 1 }, 'Revives a fainted monster with full HP.');
+  { kind: 'revive', fraction: 1 }, 'Revives a fainted Pokémon with full HP.');
 add('antidote', 'Antidote', 'Medicine', 100,
-  { kind: 'cure', status: ['PSN'] }, 'Cures a poisoned monster.');
+  { kind: 'cure', status: ['PSN'] }, 'Cures a poisoned Pokémon.');
 add('parlyzheal', 'Paralyze Heal', 'Medicine', 200,
-  { kind: 'cure', status: ['PAR'] }, 'Cures a paralysed monster.');
+  { kind: 'cure', status: ['PAR'] }, 'Cures a paralysed Pokémon.');
 add('burnheal', 'Burn Heal', 'Medicine', 250,
-  { kind: 'cure', status: ['BRN'] }, 'Cures a burned monster.');
+  { kind: 'cure', status: ['BRN'] }, 'Cures a burned Pokémon.');
 add('iceheal', 'Ice Heal', 'Medicine', 250,
-  { kind: 'cure', status: ['FRZ'] }, 'Thaws out a frozen monster.');
+  { kind: 'cure', status: ['FRZ'] }, 'Thaws out a frozen Pokémon.');
 add('awakening', 'Awakening', 'Medicine', 250,
-  { kind: 'cure', status: ['SLP'] }, 'Wakes a sleeping monster.');
+  { kind: 'cure', status: ['SLP'] }, 'Wakes a sleeping Pokémon.');
 add('fullheal', 'Full Heal', 'Medicine', 600,
   { kind: 'cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] },
   'Cures any status problem.');
@@ -3809,11 +4001,11 @@ add('ether', 'Ether', 'Medicine', 1200,
 
 // ---- Items ------------------------------------------------------------
 add('repel', 'Repel', 'Items', 350,
-  { kind: 'repel', steps: 100 }, 'Keeps weak wild monsters away for 100 steps.');
+  { kind: 'repel', steps: 100 }, 'Keeps weak wild Pokémon away for 100 steps.');
 add('superrepel', 'Super Repel', 'Items', 500,
-  { kind: 'repel', steps: 200 }, 'Keeps weak wild monsters away for 200 steps.');
+  { kind: 'repel', steps: 200 }, 'Keeps weak wild Pokémon away for 200 steps.');
 add('escaperope', 'Escape Rope', 'Items', 550,
-  { kind: 'escape' }, 'Returns you to the last Monster Centre you visited.');
+  { kind: 'escape' }, 'Returns you to the last Pokémon Center you visited.');
 add('oranberry', 'Oran Berry', 'Items', 80,
   { kind: 'heal', amount: 10 }, 'A berry that restores 10 HP.', { held: { kind: 'pinch-heal', amount: 10 } });
 add('sitrusberry', 'Sitrus Berry', 'Items', 200,
@@ -3833,7 +4025,7 @@ add('leafstone', 'Leaf Stone', 'Items', 2100, { kind: 'stone', stone: 'leaf' }, 
 // ---- TMs ---------------------------------------------------------------
 const tm = (n, moveId, name, price) =>
   add(`tm${String(n).padStart(2, '0')}`, `TM${String(n).padStart(2, '0')} ${name}`, 'TMs', price,
-    { kind: 'tm', move: moveId }, `Teaches ${name} to a compatible monster.`, { tmNumber: n, move: moveId });
+    { kind: 'tm', move: moveId }, `Teaches ${name} to a compatible Pokémon.`, { tmNumber: n, move: moveId });
 
 tm(1, 'rocktomb', 'Rock Tomb', 3000);
 tm(2, 'aerialace', 'Aerial Ace', 3000);
@@ -3848,17 +4040,17 @@ tm(8, 'doubleteam', 'Double Team', 2000);
 add('runningshoes', 'Running Shoes', 'Key Items', 0, { kind: 'key' },
   'Hold the B button to move at double speed.', { key: true });
 add('townmap', 'Town Map', 'Key Items', 0, { kind: 'map' },
-  'A map of the whole Karivon region.', { key: true });
-add('monsterdex', 'MonsterDex', 'Key Items', 0, { kind: 'dex' },
-  'A digital encyclopedia that records every monster you meet.', { key: true });
+  'A map of the whole Sinnoh region.', { key: true });
+add('pokedex', 'Pokédex', 'Key Items', 0, { kind: 'dex' },
+  'A digital encyclopedia that records every Pokémon you meet.', { key: true });
 add('bicycle', 'Bicycle', 'Key Items', 0, { kind: 'bike' },
   'A folding bicycle. Much faster than walking.', { key: true });
 add('oldrod', 'Old Rod', 'Key Items', 0, { kind: 'rod' },
   'An old fishing rod. Use it at the water’s edge.', { key: true });
 add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
   'A cold, faintly glowing charm. It hums near old stone.', { key: true });
-add('gymbadge1', 'Quarry Badge', 'Key Items', 0, null,
-  'Proof of victory over the Aldermere Gym.', { key: true, badge: 1 });
+add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
+  'Proof of victory over the Oreburgh Gym.', { key: true, badge: 1 });
 
 function getItem(id) { return ITEMS[id]; }
 const ITEM_IDS = Object.keys(ITEMS);
@@ -4003,7 +4195,7 @@ const FLAGS = {
   LEFT_TOWN: 'leftTown',
   ENTERED_FOREST: 'enteredForest',
   FOREST_GRUNT: 'forestGrunt',
-  REACHED_ALDERMERE: 'reachedAldermere',
+  REACHED_ALDERMERE: 'reachedOreburgh',
   BEAT_RIVAL_2: 'beatRival2',
   BADGE_1: 'badge1',
   ENTERED_CAVE: 'enteredCave',
@@ -4037,8 +4229,8 @@ function storyProgress(flags) {
 
 function progressLabel(n) {
   return [
-    'Just starting out', 'On the road', 'In Whisperwood', 'Through the forest',
-    'In Aldermere', 'One badge', 'Into Stonefall', 'Faced Meridian',
+    'Just starting out', 'On the road', 'In Route 202', 'Through the forest',
+    'In Oreburgh', 'One badge', 'Into Oreburgh Gate', 'Faced Galactic',
   ][Math.min(n, 7)];
 }
 
@@ -4906,11 +5098,11 @@ class TitleScreen extends Screen {
 
     // Logo.
     const cx = W / 2;
-    drawTextCentered(ctx, 'CARIBOU', cx - 1, 22, { color: '#0a0e18', scale: 2 });
-    drawTextCentered(ctx, 'CARIBOU', cx, 21, { color: '#f8e070', scale: 2 });
-    drawTextCentered(ctx, 'MONSTER', cx - 1, 39, { color: '#0a0e18', scale: 2 });
-    drawTextCentered(ctx, 'MONSTER', cx, 38, { color: '#e8f4ff', scale: 2 });
-    drawTextCentered(ctx, 'K A R I V O N   R E G I O N', cx, 56, { color: '#9ab8ff' });
+    drawTextCentered(ctx, 'POK\u00e9MON', cx - 1, 20, { color: '#0a0e18', scale: 3 });
+    drawTextCentered(ctx, 'POK\u00e9MON', cx, 18, { color: '#f8e070', scale: 3 });
+    drawTextCentered(ctx, 'CARIBOU VERSION', cx - 1, 42, { color: '#0a0e18', scale: 1 });
+    drawTextCentered(ctx, 'CARIBOU VERSION', cx, 41, { color: '#e8f4ff', scale: 1 });
+    drawTextCentered(ctx, 'S I N N O H   R E G I O N', cx, 54, { color: '#9ab8ff' });
 
     const { x, y, w } = this._menuBox();
     const opts = this.options;
@@ -5214,7 +5406,7 @@ class CharacterScreen extends Screen {
       drawChar(ctx, `cc2:${this.look}`, lookFor(this.look), 'down', Math.floor(this.t * 5) % 3, W / 2 - 8, 42);
       drawTextCentered(ctx, this.name, W / 2, 68);
       drawTextCentered(ctx, this.difficulty.toUpperCase(), W / 2, 80, { color: PAL.uiSelect });
-      drawTextCentered(ctx, 'Brackenvale Town is waiting.', W / 2, 96, { color: PAL.uiTextDim });
+      drawTextCentered(ctx, 'Twinleaf Town is waiting.', W / 2, 96, { color: PAL.uiTextDim });
       drawTextCentered(ctx, 'A: begin      B: back', W / 2, H - 22, { color: PAL.uiTextLight, shadow: PAL.black });
     }
   }
@@ -5490,8 +5682,8 @@ __defs['data/maps/towns.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
 
 
-const BRACKENVALE = defineMap('brackenvale', {
-  name: 'Brackenvale Town', kind: 'town', music: 'town',
+const TWINLEAF = defineMap('twinleaf', {
+  name: 'Twinleaf Town', kind: 'town', music: 'town',
   tiles: [
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTT',
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTT',
@@ -5515,38 +5707,38 @@ const BRACKENVALE = defineMap('brackenvale', {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 14, y: 0, to: 'route1', tx: 12, ty: 26, dir: 'up', edge: true },
-    { x: 15, y: 0, to: 'route1', tx: 13, ty: 26, dir: 'up', edge: true },
+    { x: 14, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true },
+    { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true },
     { x: 5, y: 12, to: 'player_house', tx: 5, ty: 6, dir: 'up' },
     { x: 22, y: 12, to: 'rival_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 6, y: 5, to: 'aspen_lab', tx: 6, ty: 8, dir: 'up' },
+    { x: 6, y: 5, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
   ],
   signs: [
-    { x: 3, y: 16, text: 'BRACKENVALE TOWN\nWhere every road out is uphill.' },
-    { x: 26, y: 16, text: 'Route 1 ahead.\nTall grass — carry a monster with you.' },
+    { x: 3, y: 16, text: 'TWINLEAF TOWN\nWhere every road out is uphill.' },
+    { x: 26, y: 16, text: 'Route 201 ahead.\nTall grass — carry a Pokémon with you.' },
   ],
   npcs: [
     {
       id: 'bv_kid', x: 10, y: 8, look: 'kid', name: 'Tam', movement: 'wander', facing: 'down',
-      dialogue: ['Professor Aspen gave you a monster?! Lucky!',
+      dialogue: ['Professor Rowan gave you a Pokémon?! Lucky!',
         'Mum says the grass past the town is full of Starly. I am not allowed up there yet.'],
     },
     {
       id: 'bv_oldman', x: 20, y: 15, look: 'oldMan', name: 'Hollis', movement: 'lookAround', facing: 'left',
-      dialogue: ['Sixty years I have lived in Brackenvale, and the aurora has never once come this far south.',
+      dialogue: ['Sixty years I have lived in Twinleaf, and the aurora has never once come this far south.',
         'Lately though? Three nights running. Something is stirring up north.'],
     },
     {
       id: 'bv_woman', x: 24, y: 8, look: 'mom', name: 'Bev', movement: 'still', facing: 'down',
-      dialogue: ['If your monsters get tired, the Monster Centre in Aldermere will patch them up free of charge.',
+      dialogue: ['If your Pokémon get tired, the Pokémon Center in Oreburgh will patch them up free of charge.',
         'Just walk up to the counter and say yes.'],
     },
   ],
-  healPoint: { map: 'brackenvale', x: 5, y: 13 },
+  healPoint: { map: 'twinleaf', x: 5, y: 13 },
 });
 
-const ALDERMERE = defineMap('aldermere', {
-  name: 'Aldermere City', kind: 'town', music: 'city',
+const OREBURGH = defineMap('oreburgh', {
+  name: 'Oreburgh City', kind: 'town', music: 'city',
   tiles: [
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
@@ -5574,35 +5766,35 @@ const ALDERMERE = defineMap('aldermere', {
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 14, y: 0, to: 'route2', tx: 12, ty: 16, dir: 'up', edge: true },
-    { x: 15, y: 0, to: 'route2', tx: 13, ty: 16, dir: 'up', edge: true },
-    { x: 14, y: 23, to: 'whisperwood', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 15, y: 23, to: 'whisperwood', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 6, y: 6, to: 'aldermere_center', tx: 6, ty: 6, dir: 'up' },
-    { x: 25, y: 6, to: 'aldermere_mart', tx: 5, ty: 5, dir: 'up' },
-    { x: 5, y: 14, to: 'aldermere_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 26, y: 14, to: 'aldermere_house2', tx: 5, ty: 6, dir: 'up' },
-    { x: 14, y: 18, to: 'aldermere_gym', tx: 7, ty: 14, dir: 'up' },
-    { x: 15, y: 18, to: 'aldermere_gym', tx: 8, ty: 14, dir: 'up' },
+    { x: 14, y: 0, to: 'route207', tx: 12, ty: 16, dir: 'up', edge: true },
+    { x: 15, y: 0, to: 'route207', tx: 13, ty: 16, dir: 'up', edge: true },
+    { x: 14, y: 23, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 15, y: 23, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 6, y: 6, to: 'oreburgh_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 25, y: 6, to: 'oreburgh_mart', tx: 5, ty: 5, dir: 'up' },
+    { x: 5, y: 14, to: 'oreburgh_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 26, y: 14, to: 'oreburgh_house2', tx: 5, ty: 6, dir: 'up' },
+    { x: 14, y: 18, to: 'oreburgh_gym', tx: 7, ty: 14, dir: 'up' },
+    { x: 15, y: 18, to: 'oreburgh_gym', tx: 8, ty: 14, dir: 'up' },
   ],
   signs: [
-    { x: 3, y: 22, text: 'ALDERMERE CITY\nCut from the hillside, stone by stone.' },
-    { x: 26, y: 22, text: 'ALDERMERE GYM\nLeader: GARNET\n"The quarry does not blink."' },
+    { x: 3, y: 22, text: 'OREBURGH CITY\nCut from the hillside, stone by stone.' },
+    { x: 26, y: 22, text: 'OREBURGH GYM\nLeader: ROARK\n"The quarry does not blink."' },
   ],
   npcs: [
     {
       id: 'al_clerkgirl', x: 10, y: 9, look: 'lass', name: 'Odie', movement: 'wander', facing: 'down',
-      dialogue: ['The red roof is the Monster Centre and the blue one is the Mart. Everybody mixes them up once.',
+      dialogue: ['The red roof is the Pokémon Center and the blue one is the Mart. Everybody mixes them up once.',
         'Only once, though. The Mart does not heal anything.'],
     },
     {
       id: 'al_worker', x: 21, y: 11, look: 'worker', name: 'Dell', movement: 'lookAround', facing: 'left',
-      dialogue: ['Garnet runs the gym and the quarry both. Rock types, obviously.',
+      dialogue: ['Roark runs the gym and the quarry both. Rock types, obviously.',
         'Grass and Water tear straight through rock. That is not a secret, it is just true.'],
     },
     {
       id: 'al_scientist', x: 19, y: 21, look: 'scientist', name: 'Ines', movement: 'still', facing: 'down',
-      dialogue: ['Team Meridian has people up on Route 2 taking light readings. Odd hobby for a group with matching coats.',
+      dialogue: ['Team Galactic has people up on Route 207 taking light readings. Odd hobby for a group with matching coats.',
         'They keep saying "the Everlight". I have read every book in this city and found the word twice.'],
     },
     {
@@ -5610,10 +5802,10 @@ const ALDERMERE = defineMap('aldermere', {
       dialogue: ['Trainers heal free here. Costs the city a fortune and nobody has ever suggested stopping.'],
     },
   ],
-  healPoint: { map: 'aldermere_center', x: 6, y: 5 },
+  healPoint: { map: 'oreburgh_center', x: 6, y: 5 },
 });
 
-__exports(__x, { BRACKENVALE: () => BRACKENVALE, ALDERMERE: () => ALDERMERE });
+__exports(__x, { TWINLEAF: () => TWINLEAF, OREBURGH: () => OREBURGH });
 
 };
 
@@ -5621,8 +5813,8 @@ __defs['data/maps/routes.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
 
 
-const ROUTE1 = defineMap('route1', {
-  name: 'Route 1', kind: 'route', music: 'route',
+const ROUTE201 = defineMap('route201', {
+  name: 'Route 201', kind: 'route', music: 'route',
   tiles: [
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
     'T...........::...........T',
@@ -5649,18 +5841,18 @@ const ROUTE1 = defineMap('route1', {
     'T....""""...::..TTT......T',
     'T...........::.TTTTT.....T',
     'T...*...*...::..TTT......T',
-    'T...........::...........T',
+    'T.........S.::...........T',
     'T...........::...........T',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
-    { x: 12, y: 27, to: 'brackenvale', tx: 14, ty: 2, dir: 'down', edge: true },
-    { x: 13, y: 27, to: 'brackenvale', tx: 15, ty: 2, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'whisperwood', tx: 12, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'whisperwood', tx: 13, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
+    { x: 13, y: 27, to: 'twinleaf', tx: 15, ty: 2, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
   ],
   signs: [
-    { x: 10, y: 25, text: 'ROUTE 1\nBrackenvale Town — Whisperwood Forest' },
+    { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
   ],
   objects: [
     { id: 'r1_potion', x: 1, y: 13, item: 'potion', qty: 1 },
@@ -5671,17 +5863,17 @@ const ROUTE1 = defineMap('route1', {
     { id: 'r1_t2', x: 17, y: 12, look: 'lass', trainer: 'r1_lass', facing: 'left', sight: 4, movement: 'still' },
     {
       id: 'r1_walker', x: 15, y: 20, look: 'oldMan', name: 'Rambler', movement: 'wander', facing: 'down',
-      dialogue: ['Tall grass hides wild monsters. Walk through it and one will find you soon enough.',
+      dialogue: ['Tall grass hides wild Pokémon. Walk through it and one will find you soon enough.',
         'Weaken it in battle first, then throw a ball. Throwing at a healthy one is throwing money away.'],
     },
   ],
   encounters: {
-    grass: { min: 2, max: 5, table: [[10, 30], [13, 30], [15, 20], [18, 15], [20, 5]] },
+    grass: { min: 2, max: 5, table: [[10, 30], [13, 28], [18, 18], [15, 12], [38, 7], [20, 5]] },
   },
 });
 
-const ROUTE2 = defineMap('route2', {
-  name: 'Route 2', kind: 'route', music: 'route',
+const ROUTE207 = defineMap('route207', {
+  name: 'Route 207', kind: 'route', music: 'route',
   tiles: [
     '^^^^^^^^^^^^DD^^^^^^^^^^^^',
     'T...........::...........T',
@@ -5699,17 +5891,17 @@ const ROUTE2 = defineMap('route2', {
     'T....""""...::.....RR....T',
     'T....""""...::...........T',
     'T...........::....""""...T',
-    'T...*...*...::....""""...T',
+    'T...*...*.S.::....""""...T',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
-    { x: 12, y: 17, to: 'aldermere', tx: 14, ty: 2, dir: 'down', edge: true },
-    { x: 13, y: 17, to: 'aldermere', tx: 15, ty: 2, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'stonefall', tx: 11, ty: 14, dir: 'up' },
-    { x: 13, y: 0, to: 'stonefall', tx: 12, ty: 14, dir: 'up' },
+    { x: 12, y: 17, to: 'oreburgh', tx: 14, ty: 2, dir: 'down', edge: true },
+    { x: 13, y: 17, to: 'oreburgh', tx: 15, ty: 2, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'oreburgh_gate', tx: 11, ty: 14, dir: 'up' },
+    { x: 13, y: 0, to: 'oreburgh_gate', tx: 12, ty: 14, dir: 'up' },
   ],
   signs: [
-    { x: 10, y: 16, text: 'ROUTE 2\nAldermere City — Stonefall Cave\nMind the ledges.' },
+    { x: 10, y: 16, text: 'ROUTE 207\nOreburgh City — Oreburgh Gate\nMind the ledges.' },
   ],
   objects: [
     { id: 'r2_super', x: 2, y: 13, item: 'superpotion', qty: 1 },
@@ -5719,17 +5911,17 @@ const ROUTE2 = defineMap('route2', {
     { id: 'r2_t1', x: 9, y: 6, look: 'youngster', trainer: 'r2_youngster', facing: 'right', sight: 4, movement: 'still' },
     { id: 'r2_t2', x: 18, y: 12, look: 'hiker', trainer: 'r2_hiker', facing: 'left', sight: 4, movement: 'still' },
     {
-      id: 'r2_grunt_watch', x: 16, y: 3, look: 'grunt', name: 'Meridian Grunt', movement: 'lookAround', facing: 'down',
+      id: 'r2_grunt_watch', x: 16, y: 3, look: 'grunt', name: 'Galactic Grunt', movement: 'lookAround', facing: 'down',
       dialogue: ['Readings are up forty percent since last week. Something under that hill is waking up.',
         'And no, I am not going to explain what that means to a kid with a backpack.'],
     },
   ],
   encounters: {
-    grass: { min: 10, max: 14, table: [[15, 25], [13, 20], [31, 15], [32, 10], [22, 15], [10, 15]] },
+    grass: { min: 10, max: 14, table: [[15, 22], [13, 16], [31, 12], [32, 10], [22, 12], [10, 12], [51, 8], [44, 5], [48, 3]] },
   },
 });
 
-__exports(__x, { ROUTE1: () => ROUTE1, ROUTE2: () => ROUTE2 });
+__exports(__x, { ROUTE201: () => ROUTE201, ROUTE207: () => ROUTE207 });
 
 };
 
@@ -5737,8 +5929,8 @@ __defs['data/maps/wilds.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
 
 
-const WHISPERWOOD = defineMap('whisperwood', {
-  name: 'Whisperwood Forest', kind: 'route', music: 'forest',
+const ROUTE202 = defineMap('route202', {
+  name: 'Route 202', kind: 'route', music: 'forest',
   tiles: [
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
     'T...........::...........T',
@@ -5762,17 +5954,17 @@ const WHISPERWOOD = defineMap('whisperwood', {
     'T....""""...::....""""...T',
     'T..YYYY.....::.....YYYY..T',
     'T..YYYY.....::.....YYYY..T',
-    'T...........::...........T',
+    'T.........S.::...........T',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
-    { x: 12, y: 23, to: 'route1', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 13, y: 23, to: 'route1', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'aldermere', tx: 14, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'aldermere', tx: 15, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 23, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'oreburgh', tx: 14, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'oreburgh', tx: 15, ty: 22, dir: 'up', edge: true },
   ],
   signs: [
-    { x: 10, y: 22, text: 'WHISPERWOOD FOREST\nStay on the path and you will come out the other side.' },
+    { x: 10, y: 22, text: 'ROUTE 202\nStay on the path and you will come out the other side.' },
   ],
   objects: [
     { id: 'ww_ether', x: 1, y: 10, item: 'ether', qty: 1 },
@@ -5786,21 +5978,21 @@ const WHISPERWOOD = defineMap('whisperwood', {
     {
       id: 'ww_t4', x: 15, y: 4, look: 'grunt', trainer: 'ww_grunt', facing: 'left', sight: 4, movement: 'still',
       after: ['Fine. Measure it yourself. We are done here anyway.',
-        'Commander Vesper only wanted to know how far the light reaches. It reaches further every night.'],
+        'Commander Mars only wanted to know how far the light reaches. It reaches further every night.'],
     },
     {
       id: 'ww_hiker', x: 20, y: 10, look: 'hiker', name: 'Ferris', movement: 'lookAround', facing: 'down',
       dialogue: ['The trees whisper because the wind comes off the quarry face. Not ghosts. Probably not ghosts.',
-        'Aldermere is straight north. You cannot miss it — it is the loud bit.'],
+        'Oreburgh is straight north. You cannot miss it — it is the loud bit.'],
     },
   ],
   encounters: {
-    grass: { min: 4, max: 8, table: [[18, 25], [20, 20], [22, 20], [10, 15], [24, 10], [15, 10]] },
+    grass: { min: 4, max: 8, table: [[18, 20], [38, 16], [20, 14], [22, 14], [10, 12], [41, 10], [42, 8], [24, 4], [15, 2]] },
   },
 });
 
-const STONEFALL = defineMap('stonefall', {
-  name: 'Stonefall Cave', kind: 'cave', music: 'cave',
+const OREBURGH_GATE = defineMap('oreburgh_gate', {
+  name: 'Oreburgh Gate', kind: 'cave', music: 'cave',
   tiles: [
     'CCCCCCCCCCCCCCCCCCCCCCCC',
     'CccccccccccccccccccccccC',
@@ -5816,12 +6008,12 @@ const STONEFALL = defineMap('stonefall', {
     'CccccccccccccccccccccccC',
     'CccCCCCcccccccccccCCCccC',
     'CccccccccccccccccccccccC',
-    'CccccccccccRccccccccccCC',
+    'CccccRccccccccccccccccCC',
     'CCCCCCCCCCCccCCCCCCCCCCC',
   ],
   warps: [
-    { x: 11, y: 15, to: 'route2', tx: 12, ty: 1, dir: 'down' },
-    { x: 12, y: 15, to: 'route2', tx: 13, ty: 1, dir: 'down' },
+    { x: 11, y: 15, to: 'route207', tx: 12, ty: 1, dir: 'down' },
+    { x: 12, y: 15, to: 'route207', tx: 13, ty: 1, dir: 'down' },
   ],
   objects: [
     { id: 'sf_escape', x: 2, y: 1, item: 'escaperope', qty: 1 },
@@ -5839,11 +6031,11 @@ const STONEFALL = defineMap('stonefall', {
   ],
   encounters: {
     grass: null,
-    cave: { min: 9, max: 14, table: [[24, 35], [26, 30], [29, 20], [34, 10], [28, 5]] },
+    cave: { min: 9, max: 14, table: [[24, 30], [26, 26], [29, 16], [46, 10], [34, 8], [50, 5], [28, 3], [53, 2]] },
   },
 });
 
-__exports(__x, { WHISPERWOOD: () => WHISPERWOOD, STONEFALL: () => STONEFALL });
+__exports(__x, { ROUTE202: () => ROUTE202, OREBURGH_GATE: () => OREBURGH_GATE });
 
 };
 
@@ -5863,15 +6055,15 @@ const PLAYER_HOUSE = defineMap('player_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'brackenvale', tx: 5, ty: 13, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 5, ty: 13, dir: 'down' }],
   npcs: [
     {
       id: 'ph_mom', x: 3, y: 4, look: 'mom', name: 'Mum', movement: 'still', facing: 'down',
-      dialogue: ['Professor Aspen came by looking for you. Something about a monster she wants you to have.',
+      dialogue: ['Professor Rowan came by looking for you. Something about a Pokémon she wants you to have.',
         'Go on. I already packed your bag.'],
       dialogueAfter: {
         flag: 'gotStarter',
-        lines: ['Look at you, a real trainer.', 'If your team gets tired, come home any time — or use a Monster Centre.'],
+        lines: ['Look at you, a real trainer.', 'If your team gets tired, come home any time — or use a Pokémon Center.'],
       },
       heals: true,
     },
@@ -5891,7 +6083,7 @@ const RIVAL_HOUSE = defineMap('rival_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'brackenvale', tx: 22, ty: 13, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 22, ty: 13, dir: 'down' }],
   npcs: [
     {
       id: 'rh_parent', x: 7, y: 4, look: 'oldMan', name: 'Neighbour', movement: 'still', facing: 'down',
@@ -5901,8 +6093,8 @@ const RIVAL_HOUSE = defineMap('rival_house', {
   ],
 });
 
-const ASPEN_LAB = defineMap('aspen_lab', {
-  name: "Professor Aspen's Lab", kind: 'indoor', music: 'lab', darkEdges: false,
+const ROWAN_LAB = defineMap('rowan_lab', {
+  name: "Professor Rowan's Lab", kind: 'indoor', music: 'lab', darkEdges: false,
   tiles: [
     '||||||||||||||',
     '|kkk______kkk|',
@@ -5911,27 +6103,27 @@ const ASPEN_LAB = defineMap('aspen_lab', {
     '|____________|',
     '|__P______P__|',
     '|____________|',
-    '|_____p______|',
+    '|__p_________|',
     '||||||D|||||||',
   ],
-  warps: [{ x: 6, y: 8, to: 'brackenvale', tx: 6, ty: 6, dir: 'down' }],
+  warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 6, ty: 6, dir: 'down' }],
   npcs: [
     {
-      id: 'lab_aspen', x: 6, y: 2, look: 'professor', name: 'Prof. Aspen', movement: 'still', facing: 'down',
+      id: 'lab_aspen', x: 6, y: 2, look: 'professor', name: 'Prof. Rowan', movement: 'still', facing: 'down',
       script: 'starter',
-      dialogue: ['There you are. I have three monsters on that table and no one to raise them.',
+      dialogue: ['There you are. I have three Pokémon on that table and no one to raise them.',
         'Pick whichever one looks back at you. That is the only method that has ever worked.'],
     },
     {
       id: 'lab_aide', x: 10, y: 6, look: 'scientist', name: 'Aide', movement: 'still', facing: 'left',
-      dialogue: ['The MonsterDex records every species you see and every one you catch.',
+      dialogue: ['The Pokédex records every species you see and every one you catch.',
         'The professor pretends it is for science. It is mostly for bragging.'],
     },
   ],
 });
 
-const ALDERMERE_CENTER = defineMap('aldermere_center', {
-  name: 'Monster Centre', kind: 'indoor', music: 'center', darkEdges: false,
+const OREBURGH_CENTER = defineMap('oreburgh_center', {
+  name: 'Pokémon Center', kind: 'indoor', music: 'center', darkEdges: false,
   tiles: [
     '||||||||||||||',
     '|__H_______P_|',
@@ -5943,17 +6135,17 @@ const ALDERMERE_CENTER = defineMap('aldermere_center', {
     '||||||DD||||||',
   ],
   warps: [
-    { x: 6, y: 7, to: 'aldermere', tx: 6, ty: 7, dir: 'down' },
-    { x: 7, y: 7, to: 'aldermere', tx: 6, ty: 7, dir: 'down' },
+    { x: 6, y: 7, to: 'oreburgh', tx: 6, ty: 7, dir: 'down' },
+    { x: 7, y: 7, to: 'oreburgh', tx: 6, ty: 7, dir: 'down' },
   ],
   npcs: [
     {
       id: 'ac_nurse', x: 4, y: 1, look: 'nurse', name: 'Nurse', movement: 'still', facing: 'down',
       script: 'heal', overCounter: true,
-      dialogue: ['Welcome to the Aldermere Monster Centre. Shall I heal your team to full health?'],
+      dialogue: ['Welcome to the Oreburgh Pokémon Center. Shall I heal your team to full health?'],
     },
     {
-      id: 'ac_pc', x: 11, y: 1, look: 'clerk', name: 'Attendant', movement: 'still', facing: 'down',
+      id: 'ac_pc', x: 10, y: 1, look: 'clerk', name: 'Attendant', movement: 'still', facing: 'down',
       overCounter: true,
       dialogue: ['The storage system behind me holds anything your party cannot.',
         'Walk up to the terminal and press A.'],
@@ -5964,10 +6156,10 @@ const ALDERMERE_CENTER = defineMap('aldermere_center', {
     },
   ],
   pc: { x: 11, y: 1 },
-  healPoint: { map: 'aldermere_center', x: 6, y: 5 },
+  healPoint: { map: 'oreburgh_center', x: 6, y: 5 },
 });
 
-const ALDERMERE_MART = defineMap('aldermere_mart', {
+const OREBURGH_MART = defineMap('oreburgh_mart', {
   name: 'Poké Mart', kind: 'indoor', music: 'mart', darkEdges: false,
   tiles: [
     '||||||||||||',
@@ -5978,7 +6170,7 @@ const ALDERMERE_MART = defineMap('aldermere_mart', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 6, to: 'aldermere', tx: 25, ty: 7, dir: 'down' }],
+  warps: [{ x: 5, y: 6, to: 'oreburgh', tx: 25, ty: 7, dir: 'down' }],
   npcs: [
     {
       id: 'am_clerk', x: 3, y: 2, look: 'clerk', name: 'Clerk', movement: 'still', facing: 'down',
@@ -5993,8 +6185,8 @@ const ALDERMERE_MART = defineMap('aldermere_mart', {
   shop: true,
 });
 
-const ALDERMERE_GYM = defineMap('aldermere_gym', {
-  name: 'Aldermere Gym', kind: 'indoor', music: 'gym', darkEdges: false,
+const OREBURGH_GYM = defineMap('oreburgh_gym', {
+  name: 'Oreburgh Gym', kind: 'indoor', music: 'gym', darkEdges: false,
   tiles: [
     '||||||||||||||||',
     '|gggggggggggggg|',
@@ -6014,8 +6206,8 @@ const ALDERMERE_GYM = defineMap('aldermere_gym', {
     '|||||||DD|||||||',
   ],
   warps: [
-    { x: 7, y: 15, to: 'aldermere', tx: 14, ty: 19, dir: 'down' },
-    { x: 8, y: 15, to: 'aldermere', tx: 15, ty: 19, dir: 'down' },
+    { x: 7, y: 15, to: 'oreburgh', tx: 14, ty: 19, dir: 'down' },
+    { x: 8, y: 15, to: 'oreburgh', tx: 15, ty: 19, dir: 'down' },
   ],
   npcs: [
     { id: 'gym1_a', x: 2, y: 12, look: 'hiker', trainer: 'gym1_hiker1', facing: 'right', sight: 4, movement: 'still' },
@@ -6025,12 +6217,12 @@ const ALDERMERE_GYM = defineMap('aldermere_gym', {
       id: 'gym1_leader', x: 7, y: 1, look: 'leaderRock', trainer: 'gym1_leader',
       facing: 'down', sight: 0, movement: 'still',
       after: ['Straight through the stone.',
-        'Route 2 runs north out of the city. Take the Quarry Badge with you — some doors only open for it.'],
+        'Route 207 runs north out of the city. Take the Coal Badge with you — some doors only open for it.'],
     },
   ],
 });
 
-const ALDERMERE_HOUSE = defineMap('aldermere_house', {
+const OREBURGH_HOUSE = defineMap('oreburgh_house', {
   name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
   tiles: [
     '||||||||||||',
@@ -6042,17 +6234,17 @@ const ALDERMERE_HOUSE = defineMap('aldermere_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'aldermere', tx: 5, ty: 15, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'oreburgh', tx: 5, ty: 15, dir: 'down' }],
   npcs: [
     {
       id: 'ah_man', x: 4, y: 4, look: 'oldMan', name: 'Resident', movement: 'still', facing: 'down',
-      dialogue: ['A monster can only hold four moves. Learning a fifth means forgetting one.',
+      dialogue: ['A Pokémon can only hold four moves. Learning a fifth means forgetting one.',
         'Choose carefully. I have regretted a forgotten move for thirty years.'],
     },
   ],
 });
 
-const ALDERMERE_HOUSE2 = defineMap('aldermere_house2', {
+const OREBURGH_HOUSE2 = defineMap('oreburgh_house2', {
   name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
   tiles: [
     '||||||||||||',
@@ -6064,7 +6256,7 @@ const ALDERMERE_HOUSE2 = defineMap('aldermere_house2', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'aldermere', tx: 26, ty: 15, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'oreburgh', tx: 26, ty: 15, dir: 'down' }],
   npcs: [
     {
       id: 'ah2_girl', x: 6, y: 4, look: 'lass', name: 'Resident', movement: 'still', facing: 'down',
@@ -6073,14 +6265,14 @@ const ALDERMERE_HOUSE2 = defineMap('aldermere_house2', {
     },
     {
       id: 'ah2_kid', x: 9, y: 5, look: 'kid', name: 'Kid', movement: 'wander', facing: 'down',
-      dialogue: ['A monster that faints still comes back! Just take it to the Centre. Or use a Revive.'],
+      dialogue: ['A Pokémon that faints still comes back! Just take it to the Centre. Or use a Revive.'],
     },
   ],
 });
 
 const INTERIORS = [
-  PLAYER_HOUSE, RIVAL_HOUSE, ASPEN_LAB, ALDERMERE_CENTER, ALDERMERE_MART,
-  ALDERMERE_GYM, ALDERMERE_HOUSE, ALDERMERE_HOUSE2,
+  PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB, OREBURGH_CENTER, OREBURGH_MART,
+  OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2,
 ];
 
 __exports(__x, { INTERIORS: () => INTERIORS });
@@ -6089,9 +6281,9 @@ __exports(__x, { INTERIORS: () => INTERIORS });
 
 __defs['data/maps/index.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
-const { BRACKENVALE, ALDERMERE } = __req('data/maps/towns.js');
-const { ROUTE1, ROUTE2 } = __req('data/maps/routes.js');
-const { WHISPERWOOD, STONEFALL } = __req('data/maps/wilds.js');
+const { TWINLEAF, OREBURGH } = __req('data/maps/towns.js');
+const { ROUTE201, ROUTE207 } = __req('data/maps/routes.js');
+const { ROUTE202, OREBURGH_GATE } = __req('data/maps/wilds.js');
 const { INTERIORS } = __req('data/maps/interiors.js');
 // Map registry.
 //
@@ -6106,7 +6298,7 @@ const { INTERIORS } = __req('data/maps/interiors.js');
 
 
 
-const ALL = [BRACKENVALE, ALDERMERE, ROUTE1, ROUTE2, WHISPERWOOD, STONEFALL, ...INTERIORS];
+const ALL = [TWINLEAF, OREBURGH, ROUTE201, ROUTE207, ROUTE202, OREBURGH_GATE, ...INTERIORS];
 
 const MAPS = {};
 for (const m of ALL) MAPS[m.id] = m;
@@ -6121,7 +6313,7 @@ const MAP_IDS = Object.keys(MAPS);
 
 // Region order, used by the Town Map and by "where can I go" checks.
 const REGION_ORDER = [
-  'brackenvale', 'route1', 'whisperwood', 'aldermere', 'route2', 'stonefall',
+  'twinleaf', 'route201', 'route202', 'oreburgh', 'route207', 'oreburgh_gate',
 ];
 
 __exports(__x, { MAPS: () => MAPS, getMap: () => getMap, MAP_IDS: () => MAP_IDS, REGION_ORDER: () => REGION_ORDER, defineMap: () => defineMap });
@@ -6143,10 +6335,10 @@ const add = (id, o) => { TRAINERS[id] = T(id, o); };
 
 const mon = (species, level, moves, extra = {}) => ({ species, level, moves, ...extra });
 
-// ---- Route 1 -----------------------------------------------------------
+// ---- Route 201 -----------------------------------------------------------
 add('r1_youngster', {
   name: 'Youngster Cal', cls: 'Youngster', look: 'youngster', ai: 0, prize: 240,
-  intro: 'My monsters and I trained all summer for this!',
+  intro: 'My Pokémon and I trained all summer for this!',
   defeat: 'All summer... for that?',
   team: [mon(13, 5, ['tackle', 'growl']), mon(10, 6, ['tackle', 'growl'])],
 });
@@ -6157,7 +6349,7 @@ add('r1_lass', {
   team: [mon(15, 6, ['tackle', 'leer']), mon(18, 6, ['bugbite', 'strugglebug'])],
 });
 
-// ---- Whisperwood Forest -------------------------------------------------
+// ---- Route 202 -------------------------------------------------
 add('ww_bug1', {
   name: 'Bug Catcher Denny', cls: 'Bug Catcher', look: 'bugCatcher', ai: 0, prize: 224,
   intro: 'The forest is full of bugs! I caught most of them myself.',
@@ -6177,13 +6369,13 @@ add('ww_lass', {
   team: [mon(22, 8, ['pound', 'defensecurl']), mon(20, 8, ['absorb', 'growth'])],
 });
 add('ww_grunt', {
-  name: 'Meridian Grunt', cls: 'Team Meridian', look: 'grunt', ai: 1, prize: 480,
-  intro: 'Team Meridian is measuring this forest. Move along or be measured.',
+  name: 'Galactic Grunt', cls: 'Team Galactic', look: 'grunt', ai: 1, prize: 480,
+  intro: 'Team Galactic is measuring this forest. Move along or be measured.',
   defeat: 'Fine. Measure it yourself.',
   team: [mon(24, 9, ['astonish', 'supersonic']), mon(18, 10, ['bugbite', 'furycutter'])],
 });
 
-// ---- Aldermere Gym -------------------------------------------------------
+// ---- Oreburgh Gym -------------------------------------------------------
 add('gym1_hiker1', {
   name: 'Hiker Bost', cls: 'Hiker', look: 'hiker', ai: 1, prize: 560,
   intro: 'Rock is not slow. Rock is patient. There is a difference.',
@@ -6198,22 +6390,23 @@ add('gym1_worker', {
 });
 add('gym1_hiker2', {
   name: 'Hiker Jun', cls: 'Hiker', look: 'hiker', ai: 1, prize: 640,
-  intro: 'Get past me and Garnet is next. Nobody gets past me.',
+  intro: 'Get past me and Roark is next. Nobody gets past me.',
   defeat: 'Somebody got past me.',
   team: [mon(26, 13, ['rockthrow', 'defensecurl', 'magnitude']), mon(24, 12, ['astonish', 'bite'])],
 });
 add('gym1_leader', {
-  name: 'Garnet', cls: 'Gym Leader', look: 'leaderRock', ai: 2, prize: 2400, leader: true,
-  badge: 1, badgeName: 'Quarry Badge', tm: 'tm01',
-  intro: 'Aldermere was cut out of the hillside by people who did not give up.\nShow me you have the same in you.',
-  defeat: 'Straight through the stone. That is the Quarry Badge — you have earned it.',
+  name: 'Roark', cls: 'Gym Leader', look: 'leaderRock', ai: 2, prize: 2400, leader: true,
+  badge: 1, badgeName: 'Coal Badge', tm: 'tm01',
+  intro: 'Oreburgh was cut out of the hillside by people who did not give up.\nShow me you have the same in you.',
+  defeat: 'Straight through the stone. That is the Coal Badge — you have earned it.',
   team: [
-    mon(26, 14, ['rockthrow', 'defensecurl', 'magnitude']),
-    mon(28, 15, ['rockthrow', 'harden', 'rocktomb', 'bulldoze']),
+    mon(26, 12, ['rockthrow', 'defensecurl', 'magnitude']),
+    mon(28, 12, ['rockthrow', 'harden', 'rocktomb']),
+    mon(52, 14, ['rockthrow', 'defensecurl', 'rocktomb', 'bulldoze']),
   ],
 });
 
-// ---- Route 2 --------------------------------------------------------------
+// ---- Route 207 --------------------------------------------------------------
 add('r2_youngster', {
   name: 'Youngster Pell', cls: 'Youngster', look: 'youngster', ai: 1, prize: 480,
   intro: 'Past this route the caves start. Better warm up on me.',
@@ -6222,27 +6415,27 @@ add('r2_youngster', {
 });
 add('r2_hiker', {
   name: 'Hiker Marl', cls: 'Hiker', look: 'hiker', ai: 1, prize: 680,
-  intro: 'Stonefall Cave eats hikers. I am the one it spat back out.',
+  intro: 'Oreburgh Gate eats hikers. I am the one it spat back out.',
   defeat: 'Back down the hill I go.',
   team: [mon(26, 16, ['rockthrow', 'magnitude']), mon(29, 16, ['karatechop', 'lowkick'])],
 });
 
-// ---- Stonefall Cave --------------------------------------------------------
+// ---- Oreburgh Gate --------------------------------------------------------
 add('cave_grunt1', {
-  name: 'Meridian Grunt', cls: 'Team Meridian', look: 'grunt', ai: 1, prize: 720,
-  intro: 'This cave belongs to Team Meridian now. Turn around.',
+  name: 'Galactic Grunt', cls: 'Team Galactic', look: 'grunt', ai: 1, prize: 720,
+  intro: 'This cave belongs to Team Galactic now. Turn around.',
   defeat: 'The commander is not going to like this.',
   team: [mon(24, 16, ['bite', 'supersonic', 'wingattack']), mon(26, 16, ['rockthrow', 'defensecurl'])],
 });
 add('cave_grunt2', {
-  name: 'Meridian Grunt', cls: 'Team Meridian', look: 'gruntF', ai: 1, prize: 760,
+  name: 'Galactic Grunt', cls: 'Team Galactic', look: 'gruntF', ai: 1, prize: 760,
   intro: 'You are standing where the light comes through. Move.',
   defeat: 'Stand wherever you like.',
   team: [mon(25, 17, ['bite', 'confusion']), mon(29, 17, ['karatechop', 'furyswipes'])],
 });
 add('cave_commander', {
-  name: 'Commander Vesper', cls: 'Team Meridian', look: 'boss', ai: 2, prize: 3000,
-  intro: 'The Everlight sleeps under this hill, and Meridian intends to wake it.\nYou are one trainer. Reconsider.',
+  name: 'Commander Mars', cls: 'Team Galactic', look: 'boss', ai: 2, prize: 3000,
+  intro: 'The Everlight sleeps under this hill, and Galactic intends to wake it.\nYou are one trainer. Reconsider.',
   defeat: 'One trainer. Noted. We will not make that mistake twice.',
   team: [
     mon(25, 18, ['bite', 'confusion', 'airslash']),
@@ -6262,7 +6455,7 @@ add('rival_1', {
 });
 add('rival_2', {
   name: 'Rival', cls: 'Rival', look: 'rivalBoy', ai: 2, prize: 900, rival: true,
-  intro: 'Aldermere already? You have been busy. So have I.',
+  intro: 'Oreburgh already? You have been busy. So have I.',
   defeat: 'You have been busier. Noted.',
   team: [mon(11, 12, ['quickattack', 'wingattack', 'growl']), mon(15, 12, ['spark', 'leer']), 'RIVAL_STARTER:13'],
 });
@@ -6632,8 +6825,8 @@ class World {
     if (sign) return { type: 'sign', sign };
     const def = this.defAt(tx, ty);
     if (def.name === 'PC') return { type: 'pc' };
-    if (def.name === 'bookshelf') return { type: 'flavour', text: 'Shelves of well-thumbed books about monsters.' };
-    if (def.name === 'TV') return { type: 'flavour', text: 'A documentary about migrating monsters is on.' };
+    if (def.name === 'bookshelf') return { type: 'flavour', text: 'Shelves of well-thumbed books about Pokémon.' };
+    if (def.name === 'TV') return { type: 'flavour', text: 'A documentary about migrating Pokémon is on.' };
     if (def.name === 'bed') return { type: 'flavour', text: 'Neatly made. It looks very comfortable.' };
     if (def.water) return { type: 'flavour', text: 'The water is clear and deep.' };
     return null;
@@ -6924,23 +7117,23 @@ const { FLAGS } = __req('game/storyflags.js');
 
 const SCRIPTS = {};
 
-// ---- Professor Aspen: choosing a starter ---------------------------------
+// ---- Professor Rowan: choosing a starter ---------------------------------
 
 SCRIPTS.starter = async (ctx) => {
   const st = ctx.state;
   if (st.flags[FLAGS.GOT_STARTER]) {
-    await ctx.say('Prof. Aspen: How is it settling in? Keep it close and it will keep you close.');
+    await ctx.say('Prof. Rowan: How is it settling in? Keep it close and it will keep you close.');
     return;
   }
 
-  await ctx.say('Prof. Aspen: There you are.\fI have three young monsters here and nobody to raise them. Take a look.');
+  await ctx.say('Prof. Rowan: There you are.\fI have three young Pokémon here and nobody to raise them. Take a look.');
 
   let chosen = -1;
   while (chosen < 0) {
     const pick = await ctx.ask('Which one will you take?', [
       'Turtwig', 'Chimchar', 'Piplup', 'Look again',
     ]);
-    if (pick === 3) { await ctx.say('Prof. Aspen: Take your time. This is not a small decision.'); continue; }
+    if (pick === 3) { await ctx.say('Prof. Rowan: Take your time. This is not a small decision.'); continue; }
 
     const line = STARTER_LINES[pick];
     const sp = getSpecies(line.base);
@@ -6955,18 +7148,18 @@ SCRIPTS.starter = async (ctx) => {
   const mon = createMonster(base, 5);
   mon.ot = st.player.name;
   mon.otId = st.player.id;
-  mon.caughtAt = 'aspen_lab';
+  mon.caughtAt = 'rowan_lab';
   st.party.push(mon);
   st.starterBase = base;
   ctx.dex.caught(base);
 
   ctx.sfx('caught');
   await ctx.say(`${getSpecies(base).name} joined your team!`);
-  await ctx.say('Prof. Aspen: Good choice. They all are.\fTake this too — you will want to know what you are looking at out there.');
-  ctx.give('monsterdex', 1);
+  await ctx.say('Prof. Rowan: Good choice. They all are.\fTake this too — you will want to know what you are looking at out there.');
+  ctx.give('pokedex', 1);
   ctx.give('pokeball', 5);
-  await ctx.say('You received the MonsterDex and 5 Poké Balls!');
-  await ctx.say('Prof. Aspen: Aldermere City is north, past Whisperwood.\fThe road there is the whole point. Go and walk it.');
+  await ctx.say('You received the Pokédex and 5 Poké Balls!');
+  await ctx.say('Prof. Rowan: Oreburgh City is north, past Route 202.\fThe road there is the whole point. Go and walk it.');
 
   ctx.setFlag(FLAGS.GOT_STARTER);
   ctx.shareMilestone(FLAGS.GOT_STARTER);
@@ -7033,12 +7226,12 @@ SCRIPTS.rival2 = async (ctx) => {
     x: ctx.player.x, y: ctx.player.y - 2, dir: 'down', name: 'Rival',
   });
   await ctx.wait(0.3);
-  await ctx.say('Rival: Aldermere already? You have been busy.\fSo have I. Show me.');
+  await ctx.say('Rival: Oreburgh already? You have been busy.\fSo have I. Show me.');
 
   const t = rivalTeam(st, 'rival_2');
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (won) {
-    await ctx.say('Rival: You have been busier. Noted.\fGarnet is in that grey building. She does not go easy on anyone.');
+    await ctx.say('Rival: You have been busier. Noted.\fRoark is in that grey building. She does not go easy on anyone.');
     ctx.setFlag(FLAGS.BEAT_RIVAL_2);
   } else {
     await ctx.say('Rival: Better luck next time. The Centre is right there — the red roof.');
@@ -7095,23 +7288,23 @@ SCRIPTS.gymLeader = async (ctx, npc) => {
   for (const line of npc.data.after || []) await ctx.say(`${t.name}: ${line}`, { speaker: t.name });
 };
 
-// ---- Team Meridian ---------------------------------------------------------------
+// ---- Team Galactic ---------------------------------------------------------------
 
 SCRIPTS.commander = async (ctx, npc) => {
   const t = getTrainer(npc.data.trainer);
   if (ctx.state.flags[`beat_${t.id}`]) {
-    for (const line of npc.data.after || []) await ctx.say(`Vesper: ${line}`, { speaker: 'Vesper' });
+    for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
     return;
   }
   await ctx.say('A figure in a long coat is standing over a seam of pale light in the rock.');
-  await ctx.say(`Vesper: ${t.intro}`, { speaker: 'Vesper' });
+  await ctx.say(`Mars: ${t.intro}`, { speaker: 'Mars' });
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (!won) return;
-  await ctx.say(`Vesper: ${t.defeat}`, { speaker: 'Vesper' });
+  await ctx.say(`Mars: ${t.defeat}`, { speaker: 'Mars' });
   await ctx.say('The light in the seam pulses once, slowly, like something turning over in its sleep.');
   ctx.setFlag(FLAGS.BEAT_COMMANDER);
   ctx.shareMilestone(FLAGS.BEAT_COMMANDER);
-  for (const line of npc.data.after || []) await ctx.say(`Vesper: ${line}`, { speaker: 'Vesper' });
+  for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
 };
 
 function scriptFor(name) { return SCRIPTS[name] || null; }
@@ -8193,7 +8386,7 @@ class OverworldScreen extends Screen {
       if (this.game.save) { this.game.save.markDirty(); this.game.save.maybeAutosave(st, true); }
       const map = getMap(warp.to);
       if (map.kind === 'cave') setStoryFlag(st, 'enteredCave', true);
-      if (warp.to === 'whisperwood') setStoryFlag(st, 'enteredForest', true);
+      if (warp.to === 'route202') setStoryFlag(st, 'enteredForest', true);
     }, { outMs: warp.edge ? 240 : 300, inMs: warp.edge ? 260 : 320 });
   }
 
@@ -8747,7 +8940,7 @@ function doCatch(battle, sideIdx, ball, out) {
   const foe = activeOf(foeSide);
 
   if (battle.kind !== 'wild') {
-    out.push({ t: 'text', s: 'You cannot throw a ball at another trainer’s monster!' });
+    out.push({ t: 'text', s: 'You cannot throw a ball at another trainer’s Pokémon!' });
     return;
   }
   out.push({ t: 'text', s: `${side.name} threw a ${ball.name}!` });
@@ -8773,7 +8966,7 @@ function doCatch(battle, sideIdx, ball, out) {
   } else {
     out.push({ t: 'wobble', count: shakes, caught: false });
     const lines = [
-      'Oh no! The monster broke free!',
+      'Oh no! The Pokémon broke free!',
       'Aww! It appeared to be caught!',
       'Aargh! Almost had it!',
       'Shoot! It was so close, too!',
@@ -10184,8 +10377,8 @@ class BattleScreen extends Screen {
 
     const t = this.battle.sides[this.foeSide].trainer;
     audio.playMusic(
-      battleMusic(this.battle.kind, { leader: t && t.leader, villain: t && t.cls === 'Team Meridian' }),
-      battleMusicKey(this.battle.kind, { leader: t && t.leader, villain: t && t.cls === 'Team Meridian' }),
+      battleMusic(this.battle.kind, { leader: t && t.leader, villain: t && t.cls === 'Team Galactic' }),
+      battleMusicKey(this.battle.kind, { leader: t && t.leader, villain: t && t.cls === 'Team Galactic' }),
     );
 
     if (this.battle.kind === 'wild' && foe) {
@@ -10533,7 +10726,7 @@ class BattleScreen extends Screen {
     const item = entry.item;
     if (item.use.kind === 'ball' && this.battle.kind !== 'wild') {
       audio.sfx('deny');
-      this._say('You cannot catch another trainer’s monster!');
+      this._say('You cannot catch another trainer’s Pokémon!');
       return;
     }
     if (this.pvp) { audio.sfx('deny'); this._say('Items are switched off in link battles.'); return; }
@@ -10740,7 +10933,7 @@ class BattleScreen extends Screen {
       const dest = receiveMonster(st, mon);
       st.stats.caught++;
       const newEntry = recordCaught(st.dex, mon.species);
-      if (newEntry) this.queue.push({ t: 'text', s: `${displayName(mon)}'s data was added to the MonsterDex.` });
+      if (newEntry) this.queue.push({ t: 'text', s: `${displayName(mon)}'s data was added to the Pokédex.` });
       if (dest && dest.where === 'box') {
         this.queue.push({ t: 'text', s: `Your party is full, so ${displayName(mon)}\nwas sent to ${dest.boxName}.` });
       }
@@ -10756,8 +10949,8 @@ class BattleScreen extends Screen {
       audio.playMusic(MUSIC.victory, 'victory');
     }
     if (b.result === 'lose') {
-      this.queue.push({ t: 'text', s: `${st.player.name} is out of usable monsters!` });
-      this.queue.push({ t: 'text', s: `${st.player.name} panicked and ran all the way\nto the last Monster Centre...` });
+      this.queue.push({ t: 'text', s: `${st.player.name} is out of usable Pokémon!` });
+      this.queue.push({ t: 'text', s: `${st.player.name} panicked and ran all the way\nto the last Pokémon Center...` });
     }
     if (this.pendingEvolve) { this._startEvolve(); return; }
     this.queue.push({ t: 'finish' });
@@ -10990,7 +11183,7 @@ class BattleScreen extends Screen {
   _drawCommand(ctx, W, H) {
     const y = this._boxY();
     window9(ctx, 4, y, W - 8, 42);
-    const names = ['FIGHT', 'BAG', 'MONSTERS', this.pvp ? 'FORFEIT' : (this.battle.kind === 'wild' ? 'RUN' : 'RUN')];
+    const names = ['FIGHT', 'BAG', 'POKéMON', this.pvp ? 'FORFEIT' : (this.battle.kind === 'wild' ? 'RUN' : 'RUN')];
     const cols = [PAL.uiDanger, '#e08a30', '#3f9060', '#5a6a94'];
     this._commandRects().forEach((r, i) => {
       const sel = i === this.cmdIndex;
@@ -11071,7 +11264,7 @@ class BattleScreen extends Screen {
     ctx.globalAlpha = 0.55; rect(ctx, 0, 0, W, H, PAL.black); ctx.globalAlpha = 1;
     const bx = 6, by = 14;
     window9(ctx, bx - 4, by - 10, 164, party.length * 22 + 18);
-    label(ctx, this.mode === MODE.SWITCH ? 'Send out which monster?' : 'Switch to which monster?', bx, by - 6);
+    label(ctx, this.mode === MODE.SWITCH ? 'Send out which Pokémon?' : 'Switch to which Pokémon?', bx, by - 6);
     party.forEach((m, i) => {
       const iy = by + i * 22;
       const sel = i === this.partyIndex;
@@ -11205,8 +11398,8 @@ class MainMenuScreen extends Screen {
   get entries() {
     const st = this.game.state;
     const out = [];
-    if (st.flags.gotStarter) out.push({ key: 'dex', text: 'MONSTERDEX' });
-    if (st.party.length) out.push({ key: 'party', text: 'MONSTERS' });
+    if (st.flags.gotStarter) out.push({ key: 'dex', text: 'POKéDEX' });
+    if (st.party.length) out.push({ key: 'party', text: 'POKéMON' });
     out.push({ key: 'bag', text: 'BAG' });
     out.push({ key: 'card', text: st.player.name.toUpperCase() });
     out.push({ key: 'link', text: 'LINK' });
@@ -11376,7 +11569,7 @@ class PartyScreen extends Screen {
     if (this.detail) { this._renderDetail(ctx, W, H); return; }
 
     const party = this.game.state.party;
-    label(ctx, this.prompt || 'Choose a monster.', 6, 4, { color: PAL.uiTextLight, shadow: PAL.black });
+    label(ctx, this.prompt || 'Choose a Pokémon.', 6, 4, { color: PAL.uiTextLight, shadow: PAL.black });
 
     party.forEach((m, i) => {
       const r = this._rowRect(i);
@@ -11537,7 +11730,7 @@ class BagScreen extends Screen {
       const targetIdx = this.mode === 'use' && this.target != null ? this.target : null;
       if (targetIdx == null) {
         this.game.screens.push(new PartyScreen(this.game, {
-          mode: 'pick', prompt: `Use ${item.name} on which monster?`,
+          mode: 'pick', prompt: `Use ${item.name} on which Pokémon?`,
           onPick: (i) => { if (i != null) this._apply(item, st.party[i]); },
         }));
         return;
@@ -11548,7 +11741,7 @@ class BagScreen extends Screen {
     if (u.kind === 'repel') {
       removeItem(st.inventory, item.id, 1);
       st.repelSteps = u.steps;
-      this._say(`${item.name} used. Weak monsters will stay away.`);
+      this._say(`${item.name} used. Weak Pokémon will stay away.`);
       audio.sfx('select');
       return;
     }
@@ -12032,7 +12225,7 @@ class PCScreen extends Screen {
     this.pane = 'box';        // box | party
     this.partyIdx = 0;
     this.held = null;         // { from:'box'|'party', index }
-    this.message = 'Move monsters between your party and the boxes.';
+    this.message = 'Move Pokémon between your party and the boxes.';
     this.confirmRelease = null;
   }
 
@@ -12092,7 +12285,7 @@ class PCScreen extends Screen {
       // Drop into the box.
       if (this.held.from === 'party') {
         if (box.mons.length >= BOX_SIZE) { audio.sfx('deny'); this.message = 'This box is full.'; return; }
-        if (this.game.state.party.length <= 1) { audio.sfx('deny'); this.message = 'You need at least one monster with you!'; return; }
+        if (this.game.state.party.length <= 1) { audio.sfx('deny'); this.message = 'You need at least one Pokémon with you!'; return; }
         partyToBox(this.game.state, this.held.index, this.box);
         this.message = 'Stored.';
       } else {
@@ -12127,7 +12320,7 @@ class PCScreen extends Screen {
     }
     const mon = st.party[this.partyIdx];
     if (!mon) { audio.sfx('deny'); return; }
-    if (st.party.length <= 1) { audio.sfx('deny'); this.message = 'That is your only monster!'; return; }
+    if (st.party.length <= 1) { audio.sfx('deny'); this.message = 'That is your only Pokémon!'; return; }
     audio.sfx('select');
     this.held = { from: 'party', index: this.partyIdx };
     this.message = `${displayName(mon)} picked up. Choose a box slot.`;
@@ -12722,7 +12915,7 @@ class MultiplayerScreen extends Screen {
       if (i === this.index) cursor(ctx, box.x + 4, y);
       label(ctx, o.text, box.x + 12, y, { color: o.k === 'back' ? PAL.uiTextDim : PAL.uiText });
     });
-    drawTextRight(ctx, 'CARIBOU LINK', W - 6, 8, { color: '#9ee0a0', shadow: PAL.black });
+    drawTextRight(ctx, 'LINK', W - 6, 8, { color: '#9ee0a0', shadow: PAL.black });
   }
 
   _renderJoin(ctx, W, H) {
@@ -13402,7 +13595,7 @@ const { createGameState, healParty, setStoryFlag } = __req('game/state.js');
 const { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } = __req('game/monster.js');
 const { createBattle } = __req('game/battle/engine.js');
 const { getSpecies } = __req('data/species.js');
-const { getMap } = __req('data/maps/index.js');
+const { getMap, MAPS } = __req('data/maps/index.js');
 const { randomSeed } = __req('core/rng.js');
 const { saveManager } = __req('save/SaveManager.js');
 const { net } = __req('net/NetworkManager.js');
@@ -13464,6 +13657,8 @@ class Game {
     this.netForTest = net;
     // Lets the touch test aim at the real on-screen control positions.
     this.controlsLayout = getLayout;
+    this.mapsForTest = { MAPS };
+    this.dialogueForTest = dialogue;
   }
 
   async boot(canvas) {
@@ -13718,7 +13913,7 @@ class Game {
 
   requestPvp() {
     if (!net.hasPartner) { this._flash('No partner connected.'); return; }
-    if (!this.state.party.some((m) => !isFainted(m))) { this._flash('Your monsters need healing first.'); return; }
+    if (!this.state.party.some((m) => !isFainted(m))) { this._flash('Your Pokémon need healing first.'); return; }
     this.rooms.pvp.request();
   }
 
