@@ -19,6 +19,7 @@ import { TOURNAMENTS, PRO_LIST, RANKS, getTournament } from '../src/data/circuit
 import { SPECIES } from '../src/data/species.js';
 import { MOVES } from '../src/data/moves.js';
 import { makeRng } from '../src/core/rng.js';
+import { unrenderable } from '../src/render/font.js';
 
 let fails = 0;
 const check = (ok, msg) => { if (!ok) { console.log(`  FAIL  ${msg}`); fails++; } };
@@ -97,7 +98,7 @@ const NAME = 'Matthew';
     const summary = finishTournament(c);
     check(!!summary && summary.won, `${t.id} should have been won`);
     reportTournamentResult(c, NAME, summary);
-    reportSeasonWeek(c, simulateSeasonWeek(c));
+    reportSeasonWeek(c, simulateSeasonWeek(c), NAME);
     reportPowerRankings(c, NAME);
 
     const press = buildPress(c, NAME, summary);
@@ -127,6 +128,152 @@ const NAME = 'Matthew';
   check([...known].some((k) => c.news.some((n) => n.headline.includes(k))),
     'no story names a real trainer or event');
   console.log(`  career: ${c.titles.length} titles, ${c.wins}-${c.losses}, ${c.cp} CP, rating ${c.rating}, ${c.news.length} stories`);
+}
+
+// ---- 3b. the bracket is single elimination ---------------------------------
+// A trainer who loses is out. Replaying them inflates the standings and makes
+// the press file upset stories about people who already went home.
+{
+  const c = createCircuit();
+  c.joined = true;
+  const t = TOURNAMENTS.find((x) => x.entrants === 8);
+  c.cp = RANKS[t.requires].cp;
+  c.rank = currentRank(c).id;
+  const run = enterTournament(c, t.id);
+  check(!!run, 'could not enter the 8-draw');
+
+  const knockedOut = new Set();
+  const ladder = [...run.ladder];
+  let rounds = 0;
+  while (c.active && !c.active.done && rounds++ < 10) {
+    const opponent = currentOpponent(c);
+    const entry = resolveRound(c, true, { survivors: 3, turns: 12 });
+    for (const r of entry.sideResults || []) {
+      check(!knockedOut.has(r.loser), `${r.loser} was eliminated twice in the same draw`);
+      check(!knockedOut.has(r.winner), `${r.winner} played on after being eliminated`);
+      check(!ladder.slice(rounds).includes(r.loser),
+        `${r.loser} is on the player's remaining path but lost a side match`);
+      knockedOut.add(r.loser);
+    }
+    if (opponent) {
+      check(!c.active || !c.active.others.includes(opponent.id),
+        `${opponent.id} stayed in the draw after losing to the player`);
+      knockedOut.add(opponent.id);
+    }
+  }
+  const summary = finishTournament(c);
+  check(!!summary && summary.won, 'the 8-draw should have been won');
+
+  // Every pro's record has to be consistent with a single-elimination event:
+  // nobody can have more losses than events entered.
+  for (const p of PRO_LIST) {
+    check(c.pros[p.id].losses <= 1,
+      `${p.id} lost ${c.pros[p.id].losses} times in one single-elimination event`);
+  }
+}
+
+// ---- 3c. what the press actually printed -----------------------------------
+// createCircuit() seeds itself from Math.random(), which is right for the game
+// and wrong for a test, so every circuit here is pinned to a fixed seed and the
+// checks run across a spread of them.
+
+function seeded(seed) {
+  const c = createCircuit();
+  c.seed = seed >>> 0;
+  c.joined = true;
+  return c;
+}
+
+{
+  const t = TOURNAMENTS[0];
+  let sawSurvivorLine = false;
+  let sawStarLine = false;
+
+  for (let seed = 1; seed <= 40; seed++) {
+    // A long win: 31 turns, 2 Pokémon left. Nothing may print 31 as a party.
+    const c = seeded(seed * 7919);
+    enterTournament(c, t.id);
+    const win = resolveRound(c, true, { survivors: 2, turns: 31, star: 'Infernape' });
+    reportMatch(c, NAME, t, win);
+    const text = c.news.filter((n) => n.kind === 'matchWin').map((n) => n.body.join(' ')).join(' ');
+    const claim = /(\d+) Pokémon still standing/.exec(text);
+    if (claim) {
+      sawSurvivorLine = true;
+      check(Number(claim[1]) === 2,
+        `seed ${seed}: match report claimed ${claim[1]} Pokémon standing, the battle left 2`);
+    }
+    if (text.includes('Infernape')) sawStarLine = true;
+
+    // The same round, lost. A wiped team gets no "carried the load".
+    const c2 = seeded(seed * 7919);
+    enterTournament(c2, t.id);
+    const loss = resolveRound(c2, false, { survivors: 0, oppSurvivors: 2, turns: 9, star: 'Rattata' });
+    reportMatch(c2, NAME, t, loss);
+    const lossText = c2.news.filter((n) => n.kind === 'matchLoss').map((n) => n.body.join(' ')).join(' ');
+    check(!lossText.includes('Rattata'),
+      `seed ${seed}: a wiped team got a star line: ${lossText}`);
+  }
+  // If neither line was ever drawn, the checks above proved nothing.
+  check(sawSurvivorLine, 'no match report ever used the survivor template; the check has no teeth');
+  check(sawStarLine, 'no winning match report ever named the star Pokémon');
+}
+
+{
+  // The exhibition story addresses the player, never the pro who just lost.
+  let sawRivalWin = false;
+  for (let seed = 1; seed <= 40; seed++) {
+    const c = seeded(seed * 104729);
+    c.week = 4;
+    const story = reportSeasonWeek(c, simulateSeasonWeek(c), NAME);
+    check(!!story, `seed ${seed}: the season week filed nothing`);
+    if (!story) continue;
+    if (story.kind === 'rivalWin') {
+      sawRivalWin = true;
+      // Whatever template was picked, no pro may appear where the player goes.
+      const filled = story.headline;
+      const loser = PRO_LIST.find((p) => filled.includes(`mentions ${p.name}`));
+      check(!loser, `seed ${seed}: a pro was filled into the player slot: ${filled}`);
+      if (filled.includes('mentions ')) {
+        check(filled.includes(NAME), `seed ${seed}: "mentions" should name the player: ${filled}`);
+      }
+    }
+    check(PRO_LIST.some((p) => story.body.join(' ').includes(p.name)),
+      `seed ${seed}: the exhibition body should name real pros`);
+    for (const text of [story.headline, ...story.body]) {
+      const bad = unrenderable(text);
+      check(bad.length === 0, `unprintable character ${JSON.stringify(bad)} in: ${text}`);
+    }
+  }
+  check(sawRivalWin, 'no exhibition week ever produced a rivalWin story; the check has no teeth');
+}
+
+{
+  // Nothing the press writes may reach the screen with a character the font
+  // cannot draw, across a whole career.
+  const c = seeded(20260909);
+  for (const t of TOURNAMENTS) {
+    c.cp = RANKS[t.requires].cp;
+    c.rank = currentRank(c).id;
+    if (!enterTournament(c, t.id)) continue;
+    while (c.active && !c.active.done) {
+      reportMatch(c, NAME, t, resolveRound(c, true, { survivors: 1, turns: 20, star: 'Luxray' }));
+    }
+    const summary = finishTournament(c);
+    reportTournamentResult(c, NAME, summary);
+    reportSeasonWeek(c, simulateSeasonWeek(c), NAME);
+    reportPowerRankings(c, NAME);
+    answerPress(c, NAME, buildPress(c, NAME, summary), 0);
+  }
+  let checked = 0;
+  for (const n of c.news) {
+    for (const text of [n.headline, n.outlet, ...n.body]) {
+      checked++;
+      const bad = unrenderable(text);
+      check(bad.length === 0, `unprintable character ${JSON.stringify(bad)} in: ${text}`);
+    }
+  }
+  check(checked > 40, `only ${checked} strings checked for printability`);
+  console.log(`  press: ${checked} strings all printable by the game font`);
 }
 
 // ---- 4. losing ------------------------------------------------------------
@@ -235,7 +382,7 @@ const NAME = 'Matthew';
         check(guard < 10, `seed ${seed} stalled inside ${t.id}`);
         const summary = finishTournament(c);
         reportTournamentResult(c, NAME, summary);
-        reportSeasonWeek(c, simulateSeasonWeek(c));
+        reportSeasonWeek(c, simulateSeasonWeek(c), NAME);
         reportPowerRankings(c, NAME);
         answerPress(c, NAME, buildPress(c, NAME, summary), Math.floor(rng() * 3));
       }

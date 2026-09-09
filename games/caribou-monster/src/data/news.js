@@ -19,8 +19,16 @@ export const ANALYSTS = [
 ];
 
 // ---- headline banks --------------------------------------------------------
-// {p} player, {o} opponent, {t} tournament, {r} rank, {n} a number,
-// {mon} a Pokémon, {streak} current streak.
+// Every slot means exactly one thing, everywhere. A generic {n} was a bug
+// waiting to happen: the same template bank gets filled by several reporters,
+// and the first one to disagree about what {n} meant printed "finishing with
+// 14 Pokémon still standing".
+//
+//   {p} player          {o} opponent        {t} tournament      {r} rank
+//   {mon} a Pokémon     {round} round name  {blurb} rank blurb  {analyst} name
+//   {surv} Pokémon left {turns} turn count  {cp} Circuit Points {wins} career wins
+//   {streak} win streak {record} a head-to-head like "3-1"
+//   {entrants} field size                   {week} week number
 
 export const HEADLINES = {
   debut: [
@@ -83,8 +91,8 @@ export const HEADLINES = {
   ],
   rivalry: [
     '{p} and {o}: the circuit’s best argument',
-    'Head to head: {p} leads {o} {n}',
-    '{o} has now lost {n} straight to {p}',
+    'Head to head: {p} leads {o} {record}',
+    '{p} and {o} are {record} and counting',
   ],
   linkWin: [
     'Sanctioned link match: {p} defeats {o}',
@@ -95,11 +103,11 @@ export const HEADLINES = {
   ],
   preview: [
     'Preview: the {t} draw is out',
-    '{t} field confirmed — {n} entered',
+    '{t} field confirmed — {entrants} entered',
     'What to watch at the {t}',
   ],
   powerRankings: [
-    'Power Rankings: week {n}',
+    'Power Rankings: week {week}',
     'The Top Ten, updated',
   ],
 };
@@ -108,8 +116,8 @@ export const HEADLINES = {
 
 export const BODIES = {
   matchWin: [
-    '{p} beat {o} in the {round} of the {t}, finishing with {n} Pokémon still standing.',
-    'It took {p} {n} turns to put {o} away in the {round}.',
+    '{p} beat {o} in the {round} of the {t}, finishing with {surv} still standing.',
+    'It took {p} {turns} turns to put {o} away in the {round}.',
     '{o} led early. {p} did not care.',
   ],
   matchLoss: [
@@ -117,17 +125,19 @@ export const BODIES = {
     '{p} exits the {t} at the {round} stage.',
   ],
   titleWin: [
-    '{p} is the {t} champion, taking the final and {n} Circuit Points with it.',
+    '{p} is the {t} champion, taking the final and {cp} Circuit Points with it.',
     'The {t} belongs to {p}. It is a result that moves the ranking.',
   ],
   rankUp: [
     'The promotion puts {p} in {r} — {blurb}',
-    '{p} now sits at {n} Circuit Points.',
+    '{p} now sits at {cp} Circuit Points.',
   ],
+  // Printed only after a win — see game/circuit/news.js. "Carried the load"
+  // over a wiped team reads as a joke at the player's expense.
   star: [
     '{mon} carried the load again.',
     'Once more it was {mon} doing the closing.',
-    '{mon} has now finished {n} matches for {p}.',
+    '{mon} has now closed out {wins} matches for {p}.',
   ],
   quoteIntro: [
     '{analyst}, afterwards:',

@@ -276,6 +276,14 @@ check('the run settles into a press conference', press.screen === 'PressScreen' 
 await page.screenshot({ path: path.join(OUT, '08-press.png') });
 await tap('KeyZ', 3, 350);
 
+// Nothing the press filed during that run may be unprintable or hold an
+// unfilled slot — the same guard the offline suite applies, but against the
+// stories this real playthrough actually generated.
+const feed = await page.evaluate(() => window.CARIBOU.state.circuit.news.map(
+  (n) => [n.headline, n.outlet, ...n.body].join(' | ')));
+check('the stories this run filed are all printable',
+  feed.every((t) => !/[{}]/.test(t)), feed.find((t) => /[{}]/.test(t)) || `${feed.length} stories`);
+
 // --- the town notices ---
 // The same NPC, asked the same way, must say different things as the world
 // changes around them. This is the check that the dialogue system is wired to

@@ -123,6 +123,26 @@ const FOLD = {
   '\u00e0': 'a', '\u00e1': 'a', '\u00e2': 'a', '\u00ee': 'i', '\u00f4': 'o', '\u00fc': 'u',
 };
 
+/**
+ * Characters the font cannot draw, in the order they appear.
+ *
+ * Anything with neither a glyph nor a fold is rendered as a blank, so a stray
+ * symbol in a string is invisible at runtime and obvious only to whoever is
+ * holding the console. tools/audit.mjs runs every piece of text in the game
+ * through this, which is how a currency symbol that printed as "?" was caught.
+ */
+export function unrenderable(str) {
+  const out = [];
+  for (const ch of String(str)) {
+    if (ch === '\n' || ch === '\f') continue;
+    const folded = FOLD[ch] || ch;
+    if (GLYPHS[folded] === undefined && !out.includes(ch)) out.push(ch);
+  }
+  return out;
+}
+
+export function canRender(str) { return unrenderable(str).length === 0; }
+
 const ORDER = Object.keys(GLYPHS);
 const INDEX = new Map(ORDER.map((c, i) => [c, i]));
 const COLS = 16;

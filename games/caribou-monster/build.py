@@ -87,20 +87,45 @@ def transform(module_id: str, source: str) -> tuple[str, list[str]]:
 
     body = IMPORT_RE.sub(take_import, source)
 
-    names = EXPORT_NAME_RE.findall(source)
+    # (local binding, exported name). They differ for `export { a as b }`,
+    # and emitting the exported name on both sides produced a getter over an
+    # identifier that does not exist — a bundle that parsed fine and threw at
+    # boot. Keep the pair.
+    pairs: list[tuple[str, str]] = [(n, n) for n in EXPORT_NAME_RE.findall(source)]
     for m in EXPORT_LIST_RE.finditer(source):
         for part in m.group(1).split(","):
             part = part.strip()
-            if part:
-                names.append(part.split(" as ")[-1].strip())
+            if not part:
+                continue
+            if " as " in part:
+                local, exported = (p.strip() for p in part.split(" as ", 1))
+            else:
+                local = exported = part
+            pairs.append((local, exported))
 
     body = EXPORT_LIST_RE.sub("", body)
     body = EXPORT_DECL_RE.sub(r"\1", body)
 
-    unique = list(dict.fromkeys(names))
+    unique: dict[str, str] = {}
+    for local, exported in pairs:
+        unique[exported] = local
+
+    # Every exported binding has to exist in the module, either declared in the
+    # body or pulled in by an import. Without this a typo or a bad re-export
+    # ships a bundle that only fails when the page is opened.
+    scope = body + "\n" + "\n".join(requires)
+    for exported, local in unique.items():
+        if not re.search(rf"\b{re.escape(local)}\b", scope):
+            raise SystemExit(
+                f"[build] {module_id}: exports {exported!r} but nothing named {local!r} "
+                f"is declared or imported in it"
+            )
+
     tail = ""
     if unique:
-        tail = "\n__exports(__x, { " + ", ".join(f"{n}: () => {n}" for n in unique) + " });\n"
+        tail = "\n__exports(__x, { " + ", ".join(
+            f"{exported}: () => {local}" for exported, local in unique.items()
+        ) + " });\n"
 
     # Requires are hoisted to the top, in source order — the same shape ES
     # modules give you, so nothing has to move to be bundled.

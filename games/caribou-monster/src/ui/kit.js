@@ -5,6 +5,7 @@
 // DS game" actually is.
 import { PAL, shade, typeColor } from '../render/palette.js';
 import { drawText, drawTextCentered, drawTextRight, textWidth, CHAR_ADVANCE, GLYPH_H } from '../render/font.js';
+import { formatMoney } from '../game/inventory.js';
 
 export const LINE = 10;
 
@@ -263,9 +264,9 @@ export function genderMark(ctx, gender, x, y) {
   else if (gender === 'F') drawText(ctx, '♀', x, y, { color: '#e05a9a' });
 }
 
-export function money(n) {
-  return `$${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-}
+// Re-exported so every screen keeps importing it from the kit, while the
+// formatting itself lives with the thing being formatted.
+export { formatMoney as money };
 
 // A soft vignette that stops the world looking like it floats on white.
 export function vignette(ctx, w, h, strength = 0.18) {

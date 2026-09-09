@@ -130,7 +130,7 @@ export class Career {
       addItem(this.game.state.inventory, 'maxrevive', 1);
       addItem(this.game.state.inventory, 'fullheal', 2);
     }
-    reportSeasonWeek(c, simulateSeasonWeek(c));
+    reportSeasonWeek(c, simulateSeasonWeek(c), this.playerName);
     reportPowerRankings(c, this.playerName);
     c.lastPress = buildPress(c, this.playerName, summary);
     this.game.save.markDirty();

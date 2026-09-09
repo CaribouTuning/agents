@@ -65,3 +65,12 @@ export function battleUsable(inv) {
   }
   return out;
 }
+
+/**
+ * The one place money is turned into text. The press desk and the UI both
+ * print prize money, and they have to agree — an ad-hoc currency symbol in
+ * one of them rendered as "?" because the font has no glyph for it.
+ */
+export function formatMoney(n) {
+  return `$${String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+}

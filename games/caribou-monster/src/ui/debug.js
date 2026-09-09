@@ -27,7 +27,7 @@ import { reportSeasonWeek, reportPowerRankings } from '../game/circuit/news.js';
 // One off-screen week of pro results, plus the table it changes.
 function simulateWeek(game) {
   const c = game.state.circuit;
-  reportSeasonWeek(c, simulateSeasonWeek(c));
+  reportSeasonWeek(c, simulateSeasonWeek(c), game.state.player.name);
   reportPowerRankings(c, game.state.player.name);
 }
 

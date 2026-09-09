@@ -1550,6 +1550,26 @@ const FOLD = {
   '\u00e0': 'a', '\u00e1': 'a', '\u00e2': 'a', '\u00ee': 'i', '\u00f4': 'o', '\u00fc': 'u',
 };
 
+/**
+ * Characters the font cannot draw, in the order they appear.
+ *
+ * Anything with neither a glyph nor a fold is rendered as a blank, so a stray
+ * symbol in a string is invisible at runtime and obvious only to whoever is
+ * holding the console. tools/audit.mjs runs every piece of text in the game
+ * through this, which is how a currency symbol that printed as "?" was caught.
+ */
+function unrenderable(str) {
+  const out = [];
+  for (const ch of String(str)) {
+    if (ch === '\n' || ch === '\f') continue;
+    const folded = FOLD[ch] || ch;
+    if (GLYPHS[folded] === undefined && !out.includes(ch)) out.push(ch);
+  }
+  return out;
+}
+
+function canRender(str) { return unrenderable(str).length === 0; }
+
 const ORDER = Object.keys(GLYPHS);
 const INDEX = new Map(ORDER.map((c, i) => [c, i]));
 const COLS = 16;
@@ -1651,18 +1671,225 @@ function wrapText(str, maxChars) {
   return lines;
 }
 
-__exports(__x, { GLYPH_W: () => GLYPH_W, GLYPH_H: () => GLYPH_H, CHAR_ADVANCE: () => CHAR_ADVANCE, LINE_HEIGHT: () => LINE_HEIGHT, textWidth: () => textWidth, drawText: () => drawText, drawTextCentered: () => drawTextCentered, drawTextRight: () => drawTextRight, wrapText: () => wrapText });
+__exports(__x, { GLYPH_W: () => GLYPH_W, GLYPH_H: () => GLYPH_H, CHAR_ADVANCE: () => CHAR_ADVANCE, LINE_HEIGHT: () => LINE_HEIGHT, unrenderable: () => unrenderable, canRender: () => canRender, textWidth: () => textWidth, drawText: () => drawText, drawTextCentered: () => drawTextCentered, drawTextRight: () => drawTextRight, wrapText: () => wrapText });
+
+};
+
+__defs['data/items.js'] = function (__x, __req) {
+
+// Item data. The bag, the shop, and battle item use all read this table.
+// `use` describes an effect declaratively so no system hardcodes item names.
+
+const POCKETS = ['Items', 'Medicine', 'Poké Balls', 'TMs', 'Key Items'];
+
+const I = (id, name, pocket, price, use, desc, extra = {}) =>
+  ({ id, name, pocket, price, use, desc, ...extra });
+
+const ITEMS = {};
+const add = (...a) => { const it = I(...a); ITEMS[it.id] = it; return it; };
+
+// ---- Poké Balls -------------------------------------------------------
+add('pokeball', 'Poké Ball', 'Poké Balls', 200,
+  { kind: 'ball', rate: 1 }, 'A device for catching wild Pokémon.');
+add('greatball', 'Great Ball', 'Poké Balls', 600,
+  { kind: 'ball', rate: 1.5 }, 'A good ball with a higher catch rate than a Poké Ball.');
+add('ultraball', 'Ultra Ball', 'Poké Balls', 1200,
+  { kind: 'ball', rate: 2 }, 'An ultra-performance ball with a very high catch rate.');
+add('netball', 'Net Ball', 'Poké Balls', 1000,
+  { kind: 'ball', rate: 1, bonusTypes: ['Bug', 'Water'], bonus: 3 },
+  'Works especially well on Bug and Water Pokémon.');
+
+// ---- Medicine ---------------------------------------------------------
+add('potion', 'Potion', 'Medicine', 300,
+  { kind: 'heal', amount: 20 }, 'Restores 20 HP to one Pokémon.');
+add('superpotion', 'Super Potion', 'Medicine', 700,
+  { kind: 'heal', amount: 50 }, 'Restores 50 HP to one Pokémon.');
+add('hyperpotion', 'Hyper Potion', 'Medicine', 1200,
+  { kind: 'heal', amount: 120 }, 'Restores 120 HP to one Pokémon.');
+add('maxpotion', 'Max Potion', 'Medicine', 2500,
+  { kind: 'heal', amount: 9999 }, 'Fully restores one Pokémon’s HP.');
+add('revive', 'Revive', 'Medicine', 1500,
+  { kind: 'revive', fraction: 0.5 }, 'Revives a fainted Pokémon with half its HP.');
+add('maxrevive', 'Max Revive', 'Medicine', 4000,
+  { kind: 'revive', fraction: 1 }, 'Revives a fainted Pokémon with full HP.');
+add('antidote', 'Antidote', 'Medicine', 100,
+  { kind: 'cure', status: ['PSN'] }, 'Cures a poisoned Pokémon.');
+add('parlyzheal', 'Paralyze Heal', 'Medicine', 200,
+  { kind: 'cure', status: ['PAR'] }, 'Cures a paralysed Pokémon.');
+add('burnheal', 'Burn Heal', 'Medicine', 250,
+  { kind: 'cure', status: ['BRN'] }, 'Cures a burned Pokémon.');
+add('iceheal', 'Ice Heal', 'Medicine', 250,
+  { kind: 'cure', status: ['FRZ'] }, 'Thaws out a frozen Pokémon.');
+add('awakening', 'Awakening', 'Medicine', 250,
+  { kind: 'cure', status: ['SLP'] }, 'Wakes a sleeping Pokémon.');
+add('fullheal', 'Full Heal', 'Medicine', 600,
+  { kind: 'cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] },
+  'Cures any status problem.');
+add('ether', 'Ether', 'Medicine', 1200,
+  { kind: 'pp', amount: 10 }, 'Restores 10 PP to one move.');
+
+// ---- Items ------------------------------------------------------------
+add('repel', 'Repel', 'Items', 350,
+  { kind: 'repel', steps: 100 }, 'Keeps weak wild Pokémon away for 100 steps.');
+add('superrepel', 'Super Repel', 'Items', 500,
+  { kind: 'repel', steps: 200 }, 'Keeps weak wild Pokémon away for 200 steps.');
+add('escaperope', 'Escape Rope', 'Items', 550,
+  { kind: 'escape' }, 'Returns you to the last Pokémon Center you visited.');
+add('oranberry', 'Oran Berry', 'Items', 80,
+  { kind: 'heal', amount: 10 }, 'A berry that restores 10 HP.', { held: { kind: 'pinch-heal', amount: 10 } });
+add('sitrusberry', 'Sitrus Berry', 'Items', 200,
+  { kind: 'heal', amount: 30 }, 'A berry that restores 30 HP.', { held: { kind: 'pinch-heal', amount: 30 } });
+add('nugget', 'Nugget', 'Items', 0,
+  null, 'A nugget of pure gold. It sells for a high price.', { sell: 5000 });
+add('stardust', 'Stardust', 'Items', 0,
+  null, 'Lovely red sand. It sells for a good price.', { sell: 1000 });
+
+// Evolution stones — the evolution system already supports them, so they
+// are here ready for the species that will use them.
+add('firestone', 'Fire Stone', 'Items', 2100, { kind: 'stone', stone: 'fire' }, 'A stone that radiates heat.');
+add('waterstone', 'Water Stone', 'Items', 2100, { kind: 'stone', stone: 'water' }, 'A stone with a clear blue heart.');
+add('thunderstone', 'Thunder Stone', 'Items', 2100, { kind: 'stone', stone: 'thunder' }, 'A stone with a thunderbolt pattern.');
+add('leafstone', 'Leaf Stone', 'Items', 2100, { kind: 'stone', stone: 'leaf' }, 'A stone with a leaf pattern.');
+
+// ---- TMs ---------------------------------------------------------------
+const tm = (n, moveId, name, price) =>
+  add(`tm${String(n).padStart(2, '0')}`, `TM${String(n).padStart(2, '0')} ${name}`, 'TMs', price,
+    { kind: 'tm', move: moveId }, `Teaches ${name} to a compatible Pokémon.`, { tmNumber: n, move: moveId });
+
+tm(1, 'rocktomb', 'Rock Tomb', 3000);
+tm(2, 'aerialace', 'Aerial Ace', 3000);
+tm(3, 'brickbreak', 'Brick Break', 3000);
+tm(4, 'thunderwave', 'Thunder Wave', 2000);
+tm(5, 'shadowball', 'Shadow Ball', 4000);
+tm(6, 'icywind', 'Icy Wind', 3000);
+tm(7, 'bulldoze', 'Bulldoze', 3000);
+tm(8, 'doubleteam', 'Double Team', 2000);
+
+// ---- Key items ---------------------------------------------------------
+add('runningshoes', 'Running Shoes', 'Key Items', 0, { kind: 'key' },
+  'Hold the B button to move at double speed.', { key: true });
+add('townmap', 'Town Map', 'Key Items', 0, { kind: 'map' },
+  'A map of the whole Sinnoh region.', { key: true });
+add('pokedex', 'Pokédex', 'Key Items', 0, { kind: 'dex' },
+  'A digital encyclopedia that records every Pokémon you meet.', { key: true });
+add('bicycle', 'Bicycle', 'Key Items', 0, { kind: 'bike' },
+  'A folding bicycle. Much faster than walking.', { key: true });
+add('oldrod', 'Old Rod', 'Key Items', 0, { kind: 'rod' },
+  'An old fishing rod. Use it at the water’s edge.', { key: true });
+add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
+  'A cold, faintly glowing charm. It hums near old stone.', { key: true });
+add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
+  'Proof of victory over the Oreburgh Gym.', { key: true, badge: 1 });
+
+function getItem(id) { return ITEMS[id]; }
+const ITEM_IDS = Object.keys(ITEMS);
+
+// Shop stock unlocks with badge count, exactly like the DS games.
+function martStock(badges) {
+  const stock = ['pokeball', 'potion', 'antidote', 'parlyzheal', 'escaperope'];
+  if (badges >= 1) stock.push('greatball', 'superpotion', 'repel', 'burnheal', 'iceheal', 'awakening');
+  if (badges >= 3) stock.push('ultraball', 'hyperpotion', 'revive', 'superrepel');
+  if (badges >= 5) stock.push('maxpotion', 'fullheal');
+  return stock;
+}
+
+__exports(__x, { POCKETS: () => POCKETS, ITEMS: () => ITEMS, getItem: () => getItem, ITEM_IDS: () => ITEM_IDS, martStock: () => martStock });
+
+};
+
+__defs['game/inventory.js'] = function (__x, __req) {
+const { getItem, POCKETS } = __req('data/items.js');
+// Per-player inventory. Every player owns their own instance — nothing here
+// is global, which is what keeps two co-op players' bags separate.
+
+
+function createInventory(seed = {}) {
+  const inv = { items: {}, money: seed.money != null ? seed.money : 3000 };
+  for (const [id, qty] of Object.entries(seed.items || {})) inv.items[id] = qty;
+  return inv;
+}
+
+function addItem(inv, id, qty = 1) {
+  if (!getItem(id)) return false;
+  inv.items[id] = (inv.items[id] || 0) + qty;
+  return true;
+}
+
+function removeItem(inv, id, qty = 1) {
+  const have = inv.items[id] || 0;
+  if (have < qty) return false;
+  if (have === qty) delete inv.items[id];
+  else inv.items[id] = have - qty;
+  return true;
+}
+
+function countItem(inv, id) { return inv.items[id] || 0; }
+function hasItem(inv, id) { return (inv.items[id] || 0) > 0; }
+
+function pocketContents(inv, pocket) {
+  return Object.entries(inv.items)
+    .map(([id, qty]) => ({ id, qty, item: getItem(id) }))
+    .filter((e) => e.item && e.item.pocket === pocket)
+    .sort((a, b) => a.item.name.localeCompare(b.item.name));
+}
+
+function nonEmptyPockets(inv) {
+  return POCKETS.filter((p) => pocketContents(inv, p).length > 0);
+}
+
+function spend(inv, amount) {
+  if (inv.money < amount) return false;
+  inv.money -= amount;
+  return true;
+}
+
+function earn(inv, amount) {
+  inv.money = Math.min(999999, inv.money + amount);
+}
+
+function sellPrice(id) {
+  const it = getItem(id);
+  if (!it) return 0;
+  if (it.sell) return it.sell;
+  return Math.floor((it.price || 0) / 2);
+}
+
+// Items that may be used from the bag during a battle.
+function battleUsable(inv) {
+  const out = [];
+  for (const pocket of ['Poké Balls', 'Medicine', 'Items']) {
+    for (const e of pocketContents(inv, pocket)) {
+      const u = e.item.use;
+      if (!u) continue;
+      if (['ball', 'heal', 'revive', 'cure', 'pp'].includes(u.kind)) out.push(e);
+    }
+  }
+  return out;
+}
+
+/**
+ * The one place money is turned into text. The press desk and the UI both
+ * print prize money, and they have to agree — an ad-hoc currency symbol in
+ * one of them rendered as "?" because the font has no glyph for it.
+ */
+function formatMoney(n) {
+  return `$${String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+}
+
+__exports(__x, { createInventory: () => createInventory, addItem: () => addItem, removeItem: () => removeItem, countItem: () => countItem, hasItem: () => hasItem, pocketContents: () => pocketContents, nonEmptyPockets: () => nonEmptyPockets, spend: () => spend, earn: () => earn, sellPrice: () => sellPrice, battleUsable: () => battleUsable, formatMoney: () => formatMoney });
 
 };
 
 __defs['ui/kit.js'] = function (__x, __req) {
 const { PAL, shade, typeColor } = __req('render/palette.js');
 const { drawText, drawTextCentered, drawTextRight, textWidth, CHAR_ADVANCE, GLYPH_H } = __req('render/font.js');
+const { formatMoney } = __req('game/inventory.js');
 // UI kit: the handheld window chrome every screen is built from.
 //
 // One place for frames, panels, cursors, bars and chips means the whole game
 // looks like it came from one machine — which is most of what "feels like a
 // DS game" actually is.
+
 
 
 
@@ -1923,9 +2150,9 @@ function genderMark(ctx, gender, x, y) {
   else if (gender === 'F') drawText(ctx, '♀', x, y, { color: '#e05a9a' });
 }
 
-function money(n) {
-  return `$${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-}
+// Re-exported so every screen keeps importing it from the kit, while the
+// formatting itself lives with the thing being formatted.
+
 
 // A soft vignette that stops the world looking like it floats on white.
 function vignette(ctx, w, h, strength = 0.18) {
@@ -1940,7 +2167,7 @@ function vignette(ctx, w, h, strength = 0.18) {
 
 
 
-__exports(__x, { LINE: () => LINE, rect: () => rect, stroke: () => stroke, window9: () => window9, panel: () => panel, shadeScreen: () => shadeScreen, label: () => label, labelDim: () => labelDim, labelLight: () => labelLight, tickCursor: () => tickCursor, cursor: () => cursor, blink: () => blink, listMenu: () => listMenu, moveCursor: () => moveCursor, hpColor: () => hpColor, hpBar: () => hpBar, expBar: () => expBar, titleBar: () => titleBar, rowHighlight: () => rowHighlight, pill: () => pill, meterBar: () => meterBar, rule: () => rule, typeChip: () => typeChip, statusChip: () => statusChip, genderMark: () => genderMark, money: () => money, vignette: () => vignette, drawText: () => drawText, drawTextCentered: () => drawTextCentered, drawTextRight: () => drawTextRight, textWidth: () => textWidth, CHAR_ADVANCE: () => CHAR_ADVANCE, GLYPH_H: () => GLYPH_H, PAL: () => PAL, shade: () => shade, typeColor: () => typeColor });
+__exports(__x, { LINE: () => LINE, rect: () => rect, stroke: () => stroke, window9: () => window9, panel: () => panel, shadeScreen: () => shadeScreen, label: () => label, labelDim: () => labelDim, labelLight: () => labelLight, tickCursor: () => tickCursor, cursor: () => cursor, blink: () => blink, listMenu: () => listMenu, moveCursor: () => moveCursor, hpColor: () => hpColor, hpBar: () => hpBar, expBar: () => expBar, titleBar: () => titleBar, rowHighlight: () => rowHighlight, pill: () => pill, meterBar: () => meterBar, rule: () => rule, typeChip: () => typeChip, statusChip: () => statusChip, genderMark: () => genderMark, vignette: () => vignette, drawText: () => drawText, drawTextCentered: () => drawTextCentered, drawTextRight: () => drawTextRight, textWidth: () => textWidth, CHAR_ADVANCE: () => CHAR_ADVANCE, GLYPH_H: () => GLYPH_H, money: () => formatMoney, PAL: () => PAL, shade: () => shade, typeColor: () => typeColor });
 
 };
 
@@ -4012,202 +4239,6 @@ __exports(__x, { MUSIC: () => MUSIC, musicFor: () => musicFor, battleMusic: () =
 
 };
 
-__defs['data/items.js'] = function (__x, __req) {
-
-// Item data. The bag, the shop, and battle item use all read this table.
-// `use` describes an effect declaratively so no system hardcodes item names.
-
-const POCKETS = ['Items', 'Medicine', 'Poké Balls', 'TMs', 'Key Items'];
-
-const I = (id, name, pocket, price, use, desc, extra = {}) =>
-  ({ id, name, pocket, price, use, desc, ...extra });
-
-const ITEMS = {};
-const add = (...a) => { const it = I(...a); ITEMS[it.id] = it; return it; };
-
-// ---- Poké Balls -------------------------------------------------------
-add('pokeball', 'Poké Ball', 'Poké Balls', 200,
-  { kind: 'ball', rate: 1 }, 'A device for catching wild Pokémon.');
-add('greatball', 'Great Ball', 'Poké Balls', 600,
-  { kind: 'ball', rate: 1.5 }, 'A good ball with a higher catch rate than a Poké Ball.');
-add('ultraball', 'Ultra Ball', 'Poké Balls', 1200,
-  { kind: 'ball', rate: 2 }, 'An ultra-performance ball with a very high catch rate.');
-add('netball', 'Net Ball', 'Poké Balls', 1000,
-  { kind: 'ball', rate: 1, bonusTypes: ['Bug', 'Water'], bonus: 3 },
-  'Works especially well on Bug and Water Pokémon.');
-
-// ---- Medicine ---------------------------------------------------------
-add('potion', 'Potion', 'Medicine', 300,
-  { kind: 'heal', amount: 20 }, 'Restores 20 HP to one Pokémon.');
-add('superpotion', 'Super Potion', 'Medicine', 700,
-  { kind: 'heal', amount: 50 }, 'Restores 50 HP to one Pokémon.');
-add('hyperpotion', 'Hyper Potion', 'Medicine', 1200,
-  { kind: 'heal', amount: 120 }, 'Restores 120 HP to one Pokémon.');
-add('maxpotion', 'Max Potion', 'Medicine', 2500,
-  { kind: 'heal', amount: 9999 }, 'Fully restores one Pokémon’s HP.');
-add('revive', 'Revive', 'Medicine', 1500,
-  { kind: 'revive', fraction: 0.5 }, 'Revives a fainted Pokémon with half its HP.');
-add('maxrevive', 'Max Revive', 'Medicine', 4000,
-  { kind: 'revive', fraction: 1 }, 'Revives a fainted Pokémon with full HP.');
-add('antidote', 'Antidote', 'Medicine', 100,
-  { kind: 'cure', status: ['PSN'] }, 'Cures a poisoned Pokémon.');
-add('parlyzheal', 'Paralyze Heal', 'Medicine', 200,
-  { kind: 'cure', status: ['PAR'] }, 'Cures a paralysed Pokémon.');
-add('burnheal', 'Burn Heal', 'Medicine', 250,
-  { kind: 'cure', status: ['BRN'] }, 'Cures a burned Pokémon.');
-add('iceheal', 'Ice Heal', 'Medicine', 250,
-  { kind: 'cure', status: ['FRZ'] }, 'Thaws out a frozen Pokémon.');
-add('awakening', 'Awakening', 'Medicine', 250,
-  { kind: 'cure', status: ['SLP'] }, 'Wakes a sleeping Pokémon.');
-add('fullheal', 'Full Heal', 'Medicine', 600,
-  { kind: 'cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] },
-  'Cures any status problem.');
-add('ether', 'Ether', 'Medicine', 1200,
-  { kind: 'pp', amount: 10 }, 'Restores 10 PP to one move.');
-
-// ---- Items ------------------------------------------------------------
-add('repel', 'Repel', 'Items', 350,
-  { kind: 'repel', steps: 100 }, 'Keeps weak wild Pokémon away for 100 steps.');
-add('superrepel', 'Super Repel', 'Items', 500,
-  { kind: 'repel', steps: 200 }, 'Keeps weak wild Pokémon away for 200 steps.');
-add('escaperope', 'Escape Rope', 'Items', 550,
-  { kind: 'escape' }, 'Returns you to the last Pokémon Center you visited.');
-add('oranberry', 'Oran Berry', 'Items', 80,
-  { kind: 'heal', amount: 10 }, 'A berry that restores 10 HP.', { held: { kind: 'pinch-heal', amount: 10 } });
-add('sitrusberry', 'Sitrus Berry', 'Items', 200,
-  { kind: 'heal', amount: 30 }, 'A berry that restores 30 HP.', { held: { kind: 'pinch-heal', amount: 30 } });
-add('nugget', 'Nugget', 'Items', 0,
-  null, 'A nugget of pure gold. It sells for a high price.', { sell: 5000 });
-add('stardust', 'Stardust', 'Items', 0,
-  null, 'Lovely red sand. It sells for a good price.', { sell: 1000 });
-
-// Evolution stones — the evolution system already supports them, so they
-// are here ready for the species that will use them.
-add('firestone', 'Fire Stone', 'Items', 2100, { kind: 'stone', stone: 'fire' }, 'A stone that radiates heat.');
-add('waterstone', 'Water Stone', 'Items', 2100, { kind: 'stone', stone: 'water' }, 'A stone with a clear blue heart.');
-add('thunderstone', 'Thunder Stone', 'Items', 2100, { kind: 'stone', stone: 'thunder' }, 'A stone with a thunderbolt pattern.');
-add('leafstone', 'Leaf Stone', 'Items', 2100, { kind: 'stone', stone: 'leaf' }, 'A stone with a leaf pattern.');
-
-// ---- TMs ---------------------------------------------------------------
-const tm = (n, moveId, name, price) =>
-  add(`tm${String(n).padStart(2, '0')}`, `TM${String(n).padStart(2, '0')} ${name}`, 'TMs', price,
-    { kind: 'tm', move: moveId }, `Teaches ${name} to a compatible Pokémon.`, { tmNumber: n, move: moveId });
-
-tm(1, 'rocktomb', 'Rock Tomb', 3000);
-tm(2, 'aerialace', 'Aerial Ace', 3000);
-tm(3, 'brickbreak', 'Brick Break', 3000);
-tm(4, 'thunderwave', 'Thunder Wave', 2000);
-tm(5, 'shadowball', 'Shadow Ball', 4000);
-tm(6, 'icywind', 'Icy Wind', 3000);
-tm(7, 'bulldoze', 'Bulldoze', 3000);
-tm(8, 'doubleteam', 'Double Team', 2000);
-
-// ---- Key items ---------------------------------------------------------
-add('runningshoes', 'Running Shoes', 'Key Items', 0, { kind: 'key' },
-  'Hold the B button to move at double speed.', { key: true });
-add('townmap', 'Town Map', 'Key Items', 0, { kind: 'map' },
-  'A map of the whole Sinnoh region.', { key: true });
-add('pokedex', 'Pokédex', 'Key Items', 0, { kind: 'dex' },
-  'A digital encyclopedia that records every Pokémon you meet.', { key: true });
-add('bicycle', 'Bicycle', 'Key Items', 0, { kind: 'bike' },
-  'A folding bicycle. Much faster than walking.', { key: true });
-add('oldrod', 'Old Rod', 'Key Items', 0, { kind: 'rod' },
-  'An old fishing rod. Use it at the water’s edge.', { key: true });
-add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
-  'A cold, faintly glowing charm. It hums near old stone.', { key: true });
-add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
-  'Proof of victory over the Oreburgh Gym.', { key: true, badge: 1 });
-
-function getItem(id) { return ITEMS[id]; }
-const ITEM_IDS = Object.keys(ITEMS);
-
-// Shop stock unlocks with badge count, exactly like the DS games.
-function martStock(badges) {
-  const stock = ['pokeball', 'potion', 'antidote', 'parlyzheal', 'escaperope'];
-  if (badges >= 1) stock.push('greatball', 'superpotion', 'repel', 'burnheal', 'iceheal', 'awakening');
-  if (badges >= 3) stock.push('ultraball', 'hyperpotion', 'revive', 'superrepel');
-  if (badges >= 5) stock.push('maxpotion', 'fullheal');
-  return stock;
-}
-
-__exports(__x, { POCKETS: () => POCKETS, ITEMS: () => ITEMS, getItem: () => getItem, ITEM_IDS: () => ITEM_IDS, martStock: () => martStock });
-
-};
-
-__defs['game/inventory.js'] = function (__x, __req) {
-const { getItem, POCKETS } = __req('data/items.js');
-// Per-player inventory. Every player owns their own instance — nothing here
-// is global, which is what keeps two co-op players' bags separate.
-
-
-function createInventory(seed = {}) {
-  const inv = { items: {}, money: seed.money != null ? seed.money : 3000 };
-  for (const [id, qty] of Object.entries(seed.items || {})) inv.items[id] = qty;
-  return inv;
-}
-
-function addItem(inv, id, qty = 1) {
-  if (!getItem(id)) return false;
-  inv.items[id] = (inv.items[id] || 0) + qty;
-  return true;
-}
-
-function removeItem(inv, id, qty = 1) {
-  const have = inv.items[id] || 0;
-  if (have < qty) return false;
-  if (have === qty) delete inv.items[id];
-  else inv.items[id] = have - qty;
-  return true;
-}
-
-function countItem(inv, id) { return inv.items[id] || 0; }
-function hasItem(inv, id) { return (inv.items[id] || 0) > 0; }
-
-function pocketContents(inv, pocket) {
-  return Object.entries(inv.items)
-    .map(([id, qty]) => ({ id, qty, item: getItem(id) }))
-    .filter((e) => e.item && e.item.pocket === pocket)
-    .sort((a, b) => a.item.name.localeCompare(b.item.name));
-}
-
-function nonEmptyPockets(inv) {
-  return POCKETS.filter((p) => pocketContents(inv, p).length > 0);
-}
-
-function spend(inv, amount) {
-  if (inv.money < amount) return false;
-  inv.money -= amount;
-  return true;
-}
-
-function earn(inv, amount) {
-  inv.money = Math.min(999999, inv.money + amount);
-}
-
-function sellPrice(id) {
-  const it = getItem(id);
-  if (!it) return 0;
-  if (it.sell) return it.sell;
-  return Math.floor((it.price || 0) / 2);
-}
-
-// Items that may be used from the bag during a battle.
-function battleUsable(inv) {
-  const out = [];
-  for (const pocket of ['Poké Balls', 'Medicine', 'Items']) {
-    for (const e of pocketContents(inv, pocket)) {
-      const u = e.item.use;
-      if (!u) continue;
-      if (['ball', 'heal', 'revive', 'cure', 'pp'].includes(u.kind)) out.push(e);
-    }
-  }
-  return out;
-}
-
-__exports(__x, { createInventory: () => createInventory, addItem: () => addItem, removeItem: () => removeItem, countItem: () => countItem, hasItem: () => hasItem, pocketContents: () => pocketContents, nonEmptyPockets: () => nonEmptyPockets, spend: () => spend, earn: () => earn, sellPrice: () => sellPrice, battleUsable: () => battleUsable });
-
-};
-
 __defs['game/pokedex.js'] = function (__x, __req) {
 const { SPECIES_LIST, getSpecies } = __req('data/species.js');
 // Pokédex records. Two flat sets keep it cheap to update and to serialise.
@@ -5383,7 +5414,7 @@ function resolveRound(c, won, detail = {}) {
   c.active.log.push(entry);
 
   // Everyone else in the draw plays too.
-  const sideResults = simulateOtherMatches(c, t, rng);
+  const sideResults = simulateOtherMatches(c, rng);
   entry.sideResults = sideResults;
 
   if (!won) {
@@ -5396,24 +5427,45 @@ function resolveRound(c, won, detail = {}) {
   return entry;
 }
 
-/** Pros play their half of the bracket; ratings move and upsets happen. */
-function simulateOtherMatches(c, t, rng) {
+/**
+ * Plays the rest of the round and shrinks the draw.
+ *
+ * This is single elimination, so the people who lose here are gone: `others`
+ * is rewritten to the survivors each round. Without that the same trainer can
+ * be knocked out twice, which shows up as phantom results in the standings and
+ * as upset stories about people who are already on the plane home.
+ *
+ * Trainers still on the player's ladder are held out rather than simulated.
+ * They are on the player's side of the draw and advance by beating opponents
+ * this model does not track — if they could lose here, the bracket would
+ * contradict the path the player was told they are walking.
+ */
+function simulateOtherMatches(c, rng) {
+  const run = c.active;
   const out = [];
-  const pool = c.active.others.filter((id) => id !== (currentOpponent(c) || {}).id);
-  for (let i = 0; i + 1 < pool.length; i += 2) {
+  const reserved = new Set(run.ladder.slice(run.round));
+  const pool = run.others.filter((id) => !reserved.has(id));
+  const survivors = [];
+
+  for (let i = 0; i < pool.length; i += 2) {
     const a = pool[i], b = pool[i + 1];
+    if (b === undefined) { survivors.push(a); continue; }   // odd one out gets a bye
     const ra = c.pros[a].rating, rb = c.pros[b].rating;
     const aWins = rng() < expectedScore(ra, rb);
     c.pros[a].rating = applyElo(ra, rb, aWins ? 1 : 0);
     c.pros[b].rating = applyElo(rb, ra, aWins ? 0 : 1);
     if (aWins) { c.pros[a].wins++; c.pros[b].losses++; } else { c.pros[b].wins++; c.pros[a].losses++; }
+    survivors.push(aWins ? a : b);
     out.push({
       winner: aWins ? a : b,
       loser: aWins ? b : a,
       upset: Math.abs(ra - rb) > 60 && ((aWins && ra < rb) || (!aWins && rb < ra)),
     });
   }
-  void t;
+
+  // The trainer the player just played is out too. (If the player was the one
+  // who lost, the run ends and this list is never read again.)
+  run.others = [...run.ladder.slice(run.round + 1), ...survivors];
   return out;
 }
 
@@ -8725,7 +8777,7 @@ __exports(__x, { SCRIPTS: () => SCRIPTS, scriptFor: () => scriptFor });
 };
 
 __defs['game/overworld/gossip.js'] = function (__x, __req) {
-const { RANKS, rankIndex, getPro, RIVAL_PRO, getTournament } = __req('data/circuit.js');
+const { RANKS, getPro, RIVAL_PRO, getTournament } = __req('data/circuit.js');
 const { standings, currentRank, headToHead } = __req('game/circuit/circuit.js');
 const { displayName } = __req('game/monster.js');
 const { getSpecies } = __req('data/species.js');
@@ -8818,6 +8870,24 @@ function worldSnapshot(state) {
 
 const RANK_ORDER = RANKS.map((r) => r.id);
 
+/**
+ * Every clause `matches` understands. Exported so tools/audit.mjs checks
+ * against the resolver itself rather than against a copy of this list that
+ * somebody has to remember to update.
+ */
+const CLAUSES = Object.freeze([
+  'all', 'any', 'not',
+  'flag', 'notFlag',
+  'badges', 'maxBadges', 'caught', 'party', 'leadLevel', 'starter',
+  'joined', 'rank', 'titles', 'streak', 'hype', 'respect',
+  'champion', 'beatRival', 'inEvent', 'topTen',
+]);
+const CLAUSE_SET = new Set(CLAUSES);
+function isKnownClause(k) { return CLAUSE_SET.has(k); }
+
+/** The rank ids a `when: { rank: ... }` clause may name. */
+const RANK_IDS = Object.freeze(RANK_ORDER.slice());
+
 function matches(when, s) {
   if (!when) return true;
   if (Array.isArray(when)) return when.every((w) => matches(w, s));
@@ -8839,8 +8909,14 @@ function matches(when, s) {
       case 'starter': if (s.starter !== v) return false; break;
 
       case 'joined': if (s.joined !== v) return false; break;
-      case 'rank':
-        if (RANK_ORDER.indexOf(s.rankId) < rankIndex(v)) return false; break;
+      case 'rank': {
+        // Resolved strictly rather than through rankIndex(), which clamps an
+        // unknown id to 0 — that made a typo'd rank a condition that always
+        // passed, firing an end-game line on a brand-new save.
+        const want = RANK_ORDER.indexOf(v);
+        if (want < 0 || RANK_ORDER.indexOf(s.rankId) < want) return false;
+        break;
+      }
       case 'titles': if (s.titles < v) return false; break;
       case 'streak': if (s.streak < v) return false; break;
       case 'hype': if (s.hype < v) return false; break;
@@ -8935,7 +9011,7 @@ function resolveDialogue(dialogue, state, turn = 0) {
   return null;
 }
 
-__exports(__x, { worldSnapshot: () => worldSnapshot, matches: () => matches, isKnownSlot: () => isKnownSlot, fill: () => fill, fillText: () => fillText, resolveDialogue: () => resolveDialogue });
+__exports(__x, { worldSnapshot: () => worldSnapshot, CLAUSES: () => CLAUSES, isKnownClause: () => isKnownClause, RANK_IDS: () => RANK_IDS, matches: () => matches, isKnownSlot: () => isKnownSlot, fill: () => fill, fillText: () => fillText, resolveDialogue: () => resolveDialogue });
 
 };
 
@@ -14903,8 +14979,16 @@ const ANALYSTS = [
 ];
 
 // ---- headline banks --------------------------------------------------------
-// {p} player, {o} opponent, {t} tournament, {r} rank, {n} a number,
-// {mon} a Pokémon, {streak} current streak.
+// Every slot means exactly one thing, everywhere. A generic {n} was a bug
+// waiting to happen: the same template bank gets filled by several reporters,
+// and the first one to disagree about what {n} meant printed "finishing with
+// 14 Pokémon still standing".
+//
+//   {p} player          {o} opponent        {t} tournament      {r} rank
+//   {mon} a Pokémon     {round} round name  {blurb} rank blurb  {analyst} name
+//   {surv} Pokémon left {turns} turn count  {cp} Circuit Points {wins} career wins
+//   {streak} win streak {record} a head-to-head like "3-1"
+//   {entrants} field size                   {week} week number
 
 const HEADLINES = {
   debut: [
@@ -14967,8 +15051,8 @@ const HEADLINES = {
   ],
   rivalry: [
     '{p} and {o}: the circuit’s best argument',
-    'Head to head: {p} leads {o} {n}',
-    '{o} has now lost {n} straight to {p}',
+    'Head to head: {p} leads {o} {record}',
+    '{p} and {o} are {record} and counting',
   ],
   linkWin: [
     'Sanctioned link match: {p} defeats {o}',
@@ -14979,11 +15063,11 @@ const HEADLINES = {
   ],
   preview: [
     'Preview: the {t} draw is out',
-    '{t} field confirmed — {n} entered',
+    '{t} field confirmed — {entrants} entered',
     'What to watch at the {t}',
   ],
   powerRankings: [
-    'Power Rankings: week {n}',
+    'Power Rankings: week {week}',
     'The Top Ten, updated',
   ],
 };
@@ -14992,8 +15076,8 @@ const HEADLINES = {
 
 const BODIES = {
   matchWin: [
-    '{p} beat {o} in the {round} of the {t}, finishing with {n} Pokémon still standing.',
-    'It took {p} {n} turns to put {o} away in the {round}.',
+    '{p} beat {o} in the {round} of the {t}, finishing with {surv} still standing.',
+    'It took {p} {turns} turns to put {o} away in the {round}.',
     '{o} led early. {p} did not care.',
   ],
   matchLoss: [
@@ -15001,17 +15085,19 @@ const BODIES = {
     '{p} exits the {t} at the {round} stage.',
   ],
   titleWin: [
-    '{p} is the {t} champion, taking the final and {n} Circuit Points with it.',
+    '{p} is the {t} champion, taking the final and {cp} Circuit Points with it.',
     'The {t} belongs to {p}. It is a result that moves the ranking.',
   ],
   rankUp: [
     'The promotion puts {p} in {r} — {blurb}',
-    '{p} now sits at {n} Circuit Points.',
+    '{p} now sits at {cp} Circuit Points.',
   ],
+  // Printed only after a win — see game/circuit/news.js. "Carried the load"
+  // over a wiped team reads as a joke at the player's expense.
   star: [
     '{mon} carried the load again.',
     'Once more it was {mon} doing the closing.',
-    '{mon} has now finished {n} matches for {p}.',
+    '{mon} has now closed out {wins} matches for {p}.',
   ],
   quoteIntro: [
     '{analyst}, afterwards:',
@@ -15085,6 +15171,7 @@ __defs['game/circuit/news.js'] = function (__x, __req) {
 const { OUTLETS, ANALYSTS, HEADLINES, BODIES, ANALYST_QUOTES, PRESS_QUESTIONS, pickFrom } = __req('data/news.js');
 const { getPro, getTournament, RIVAL_PRO } = __req('data/circuit.js');
 const { makeRng } = __req('core/rng.js');
+const { formatMoney } = __req('game/inventory.js');
 const { standings, headToHead, currentRank } = __req('game/circuit/circuit.js');
 // The circuit press desk.
 //
@@ -15092,6 +15179,7 @@ const { standings, headToHead, currentRank } = __req('game/circuit/circuit.js');
 // item is generated from real career state — a headline never mentions a
 // score, an opponent or a rank the engine did not produce. The templates live
 // in data/news.js; the numbers come from here.
+
 
 
 
@@ -15161,7 +15249,7 @@ function reportDebut(c, playerName, tournament) {
 function reportDraw(c, playerName, tournament, run) {
   const rng = streamFor(c, hashOf(`draw${tournament.id}${c.week}`));
   const names = run.ladder.map((id) => (getPro(id) || {}).name).filter(Boolean);
-  const vars = { p: playerName, t: tournament.short, n: tournament.entrants };
+  const vars = { p: playerName, t: tournament.short, entrants: tournament.entrants };
   const body = [
     `${tournament.entrants} trainers, ${run.rounds} rounds, single elimination at the ${tournament.venue}.`,
   ];
@@ -15191,16 +15279,22 @@ function reportMatch(c, playerName, tournament, entry) {
 
   const vars = {
     p: playerName, o: entry.opponentName, t: tournament.short,
-    round: entry.roundLabel.toLowerCase(), n: entry.won ? survivors : turns,
+    round: entry.roundLabel.toLowerCase(),
+    // Survivors and turns are different facts and get different slots. They
+    // used to share {n}, which is how a match report once claimed the player
+    // finished with fourteen Pokémon still standing.
+    surv: survivors === 1 ? '1 Pokémon' : `${survivors} Pokémon`,
+    turns,
   };
-  const body = [fill(pickFrom(entry.won ? BODIES.matchWin : BODIES.matchLoss, rng),
-    { ...vars, n: turns || survivors })];
+  const body = [fill(pickFrom(entry.won ? BODIES.matchWin : BODIES.matchLoss, rng), vars)];
 
   const delta = Number(entry.ratingDelta) || 0;
   body.push(`Rating: ${c.rating} (${delta >= 0 ? '+' : ''}${delta}).`);
 
-  if (entry.star) {
-    body.push(fill(pickFrom(BODIES.star, rng), { mon: entry.star, p: playerName, n: c.wins }));
+  // Only a win gets a star paragraph. On a loss the whole team fainted, and
+  // "carried the load again" would be reporting the opposite of what happened.
+  if (entry.star && entry.won) {
+    body.push(fill(pickFrom(BODIES.star, rng), { mon: entry.star, p: playerName, wins: c.wins }));
   }
   body.push(...quoteBlock(rng, dominant ? 'dominant' : entry.won ? 'rising' : 'struggling'));
 
@@ -15251,7 +15345,7 @@ function reportRivalry(c, playerName) {
   const trailer = h.w >= h.l ? rival.name : playerName;
   pushNews(c, makeItem(c, rng, 'rivalry',
     fill(pickFrom(HEADLINES.rivalry, rng),
-      { p: leader, o: trailer, n: `${Math.max(h.w, h.l)}-${Math.min(h.w, h.l)}` }),
+      { p: leader, o: trailer, record: `${Math.max(h.w, h.l)}-${Math.min(h.w, h.l)}` }),
     [
       `${playerName} and ${rival.name} have now met ${h.w + h.l} times.`,
       h.w === h.l
@@ -15265,7 +15359,7 @@ function reportRivalry(c, playerName) {
 function reportTournamentResult(c, playerName, summary) {
   const t = summary.tournament;
   const rng = streamFor(c, hashOf(`fin${t.id}${summary.won}${c.week}`));
-  const vars = { p: playerName, t: t.short, n: summary.points, r: summary.newRank.name };
+  const vars = { p: playerName, t: t.short, cp: summary.points, r: summary.newRank.name };
 
   if (summary.won) {
     const bank = summary.firstTitle ? HEADLINES.titleWinFirst : HEADLINES.titleWin;
@@ -15273,7 +15367,7 @@ function reportTournamentResult(c, playerName, summary) {
       fill(pickFrom(bank, rng), { ...vars, t: t.short.toUpperCase() }),
       [
         fill(pickFrom(BODIES.titleWin, rng), vars),
-        `Prize money: ₽${summary.prize.toLocaleString('en-US')}. Circuit Points: +${summary.points}.`,
+        `Prize money: ${formatMoney(summary.prize)}. Circuit Points: +${summary.points}.`,
         `${playerName} is now ranked #${playerPlaceSafe(c, playerName)} in the world at ${c.rating}.`,
         ...quoteBlock(rng, 'dominant'),
       ], { big: true }));
@@ -15284,7 +15378,7 @@ function reportTournamentResult(c, playerName, summary) {
     pushNews(c, makeItem(c, r2, 'rankUp',
       fill(pickFrom(HEADLINES.rankUp, r2), vars),
       [
-        fill(pickFrom(BODIES.rankUp, r2), { ...vars, blurb: summary.newRank.blurb, n: c.cp }),
+        fill(pickFrom(BODIES.rankUp, r2), { ...vars, blurb: summary.newRank.blurb, cp: c.cp }),
         `Career record: ${c.wins}-${c.losses}. Titles: ${c.titles.length}.`,
       ], { big: true }));
   }
@@ -15324,20 +15418,22 @@ function reportPowerRankings(c, playerName) {
   const me = standings(c, playerName).find((r) => r.isPlayer);
   if (me && me.place > 5) body.push(`...${me.place}. ${playerName} (you) — ${me.rating}`);
   return pushNews(c, makeItem(c, rng, 'powerRankings',
-    fill(pickFrom(HEADLINES.powerRankings, rng), { n: c.week }), body));
+    fill(pickFrom(HEADLINES.powerRankings, rng), { week: c.week }), body));
 }
 
 /** Off-screen pro results between events. */
-function reportSeasonWeek(c, results) {
+function reportSeasonWeek(c, results, playerName = 'you') {
   if (!results || !results.length) return null;
   const rng = streamFor(c, hashOf(`week${c.week}`));
   const upset = results.find((r) => r.upset) || results[0];
   const w = getPro(upset.winner), l = getPro(upset.loser);
   if (!w || !l) return null;
+  // {p} is the player everywhere in this file. "…and mentions {p}" is a story
+  // about the winner naming the player, not about whoever they just beat.
   return pushNews(c, makeItem(c, rng, upset.upset ? 'upset' : 'rivalWin',
     upset.upset
       ? fill(pickFrom(HEADLINES.upset, rng), { o: l.name, t: 'exhibition circuit' })
-      : fill(pickFrom(HEADLINES.rivalWin, rng), { o: w.name, p: l.name }),
+      : fill(pickFrom(HEADLINES.rivalWin, rng), { o: w.name, p: playerName }),
     [
       `Week ${c.week} exhibition results: ${w.name} def. ${l.name}.`,
       results.slice(0, 3).map((r) => `${(getPro(r.winner) || {}).name} def. ${(getPro(r.loser) || {}).name}`).join(' · '),
@@ -15422,7 +15518,7 @@ const { reportSeasonWeek, reportPowerRankings } = __req('game/circuit/news.js');
 // One off-screen week of pro results, plus the table it changes.
 function simulateWeek(game) {
   const c = game.state.circuit;
-  reportSeasonWeek(c, simulateSeasonWeek(c));
+  reportSeasonWeek(c, simulateSeasonWeek(c), game.state.player.name);
   reportPowerRankings(c, game.state.player.name);
 }
 
@@ -15660,6 +15756,23 @@ function wrap(str, maxChars) {
   }
   if (line.length) out.push(line);
   return out;
+}
+
+/**
+ * A head-to-head record in words. A level series is level — it is not a lead
+ * for either side, which is what a bare "You lead 1-1" used to claim.
+ */
+function headToHeadText(h) {
+  const played = h.w + h.l;
+  if (!played) return 'You have never played them.';
+  if (h.w === h.l) return `Level at ${h.w}-${h.l}`;
+  return h.w > h.l ? `You lead ${h.w}-${h.l}` : `They lead ${h.l}-${h.w}`;
+}
+
+function headToHeadColor(h) {
+  if (!(h.w + h.l)) return PAL.uiTextDim;
+  if (h.w === h.l) return PAL.uiText;
+  return h.w > h.l ? PAL.hpGreen : PAL.uiDanger;
 }
 
 // A row of stars for titles held, capped so a long career still fits.
@@ -16066,7 +16179,7 @@ class CircuitScreen extends Screen {
 
     for (let i = 0; i < rows && i + this.scroll < items.length; i++) {
       const idx = i + this.scroll;
-      const { t } = items[idx];
+      const t = items[idx].t;
       const y = p.y + 4 + i * rowH;
       const held = this.c.titles.includes(t.id);
       const locked = rankIndex(this.career.rank().id) < t.requires;
@@ -16165,12 +16278,7 @@ class CircuitScreen extends Screen {
       labelDim(ctx, clip(`${pro.region} · ${pro.style} · rating ${r.rating}`, chars), p.x + 7, ty);
       ty += LINE;
       const h = headToHead(this.c, pro.id);
-      const played = h.w + h.l;
-      drawText(ctx, played
-        ? `You lead ${h.w}-${h.l}`.replace('You lead', h.w >= h.l ? 'You lead' : 'They lead')
-          .replace(`${h.w}-${h.l}`, h.w >= h.l ? `${h.w}-${h.l}` : `${h.l}-${h.w}`)
-        : 'You have never played them.',
-      p.x + 7, ty, { color: played ? (h.w >= h.l ? PAL.hpGreen : PAL.uiDanger) : PAL.uiTextDim });
+      drawText(ctx, headToHeadText(h), p.x + 7, ty, { color: headToHeadColor(h) });
     } else {
       const c = this.c;
       drawChar(ctx, `crc:${this.game.state.player.look}`, lookFor(this.game.state.player.look),
@@ -16451,11 +16559,8 @@ class TournamentScreen extends Screen {
     drawText(ctx, clip(pro.name, twChars), tx, y + 5, { color: PAL.uiText });
     labelDim(ctx, clip(`"${pro.tag}" · ${pro.region} · ${pro.style}`, twChars), tx, y + 15);
     const h = headToHead(c, pro.id);
-    const record = h.w + h.l
-      ? `Head to head ${h.w}-${h.l}`
-      : 'First meeting';
-    drawText(ctx, clip(record, twChars), tx, y + 25,
-      { color: h.w + h.l === 0 ? PAL.uiTextDim : h.w >= h.l ? PAL.hpGreen : PAL.uiDanger });
+    drawText(ctx, clip(h.w + h.l ? headToHeadText(h) : 'First meeting', twChars), tx, y + 25,
+      { color: headToHeadColor(h) });
     if (cardH >= 44) {
       labelDim(ctx, clip(`You: ${c.rating}   Them: ${c.pros[pro.id].rating}`, twChars), tx, y + 35);
     }
@@ -17022,7 +17127,7 @@ class Career {
       addItem(this.game.state.inventory, 'maxrevive', 1);
       addItem(this.game.state.inventory, 'fullheal', 2);
     }
-    reportSeasonWeek(c, simulateSeasonWeek(c));
+    reportSeasonWeek(c, simulateSeasonWeek(c), this.playerName);
     reportPowerRankings(c, this.playerName);
     c.lastPress = buildPress(c, this.playerName, summary);
     this.game.save.markDirty();

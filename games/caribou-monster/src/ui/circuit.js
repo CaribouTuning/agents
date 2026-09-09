@@ -73,6 +73,23 @@ function wrap(str, maxChars) {
   return out;
 }
 
+/**
+ * A head-to-head record in words. A level series is level — it is not a lead
+ * for either side, which is what a bare "You lead 1-1" used to claim.
+ */
+function headToHeadText(h) {
+  const played = h.w + h.l;
+  if (!played) return 'You have never played them.';
+  if (h.w === h.l) return `Level at ${h.w}-${h.l}`;
+  return h.w > h.l ? `You lead ${h.w}-${h.l}` : `They lead ${h.l}-${h.w}`;
+}
+
+function headToHeadColor(h) {
+  if (!(h.w + h.l)) return PAL.uiTextDim;
+  if (h.w === h.l) return PAL.uiText;
+  return h.w > h.l ? PAL.hpGreen : PAL.uiDanger;
+}
+
 // A row of stars for titles held, capped so a long career still fits.
 function stars(ctx, n, x, y, color) {
   const shown = Math.min(6, n);
@@ -477,7 +494,7 @@ export class CircuitScreen extends Screen {
 
     for (let i = 0; i < rows && i + this.scroll < items.length; i++) {
       const idx = i + this.scroll;
-      const { t } = items[idx];
+      const t = items[idx].t;
       const y = p.y + 4 + i * rowH;
       const held = this.c.titles.includes(t.id);
       const locked = rankIndex(this.career.rank().id) < t.requires;
@@ -576,12 +593,7 @@ export class CircuitScreen extends Screen {
       labelDim(ctx, clip(`${pro.region} · ${pro.style} · rating ${r.rating}`, chars), p.x + 7, ty);
       ty += LINE;
       const h = headToHead(this.c, pro.id);
-      const played = h.w + h.l;
-      drawText(ctx, played
-        ? `You lead ${h.w}-${h.l}`.replace('You lead', h.w >= h.l ? 'You lead' : 'They lead')
-          .replace(`${h.w}-${h.l}`, h.w >= h.l ? `${h.w}-${h.l}` : `${h.l}-${h.w}`)
-        : 'You have never played them.',
-      p.x + 7, ty, { color: played ? (h.w >= h.l ? PAL.hpGreen : PAL.uiDanger) : PAL.uiTextDim });
+      drawText(ctx, headToHeadText(h), p.x + 7, ty, { color: headToHeadColor(h) });
     } else {
       const c = this.c;
       drawChar(ctx, `crc:${this.game.state.player.look}`, lookFor(this.game.state.player.look),
@@ -862,11 +874,8 @@ export class TournamentScreen extends Screen {
     drawText(ctx, clip(pro.name, twChars), tx, y + 5, { color: PAL.uiText });
     labelDim(ctx, clip(`"${pro.tag}" · ${pro.region} · ${pro.style}`, twChars), tx, y + 15);
     const h = headToHead(c, pro.id);
-    const record = h.w + h.l
-      ? `Head to head ${h.w}-${h.l}`
-      : 'First meeting';
-    drawText(ctx, clip(record, twChars), tx, y + 25,
-      { color: h.w + h.l === 0 ? PAL.uiTextDim : h.w >= h.l ? PAL.hpGreen : PAL.uiDanger });
+    drawText(ctx, clip(h.w + h.l ? headToHeadText(h) : 'First meeting', twChars), tx, y + 25,
+      { color: headToHeadColor(h) });
     if (cardH >= 44) {
       labelDim(ctx, clip(`You: ${c.rating}   Them: ${c.pros[pro.id].rating}`, twChars), tx, y + 35);
     }

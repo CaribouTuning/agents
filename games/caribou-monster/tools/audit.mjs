@@ -10,13 +10,17 @@
 // time. Run it before shipping.
 import { MAPS } from '../src/data/maps/index.js';
 import { tileDef } from '../src/render/tiles.js';
+import { unrenderable } from '../src/render/font.js';
 import { SPECIES } from '../src/data/species.js';
 import { MOVES } from '../src/data/moves.js';
 import { ITEMS } from '../src/data/items.js';
 import { TRAINERS } from '../src/data/trainers.js';
 import { PROS, TOURNAMENTS, RANKS, PRO_LIST, roundsFor, pointsForFinish } from '../src/data/circuit.js';
 import { HEADLINES, BODIES, PRESS_QUESTIONS, OUTLETS, ANALYSTS } from '../src/data/news.js';
-import { matches, isKnownSlot, worldSnapshot } from '../src/game/overworld/gossip.js';
+import {
+  isKnownSlot, isKnownClause, worldSnapshot, RANK_IDS,
+} from '../src/game/overworld/gossip.js';
+import { FLAGS } from '../src/game/storyflags.js';
 import { createGameState } from '../src/game/state.js';
 
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -277,34 +281,52 @@ function checkLine(tag, line) {
   if (line.length > 99) warn(`${tag} has a ${line.length}-character line; it will split across two pages in portrait`);
 }
 
+// Flags the story actually sets: the fixed table, a `beat_<trainer>` per
+// trainer, and a `badge<n>` per badge. A `when: { flag: ... }` naming anything
+// else is a branch that can never fire.
+const KNOWN_FLAGS = new Set([
+  ...Object.values(FLAGS),
+  ...Object.keys(TRAINERS).map((id) => `beat_${id}`),
+  ...Array.from({ length: 8 }, (_, i) => `badge${i + 1}`),
+]);
+const SPECIES_NAMES = new Set(Object.values(SPECIES).map((sp) => sp.name));
+
 function checkCondition(tag, when) {
   if (!when) return;
-  // `matches` refuses any clause it does not know, so a typo'd condition is a
-  // branch that can never fire. Prove each clause is one it accepts.
   const clauses = Array.isArray(when) ? when : [when];
   for (const c of clauses) {
     for (const [k, v] of Object.entries(c)) {
-      if (k === 'all' || k === 'any') { for (const sub of v) checkCondition(tag, sub); continue; }
+      if (k === 'all' || k === 'any') {
+        if (!Array.isArray(v) || !v.length) err(`${tag} has an empty "${k}"`);
+        else for (const sub of v) checkCondition(tag, sub);
+        continue;
+      }
       if (k === 'not') { checkCondition(tag, v); continue; }
-      // A single-clause probe: if the resolver rejects the key outright it
-      // returns false for both a satisfied and an unsatisfied snapshot.
-      const probe = { [k]: v };
-      let understood = false;
-      try {
-        matches(probe, SNAP);
-        understood = matches({}, SNAP) === true && matchKnown(k);
-      } catch { understood = false; }
-      if (!understood) err(`${tag} uses unknown condition "${k}"`);
+      // The clause list comes from the resolver itself, so this cannot drift
+      // from what `matches` actually implements.
+      if (!isKnownClause(k)) { err(`${tag} uses unknown condition "${k}"`); continue; }
+
+      // Keys are not enough: a value the resolver cannot resolve is just as
+      // dead as a key it does not know, and reads as if it works.
+      if (k === 'rank' && !RANK_IDS.includes(v)) {
+        err(`${tag} names unknown rank "${v}" (expected one of ${RANK_IDS.join(', ')})`);
+      }
+      if ((k === 'flag' || k === 'notFlag') && !KNOWN_FLAGS.has(v)) {
+        err(`${tag} names unknown flag "${v}"`);
+      }
+      if (k === 'starter' && !SPECIES_NAMES.has(v)) {
+        err(`${tag} names unknown starter species "${v}"`);
+      }
+      if (['badges', 'maxBadges', 'caught', 'party', 'leadLevel', 'titles', 'streak',
+        'hype', 'respect'].includes(k) && typeof v !== 'number') {
+        err(`${tag} condition "${k}" expects a number, got ${JSON.stringify(v)}`);
+      }
+      if (['joined', 'champion', 'beatRival', 'inEvent', 'topTen'].includes(k) && typeof v !== 'boolean') {
+        err(`${tag} condition "${k}" expects true or false, got ${JSON.stringify(v)}`);
+      }
     }
   }
 }
-
-const KNOWN_CLAUSES = new Set([
-  'all', 'any', 'not', 'flag', 'notFlag', 'badges', 'maxBadges', 'caught', 'party',
-  'leadLevel', 'starter', 'joined', 'rank', 'titles', 'streak', 'champion',
-  'beatRival', 'inEvent', 'topTen', 'hype', 'respect',
-]);
-function matchKnown(k) { return KNOWN_CLAUSES.has(k); }
 
 function checkDialogue(tag, dialogue) {
   if (!dialogue) return;
@@ -396,7 +418,13 @@ for (const t of TOURNAMENTS) {
 }
 
 // Templates: every slot a headline uses must be one the press desk fills.
-const KNOWN_SLOTS = new Set(['p', 'o', 't', 'r', 'n', 'mon', 'streak', 'round', 'blurb', 'analyst']);
+// Kept in step with the slot table at the top of data/news.js. Each one means
+// exactly one thing; a generic {n} used to mean four, and the reporters
+// disagreed about which.
+const KNOWN_SLOTS = new Set([
+  'p', 'o', 't', 'r', 'mon', 'round', 'blurb', 'analyst',
+  'surv', 'turns', 'cp', 'wins', 'streak', 'record', 'entrants', 'week',
+]);
 for (const [kind, list] of Object.entries(HEADLINES)) {
   if (!list.length) err(`[news ${kind}] has no headlines`);
   for (const tpl of list) {
@@ -419,6 +447,46 @@ for (const [kind, q] of Object.entries(PRESS_QUESTIONS)) {
   }
 }
 if (!OUTLETS.length || !ANALYSTS.length) err('[news] no outlets or analysts defined');
+
+// ---- renderable text --------------------------------------------------------
+// The font draws a blank for anything it has no glyph and no fold for, so a
+// stray symbol is invisible in game and fine in the source. Every string the
+// player can read goes through the font, so every one of them is checked here.
+
+function checkText(tag, text) {
+  if (text == null) return;
+  if (Array.isArray(text)) { text.forEach((t) => checkText(tag, t)); return; }
+  if (typeof text === 'object') {
+    for (const v of Object.values(text)) checkText(tag, v);
+    return;
+  }
+  if (typeof text !== 'string') return;
+  // Slot markers are replaced before anything reaches the font, so they are
+  // not the font's problem — the slot names themselves are checked elsewhere.
+  const bad = unrenderable(text.replace(/\{\w+\}/g, ''));
+  if (bad.length) err(`${tag} contains characters the font cannot draw: ${bad.map((c) => JSON.stringify(c)).join(' ')}`);
+}
+
+for (const sp of Object.values(SPECIES)) {
+  checkText(`[species ${sp.id}]`, [sp.name, sp.dex, ...(sp.abilities || [])]);
+}
+for (const mv of Object.values(MOVES)) checkText(`[move ${mv.id}]`, [mv.name, mv.desc]);
+for (const it of Object.values(ITEMS)) checkText(`[item ${it.id}]`, [it.name, it.desc, it.pocket]);
+for (const t of Object.values(TRAINERS)) {
+  checkText(`[trainer ${t.id}]`, [t.name, t.cls, t.intro, t.defeat, t.badgeName]);
+}
+for (const map of Object.values(MAPS)) {
+  checkText(`[map ${map.id}] name`, map.name);
+  for (const n of map.npcs) checkText(`[map ${map.id}/${n.id}]`, [n.name, n.dialogue, n.after]);
+  for (const sg of map.signs || []) checkText(`[map ${map.id}] sign ${sg.x},${sg.y}`, sg.text);
+}
+for (const r of RANKS) checkText(`[rank ${r.id}]`, [r.name, r.blurb]);
+for (const pro of PRO_LIST) {
+  checkText(`[pro ${pro.id}]`, [pro.name, pro.tag, pro.bio, pro.region, pro.style, pro.lines]);
+}
+for (const t of TOURNAMENTS) checkText(`[event ${t.id}]`, [t.name, t.short, t.venue, t.tier, t.blurb]);
+checkText('[news]', [HEADLINES, BODIES, PRESS_QUESTIONS, ANALYSTS]);
+for (const o of OUTLETS) checkText(`[outlet ${o.id}]`, o.name);
 
 // ---- report ---------------------------------------------------------------
 

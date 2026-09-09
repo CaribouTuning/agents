@@ -289,7 +289,7 @@ export function resolveRound(c, won, detail = {}) {
   c.active.log.push(entry);
 
   // Everyone else in the draw plays too.
-  const sideResults = simulateOtherMatches(c, t, rng);
+  const sideResults = simulateOtherMatches(c, rng);
   entry.sideResults = sideResults;
 
   if (!won) {
@@ -302,24 +302,45 @@ export function resolveRound(c, won, detail = {}) {
   return entry;
 }
 
-/** Pros play their half of the bracket; ratings move and upsets happen. */
-function simulateOtherMatches(c, t, rng) {
+/**
+ * Plays the rest of the round and shrinks the draw.
+ *
+ * This is single elimination, so the people who lose here are gone: `others`
+ * is rewritten to the survivors each round. Without that the same trainer can
+ * be knocked out twice, which shows up as phantom results in the standings and
+ * as upset stories about people who are already on the plane home.
+ *
+ * Trainers still on the player's ladder are held out rather than simulated.
+ * They are on the player's side of the draw and advance by beating opponents
+ * this model does not track — if they could lose here, the bracket would
+ * contradict the path the player was told they are walking.
+ */
+function simulateOtherMatches(c, rng) {
+  const run = c.active;
   const out = [];
-  const pool = c.active.others.filter((id) => id !== (currentOpponent(c) || {}).id);
-  for (let i = 0; i + 1 < pool.length; i += 2) {
+  const reserved = new Set(run.ladder.slice(run.round));
+  const pool = run.others.filter((id) => !reserved.has(id));
+  const survivors = [];
+
+  for (let i = 0; i < pool.length; i += 2) {
     const a = pool[i], b = pool[i + 1];
+    if (b === undefined) { survivors.push(a); continue; }   // odd one out gets a bye
     const ra = c.pros[a].rating, rb = c.pros[b].rating;
     const aWins = rng() < expectedScore(ra, rb);
     c.pros[a].rating = applyElo(ra, rb, aWins ? 1 : 0);
     c.pros[b].rating = applyElo(rb, ra, aWins ? 0 : 1);
     if (aWins) { c.pros[a].wins++; c.pros[b].losses++; } else { c.pros[b].wins++; c.pros[a].losses++; }
+    survivors.push(aWins ? a : b);
     out.push({
       winner: aWins ? a : b,
       loser: aWins ? b : a,
       upset: Math.abs(ra - rb) > 60 && ((aWins && ra < rb) || (!aWins && rb < ra)),
     });
   }
-  void t;
+
+  // The trainer the player just played is out too. (If the player was the one
+  // who lost, the run ends and this list is never read again.)
+  run.others = [...run.ladder.slice(run.round + 1), ...survivors];
   return out;
 }
 

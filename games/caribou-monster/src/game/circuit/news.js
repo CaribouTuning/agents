@@ -9,6 +9,7 @@ import {
 } from '../../data/news.js';
 import { getPro, getTournament, RIVAL_PRO } from '../../data/circuit.js';
 import { makeRng } from '../../core/rng.js';
+import { formatMoney } from '../inventory.js';
 import { standings, headToHead, currentRank } from './circuit.js';
 
 const MAX_ITEMS = 40;
@@ -75,7 +76,7 @@ export function reportDebut(c, playerName, tournament) {
 export function reportDraw(c, playerName, tournament, run) {
   const rng = streamFor(c, hashOf(`draw${tournament.id}${c.week}`));
   const names = run.ladder.map((id) => (getPro(id) || {}).name).filter(Boolean);
-  const vars = { p: playerName, t: tournament.short, n: tournament.entrants };
+  const vars = { p: playerName, t: tournament.short, entrants: tournament.entrants };
   const body = [
     `${tournament.entrants} trainers, ${run.rounds} rounds, single elimination at the ${tournament.venue}.`,
   ];
@@ -105,16 +106,22 @@ export function reportMatch(c, playerName, tournament, entry) {
 
   const vars = {
     p: playerName, o: entry.opponentName, t: tournament.short,
-    round: entry.roundLabel.toLowerCase(), n: entry.won ? survivors : turns,
+    round: entry.roundLabel.toLowerCase(),
+    // Survivors and turns are different facts and get different slots. They
+    // used to share {n}, which is how a match report once claimed the player
+    // finished with fourteen Pokémon still standing.
+    surv: survivors === 1 ? '1 Pokémon' : `${survivors} Pokémon`,
+    turns,
   };
-  const body = [fill(pickFrom(entry.won ? BODIES.matchWin : BODIES.matchLoss, rng),
-    { ...vars, n: turns || survivors })];
+  const body = [fill(pickFrom(entry.won ? BODIES.matchWin : BODIES.matchLoss, rng), vars)];
 
   const delta = Number(entry.ratingDelta) || 0;
   body.push(`Rating: ${c.rating} (${delta >= 0 ? '+' : ''}${delta}).`);
 
-  if (entry.star) {
-    body.push(fill(pickFrom(BODIES.star, rng), { mon: entry.star, p: playerName, n: c.wins }));
+  // Only a win gets a star paragraph. On a loss the whole team fainted, and
+  // "carried the load again" would be reporting the opposite of what happened.
+  if (entry.star && entry.won) {
+    body.push(fill(pickFrom(BODIES.star, rng), { mon: entry.star, p: playerName, wins: c.wins }));
   }
   body.push(...quoteBlock(rng, dominant ? 'dominant' : entry.won ? 'rising' : 'struggling'));
 
@@ -165,7 +172,7 @@ function reportRivalry(c, playerName) {
   const trailer = h.w >= h.l ? rival.name : playerName;
   pushNews(c, makeItem(c, rng, 'rivalry',
     fill(pickFrom(HEADLINES.rivalry, rng),
-      { p: leader, o: trailer, n: `${Math.max(h.w, h.l)}-${Math.min(h.w, h.l)}` }),
+      { p: leader, o: trailer, record: `${Math.max(h.w, h.l)}-${Math.min(h.w, h.l)}` }),
     [
       `${playerName} and ${rival.name} have now met ${h.w + h.l} times.`,
       h.w === h.l
@@ -179,7 +186,7 @@ function reportRivalry(c, playerName) {
 export function reportTournamentResult(c, playerName, summary) {
   const t = summary.tournament;
   const rng = streamFor(c, hashOf(`fin${t.id}${summary.won}${c.week}`));
-  const vars = { p: playerName, t: t.short, n: summary.points, r: summary.newRank.name };
+  const vars = { p: playerName, t: t.short, cp: summary.points, r: summary.newRank.name };
 
   if (summary.won) {
     const bank = summary.firstTitle ? HEADLINES.titleWinFirst : HEADLINES.titleWin;
@@ -187,7 +194,7 @@ export function reportTournamentResult(c, playerName, summary) {
       fill(pickFrom(bank, rng), { ...vars, t: t.short.toUpperCase() }),
       [
         fill(pickFrom(BODIES.titleWin, rng), vars),
-        `Prize money: ₽${summary.prize.toLocaleString('en-US')}. Circuit Points: +${summary.points}.`,
+        `Prize money: ${formatMoney(summary.prize)}. Circuit Points: +${summary.points}.`,
         `${playerName} is now ranked #${playerPlaceSafe(c, playerName)} in the world at ${c.rating}.`,
         ...quoteBlock(rng, 'dominant'),
       ], { big: true }));
@@ -198,7 +205,7 @@ export function reportTournamentResult(c, playerName, summary) {
     pushNews(c, makeItem(c, r2, 'rankUp',
       fill(pickFrom(HEADLINES.rankUp, r2), vars),
       [
-        fill(pickFrom(BODIES.rankUp, r2), { ...vars, blurb: summary.newRank.blurb, n: c.cp }),
+        fill(pickFrom(BODIES.rankUp, r2), { ...vars, blurb: summary.newRank.blurb, cp: c.cp }),
         `Career record: ${c.wins}-${c.losses}. Titles: ${c.titles.length}.`,
       ], { big: true }));
   }
@@ -238,20 +245,22 @@ export function reportPowerRankings(c, playerName) {
   const me = standings(c, playerName).find((r) => r.isPlayer);
   if (me && me.place > 5) body.push(`...${me.place}. ${playerName} (you) — ${me.rating}`);
   return pushNews(c, makeItem(c, rng, 'powerRankings',
-    fill(pickFrom(HEADLINES.powerRankings, rng), { n: c.week }), body));
+    fill(pickFrom(HEADLINES.powerRankings, rng), { week: c.week }), body));
 }
 
 /** Off-screen pro results between events. */
-export function reportSeasonWeek(c, results) {
+export function reportSeasonWeek(c, results, playerName = 'you') {
   if (!results || !results.length) return null;
   const rng = streamFor(c, hashOf(`week${c.week}`));
   const upset = results.find((r) => r.upset) || results[0];
   const w = getPro(upset.winner), l = getPro(upset.loser);
   if (!w || !l) return null;
+  // {p} is the player everywhere in this file. "…and mentions {p}" is a story
+  // about the winner naming the player, not about whoever they just beat.
   return pushNews(c, makeItem(c, rng, upset.upset ? 'upset' : 'rivalWin',
     upset.upset
       ? fill(pickFrom(HEADLINES.upset, rng), { o: l.name, t: 'exhibition circuit' })
-      : fill(pickFrom(HEADLINES.rivalWin, rng), { o: w.name, p: l.name }),
+      : fill(pickFrom(HEADLINES.rivalWin, rng), { o: w.name, p: playerName }),
     [
       `Week ${c.week} exhibition results: ${w.name} def. ${l.name}.`,
       results.slice(0, 3).map((r) => `${(getPro(r.winner) || {}).name} def. ${(getPro(r.loser) || {}).name}`).join(' · '),

@@ -10,7 +10,7 @@
 // The point is that none of this is scenery. Every fact an NPC states is read
 // out of the same state the systems run on, so the world cannot drift out of
 // step with itself.
-import { RANKS, rankIndex, getPro, RIVAL_PRO, getTournament } from '../../data/circuit.js';
+import { RANKS, getPro, RIVAL_PRO, getTournament } from '../../data/circuit.js';
 import { standings, currentRank, headToHead } from '../circuit/circuit.js';
 import { displayName } from '../monster.js';
 import { getSpecies } from '../../data/species.js';
@@ -86,6 +86,24 @@ export function worldSnapshot(state) {
 
 const RANK_ORDER = RANKS.map((r) => r.id);
 
+/**
+ * Every clause `matches` understands. Exported so tools/audit.mjs checks
+ * against the resolver itself rather than against a copy of this list that
+ * somebody has to remember to update.
+ */
+export const CLAUSES = Object.freeze([
+  'all', 'any', 'not',
+  'flag', 'notFlag',
+  'badges', 'maxBadges', 'caught', 'party', 'leadLevel', 'starter',
+  'joined', 'rank', 'titles', 'streak', 'hype', 'respect',
+  'champion', 'beatRival', 'inEvent', 'topTen',
+]);
+const CLAUSE_SET = new Set(CLAUSES);
+export function isKnownClause(k) { return CLAUSE_SET.has(k); }
+
+/** The rank ids a `when: { rank: ... }` clause may name. */
+export const RANK_IDS = Object.freeze(RANK_ORDER.slice());
+
 export function matches(when, s) {
   if (!when) return true;
   if (Array.isArray(when)) return when.every((w) => matches(w, s));
@@ -107,8 +125,14 @@ export function matches(when, s) {
       case 'starter': if (s.starter !== v) return false; break;
 
       case 'joined': if (s.joined !== v) return false; break;
-      case 'rank':
-        if (RANK_ORDER.indexOf(s.rankId) < rankIndex(v)) return false; break;
+      case 'rank': {
+        // Resolved strictly rather than through rankIndex(), which clamps an
+        // unknown id to 0 — that made a typo'd rank a condition that always
+        // passed, firing an end-game line on a brand-new save.
+        const want = RANK_ORDER.indexOf(v);
+        if (want < 0 || RANK_ORDER.indexOf(s.rankId) < want) return false;
+        break;
+      }
       case 'titles': if (s.titles < v) return false; break;
       case 'streak': if (s.streak < v) return false; break;
       case 'hype': if (s.hype < v) return false; break;

@@ -205,6 +205,12 @@ check(dead === 0, `${dead} unreachable dialogue branch(es)`);
   check(matches({ flag: 'gotStarter' }, snap), 'flag should match');
   check(!matches({ flag: 'nope' }, snap), 'an unset flag should not match');
   check(!matches({ nonsense: true }, snap), 'an unknown clause must never pass');
+  // A rank id the resolver cannot find used to clamp to index 0, which made a
+  // typo'd condition always true — an end-game line on a brand-new save.
+  check(!matches({ rank: 'legend' }, snap), 'a rank far above the player must not match');
+  check(!matches({ rank: 'contendor' }, snap), 'a misspelled rank id must never pass');
+  check(!matches({ rank: '' }, snap), 'an empty rank id must never pass');
+  check(matches({ rank: 'rookie' }, snap), 'the player\'s own rank must match');
   check(matches({ any: [{ badges: 9 }, { flag: 'gotStarter' }] }, snap), 'any: should match');
   check(matches({ all: [{ badges: 1 }, { flag: 'gotStarter' }] }, snap), 'all: should match');
   check(!matches({ not: { badges: 1 } }, snap), 'not: should invert');
