@@ -30,7 +30,11 @@ class Input {
     this.pending = new Map();   // touch id -> {x, y, t, moved}
   }
 
-  attach(canvas) {
+  attach(canvas, display) {
+    // The canvas backing store is logical * dpr * scale, but every hit test
+    // in the game is in logical pixels. Pointer coordinates must be mapped
+    // into that same space or nothing on screen is touchable.
+    this.display = display || null;
     window.addEventListener('keydown', (e) => {
       const b = KEY_MAP[e.code];
       if (!b) return;
@@ -49,9 +53,11 @@ class Input {
 
     const point = (t) => {
       const r = canvas.getBoundingClientRect();
+      const lw = this.display ? this.display.width : canvas.width;
+      const lh = this.display ? this.display.height : canvas.height;
       return {
-        x: ((t.clientX - r.left) / r.width) * canvas.width,
-        y: ((t.clientY - r.top) / r.height) * canvas.height,
+        x: ((t.clientX - r.left) / r.width) * lw,
+        y: ((t.clientY - r.top) / r.height) * lh,
       };
     };
 

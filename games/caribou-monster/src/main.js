@@ -10,7 +10,7 @@ import { audio } from './core/audio.js';
 import { bus } from './core/events.js';
 import { buildTileAtlas } from './render/tiles.js';
 import { tickCursor } from './ui/kit.js';
-import { computeLayout, setBackChip } from './ui/controls.js';
+import { computeLayout, beginControlsFrame, getLayout } from './ui/controls.js';
 import { ScreenManager, FADE } from './ui/screen.js';
 import { TitleScreen } from './ui/title.js';
 import { dialogue } from './ui/dialogue.js';
@@ -49,11 +49,13 @@ class Game {
     // Exposed for the debug menu and the integration tests; the game itself
     // always goes through `net` directly.
     this.netForTest = net;
+    // Lets the touch test aim at the real on-screen control positions.
+    this.controlsLayout = getLayout;
   }
 
   async boot(canvas) {
     display.attach(canvas);
-    input.attach(canvas);
+    input.attach(canvas, display);
     buildTileAtlas();
     display.onResize = (w, h) => computeLayout(w, h, display.portrait);
     computeLayout(display.width, display.height, display.portrait);
@@ -106,9 +108,10 @@ class Game {
 
   render() {
     const ctx = display.begin();
-    // The BACK chip is re-registered by whichever screen draws one, so it can
-    // never linger as an invisible tap target on a screen that has none.
-    setBackChip(null);
+    // Touch targets are re-registered by whichever screen draws them, so
+    // neither the BACK chip nor the gamepad can linger as an invisible tap
+    // target on a screen that shows neither.
+    beginControlsFrame();
     this.screens.render(ctx);
   }
 

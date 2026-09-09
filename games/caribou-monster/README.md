@@ -138,11 +138,18 @@ npm install                            # dev-only: playwright, for the tests
 node tools/battletest.mjs              # 400 AI battles + determinism check
 node tools/play.mjs /tmp/shots         # drive every screen, screenshot each
 node tools/coop.mjs index.html /tmp/co # full two-player session
+node tools/touch.mjs index.html /tmp/t # touch-only run at four device sizes
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```
 
 `build.py` has no dependencies. It walks the import graph, refuses circular
 imports, and emits one file.
+
+`tools/touch.mjs` uses no keyboard and no debug API — every step is a real tap
+at a real screen coordinate, on four device shapes including high-DPR phones.
+Keep it that way: a suite driven by the keyboard cannot see a broken touch
+pipeline, which is exactly how pointer events once shipped mapped into the
+canvas backing store instead of logical pixels.
 
 ---
 

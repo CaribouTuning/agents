@@ -12,12 +12,19 @@ let layout = null;
 let hidden = false;
 let fadeAt = 0;
 let backChip = null;
+// The pad only swallows touches on frames where it was actually drawn.
+// Otherwise its regions stay live under screens that hide it (the title,
+// character creation) and silently eat taps on whatever is there instead.
+let padDrawn = false;
+let padDirs = true;
+let padStart = true;
 
 export function setControlsHidden(v) { hidden = v; }
 
 // A small BACK affordance for screens that have no D-pad on show. Registered
 // as a hit target so a thumb can reach it, and drawn by `drawBackChip`.
 export function setBackChip(rect) { backChip = rect; }
+export function beginControlsFrame() { padDrawn = false; backChip = null; }
 export function getBackChip() { return backChip; }
 
 export function computeLayout(W, H, portrait) {
@@ -51,23 +58,28 @@ export function getLayout() { return layout; }
 // Returns the logical button at a point, or null. Registered on the Input
 // object so touch handling stays in one place.
 export function hitTest(px, py) {
-  if (!layout || hidden) return null;
-  const { dpad, cell } = layout;
-  // Generous pad around the cross.
-  const slack = 6;
-  if (px >= dpad.x - slack && px <= dpad.x + dpad.size + slack
-    && py >= dpad.y - slack && py <= dpad.y + dpad.size + slack) {
-    const cx = px - dpad.x - dpad.size / 2;
-    const cy = py - dpad.y - dpad.size / 2;
-    // Whichever axis dominates wins, so diagonals resolve instead of dropping.
-    if (Math.abs(cx) > Math.abs(cy)) return cx < 0 ? 'left' : 'right';
-    return cy < 0 ? 'up' : 'down';
+  if (!layout || hidden || !padDrawn) return null;
+  const { dpad } = layout;
+
+  if (padDirs) {
+    // Generous slack around the cross: thumbs are imprecise, and a missed
+    // D-pad press is the fastest way to make a phone game feel bad.
+    const slack = 6;
+    if (px >= dpad.x - slack && px <= dpad.x + dpad.size + slack
+      && py >= dpad.y - slack && py <= dpad.y + dpad.size + slack) {
+      const cx = px - dpad.x - dpad.size / 2;
+      const cy = py - dpad.y - dpad.size / 2;
+      // Whichever axis dominates wins, so diagonals resolve instead of dropping.
+      if (Math.abs(cx) > Math.abs(cy)) return cx < 0 ? 'left' : 'right';
+      return cy < 0 ? 'up' : 'down';
+    }
   }
+
   const inCircle = (c) => (px - c.x) ** 2 + (py - c.y) ** 2 <= (c.r + 7) ** 2;
   if (inCircle(layout.a)) return 'a';
   if (inCircle(layout.b)) return 'b';
   const s = layout.start;
-  if (px >= s.x - 4 && px <= s.x + s.w + 4 && py >= s.y - 4 && py <= s.y + s.h + 6) return 'start';
+  if (padStart && px >= s.x - 4 && px <= s.x + s.w + 4 && py >= s.y - 4 && py <= s.y + s.h + 6) return 'start';
   return null;
 }
 
@@ -126,8 +138,11 @@ function circle(ctx, cx, cy, r) {
  */
 export function drawControls(ctx, opts = {}) {
   if (!layout || hidden) return;
+  padDrawn = true;
   const alpha = opts.alpha != null ? opts.alpha : 0.82;
   const dirs = opts.dirs !== false;
+  padDirs = dirs;
+  padStart = opts.start !== false;
   ctx.save();
   ctx.globalAlpha = alpha;
 
