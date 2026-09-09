@@ -55,6 +55,19 @@ function withCommander(st) {
   return st;
 }
 
+function wokeTheEverlight(st) {
+  st.flags.beatCommander = true;
+  st.flags.everlightOpened = true;
+  st.flags.everlightResolved = true;
+  return st;
+}
+
+function caughtTheEverlight(st) {
+  wokeTheEverlight(st);
+  st.flags.caughtEverlight = true;
+  return st;
+}
+
 function joined(st) {
   st.circuit.joined = true;
   return st;
@@ -110,6 +123,8 @@ const STAGES = [
   ['first badge', () => withBadge(withStarter(baseState()))],
   ['into the cave', () => withCave(withBadge(withStarter(baseState())))],
   ['beat the commander', () => withCommander(withCave(withBadge(withStarter(baseState()))))],
+  ['opened the Everlight', () => wokeTheEverlight(withCave(withBadge(withStarter(baseState()))))],
+  ['caught the Everlight', () => caughtTheEverlight(withCave(withBadge(withStarter(baseState()))))],
   ['joined the circuit', () => joined(withBadge(withStarter(baseState())))],
   ['mid-tournament', () => midEvent(withBadge(withStarter(baseState())))],
   ['one title', () => withTitles(withBadge(withStarter(baseState())), 1)],

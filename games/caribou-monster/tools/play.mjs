@@ -192,6 +192,22 @@ for (const [name, open] of [
   } catch (e) { console.log(`  !! ${name}: ${e.message}`); }
 }
 
+// Nicknaming, the moment a caught Pokémon becomes yours.
+try {
+  await run(() => {
+    const g = window.CARIBOU;
+    const mon = g.debugGive(16, 7);
+    g.openNickname(mon, null);
+  });
+  await shot('30b-nickname');
+  await run(() => {
+    const s = window.CARIBOU.screens.top;
+    if (s && s.constructor.name === 'NicknameScreen') { s.text = 'Sparky'; }
+  });
+  await shot('30c-nickname-typed');
+  await run(() => window.CARIBOU.screens.pop());
+} catch (e) { console.log(`  !! nickname: ${e.message}`); }
+
 // World Circuit: the career hub, every tab, a live bracket and the press.
 await run(() => {
   const g = window.CARIBOU;

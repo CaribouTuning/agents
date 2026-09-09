@@ -70,6 +70,23 @@ await page.evaluate(() => window.CARIBOU.startNewGame({ name: 'Matthew', look: '
 await wait(700);
 check('game starts in the player house', (await where()).map === 'player_house');
 
+// Clears whatever is on screen and waits until the player can move again.
+// Phases used to run into each other: a dialogue box left open from the last
+// step silently ate the next phase's walking, which reads as a broken feature.
+const waitIdle = async (limit = 30) => {
+  for (let i = 0; i < limit; i++) {
+    const busy = await page.evaluate(() => {
+      const g = window.CARIBOU;
+      return !!g.overworld.script || g.dialogueForTest.visible || g.screens.busy
+        || g.screens.top.constructor.name !== 'OverworldScreen';
+    });
+    if (!busy) return true;
+    await page.keyboard.press('KeyZ');
+    await wait(150);
+  }
+  return false;
+};
+
 // Walks toward a tile with short directional holds, re-checking as it goes.
 // More robust than fixed durations, and it fails loudly rather than silently
 // wandering off.
@@ -83,7 +100,9 @@ const walkTo = async (tx, ty, limit = 14) => {
     else key = w.y < ty ? 'ArrowDown' : 'ArrowUp';
     const dist = w.x !== tx ? Math.abs(tx - w.x) : Math.abs(ty - w.y);
     const before = `${w.x},${w.y},${w.map}`;
-    await hold(key, 150 + dist * 240);
+    // A single-tile move gets a short hold. A long one used to overshoot and
+    // then oscillate around the target until the attempt budget ran out.
+    await hold(key, dist === 1 ? 170 : 150 + dist * 240);
     const after = await where();
     if (`${after.x},${after.y},${after.map}` === before) return false;  // stuck
     if (after.map !== w.map) return true;                              // warped
@@ -143,7 +162,7 @@ await page.screenshot({ path: path.join(OUT, '03-back-outside.png') });
 // Every interior, entered directly, must leave the player able to move.
 const interiors = ['player_house', 'rival_house', 'rowan_lab', 'oreburgh_center',
   'oreburgh_mart', 'oreburgh_gym', 'oreburgh_house', 'oreburgh_house2', 'oreburgh_hall',
-  'oreburgh_gate', 'route201', 'route207', 'route202', 'oreburgh', 'twinleaf'];
+  'oreburgh_gate', 'everlight_chamber', 'route201', 'route207', 'route202', 'oreburgh', 'twinleaf'];
 for (const id of interiors) {
   const res = await page.evaluate(async (mapId) => {
     const g = window.CARIBOU;
@@ -167,11 +186,98 @@ for (const id of interiors) {
     `at ${res.entry.x},${res.entry.y} moves: ${res.legal.join(',') || 'NONE'}`);
 }
 
+// --- the Everlight, the story's ending ---
+// Four maps of NPCs point at a seam of light under Oreburgh Gate. This proves
+// the door is really there, that it is shut without the Aurora Charm, and that
+// what is behind it is a real catchable encounter and not a cutscene.
+console.log('\n--- the everlight ---');
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.flags.beatCommander = true;
+  delete g.state.inventory.items.auroracharm;
+  g.overworld.world.load('oreburgh_gate', 12, 3, 'up');
+});
+await wait(500);
+await walkTo(12, 2);
+for (let i = 0; i < 8; i++) {
+  const busy = await page.evaluate(() => !!window.CARIBOU.overworld.script || window.CARIBOU.dialogueForTest.visible);
+  if (!busy) break;
+  await tap('KeyZ', 1, 170);
+}
+await waitIdle();
+const shut = await where();
+check('the seam is shut without the Aurora Charm', shut.map === 'oreburgh_gate', shut.map);
+
+// With the charm it opens.
+await page.evaluate(() => { window.CARIBOU.state.inventory.items.auroracharm = 1; });
+await waitIdle();
+check('the player can step off the seam', await walkTo(11, 2, 6), (await where()).x + ',' + (await where()).y);
+await waitIdle();
+check('the player can step back onto the seam', await walkTo(12, 2, 6), (await where()).x + ',' + (await where()).y);
+for (let i = 0; i < 25; i++) {
+  const w2 = await where();
+  if (w2 && w2.map === 'everlight_chamber') break;
+  await tap('KeyZ', 1, 200);
+}
+const inside = await where();
+check('the Aurora Charm opens the chamber', inside.map === 'everlight_chamber',
+  `${inside.map} ${inside.x},${inside.y}`);
+check('the door set its flag', await page.evaluate(() => !!window.CARIBOU.state.flags.everlightOpened));
+await page.screenshot({ path: path.join(OUT, '09-everlight.png') });
+
+if (inside.map === 'everlight_chamber') {
+  check('the chamber leaves the player mobile', (await canMove()).length > 0, (await canMove()).join(','));
+  await waitIdle();
+  const walked = await walkTo(7, 4, 16);
+  const standing = await where();
+  check('the player can reach the Everlight', walked && standing.x === 7 && standing.y === 4,
+    `${standing.x},${standing.y} walked=${walked}`);
+  let battled = false;
+  for (let i = 0; i < 30; i++) {
+    const scr = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
+    if (scr === 'BattleScreen') { battled = true; break; }
+    await tap('KeyZ', 1, 200);
+  }
+  const foe = await page.evaluate(() => {
+    const s = window.CARIBOU.screens.top;
+    if (s.constructor.name !== 'BattleScreen') return null;
+    return { name: s.battle.sides[1].name, species: s.battle.sides[1].party[0].species,
+      level: s.battle.sides[1].party[0].level, kind: s.battle.kind };
+  });
+  check('the chamber starts a real encounter with Dialga',
+    battled && foe && foe.species === 37 && foe.kind === 'wild',
+    foe ? `${foe.name} #${foe.species} Lv${foe.level}` : 'no battle');
+  await page.screenshot({ path: path.join(OUT, '10-dialga.png') });
+  check('the encounter recorded Dialga as seen',
+    await page.evaluate(() => !!window.CARIBOU.state.dex.seen[37]));
+
+  // Run from it: a legendary you decline must still be there afterwards.
+  await page.evaluate(() => {
+    const g = window.CARIBOU;
+    const s = g.screens.top;
+    if (s.constructor.name === 'BattleScreen') { s.battle.over = true; s.battle.result = 'run'; s._finish(); }
+  });
+  await wait(1400);
+  for (let i = 0; i < 10; i++) {
+    const busy = await page.evaluate(() => !!window.CARIBOU.overworld.script || window.CARIBOU.dialogueForTest.visible);
+    if (!busy) break;
+    await tap('KeyZ', 1, 170);
+  }
+  const after = await page.evaluate(() => ({
+    resolved: !!window.CARIBOU.state.flags.everlightResolved,
+    caught: !!window.CARIBOU.state.flags.caughtEverlight,
+    map: window.CARIBOU.overworld.world.mapId,
+  }));
+  check('declining the Everlight does not consume it',
+    after.resolved && !after.caught, JSON.stringify(after));
+}
+
 // --- the World Circuit, played end to end ---
 // Walk into the Battle Hall, register at the desk, enter the Rookie Cup and
 // actually fight a round. This is the only test that proves the side story
 // connects to the real battle system rather than simulating one.
 console.log('\n--- world circuit ---');
+await waitIdle();
 await page.evaluate(() => {
   const g = window.CARIBOU;
   g.overworld.world.load('oreburgh_hall', 7, 8, 'up');
@@ -179,6 +285,7 @@ await page.evaluate(() => {
 await wait(500);
 check('the Battle Hall is enterable', (await where()).map === 'oreburgh_hall');
 
+await waitIdle();
 await walkTo(7, 6);
 await page.evaluate(() => { window.CARIBOU.overworld.world.player.dir = 'up'; });
 await wait(150);

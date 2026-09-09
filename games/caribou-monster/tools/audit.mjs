@@ -21,6 +21,8 @@ import {
   isKnownSlot, isKnownClause, worldSnapshot, RANK_IDS,
 } from '../src/game/overworld/gossip.js';
 import { FLAGS } from '../src/game/storyflags.js';
+import { SCRIPTS } from '../src/game/overworld/scripts.js';
+import { ABILITIES, INERT_ABILITIES } from '../src/game/battle/abilities.js';
 import { createGameState } from '../src/game/state.js';
 
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -109,7 +111,12 @@ for (const map of Object.values(MAPS)) {
   const tag = `[${map.id}]`;
   const entries = entryPoints(map);
 
-  if (!entries.length && map.warps.length) warn(`${tag} nothing warps into this map`);
+  // A map with no inbound warp is fine if a script walks the player into it —
+  // proved by reading the script source rather than trusting a flag on the map.
+  const scriptEntered = Object.values(SCRIPTS).some((fn) => String(fn).includes(`'${map.id}'`));
+  if (!entries.length && map.warps.length && !scriptEntered) {
+    warn(`${tag} nothing warps into this map and no script enters it`);
+  }
 
   for (const e of entries) {
     const def = at(map, e.x, e.y);
@@ -447,6 +454,22 @@ for (const [kind, q] of Object.entries(PRESS_QUESTIONS)) {
   }
 }
 if (!OUTLETS.length || !ANALYSTS.length) err('[news] no outlets or analysts defined');
+
+// ---- abilities ---------------------------------------------------------------
+// Every ability printed on a summary screen has to be either implemented or on
+// the knowingly-inert list. A third state — a name the engine has never heard
+// of — is how a mechanic silently stops existing.
+
+for (const sp of Object.values(SPECIES)) {
+  for (const name of sp.abilities || []) {
+    if (!ABILITIES[name] && !INERT_ABILITIES[name]) {
+      err(`[species ${sp.name}] has ability "${name}", which is neither implemented nor listed as inert`);
+    }
+  }
+}
+for (const name of Object.keys(INERT_ABILITIES)) {
+  if (ABILITIES[name]) err(`[ability ${name}] is both implemented and listed as inert`);
+}
 
 // ---- renderable text --------------------------------------------------------
 // The font draws a blank for anything it has no glyph and no fold for, so a

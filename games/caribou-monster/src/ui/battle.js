@@ -11,8 +11,10 @@ import { PAL, shade, typeColor } from '../render/palette.js';
 import {
   window9, panel, rect, label, labelDim, cursor, hpBar, expBar, hpColor,
   drawTextCentered, drawTextRight, drawText, statusChip, genderMark, typeChip, LINE, money,
+  rowHighlight,
 } from './kit.js';
 import { renderMonster } from '../render/monsterart.js';
+import { NicknameScreen } from './naming.js';
 import { drawChar, lookFor } from '../render/sprites.js';
 import { drawBackChip } from './controls.js';
 import { getSpecies } from '../data/species.js';
@@ -62,6 +64,7 @@ export class BattleScreen extends Screen {
     this.moveIndex = 0;
     this.bagIndex = 0;
     this.bagScroll = 0;
+    this.bagPocket = 0;
     this.partyIndex = 0;
     this.learnIndex = 0;
 
@@ -290,6 +293,14 @@ export class BattleScreen extends Screen {
         this.current = null;
         break;
       }
+      case 'nickname': {
+        // Ask once, on top of the battle screen; the queue resumes when the
+        // keyboard pops, so a skipped nickname costs nothing but a tap.
+        const mon = e.mon;
+        this.current = null;
+        if (mon) this.game.screens.push(new NicknameScreen(this.game, mon, null));
+        break;
+      }
       case 'openLearn': this.pendingLearnOpen = true; this.current = null; break;
       case 'openEvolve': this.current = null; break;
       case 'finishEvolve': this.current = null; break;
@@ -375,7 +386,7 @@ export class BattleScreen extends Screen {
 
   _runCommand(i) {
     if (i === 0) { this.mode = MODE.MOVES; this.moveIndex = 0; }
-    else if (i === 1) { this.mode = MODE.BAG; this.bagIndex = 0; this.bagScroll = 0; }
+    else if (i === 1) { this.mode = MODE.BAG; this.bagIndex = 0; this.bagScroll = 0; this.bagPocket = 0; }
     else if (i === 2) { this.mode = MODE.PARTY; this.partyIndex = 0; }
     else this._tryRun();
   }
@@ -412,28 +423,112 @@ export class BattleScreen extends Screen {
     this._submit({ type: 'move', index: i });
   }
 
+  // ---- battle bag ---------------------------------------------------------
+  // Pocketed like the field bag, because reaching for a ball is the single
+  // most time-critical thing a player does in this game and hunting for it in
+  // a flat list is the wrong feel.
+
+  BAG_ROWS = 4;
+
+  /** The pockets that have something usable in them right now. */
+  _bagPockets() {
+    const inv = this.game.state.inventory;
+    const all = battleUsable(inv);
+    const order = ['Poké Balls', 'Medicine', 'Items'];
+    const pockets = order
+      .map((name) => ({ name, items: all.filter((e) => e.item.pocket === name) }))
+      .filter((p) => p.items.length);
+    // Balls are meaningless in a trainer battle, so the pocket is not offered.
+    return this.battle.canCatch ? pockets : pockets.filter((p) => p.name !== 'Poké Balls');
+  }
+
+  _bagItems() {
+    const pockets = this._bagPockets();
+    if (!pockets.length) return [];
+    this.bagPocket = Math.max(0, Math.min(this.bagPocket, pockets.length - 1));
+    return pockets[this.bagPocket].items;
+  }
+
+  /**
+   * One source of truth for where the bag's rows are. Hit-testing used to
+   * compute its own geometry and disagree with the drawing by 18 pixels, so
+   * every row's tap target sat below the row it belonged to — which is why a
+   * Poké Ball could not be tapped at all.
+   */
+  /**
+   * The bag takes the bottom of the screen rather than squeezing into the
+   * message box: four rows of 10 pixels did not fit in 46, and a row a thumb
+   * has to hit needs more than ten pixels anyway.
+   */
+  _bagBox() {
+    const { width: W } = this.game.display;
+    return { x: 4, y: this._boxY() - 30, w: W - 8, h: 76 };
+  }
+
+  BAG_ROW_H = 12;
+
+  _bagRects() {
+    const b = this._bagBox();
+    const items = this._bagItems();
+    const shown = Math.min(this.BAG_ROWS, Math.max(0, items.length - this.bagScroll));
+    const out = [];
+    for (let i = 0; i < shown; i++) {
+      out.push({
+        x: b.x + 4, y: b.y + 17 + i * this.BAG_ROW_H, w: b.w - 8, h: this.BAG_ROW_H,
+        index: this.bagScroll + i,
+      });
+    }
+    return out;
+  }
+
+  /** Tabs across the top of the bag window, one per non-empty pocket. */
+  _bagTabRects() {
+    const b = this._bagBox();
+    const pockets = this._bagPockets();
+    if (pockets.length < 2) return [];
+    // Inside the window, with room kept clear on the right for the BACK chip.
+    const room = b.w - 8 - 50;
+    const tw = Math.min(84, Math.floor(room / pockets.length) - 2);
+    return pockets.map((p, i) => ({ ...p, i, x: b.x + 4 + i * (tw + 2), y: b.y + 3, w: tw, h: 11 }));
+  }
+
   _updateBag() {
-    const items = battleUsable(this.game.state.inventory);
-    const rows = 4;
+    const pockets = this._bagPockets();
+    const items = this._bagItems();
+    const rows = this.BAG_ROWS;
     const tap = input.consumeTap();
-    const listX = 6, listY = this._boxY() + 4;
+
     if (tap) {
-      for (let i = 0; i < Math.min(rows, items.length - this.bagScroll); i++) {
-        if (hit(tap, listX, listY + 6 + i * LINE, 150, LINE)) {
-          this.bagIndex = this.bagScroll + i; audio.sfx('select'); this._useItem(items[this.bagIndex]); return;
+      for (const t of this._bagTabRects()) {
+        if (hit(tap, t.x, t.y, t.w, t.h)) { this._setBagPocket(t.i); return; }
+      }
+      for (const r of this._bagRects()) {
+        if (hit(tap, r.x, r.y, r.w, r.h)) {
+          this.bagIndex = r.index; audio.sfx('select'); this._useItem(items[this.bagIndex]); return;
         }
       }
     }
-    if (!items.length) {
-      if (input.pressed('a') || input.pressed('b')) { audio.sfx('back'); this.mode = MODE.COMMAND; }
+
+    if (!pockets.length) {
+      if (input.pressed('a') || input.pressed('b') || tap) { audio.sfx('back'); this.mode = MODE.COMMAND; }
       return;
     }
+    if (input.repeated('left')) this._setBagPocket((this.bagPocket - 1 + pockets.length) % pockets.length);
+    if (input.repeated('right')) this._setBagPocket((this.bagPocket + 1) % pockets.length);
     if (input.repeated('up')) { this.bagIndex = (this.bagIndex - 1 + items.length) % items.length; audio.sfx('cursor'); }
     if (input.repeated('down')) { this.bagIndex = (this.bagIndex + 1) % items.length; audio.sfx('cursor'); }
     this.bagScroll = Math.max(0, Math.min(this.bagIndex - rows + 1, Math.max(0, items.length - rows)));
     if (this.bagIndex < this.bagScroll) this.bagScroll = this.bagIndex;
     if (input.pressed('b')) { audio.sfx('back'); this.mode = MODE.COMMAND; return; }
     if (input.pressed('a')) { audio.sfx('select'); this._useItem(items[this.bagIndex]); }
+  }
+
+  _setBagPocket(i) {
+    if (i === this.bagPocket) return;
+    this.bagPocket = i;
+    this.bagIndex = 0;
+    this.bagScroll = 0;
+    audio.sfx('cursor');
   }
 
   _useItem(entry) {
@@ -652,6 +747,8 @@ export class BattleScreen extends Screen {
       if (dest && dest.where === 'box') {
         this.queue.push({ t: 'text', s: `Your party is full, so ${displayName(mon)}\nwas sent to ${dest.boxName}.` });
       }
+      // The moment it stops being a species and becomes yours.
+      this.queue.push({ t: 'nickname', mon });
       this.queue.push({ t: 'finish' });
       this.mode = MODE.PLAY;
       return;
@@ -709,7 +806,7 @@ export class BattleScreen extends Screen {
     switch (this.mode) {
       case MODE.COMMAND: this._drawCommand(ctx, W, H); break;
       case MODE.MOVES: this._drawMoves(ctx, W, H); drawBackChip(ctx, 4, this._boxY() - 26); break;
-      case MODE.BAG: this._drawBag(ctx, W, H); drawBackChip(ctx, 4, this._boxY() - 26); break;
+      case MODE.BAG: this._drawBag(ctx, W, H); break;
       case MODE.PARTY:
         this._drawPartyPicker(ctx, W, H); drawBackChip(ctx, W - 52, 4); break;
       case MODE.SWITCH: this._drawPartyPicker(ctx, W, H); break;
@@ -835,7 +932,11 @@ export class BattleScreen extends Screen {
     const foe = activeOf(this.battle.sides[this.foeSide]);
     const me = activeOf(this.battle.sides[this.mySide]);
     if (foe) this._monHud(ctx, foe, 6, 8, false, this.dispHp[this.foeSide]);
-    if (me) this._monHud(ctx, me, W - 122, H * 0.44, true, this.dispHp[this.mySide]);
+    // The bag takes the lower half of the screen, the way the DS bag takes the
+    // lower screen — drawing your own HUD under it just leaves a sliced panel.
+    if (me && this.mode !== MODE.BAG) {
+      this._monHud(ctx, me, W - 122, H * 0.44, true, this.dispHp[this.mySide]);
+    }
     this._partyPips(ctx, W, H);
   }
 
@@ -958,24 +1059,55 @@ export class BattleScreen extends Screen {
   }
 
   _drawBag(ctx, W, H) {
-    const y = this._boxY();
-    window9(ctx, 4, y - 12, W - 8, 54);
-    const items = battleUsable(this.game.state.inventory);
-    if (!items.length) {
-      label(ctx, 'Your bag is empty.', 12, y - 4);
-      labelDim(ctx, 'B: back', 12, y + 22);
+    const b = this._bagBox();
+    const pockets = this._bagPockets();
+    window9(ctx, b.x, b.y, b.w, b.h);
+    drawBackChip(ctx, b.x + b.w - 48, b.y + 3);
+    if (!pockets.length) {
+      label(ctx, 'You have nothing you can use here.', b.x + 8, b.y + 20);
+      labelDim(ctx, 'B: back', b.x + 8, b.y + 34);
+      void W; void H;
       return;
     }
-    const rows = 4;
-    const view = items.slice(this.bagScroll, this.bagScroll + rows);
-    view.forEach((e, i) => {
-      const iy = y - 8 + i * LINE;
-      const idx = this.bagScroll + i;
-      if (idx === this.bagIndex) cursor(ctx, 8, iy);
-      label(ctx, e.item.name, 16, iy);
-      drawTextRight(ctx, `x${e.qty}`, W - 12, iy, { color: PAL.uiTextDim });
-    });
-    void H;
+
+    // Pocket tabs sit on the window's top edge, the way the hub's do.
+    for (const t of this._bagTabRects()) {
+      const on = t.i === this.bagPocket;
+      const col = t.name === 'Poké Balls' ? PAL.uiDanger : t.name === 'Medicine' ? '#3f9060' : '#e08a30';
+      rect(ctx, t.x, t.y, t.w, t.h + 2, on ? col : shade(col, 0.5));
+      rect(ctx, t.x, t.y, t.w, 1, shade(col, 0.35));
+      drawTextCentered(ctx, t.name === 'Poké Balls' ? 'BALLS' : t.name.toUpperCase(),
+        t.x + t.w / 2, t.y + 2, { color: on ? '#ffffff' : PAL.uiText });
+    }
+
+    const items = this._bagItems();
+    for (const r of this._bagRects()) {
+      const e = items[r.index];
+      if (!e) continue;
+      const sel = r.index === this.bagIndex;
+      // The highlight covers exactly the tap target — no more, no less, so
+      // what the player can see is what the player can hit.
+      if (sel) rowHighlight(ctx, r.x, r.y, r.w, r.h, PAL.uiSelect);
+      const ty = r.y + Math.floor((r.h - 7) / 2);
+      label(ctx, e.item.name, r.x + 5, ty, { color: sel ? PAL.uiTextLight : PAL.uiText });
+      drawTextRight(ctx, `x${e.qty}`, r.x + r.w - 14, ty,
+        { color: sel ? shade(PAL.uiSelect, 0.7) : PAL.uiTextDim });
+    }
+
+    // What the highlighted item does, and where you are in the pocket.
+    const sel = items[this.bagIndex];
+    if (sel) {
+      const count = `${this.bagIndex + 1}/${items.length}`;
+      drawTextRight(ctx, count, b.x + b.w - 6, b.y + b.h - 10, { color: PAL.uiTextDim });
+      labelDim(ctx, (sel.item.desc || '').slice(0, Math.floor((b.w - 22 - count.length * 6) / 6)),
+        b.x + 6, b.y + b.h - 10);
+    }
+    if (this.bagScroll > 0) drawText(ctx, '▲', b.x + b.w - 11, b.y + 18, { color: PAL.uiTextDim });
+    if (this.bagScroll + this.BAG_ROWS < items.length) {
+      drawText(ctx, '▼', b.x + b.w - 11, b.y + 17 + (this.BAG_ROWS - 1) * this.BAG_ROW_H,
+        { color: PAL.uiTextDim });
+    }
+    void W; void H;
   }
 
   _drawPartyPicker(ctx, W, H) {

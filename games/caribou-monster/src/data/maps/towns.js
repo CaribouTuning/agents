@@ -96,6 +96,19 @@ export const TWINLEAF = defineMap('twinleaf', {
       id: 'bv_oldman', x: 20, y: 15, look: 'oldMan', name: 'Hollis', movement: 'lookAround', facing: 'left',
       dialogue: [
         {
+          when: { flag: 'caughtEverlight' },
+          lines: ['The sky went out.',
+            'Sixty years of watching it, and last night there was simply nothing there.',
+            'Whatever you brought back up out of that hill — look after it.',
+            'It was here a long time before Twinleaf was.'],
+        },
+        {
+          when: { flag: 'everlightOpened' },
+          lines: ['You found the seam, then. I can see it on you.',
+            'The aurora has been brighter since. Not worse. Brighter.',
+            'I do not know which of those is the good news.'],
+        },
+        {
           when: { flag: 'beatCommander' },
           lines: ['You went into the Gate and came back out. Not everyone does.',
             'The light has settled since. Not gone. Settled.',
@@ -252,6 +265,19 @@ export const OREBURGH = defineMap('oreburgh', {
     {
       id: 'al_scientist', x: 19, y: 21, look: 'scientist', name: 'Ines', movement: 'still', facing: 'down',
       dialogue: [
+        {
+          when: { flag: 'caughtEverlight' },
+          lines: ['It is in a ball. You are carrying it around in a ball.',
+            'Ninety years of survey notes and a word nobody could source, and it fits in a ball.',
+            'I am not being sarcastic. I have never been less sarcastic in my life.',
+            'Come back when you have decided what to do with it. I will still be here.'],
+        },
+        {
+          when: { flag: 'everlightOpened' },
+          lines: ['The rock OPENED for you? The rock opened.',
+            'That confirms the charm is a key and not a keepsake, which is my third theory and my worst.',
+            'Whatever is down there, it was expecting somebody. Eventually.'],
+        },
         {
           when: { flag: 'beatCommander' },
           lines: ['You saw it, then. The seam. The light in the rock.',

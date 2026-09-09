@@ -23,6 +23,8 @@ import { pocketContents, removeItem, addItem } from '../game/inventory.js';
 import { swapParty, formatPlayTime, badgeCount } from '../game/state.js';
 import { seenCount, caughtCount } from '../game/pokedex.js';
 import { tryStone } from '../game/evolution.js';
+import { abilityDescription } from '../game/battle/abilities.js';
+import { friendshipLabel } from '../game/friendship.js';
 import { net } from '../net/NetworkManager.js';
 import { drawControls, drawBackChip } from './controls.js';
 
@@ -163,7 +165,10 @@ export class PartyScreen extends Screen {
       this.swapFrom = -1;
       return;
     }
-    this.sub = ['SUMMARY', 'SWITCH', 'ITEM', 'CANCEL'];
+    // A Pokémon holding something offers TAKE; one with free hands offers GIVE.
+    const mon = party[this.index];
+    this.sub = ['SUMMARY', 'SWITCH', 'ITEM',
+      mon && mon.heldItem ? 'TAKE ITEM' : 'GIVE ITEM', 'CANCEL'];
     this.subIndex = 0;
   }
 
@@ -191,6 +196,35 @@ export class PartyScreen extends Screen {
     else if (label_ === 'ITEM') this.game.screens.push(new BagScreen(this.game, {
       mode: 'use', target: this.index,
     }));
+    else if (label_ === 'GIVE ITEM') this._giveItem();
+    else if (label_ === 'TAKE ITEM') this._takeItem();
+  }
+
+  _giveItem() {
+    const mon = this.game.state.party[this.index];
+    if (!mon) return;
+    this.game.screens.push(new BagScreen(this.game, {
+      mode: 'give',
+      onPick: (itemId) => {
+        if (!itemId) return;
+        const st = this.game.state;
+        // Swapping is a swap, not a loss: whatever it was holding comes back.
+        if (mon.heldItem) addItem(st.inventory, mon.heldItem, 1);
+        removeItem(st.inventory, itemId, 1);
+        mon.heldItem = itemId;
+        audio.sfx('select');
+        if (this.game.save) this.game.save.markDirty();
+      },
+    }));
+  }
+
+  _takeItem() {
+    const mon = this.game.state.party[this.index];
+    if (!mon || !mon.heldItem) return;
+    addItem(this.game.state.inventory, mon.heldItem, 1);
+    mon.heldItem = null;
+    audio.sfx('select');
+    if (this.game.save) this.game.save.markDirty();
   }
 
   _updateDetail() {
@@ -296,12 +330,19 @@ export class PartyScreen extends Screen {
     } else {
       labelDim(ctx, `OT: ${mon.ot || '???'}`, px, 18);
       labelDim(ctx, `ID: ${String(mon.otId ?? 0).padStart(5, '0')}`, px, 28);
-      labelDim(ctx, `Ability: ${mon.ability}`, px, 38);
-      labelDim(ctx, `Met at Lv${mon.caughtLevel}`, px, 48);
-      labelDim(ctx, mon.heldItem ? `Holding ${getItem(mon.heldItem).name}` : 'No held item', px, 58);
+      label(ctx, `Ability: ${mon.ability}`, px, 38, { color: PAL.uiText });
+      // What the ability actually does, said plainly — including when the
+      // honest answer is that this engine does not implement it.
+      const abilityText = abilityDescription(mon.ability);
+      if (abilityText) {
+        labelDim(ctx, abilityText.slice(0, Math.floor((W - px - 12) / 6)), px, 48);
+      }
+      labelDim(ctx, `Friendship: ${friendshipLabel(mon)}`, px, 58);
+      labelDim(ctx, `Met at Lv${mon.caughtLevel}`, px, 68);
+      labelDim(ctx, mon.heldItem ? `Holding ${getItem(mon.heldItem).name}` : 'No held item', px, 78);
       const dex = sp.dex;
       const words = dex.split(' ');
-      let line = '', y = 86;
+      let line = '', y = 96;
       for (const wd of words) {
         if ((line + ' ' + wd).length > Math.floor((W - 16) / 6)) { label(ctx, line, 8, y); y += 9; line = wd; }
         else line = line ? `${line} ${wd}` : wd;
@@ -321,7 +362,7 @@ export class BagScreen extends Screen {
     this.pocket = 0;
     this.index = 0;
     this.scroll = 0;
-    this.mode = opts.mode || 'browse';   // browse | use | sell | pick
+    this.mode = opts.mode || 'browse';   // browse | use | sell | pick | give
     this.target = opts.target ?? null;
     this.onPick = opts.onPick || null;
     this.message = null;
@@ -365,7 +406,14 @@ export class BagScreen extends Screen {
     const st = this.game.state;
     const item = entry.item;
 
-    if (this.mode === 'pick') { const cb = this.onPick; this.game.screens.pop(); if (cb) cb(item.id); return; }
+    if (this.mode === 'pick' || this.mode === 'give') {
+      if (this.mode === 'give' && !this._holdable(item)) {
+        this._say(`${item.name} is not something a Pokémon can hold.`);
+        audio.sfx('deny');
+        return;
+      }
+      const cb = this.onPick; this.game.screens.pop(); if (cb) cb(item.id); return;
+    }
 
     const u = item.use;
     if (!u) { this._say(item.desc); return; }
@@ -453,6 +501,9 @@ export class BagScreen extends Screen {
       if (this.mode === 'use') this.game.screens.pop();
     }
   }
+
+  /** Key items stay in the bag; everything else can be carried. */
+  _holdable(item) { return !item.key && item.pocket !== 'Key Items'; }
 
   _say(text) { this.message = text; this.messageT = 2.4; }
 

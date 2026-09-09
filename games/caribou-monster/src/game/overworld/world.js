@@ -5,6 +5,7 @@
 // encounters, trainer sight, the camera — is simple and predictable because
 // of that, and it is what makes the movement feel right rather than floaty.
 import { getMap } from '../../data/maps/index.js';
+import { onWalked } from '../friendship.js';
 import { tileDef } from '../../render/tiles.js';
 import { getTrainer } from '../../data/trainers.js';
 import { weightedPick } from '../../core/rng.js';
@@ -248,6 +249,11 @@ export class World {
     this.state.player.y = p.y;
     this.state.player.dir = p.dir;
     this.state.stats.steps++;
+    // Walking with you is how a Pokémon warms to you. Only the lead one, and
+    // only every so often, so a long route is a nudge and not a shortcut.
+    if (this.state.stats.steps % 128 === 0 && this.state.party.length) {
+      onWalked(this.state.party[0]);
+    }
     if (this.state.repelSteps > 0) this.state.repelSteps--;
     if (this.onStep) this.onStep();
 
@@ -255,9 +261,11 @@ export class World {
     const warp = this.warpAt(p.x, p.y);
     if (warp) { this.pendingWarp = warp; return; }
 
-    // Scripted step event?
+    // Scripted step event? Most fire once and set their flag; one marked
+    // `repeat` fires every time you stand on it, which is how a doorway that
+    // is also a cutscene works — the script decides what state you are in.
     const stepEvent = this.map.events.find((ev) => ev.x === p.x && ev.y === p.y
-      && !this.state.flags[ev.flag]);
+      && (ev.repeat || !this.state.flags[ev.flag]));
     if (stepEvent) { this.pendingEvent = stepEvent; return; }
 
     // Trainer spotted us?

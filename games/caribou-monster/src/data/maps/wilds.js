@@ -77,6 +77,36 @@ export const ROUTE202 = defineMap('route202', {
   },
 });
 
+// ---- The Everlight Chamber -------------------------------------------------
+// Where four maps and a dozen NPCs have been pointing. Reachable only with the
+// Aurora Charm, and only once Galactic has been cleared out of the Gate.
+
+export const EVERLIGHT_CHAMBER = defineMap('everlight_chamber', {
+  name: 'Everlight Chamber', kind: 'cave', music: 'cave', darkEdges: true,
+  tiles: [
+    'CCCCCCCCCCCCCCC',
+    'CCCCcccccccCCCC',
+    'CCcccccccccccCC',
+    'CcccccccccccccC',
+    'CcccccccccccccC',
+    'CcccccccccccccC',
+    'CCcccccccccccCC',
+    'CCCCcccccccCCCC',
+    'CCCCCCCccCCCCCC',
+  ],
+  warps: [
+    { x: 7, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
+    { x: 8, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
+  ],
+  events: [
+    // Standing in front of it is the encounter. It repeats until the thing is
+    // caught, because a legendary you knocked out should not be gone forever.
+    { x: 7, y: 4, flag: 'everlightResolved', script: 'everlightDialga', repeat: true },
+    { x: 8, y: 4, flag: 'everlightResolved', script: 'everlightDialga', repeat: true },
+  ],
+  encounters: { grass: null, cave: null },
+});
+
 export const OREBURGH_GATE = defineMap('oreburgh_gate', {
   name: 'Oreburgh Gate', kind: 'cave', music: 'cave',
   tiles: [
@@ -105,6 +135,11 @@ export const OREBURGH_GATE = defineMap('oreburgh_gate', {
     { id: 'sf_escape', x: 2, y: 1, item: 'escaperope', qty: 1 },
     { id: 'sf_revive', x: 21, y: 3, item: 'revive', qty: 1 },
     { id: 'sf_charm', x: 12, y: 1, item: 'auroracharm', qty: 1, story: true },
+  ],
+  events: [
+    // The seam in the rock the whole region has been talking about. It fires
+    // every time you stand on it: shut without the charm, a door with it.
+    { x: 12, y: 2, flag: 'everlightOpened', script: 'everlight', repeat: true },
   ],
   npcs: [
     { id: 'sf_t1', x: 6, y: 5, look: 'grunt', trainer: 'cave_grunt1', facing: 'right', sight: 4, movement: 'still' },

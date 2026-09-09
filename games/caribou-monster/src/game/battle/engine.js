@@ -12,6 +12,8 @@
 import { makeRng } from '../../core/rng.js';
 import { getMove } from '../../data/moves.js';
 import { typeMultiplier, effectivenessText } from '../../data/types.js';
+import * as ability from './abilities.js';
+import { onLevelUp, onWonBattle, onFainted } from '../friendship.js';
 import { getSpecies } from '../../data/species.js';
 import { getItem } from '../../data/items.js';
 import {
@@ -170,12 +172,32 @@ function buildOrder(battle, actions) {
 
 // ---- individual actions ------------------------------------------------
 
+/**
+ * The handful of engine operations an ability is allowed to perform. Passing
+ * this rather than the engine keeps abilities/engine free of a cycle and keeps
+ * the surface an ability can touch small enough to reason about.
+ */
+function abilityCtx(battle, sideIdx, out, mon) {
+  return {
+    mon,
+    get name() { return displayName(mon); },
+    say: (text) => out.push({ t: 'text', s: text }),
+    statChange: (target, stat, delta) => applyStatChange(battle, target, stat, delta, out),
+    passStatus: (target, status) => {
+      const t = activeOf(battle.sides[target]);
+      if (!t || isFainted(t) || t.status) return;
+      applyStatus(battle, target, { status }, out);
+    },
+  };
+}
+
 function doSwitch(battle, sideIdx, index, out) {
   const side = battle.sides[sideIdx];
   const target = side.party[index];
   if (!target || isFainted(target) || index === side.active) return;
   const leaving = activeOf(side);
   if (leaving && !isFainted(leaving)) {
+    ability.onSwitchOut(battle, sideIdx, abilityCtx(battle, sideIdx, out, leaving), leaving);
     out.push({ t: 'text', s: `${side.isPlayer ? '' : `${side.name} withdrew `}${displayName(leaving)}${side.isPlayer ? ', come back!' : '!'}` });
   }
   out.push({ t: 'withdraw', side: sideIdx });
@@ -185,6 +207,7 @@ function doSwitch(battle, sideIdx, index, out) {
   side.participants.add(index);
   out.push({ t: 'sendout', side: sideIdx, index });
   out.push({ t: 'text', s: `${side.isPlayer ? 'Go!' : `${side.name} sent out`} ${displayName(target)}!` });
+  ability.onSwitchIn(battle, sideIdx, abilityCtx(battle, sideIdx, out, target));
 }
 
 function doItem(battle, sideIdx, action, out) {
@@ -252,7 +275,8 @@ function doRun(battle, sideIdx, out) {
   side.runAttempts += 1;
   const attempts = side.runAttempts;
   const odds = theirs > 0 ? ((mine * 128) / theirs + 30 * attempts) % 256 : 256;
-  if (mine >= theirs || battle.rng.int(256) < odds) {
+  const runner = activeOf(side);
+  if (ability.alwaysFlees(runner) || mine >= theirs || battle.rng.int(256) < odds) {
     out.push({ t: 'sfx', s: 'escape' });
     out.push({ t: 'text', s: 'Got away safely!' });
     battle.over = true;
@@ -354,6 +378,7 @@ function doMove(battle, sideIdx, action, out) {
   }
   if (side.volatile.flinch) {
     out.push({ t: 'text', s: `${displayName(user)} flinched!` });
+    ability.onFlinch(battle, sideIdx, abilityCtx(battle, sideIdx, out, user));
     return;
   }
   if (user.status === 'PAR' && battle.rng() < 0.25) {
@@ -377,7 +402,8 @@ function doMove(battle, sideIdx, action, out) {
     }
   }
 
-  if (!isStruggle) slot.pp = Math.max(0, slot.pp - 1);
+  // Pressure is the defender's ability charging the attacker extra PP.
+  if (!isStruggle) slot.pp = Math.max(0, slot.pp - (1 + ability.extraPpCost(target)));
   side.lastMove = used.id;
 
   out.push({ t: 'usemove', side: sideIdx, move: used.id });
@@ -439,11 +465,15 @@ export function computeDamage(battle, sideIdx, move, opts = {}) {
   let dmg = Math.floor(Math.floor(Math.floor((2 * user.level) / 5 + 2) * power * A / D) / 50) + 2;
 
   const stab = typesOf(user).includes(move.type) ? 1.5 : 1;
-  const eff = typeMultiplier(move.type, typesOf(target));
+  // An ability that grants outright immunity zeroes the type chart, so the
+  // caller's existing "doesn't affect" path handles it with no new branch.
+  const eff = ability.immuneToType(target, move.type)
+    ? 0 : typeMultiplier(move.type, typesOf(target));
   dmg = Math.floor(dmg * stab);
   dmg = Math.floor(dmg * eff);
+  dmg = Math.floor(dmg * ability.attackMultiplier(user, move, side));
   if (crit) dmg = Math.floor(dmg * 2);
-  if (user.status === 'BRN' && physical) dmg = Math.floor(dmg * 0.5);
+  if (user.status === 'BRN' && physical && !ability.ignoresBurnDrop(user)) dmg = Math.floor(dmg * 0.5);
   // Damage roll: 85%..100%. A peek uses the average roll so the AI's
   // evaluation is stable and costs the shared stream nothing.
   dmg = Math.floor(dmg * (opts.peek ? 0.925 : 0.85 + battle.rng() * 0.15));
@@ -472,7 +502,12 @@ function applyDamagingMove(battle, sideIdx, move, out) {
     const { dmg, eff, crit } = computeDamage(battle, sideIdx, move);
     lastEff = eff;
     if (eff === 0) {
-      out.push({ t: 'text', s: `It doesn't affect ${displayName(target)}...` });
+      if (ability.immuneToType(target, move.type)) {
+        out.push({ t: 'text', s: `${displayName(target)}'s ${target.ability} made it immune!` });
+        ability.onImmune(battle, foeIndex(sideIdx), abilityCtx(battle, foeIndex(sideIdx), out, target));
+      } else {
+        out.push({ t: 'text', s: `It doesn't affect ${displayName(target)}...` });
+      }
       return;
     }
     target.hp = Math.max(0, target.hp - dmg);
@@ -497,16 +532,19 @@ function applyDamagingMove(battle, sideIdx, move, out) {
       out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp });
       out.push({ t: 'text', s: `${displayName(target)} had its energy drained!` });
     }
-    if (fx.kind === 'recoil') {
+    if (fx.kind === 'recoil' && !ability.noRecoil(user)) {
       const hurt = Math.max(1, Math.floor(total * fx.fraction));
       user.hp = Math.max(0, user.hp - hurt);
       out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp, shake: true });
       out.push({ t: 'text', s: `${displayName(user)} is hit with recoil!` });
     }
+    // The roll happens either way, so an ability that blocks the effect cannot
+    // shift the shared random stream a link battle replays on both phones.
     if (fx.kind === 'status' && (!fx.chance || battle.rng() < fx.chance)) {
-      applyStatus(battle, foeIndex(sideIdx), fx, out);
+      if (!ability.blocksSecondary(target)) applyStatus(battle, foeIndex(sideIdx), fx, out);
     }
-    if (fx.kind === 'stat' && (!fx.chance || battle.rng() < fx.chance)) {
+    if (fx.kind === 'stat' && (!fx.chance || battle.rng() < fx.chance)
+      && !(fx.target === 'foe' && ability.blocksSecondary(target))) {
       const tgt = fx.target === 'self' ? sideIdx : foeIndex(sideIdx);
       applyStatChange(battle, tgt, fx.stat, fx.stages, out);
     }
@@ -572,6 +610,7 @@ export function applyStatus(battle, sideIdx, fx, out) {
   if (fx.status === 'flinch') {
     // Flinch only lands if the target has not moved yet this turn; the
     // engine approximates that by only setting it when the target is slower.
+    if (ability.preventsFlinch(mon)) return;
     side.volatile.flinch = true;
     return;
   }
@@ -598,12 +637,17 @@ export function applyStatus(battle, sideIdx, fx, out) {
   mon.badPoison = !!fx.bad;
   out.push({ t: 'status', side: sideIdx, status: fx.status });
   out.push({ t: 'text', s: `${displayName(mon)} was ${STATUS_NAMES[fx.status]}!` });
+  ability.onStatused(battle, sideIdx, abilityCtx(battle, sideIdx, out, mon), mon, fx.status);
 }
 
 export function applyStatChange(battle, sideIdx, stat, delta, out) {
   const side = battle.sides[sideIdx];
   const mon = activeOf(side);
   if (!mon || isFainted(mon)) return;
+  if (delta < 0 && ability.protectsStat(mon, stat)) {
+    out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} prevents stat loss!` });
+    return;
+  }
   const cur = side.boosts[stat] || 0;
   const next = Math.max(-6, Math.min(6, cur + delta));
   const label = { atk: 'Attack', def: 'Defense', spa: 'Sp. Atk', spd: 'Sp. Def', spe: 'Speed', acc: 'accuracy', eva: 'evasiveness' }[stat] || stat;
@@ -636,6 +680,7 @@ function endOfTurn(battle, out) {
       out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp, shake: true });
       out.push({ t: 'text', s: `${displayName(mon)} is hurt by its burn!` });
     }
+    ability.onEndOfTurn(battle, i, abilityCtx(battle, i, out, mon), mon);
     // Held berry that triggers in a pinch.
     if (mon.heldItem) {
       const held = getItem(mon.heldItem);
@@ -658,6 +703,7 @@ function checkFaints(battle, out) {
     const mon = activeOf(side);
     if (!mon || !isFainted(mon) || battle.announcedFaints.has(mon.uid)) continue;
     battle.announcedFaints.add(mon.uid);
+    onFainted(mon);
     out.push({ t: 'sfx', s: 'faint' });
     out.push({ t: 'faint', side: i });
     out.push({ t: 'text', s: `${side.isPlayer ? '' : 'Foe '}${displayName(mon)} fainted!` });
@@ -679,6 +725,7 @@ function awardExperience(battle, sideIdx, loser, out) {
     const scaled = battle.difficulty === 'easy' ? Math.floor(amount * 1.5) : amount;
     const before = { level: mon.level, progress: expProgress(mon) };
     out.push({ t: 'text', s: `${displayName(mon)} gained ${scaled} EXP. Points!` });
+    onWonBattle(mon);
     awardEvs(mon, loser);
     const events = gainExp(mon, scaled);
     out.push({
@@ -687,6 +734,7 @@ function awardExperience(battle, sideIdx, loser, out) {
     });
     for (const e of events) {
       if (e.type === 'level') {
+        onLevelUp(mon);
         out.push({ t: 'sfx', s: 'levelup' });
         out.push({ t: 'levelup', uid: mon.uid, index: idx, level: e.level });
         out.push({ t: 'text', s: `${displayName(mon)} grew to Lv. ${e.level}!` });

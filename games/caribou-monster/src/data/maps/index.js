@@ -6,12 +6,13 @@
 import { defineMap } from './define.js';
 import { TWINLEAF, OREBURGH } from './towns.js';
 import { ROUTE201, ROUTE207 } from './routes.js';
-import { ROUTE202, OREBURGH_GATE } from './wilds.js';
+import { ROUTE202, OREBURGH_GATE, EVERLIGHT_CHAMBER } from './wilds.js';
 import { INTERIORS } from './interiors.js';
 
 export { defineMap };
 
-const ALL = [TWINLEAF, OREBURGH, ROUTE201, ROUTE207, ROUTE202, OREBURGH_GATE, ...INTERIORS];
+const ALL = [TWINLEAF, OREBURGH, ROUTE201, ROUTE207, ROUTE202, OREBURGH_GATE,
+  EVERLIGHT_CHAMBER, ...INTERIORS];
 
 export const MAPS = {};
 for (const m of ALL) MAPS[m.id] = m;
@@ -24,7 +25,3 @@ export function getMap(id) {
 
 export const MAP_IDS = Object.keys(MAPS);
 
-// Region order, used by the Town Map and by "where can I go" checks.
-export const REGION_ORDER = [
-  'twinleaf', 'route201', 'route202', 'oreburgh', 'route207', 'oreburgh_gate',
-];

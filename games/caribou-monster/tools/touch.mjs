@@ -40,6 +40,66 @@ const DEVICES = [
   { name: 'desktop', width: 900, height: 500, dpr: 1, touch: false },
 ];
 
+/**
+ * Finds the selection highlight in the rendered frame and returns its centre
+ * in logical pixels. This is how a "what you see is what you can touch" check
+ * is made: the tap goes where the player sees the row, so a hit target that
+ * has drifted away from its own drawing fails here.
+ */
+async function findHighlightBand(page, bounds) {
+  return page.evaluate((b) => {
+    const d = window.CARIBOU.display;
+    const cv = document.getElementById('game');
+    const ctx = cv.getContext('2d');
+    const px = d.dpr * d.scale;
+    const img = ctx.getImageData(0, 0, cv.width, cv.height).data;
+    // PAL.uiSelect, the colour every selected row in the game is filled with.
+    const want = [0x3f, 0x6f, 0xd4];
+    const near = (o) => Math.abs(img[o] - want[0]) < 12
+      && Math.abs(img[o + 1] - want[1]) < 12 && Math.abs(img[o + 2] - want[2]) < 12;
+
+    // Bounded to the panel under test, in device pixels. The gamepad's B
+    // button is a blue of its own and would otherwise be the first hit.
+    const x0 = Math.max(0, Math.floor(b.x * px));
+    const x1 = Math.min(cv.width, Math.ceil((b.x + b.w) * px));
+    const yTop = Math.max(0, Math.floor(b.y * px));
+    const yBot = Math.min(cv.height, Math.ceil((b.y + b.h) * px));
+    const minRun = Math.max(8, Math.floor(30 * px));
+
+    // Every scan line that carries a long run of the colour. Collected rather
+    // than walked, because a fractional display scale antialiases the band's
+    // edges and a pixel-by-pixel walk stops on the first blended row.
+    const rows = [];
+    for (let y = yTop; y < yBot; y++) {
+      let run = 0, best = 0, bestStart = -1, start = -1;
+      for (let x = x0; x < x1; x++) {
+        if (near((y * cv.width + x) * 4)) {
+          if (run === 0) start = x;
+          run++;
+          if (run > best) { best = run; bestStart = start; }
+        } else run = 0;
+      }
+      if (best >= minRun) rows.push({ y, start: bestStart, run: best });
+    }
+    if (!rows.length) return null;
+
+    // The first contiguous group of them is the topmost band.
+    const group = [rows[0]];
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i].y - group[group.length - 1].y > 1) break;
+      group.push(rows[i]);
+    }
+    const first = group[0], last = group[group.length - 1];
+    return {
+      y0: first.y / px,
+      y1: (last.y + 1) / px,
+      rows: group.length,
+      cx: (first.start + first.run / 2) / px,
+      cy: (first.y + (last.y + 1)) / 2 / px,
+    };
+  }, bounds);
+}
+
 let failures = 0;
 const check = (dev, name, ok, detail = '') => {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  [${dev}] ${name}${detail ? '  ' + detail : ''}`);
@@ -199,6 +259,81 @@ for (const dev of DEVICES) {
     const menu = await screenName();
     check(dev.name, 'tapping MENU opens the pause menu', menu === 'MainMenuScreen', menu);
     await page.screenshot({ path: path.join(OUT, `${dev.name}-3-menu.png`) });
+  }
+
+  // --- the battle bag, by thumb ---
+  // The bug this exists for: the bag's rows were drawn in one place and
+  // hit-tested 18 pixels lower, so a Poké Ball could not be tapped at all and
+  // there was no way to catch anything on a phone.
+  if ((await screenName()) === 'MainMenuScreen') {
+    await page.evaluate(() => {
+      const g = window.CARIBOU;
+      while (g.screens.stack.length > 1) g.screens.pop();
+      g.debugGive(1, 12);
+      g.state.inventory.items.pokeball = 5;
+      g.state.inventory.items.potion = 3;
+      g.startWildBattle(16, 4);
+    });
+    await page.waitForTimeout(900);
+    // Skip the intro text with taps on the message box.
+    for (let i = 0; i < 12; i++) {
+      const m = await page.evaluate(() => {
+        const s = window.CARIBOU.screens.top;
+        return s.constructor.name === 'BattleScreen' ? s.mode : null;
+      });
+      if (m === 'command') break;
+      await tapLogical(await page.evaluate(() => window.CARIBOU.display.width / 2),
+        await page.evaluate(() => window.CARIBOU.display.height - 20));
+    }
+    const atCommand = await page.evaluate(() => window.CARIBOU.screens.top.mode);
+    check(dev.name, 'a wild battle reaches the command menu', atCommand === 'command', atCommand);
+
+    // Tap BAG (command index 1).
+    const bagBtn = await page.evaluate(() => {
+      const r = window.CARIBOU.screens.top._commandRects()[1];
+      return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+    });
+    await tapLogical(bagBtn.x, bagBtn.y);
+    const inBag = await page.evaluate(() => window.CARIBOU.screens.top.mode);
+    check(dev.name, 'tapping BAG opens the bag', inBag === 'bag', inBag);
+
+    if (inBag === 'bag') {
+      const before = await page.evaluate(() => window.CARIBOU.state.inventory.items.pokeball || 0);
+      const name = await page.evaluate(() => {
+        const s = window.CARIBOU.screens.top;
+        const items = s._bagItems();
+        return items.length ? items[s.bagIndex].item.name : null;
+      });
+      check(dev.name, 'the bag lists a throwable ball', /Ball/.test(name || ''), name);
+
+      // Tap where the selected row is DRAWN, found by scanning the canvas for
+      // the highlight band — not where the code says its hit target is. Asking
+      // the code for the rect would pass even if the two disagreed, which is
+      // the bug this whole check exists for.
+      const bagWindow = await page.evaluate(() => {
+        const s = window.CARIBOU.screens.top;
+        // The window's own frame, which draw and hit-test have always agreed
+        // on; only the rows inside it were ever out of step.
+        const b = s._bagBox();
+        return { x: b.x, y: b.y, w: b.w, h: b.h };
+      });
+      const band = await findHighlightBand(page, bagWindow);
+      check(dev.name, 'the selected bag row is visible on screen', !!band,
+        band ? `y ${band.y0}-${band.y1}` : 'no highlight found');
+      if (band && name) {
+        await tapLogical(band.cx, band.cy);
+        await page.waitForTimeout(700);
+        const after = await page.evaluate(() => window.CARIBOU.state.inventory.items.pokeball || 0);
+        check(dev.name, 'tapping the drawn Poké Ball row actually throws it',
+          after === before - 1, `${before} -> ${after} (tapped ${band.cx.toFixed(0)},${band.cy.toFixed(0)})`);
+      }
+    }
+    await page.evaluate(() => {
+      const g = window.CARIBOU;
+      while (g.screens.stack.length > 1) g.screens.pop();
+      g.openMenu();
+    });
+    await page.waitForTimeout(300);
   }
 
   // --- the World Circuit, reached and driven entirely by tapping ---

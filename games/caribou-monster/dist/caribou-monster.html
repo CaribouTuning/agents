@@ -2475,6 +2475,10 @@ class ScreenManager {
     const inMs = opts.inMs != null ? opts.inMs : 240;
     this.transition = {
       kind, t: 0, phase: 'out', outMs: outMs / 1000, inMs: inMs / 1000, action, done: false,
+      // Screens below a transition are not updated, so anything waiting on a
+      // fade cannot use their timers to find out when it ended. This is how
+      // it finds out.
+      onDone: opts.onDone || null,
     };
   }
 
@@ -2490,6 +2494,7 @@ class ScreenManager {
         if (tr.action) { const a = tr.action; tr.action = null; a(); }
       } else if (tr.phase === 'in' && tr.t >= tr.inMs) {
         this.transition = null;
+        if (tr.onDone) tr.onDone();
       }
       // Input is swallowed during a transition.
       return;
@@ -3129,245 +3134,6 @@ function drawMonster(ctx, art, x, y, opts = {}) {
 }
 
 __exports(__x, { renderMonster: () => renderMonster, drawMonster: () => drawMonster });
-
-};
-
-__defs['render/sprites.js'] = function (__x, __req) {
-const { makeSurface, paintGrid } = __req('render/canvas.js');
-const { shade } = __req('render/palette.js');
-// Overworld character sprites.
-//
-// One 16x20 template per facing (down / up / side), painted with a
-// per-character palette. Legs are drawn procedurally per walk frame, and a
-// dark outline is derived automatically — so a new NPC costs a palette
-// entry, not an art asset.
-
-
-
-const SPR_W = 16;
-const SPR_H = 20;
-const FOOT_OFFSET = 4;  // pixels the sprite overhangs above its tile
-
-const PAD = 3; // left/right padding around the 10px-wide body
-
-const pad = (rows) => rows.map((r) => '.'.repeat(PAD) + r + '.'.repeat(SPR_W - PAD - r.length));
-
-// Rows 0..14 (head + torso). Rows 15..19 are the procedural legs.
-const BODY = {
-  down: pad([
-    '.HHHHHHHH.',
-    'HHHHHHHHHH',
-    'HHHHHHHHHH',
-    'HSSSSSSSSH',
-    'HSEESSEESH',
-    'HSSSSSSSSH',
-    '.SSSSSSSS.',
-    '..SSSSSS..',
-    '....SS....',
-    '..CCCCCC..',
-    '.CCCCCCCC.',
-    'SCCCCCCCCS',
-    'SCCCCCCCCS',
-    '.CCCCCCCC.',
-    '..PPPPPP..',
-  ]),
-  up: pad([
-    '.HHHHHHHH.',
-    'HHHHHHHHHH',
-    'HHHHHHHHHH',
-    'HHHHHHHHHH',
-    'HHHHHHHHHH',
-    'HHHHHHHHHH',
-    '.HHHHHHHH.',
-    '..HHHHHH..',
-    '....SS....',
-    '..CCCCCC..',
-    '.CCCCCCCC.',
-    'SCCCCCCCCS',
-    'SCCCCCCCCS',
-    '.CCCCCCCC.',
-    '..PPPPPP..',
-  ]),
-  side: pad([
-    '..HHHHHH..',
-    '.HHHHHHHH.',
-    '.HHHHHHHH.',
-    '.HSSSSSHH.',
-    '.HESSSSHH.',
-    '.HSSSSSHH.',
-    '..SSSSSS..',
-    '...SSSS...',
-    '....SS....',
-    '..CCCCCC..',
-    '.CCCCCCCC.',
-    '.SCCCCCCC.',
-    '.SCCCCCCC.',
-    '..CCCCCC..',
-    '..PPPPPP..',
-  ]),
-};
-
-// Long hair adds volume behind the head and over the shoulders.
-const LONG_HAIR = {
-  down: [[PAD, 6], [PAD, 7], [PAD, 8], [PAD, 9], [PAD + 9, 6], [PAD + 9, 7], [PAD + 9, 8], [PAD + 9, 9]],
-  up: [[PAD, 8], [PAD, 9], [PAD, 10], [PAD + 9, 8], [PAD + 9, 9], [PAD + 9, 10],
-       [PAD + 1, 8], [PAD + 8, 8]],
-  side: [[PAD + 7, 6], [PAD + 8, 6], [PAD + 8, 7], [PAD + 8, 8], [PAD + 8, 9], [PAD + 7, 9]],
-};
-
-// A cap: brim points the way the character faces.
-const HAT = {
-  down: { crown: [[PAD, 0, 10, 3]], brim: [[PAD - 1, 3, 12, 1], [PAD, 4, 10, 1]] },
-  up: { crown: [[PAD, 0, 10, 3]], brim: [[PAD, 3, 10, 1]] },
-  side: { crown: [[PAD + 1, 0, 8, 3]], brim: [[PAD - 2, 3, 10, 1]] },
-};
-
-function legRects(dir, frame) {
-  // [x, y, w, h, isBoot]
-  const P = PAD;
-  if (dir === 'side') {
-    if (frame === 1) return [[P + 2, 15, 3, 3, 0], [P + 1, 18, 4, 2, 1], [P + 5, 15, 3, 2, 0], [P + 6, 17, 4, 2, 1]];
-    if (frame === 2) return [[P + 5, 15, 3, 3, 0], [P + 5, 18, 5, 2, 1], [P + 2, 15, 3, 2, 0], [P + 1, 17, 4, 2, 1]];
-    return [[P + 3, 15, 3, 4, 0], [P + 2, 19, 5, 1, 1], [P + 5, 15, 3, 4, 0], [P + 5, 19, 5, 1, 1]];
-  }
-  if (frame === 1) return [[P + 1, 15, 3, 3, 0], [P + 1, 18, 3, 2, 1], [P + 6, 15, 3, 4, 0], [P + 6, 19, 3, 1, 1]];
-  if (frame === 2) return [[P + 1, 15, 3, 4, 0], [P + 1, 19, 3, 1, 1], [P + 6, 15, 3, 3, 0], [P + 6, 18, 3, 2, 1]];
-  return [[P + 1, 15, 3, 3, 0], [P + 1, 18, 3, 2, 1], [P + 6, 15, 3, 3, 0], [P + 6, 18, 3, 2, 1]];
-}
-
-// Adds a 1px dark outline around every opaque pixel. This is the single
-// biggest thing that makes procedural sprites read as deliberate pixel art.
-function outline(surf, color) {
-  const { ctx, w, h } = surf;
-  const img = ctx.getImageData(0, 0, w, h);
-  const d = img.data;
-  const opaque = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0;
-  const out = [];
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (opaque(x, y)) continue;
-      if (opaque(x - 1, y) || opaque(x + 1, y) || opaque(x, y - 1) || opaque(x, y + 1)) out.push([x, y]);
-    }
-  }
-  ctx.fillStyle = color;
-  for (const [x, y] of out) ctx.fillRect(x, y, 1, 1);
-}
-
-// A character "look" is pure data.
-function makeLook({ hair = '#4a3020', skin = '#f0c090', shirt = '#4a6fc0',
-  pants = '#3a4050', boots = '#5a3a24', eye = '#20283a', hat = null,
-  longHair = false, outlineColor = null } = {}) {
-  return { hair, skin, shirt, pants, boots, eye, hat, longHair, outlineColor };
-}
-
-const sheets = new Map();
-
-// Builds a 3-frames x 3-facings sheet. Right facing is the mirror of left,
-// applied at draw time.
-function buildCharSheet(key, look) {
-  if (sheets.has(key)) return sheets.get(key);
-  const dirs = ['down', 'up', 'side'];
-  const surf = makeSurface(SPR_W * 3, SPR_H * 3);
-  const pal = {
-    H: look.hair, S: look.skin, C: look.shirt, P: look.pants, E: look.eye,
-  };
-
-  dirs.forEach((dir, di) => {
-    for (let frame = 0; frame < 3; frame++) {
-      const ox = frame * SPR_W;
-      const oy = di * SPR_H;
-      const cell = makeSurface(SPR_W, SPR_H);
-      const c = cell.ctx;
-
-      paintGrid(c, BODY[dir], pal, 0, 0, 1);
-
-      if (look.longHair) {
-        c.fillStyle = look.hair;
-        for (const [x, y] of LONG_HAIR[dir]) c.fillRect(x, y, 1, 1);
-      }
-
-      // Legs.
-      for (const [x, y, w, hh, isBoot] of legRects(dir, frame)) {
-        c.fillStyle = isBoot ? look.boots : look.pants;
-        c.fillRect(x, y, w, hh);
-      }
-
-      // Shirt shading down the right side gives the sprite volume.
-      c.fillStyle = shade(look.shirt, -0.22);
-      c.fillRect(PAD + 7, 9, 2, 5);
-      c.fillStyle = shade(look.skin, -0.18);
-      c.fillRect(PAD + 8, 6, 1, 2);
-
-      if (look.hat) {
-        const spec = HAT[dir];
-        c.fillStyle = look.hat;
-        for (const [x, y, w, hh] of spec.crown) c.fillRect(x, y, w, hh);
-        c.fillStyle = shade(look.hat, -0.28);
-        for (const [x, y, w, hh] of spec.brim) c.fillRect(x, y, w, hh);
-      }
-
-      outline(cell, look.outlineColor || shade(look.hair, -0.55));
-      surf.ctx.drawImage(cell.canvas, ox, oy);
-    }
-  });
-
-  sheets.set(key, surf.canvas);
-  return surf.canvas;
-}
-
-const DIR_ROW = { down: 0, up: 1, left: 2, right: 2 };
-
-// Draws a character. (x, y) is the top-left of the tile the character
-// stands on; the sprite is lifted so its feet sit in that tile.
-function drawChar(ctx, key, look, dir, frame, x, y, opts = {}) {
-  const sheet = buildCharSheet(key, look);
-  const row = DIR_ROW[dir] ?? 0;
-  const sx = (frame % 3) * SPR_W;
-  const sy = row * SPR_H;
-  const dx = Math.round(x);
-  const dy = Math.round(y - FOOT_OFFSET);
-
-  if (opts.alpha != null) { ctx.save(); ctx.globalAlpha = opts.alpha; }
-  if (dir === 'right') {
-    ctx.save();
-    ctx.translate(dx + SPR_W, dy);
-    ctx.scale(-1, 1);
-    ctx.drawImage(sheet, sx, sy, SPR_W, SPR_H, 0, 0, SPR_W, SPR_H);
-    ctx.restore();
-  } else {
-    ctx.drawImage(sheet, sx, sy, SPR_W, SPR_H, dx, dy, SPR_W, SPR_H);
-  }
-  if (opts.alpha != null) ctx.restore();
-}
-
-// The stock cast. NPC data refers to these by name.
-const LOOKS = {
-  boy: makeLook({ hair: '#3a2418', shirt: '#3f6fd4', pants: '#2b3450', hat: '#d84838', boots: '#3a2a20' }),
-  girl: makeLook({ hair: '#8a4a20', shirt: '#e0609a', pants: '#f0f0f8', longHair: true, boots: '#c04868' }),
-  rivalBoy: makeLook({ hair: '#e0a030', shirt: '#f0f0f4', pants: '#4a5060', boots: '#804830' }),
-  rivalGirl: makeLook({ hair: '#20304a', shirt: '#f0e070', pants: '#4a5060', longHair: true, boots: '#804830' }),
-  professor: makeLook({ hair: '#c8c8d0', shirt: '#f4f4f8', pants: '#5a6070', boots: '#404850' }),
-  nurse: makeLook({ hair: '#f090b0', shirt: '#f8f8fc', pants: '#f8f8fc', longHair: true, hat: '#f8f8fc', boots: '#e05a7a' }),
-  clerk: makeLook({ hair: '#3a3a48', shirt: '#4a90d0', pants: '#2b3450', boots: '#2b3450' }),
-  mom: makeLook({ hair: '#8a4a20', shirt: '#f0a050', pants: '#c05a30', longHair: true, boots: '#8a4a20' }),
-  youngster: makeLook({ hair: '#3a2418', shirt: '#68c060', pants: '#3a4a68', hat: '#f0f0f4', boots: '#4a3020' }),
-  lass: makeLook({ hair: '#f0d060', shirt: '#f070a0', pants: '#f8f8fc', longHair: true, boots: '#d04070' }),
-  hiker: makeLook({ hair: '#5a3a20', shirt: '#c87840', pants: '#4a5a3a', boots: '#3a2a1a' }),
-  bugCatcher: makeLook({ hair: '#3a2418', shirt: '#f0e070', pants: '#68a048', hat: '#f0e070', boots: '#5a4030' }),
-  worker: makeLook({ hair: '#4a3020', shirt: '#f09030', pants: '#4a5060', hat: '#f0c030', boots: '#3a3a3a' }),
-  grunt: makeLook({ hair: '#20242e', shirt: '#2b3450', pants: '#20242e', hat: '#5a6a94', boots: '#101420', outlineColor: '#080a12' }),
-  gruntF: makeLook({ hair: '#20242e', shirt: '#2b3450', pants: '#20242e', longHair: true, boots: '#101420', outlineColor: '#080a12' }),
-  leaderRock: makeLook({ hair: '#8a5a30', shirt: '#a86840', pants: '#5a4a3a', boots: '#3a2a1a' }),
-  oldMan: makeLook({ hair: '#d0d0d8', shirt: '#8a9aa8', pants: '#5a6070', boots: '#4a4a52' }),
-  kid: makeLook({ hair: '#4a3020', shirt: '#f0d060', pants: '#68a048', boots: '#8a5a30' }),
-  sailor: makeLook({ hair: '#20304a', shirt: '#f0f0f8', pants: '#2b3450', hat: '#f0f0f8', boots: '#20283a' }),
-  scientist: makeLook({ hair: '#3a3a48', shirt: '#f4f4f8', pants: '#8a9aa8', boots: '#4a4a52' }),
-  boss: makeLook({ hair: '#c8b088', shirt: '#20283a', pants: '#101828', longHair: true, boots: '#0a0e18', outlineColor: '#05070d' }),
-};
-
-function lookFor(name) { return LOOKS[name] || LOOKS.youngster; }
-
-__exports(__x, { SPR_W: () => SPR_W, SPR_H: () => SPR_H, FOOT_OFFSET: () => FOOT_OFFSET, makeLook: () => makeLook, buildCharSheet: () => buildCharSheet, drawChar: () => drawChar, LOOKS: () => LOOKS, lookFor: () => lookFor });
 
 };
 
@@ -4084,6 +3850,440 @@ __exports(__x, { GROWTH: () => GROWTH, SPECIES: () => SPECIES, SPECIES_LIST: () 
 
 };
 
+__defs['ui/naming.js'] = function (__x, __req) {
+const { Screen } = __req('ui/screen.js');
+const { input } = __req('core/input.js');
+const { audio } = __req('core/audio.js');
+const { PAL, shade } = __req('render/palette.js');
+const { window9, rect, drawText, drawTextCentered, label } = __req('ui/kit.js');
+const { drawBackChip } = __req('ui/controls.js');
+const { renderMonster } = __req('render/monsterart.js');
+const { getSpecies } = __req('data/species.js');
+// The on-screen keyboard, and the screen that wraps it.
+//
+// Two places need to type a name: character creation and nicknaming a Pokémon
+// you have just caught. They share the layout and the hit-testing so a thumb
+// learns one keyboard, not two.
+
+
+
+
+
+
+
+
+
+const KEY_ROWS = [
+  'ABCDEFGHIJ',
+  'KLMNOPQRST',
+  'UVWXYZ    ',
+  'abcdefghij',
+  'klmnopqrst',
+  'uvwxyz-. 0',
+  '123456789 ',
+];
+
+const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
+
+/**
+ * Key rectangles in logical pixels. `top` is where the grid starts, so a caller
+ * can put a portrait or a text box above it.
+ */
+function keyGrid(display, top = 44) {
+  const { width: W } = display;
+  const cw = Math.min(16, Math.floor((W - 24) / 10));
+  const ch = 13;
+  const gx = W / 2 - (cw * 10) / 2;
+  const cells = [];
+  KEY_ROWS.forEach((row, r) => {
+    for (let c = 0; c < 10; c++) {
+      if (row[c] === ' ') continue;
+      cells.push({ ch: row[c], x: gx + c * cw, y: top + r * ch, w: cw - 1, h: ch - 1, r, c });
+    }
+  });
+  const by = top + KEY_ROWS.length * ch + 3;
+  return {
+    cells, gx, gy: top, cw, ch,
+    okX: W / 2 + 6, okY: by,
+    delX: W / 2 - 50, delY: by,
+    // Only the nickname keyboard offers a skip; character creation always
+    // needs a name, so the caller decides whether to draw it.
+    skipX: W / 2 + 54, skipY: by,
+  };
+}
+
+/** Draws the grid plus its DEL / OK (and optionally SKIP) buttons. */
+function drawKeyGrid(ctx, g, kx, ky, opts = {}) {
+  for (const cell of g.cells) {
+    const sel = cell.r === ky && cell.c === kx;
+    rect(ctx, cell.x, cell.y, cell.w, cell.h, sel ? PAL.uiHighlight : PAL.uiBg);
+    drawTextCentered(ctx, cell.ch, cell.x + cell.w / 2, cell.y + 3, { color: PAL.uiText });
+  }
+  rect(ctx, g.delX, g.delY, 44, 14, PAL.uiBgAlt);
+  drawTextCentered(ctx, 'DEL', g.delX + 22, g.delY + 4, { color: PAL.uiText });
+  rect(ctx, g.okX, g.okY, 44, 14, PAL.hpGreen);
+  drawTextCentered(ctx, 'OK', g.okX + 22, g.okY + 4, { color: '#ffffff' });
+  if (opts.skip) {
+    rect(ctx, g.skipX, g.skipY, 44, 14, PAL.uiShadow);
+    drawTextCentered(ctx, 'SKIP', g.skipX + 22, g.skipY + 4, { color: PAL.uiFrame });
+  }
+}
+
+/**
+ * Handles a frame of typing against a grid. Returns the new text plus what the
+ * player asked for, so the caller decides what "done" means.
+ */
+function typeFrame(g, text, maxLen, cursor, opts = {}) {
+  const out = { text, done: false, skipped: false, kx: cursor.kx, ky: cursor.ky };
+  const put = (ch) => {
+    if (!ch || ch === ' ') return;
+    if (out.text.length >= maxLen) { audio.sfx('deny'); return; }
+    out.text += ch;
+    audio.sfx('select');
+  };
+  const del = () => {
+    if (!out.text.length) { audio.sfx('deny'); return; }
+    out.text = out.text.slice(0, -1);
+    audio.sfx('back');
+  };
+
+  const tap = input.consumeTap();
+  if (tap) {
+    for (const cell of g.cells) {
+      if (hit(tap, cell.x, cell.y, cell.w, cell.h)) { out.kx = cell.c; out.ky = cell.r; put(cell.ch); return out; }
+    }
+    if (hit(tap, g.okX, g.okY, 44, 14)) { out.done = true; return out; }
+    if (hit(tap, g.delX, g.delY, 44, 14)) { del(); return out; }
+    if (opts.skip && hit(tap, g.skipX, g.skipY, 44, 14)) { out.done = true; out.skipped = true; return out; }
+  }
+
+  if (input.repeated('left')) { out.kx = (out.kx + 9) % 10; audio.sfx('cursor'); }
+  if (input.repeated('right')) { out.kx = (out.kx + 1) % 10; audio.sfx('cursor'); }
+  if (input.repeated('up')) { out.ky = (out.ky + KEY_ROWS.length - 1) % KEY_ROWS.length; audio.sfx('cursor'); }
+  if (input.repeated('down')) { out.ky = (out.ky + 1) % KEY_ROWS.length; audio.sfx('cursor'); }
+  if (input.pressed('a')) put(KEY_ROWS[out.ky][out.kx]);
+  if (input.pressed('b')) del();
+  if (input.pressed('start')) out.done = true;
+  return out;
+}
+
+// ===========================================================================
+
+/**
+ * "Give a nickname to CHIMCHAR?" — the moment a caught Pokémon becomes yours
+ * rather than a species entry. The keyboard is the same one that named you.
+ */
+class NicknameScreen extends Screen {
+  constructor(game, mon, onDone) {
+    super(game);
+    this.mon = mon;
+    this.onDone = onDone || null;
+    this.text = '';
+    this.kx = 0; this.ky = 0;
+    this.t = 0;
+  }
+
+  get _species() { return getSpecies(this.mon.species); }
+
+  _top() {
+    const H = this.game.display.height;
+    return Math.max(46, Math.round(H / 2) - 46);
+  }
+
+  update(dt, isTop) {
+    if (!isTop) return;
+    this.t += dt;
+    const g = keyGrid(this.game.display, this._top());
+    const r = typeFrame(g, this.text, 10, this, { skip: true });
+    this.text = r.text; this.kx = r.kx; this.ky = r.ky;
+    if (r.done) this._finish(r.skipped);
+  }
+
+  _finish(skipped = false) {
+    const name = skipped ? '' : this.text.trim();
+    if (name) this.mon.nickname = name;
+    audio.sfx('select');
+    this.game.screens.pop();
+    if (this.onDone) this.onDone(name || null);
+  }
+
+  hint() { return 'A: type   B: delete   START: done'; }
+
+  render(ctx) {
+    const { width: W, height: H } = this.game.display;
+    const sp = this._species;
+    rect(ctx, 0, 0, W, H, shade(PAL.uiSelect, -0.6));
+    for (let y = 0; y < H; y += 8) rect(ctx, 0, y, W, 4, shade(PAL.uiSelect, -0.55));
+
+    drawTextCentered(ctx, `Give a nickname to ${sp.name.toUpperCase()}?`, W / 2, 8,
+      { color: PAL.uiTextLight, shadow: PAL.black });
+
+    // The Pokémon it belongs to, so you are naming a face and not a form field.
+    // It sits beside the box rather than above it: on a short screen there is
+    // no room above, and the title was landing on top of it.
+    const top = this._top();
+    const boxY = top - 22;
+    const size = 28;
+    const sx = Math.round(W / 2 - 66 - size - 4);
+    if (sx > 2) {
+      const img = renderMonster(sp.art, { size, shiny: this.mon.shiny });
+      ctx.drawImage(img, sx, boxY - 6);
+    }
+
+    window9(ctx, W / 2 - 66, boxY, 132, 16);
+    const shown = this.text || sp.name;
+    drawTextCentered(ctx, shown + ((this.t * 2) % 1 < 0.5 ? '_' : ' '), W / 2, boxY + 4,
+      { color: this.text ? PAL.uiText : PAL.uiTextDim });
+
+    drawKeyGrid(ctx, keyGrid(this.game.display, top), this.kx, this.ky, { skip: true });
+    label(ctx, 'SKIP keeps the species name.', 8, H - 11, { color: '#9ab8ff' });
+    void drawText; void drawBackChip;
+  }
+}
+
+__exports(__x, { KEY_ROWS: () => KEY_ROWS, keyGrid: () => keyGrid, drawKeyGrid: () => drawKeyGrid, typeFrame: () => typeFrame, NicknameScreen: () => NicknameScreen });
+
+};
+
+__defs['render/sprites.js'] = function (__x, __req) {
+const { makeSurface, paintGrid } = __req('render/canvas.js');
+const { shade } = __req('render/palette.js');
+// Overworld character sprites.
+//
+// One 16x20 template per facing (down / up / side), painted with a
+// per-character palette. Legs are drawn procedurally per walk frame, and a
+// dark outline is derived automatically — so a new NPC costs a palette
+// entry, not an art asset.
+
+
+
+const SPR_W = 16;
+const SPR_H = 20;
+const FOOT_OFFSET = 4;  // pixels the sprite overhangs above its tile
+
+const PAD = 3; // left/right padding around the 10px-wide body
+
+const pad = (rows) => rows.map((r) => '.'.repeat(PAD) + r + '.'.repeat(SPR_W - PAD - r.length));
+
+// Rows 0..14 (head + torso). Rows 15..19 are the procedural legs.
+const BODY = {
+  down: pad([
+    '.HHHHHHHH.',
+    'HHHHHHHHHH',
+    'HHHHHHHHHH',
+    'HSSSSSSSSH',
+    'HSEESSEESH',
+    'HSSSSSSSSH',
+    '.SSSSSSSS.',
+    '..SSSSSS..',
+    '....SS....',
+    '..CCCCCC..',
+    '.CCCCCCCC.',
+    'SCCCCCCCCS',
+    'SCCCCCCCCS',
+    '.CCCCCCCC.',
+    '..PPPPPP..',
+  ]),
+  up: pad([
+    '.HHHHHHHH.',
+    'HHHHHHHHHH',
+    'HHHHHHHHHH',
+    'HHHHHHHHHH',
+    'HHHHHHHHHH',
+    'HHHHHHHHHH',
+    '.HHHHHHHH.',
+    '..HHHHHH..',
+    '....SS....',
+    '..CCCCCC..',
+    '.CCCCCCCC.',
+    'SCCCCCCCCS',
+    'SCCCCCCCCS',
+    '.CCCCCCCC.',
+    '..PPPPPP..',
+  ]),
+  side: pad([
+    '..HHHHHH..',
+    '.HHHHHHHH.',
+    '.HHHHHHHH.',
+    '.HSSSSSHH.',
+    '.HESSSSHH.',
+    '.HSSSSSHH.',
+    '..SSSSSS..',
+    '...SSSS...',
+    '....SS....',
+    '..CCCCCC..',
+    '.CCCCCCCC.',
+    '.SCCCCCCC.',
+    '.SCCCCCCC.',
+    '..CCCCCC..',
+    '..PPPPPP..',
+  ]),
+};
+
+// Long hair adds volume behind the head and over the shoulders.
+const LONG_HAIR = {
+  down: [[PAD, 6], [PAD, 7], [PAD, 8], [PAD, 9], [PAD + 9, 6], [PAD + 9, 7], [PAD + 9, 8], [PAD + 9, 9]],
+  up: [[PAD, 8], [PAD, 9], [PAD, 10], [PAD + 9, 8], [PAD + 9, 9], [PAD + 9, 10],
+       [PAD + 1, 8], [PAD + 8, 8]],
+  side: [[PAD + 7, 6], [PAD + 8, 6], [PAD + 8, 7], [PAD + 8, 8], [PAD + 8, 9], [PAD + 7, 9]],
+};
+
+// A cap: brim points the way the character faces.
+const HAT = {
+  down: { crown: [[PAD, 0, 10, 3]], brim: [[PAD - 1, 3, 12, 1], [PAD, 4, 10, 1]] },
+  up: { crown: [[PAD, 0, 10, 3]], brim: [[PAD, 3, 10, 1]] },
+  side: { crown: [[PAD + 1, 0, 8, 3]], brim: [[PAD - 2, 3, 10, 1]] },
+};
+
+function legRects(dir, frame) {
+  // [x, y, w, h, isBoot]
+  const P = PAD;
+  if (dir === 'side') {
+    if (frame === 1) return [[P + 2, 15, 3, 3, 0], [P + 1, 18, 4, 2, 1], [P + 5, 15, 3, 2, 0], [P + 6, 17, 4, 2, 1]];
+    if (frame === 2) return [[P + 5, 15, 3, 3, 0], [P + 5, 18, 5, 2, 1], [P + 2, 15, 3, 2, 0], [P + 1, 17, 4, 2, 1]];
+    return [[P + 3, 15, 3, 4, 0], [P + 2, 19, 5, 1, 1], [P + 5, 15, 3, 4, 0], [P + 5, 19, 5, 1, 1]];
+  }
+  if (frame === 1) return [[P + 1, 15, 3, 3, 0], [P + 1, 18, 3, 2, 1], [P + 6, 15, 3, 4, 0], [P + 6, 19, 3, 1, 1]];
+  if (frame === 2) return [[P + 1, 15, 3, 4, 0], [P + 1, 19, 3, 1, 1], [P + 6, 15, 3, 3, 0], [P + 6, 18, 3, 2, 1]];
+  return [[P + 1, 15, 3, 3, 0], [P + 1, 18, 3, 2, 1], [P + 6, 15, 3, 3, 0], [P + 6, 18, 3, 2, 1]];
+}
+
+// Adds a 1px dark outline around every opaque pixel. This is the single
+// biggest thing that makes procedural sprites read as deliberate pixel art.
+function outline(surf, color) {
+  const { ctx, w, h } = surf;
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const opaque = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0;
+  const out = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (opaque(x, y)) continue;
+      if (opaque(x - 1, y) || opaque(x + 1, y) || opaque(x, y - 1) || opaque(x, y + 1)) out.push([x, y]);
+    }
+  }
+  ctx.fillStyle = color;
+  for (const [x, y] of out) ctx.fillRect(x, y, 1, 1);
+}
+
+// A character "look" is pure data.
+function makeLook({ hair = '#4a3020', skin = '#f0c090', shirt = '#4a6fc0',
+  pants = '#3a4050', boots = '#5a3a24', eye = '#20283a', hat = null,
+  longHair = false, outlineColor = null } = {}) {
+  return { hair, skin, shirt, pants, boots, eye, hat, longHair, outlineColor };
+}
+
+const sheets = new Map();
+
+// Builds a 3-frames x 3-facings sheet. Right facing is the mirror of left,
+// applied at draw time.
+function buildCharSheet(key, look) {
+  if (sheets.has(key)) return sheets.get(key);
+  const dirs = ['down', 'up', 'side'];
+  const surf = makeSurface(SPR_W * 3, SPR_H * 3);
+  const pal = {
+    H: look.hair, S: look.skin, C: look.shirt, P: look.pants, E: look.eye,
+  };
+
+  dirs.forEach((dir, di) => {
+    for (let frame = 0; frame < 3; frame++) {
+      const ox = frame * SPR_W;
+      const oy = di * SPR_H;
+      const cell = makeSurface(SPR_W, SPR_H);
+      const c = cell.ctx;
+
+      paintGrid(c, BODY[dir], pal, 0, 0, 1);
+
+      if (look.longHair) {
+        c.fillStyle = look.hair;
+        for (const [x, y] of LONG_HAIR[dir]) c.fillRect(x, y, 1, 1);
+      }
+
+      // Legs.
+      for (const [x, y, w, hh, isBoot] of legRects(dir, frame)) {
+        c.fillStyle = isBoot ? look.boots : look.pants;
+        c.fillRect(x, y, w, hh);
+      }
+
+      // Shirt shading down the right side gives the sprite volume.
+      c.fillStyle = shade(look.shirt, -0.22);
+      c.fillRect(PAD + 7, 9, 2, 5);
+      c.fillStyle = shade(look.skin, -0.18);
+      c.fillRect(PAD + 8, 6, 1, 2);
+
+      if (look.hat) {
+        const spec = HAT[dir];
+        c.fillStyle = look.hat;
+        for (const [x, y, w, hh] of spec.crown) c.fillRect(x, y, w, hh);
+        c.fillStyle = shade(look.hat, -0.28);
+        for (const [x, y, w, hh] of spec.brim) c.fillRect(x, y, w, hh);
+      }
+
+      outline(cell, look.outlineColor || shade(look.hair, -0.55));
+      surf.ctx.drawImage(cell.canvas, ox, oy);
+    }
+  });
+
+  sheets.set(key, surf.canvas);
+  return surf.canvas;
+}
+
+const DIR_ROW = { down: 0, up: 1, left: 2, right: 2 };
+
+// Draws a character. (x, y) is the top-left of the tile the character
+// stands on; the sprite is lifted so its feet sit in that tile.
+function drawChar(ctx, key, look, dir, frame, x, y, opts = {}) {
+  const sheet = buildCharSheet(key, look);
+  const row = DIR_ROW[dir] ?? 0;
+  const sx = (frame % 3) * SPR_W;
+  const sy = row * SPR_H;
+  const dx = Math.round(x);
+  const dy = Math.round(y - FOOT_OFFSET);
+
+  if (opts.alpha != null) { ctx.save(); ctx.globalAlpha = opts.alpha; }
+  if (dir === 'right') {
+    ctx.save();
+    ctx.translate(dx + SPR_W, dy);
+    ctx.scale(-1, 1);
+    ctx.drawImage(sheet, sx, sy, SPR_W, SPR_H, 0, 0, SPR_W, SPR_H);
+    ctx.restore();
+  } else {
+    ctx.drawImage(sheet, sx, sy, SPR_W, SPR_H, dx, dy, SPR_W, SPR_H);
+  }
+  if (opts.alpha != null) ctx.restore();
+}
+
+// The stock cast. NPC data refers to these by name.
+const LOOKS = {
+  boy: makeLook({ hair: '#3a2418', shirt: '#3f6fd4', pants: '#2b3450', hat: '#d84838', boots: '#3a2a20' }),
+  girl: makeLook({ hair: '#8a4a20', shirt: '#e0609a', pants: '#f0f0f8', longHair: true, boots: '#c04868' }),
+  rivalBoy: makeLook({ hair: '#e0a030', shirt: '#f0f0f4', pants: '#4a5060', boots: '#804830' }),
+  rivalGirl: makeLook({ hair: '#20304a', shirt: '#f0e070', pants: '#4a5060', longHair: true, boots: '#804830' }),
+  professor: makeLook({ hair: '#c8c8d0', shirt: '#f4f4f8', pants: '#5a6070', boots: '#404850' }),
+  nurse: makeLook({ hair: '#f090b0', shirt: '#f8f8fc', pants: '#f8f8fc', longHair: true, hat: '#f8f8fc', boots: '#e05a7a' }),
+  clerk: makeLook({ hair: '#3a3a48', shirt: '#4a90d0', pants: '#2b3450', boots: '#2b3450' }),
+  mom: makeLook({ hair: '#8a4a20', shirt: '#f0a050', pants: '#c05a30', longHair: true, boots: '#8a4a20' }),
+  youngster: makeLook({ hair: '#3a2418', shirt: '#68c060', pants: '#3a4a68', hat: '#f0f0f4', boots: '#4a3020' }),
+  lass: makeLook({ hair: '#f0d060', shirt: '#f070a0', pants: '#f8f8fc', longHair: true, boots: '#d04070' }),
+  hiker: makeLook({ hair: '#5a3a20', shirt: '#c87840', pants: '#4a5a3a', boots: '#3a2a1a' }),
+  bugCatcher: makeLook({ hair: '#3a2418', shirt: '#f0e070', pants: '#68a048', hat: '#f0e070', boots: '#5a4030' }),
+  worker: makeLook({ hair: '#4a3020', shirt: '#f09030', pants: '#4a5060', hat: '#f0c030', boots: '#3a3a3a' }),
+  grunt: makeLook({ hair: '#20242e', shirt: '#2b3450', pants: '#20242e', hat: '#5a6a94', boots: '#101420', outlineColor: '#080a12' }),
+  gruntF: makeLook({ hair: '#20242e', shirt: '#2b3450', pants: '#20242e', longHair: true, boots: '#101420', outlineColor: '#080a12' }),
+  leaderRock: makeLook({ hair: '#8a5a30', shirt: '#a86840', pants: '#5a4a3a', boots: '#3a2a1a' }),
+  oldMan: makeLook({ hair: '#d0d0d8', shirt: '#8a9aa8', pants: '#5a6070', boots: '#4a4a52' }),
+  kid: makeLook({ hair: '#4a3020', shirt: '#f0d060', pants: '#68a048', boots: '#8a5a30' }),
+  sailor: makeLook({ hair: '#20304a', shirt: '#f0f0f8', pants: '#2b3450', hat: '#f0f0f8', boots: '#20283a' }),
+  scientist: makeLook({ hair: '#3a3a48', shirt: '#f4f4f8', pants: '#8a9aa8', boots: '#4a4a52' }),
+  boss: makeLook({ hair: '#c8b088', shirt: '#20283a', pants: '#101828', longHair: true, boots: '#0a0e18', outlineColor: '#05070d' }),
+};
+
+function lookFor(name) { return LOOKS[name] || LOOKS.youngster; }
+
+__exports(__x, { SPR_W: () => SPR_W, SPR_H: () => SPR_H, FOOT_OFFSET: () => FOOT_OFFSET, makeLook: () => makeLook, buildCharSheet: () => buildCharSheet, drawChar: () => drawChar, LOOKS: () => LOOKS, lookFor: () => lookFor });
+
+};
+
 __defs['data/music.js'] = function (__x, __req) {
 
 // Music, as data.
@@ -4298,12 +4498,16 @@ const FLAGS = {
   ENTERED_CAVE: 'enteredCave',
   GOT_CHARM: 'gotCharm',
   BEAT_COMMANDER: 'beatCommander',
+  EVERLIGHT_OPENED: 'everlightOpened',
+  EVERLIGHT_RESOLVED: 'everlightResolved',
+  CAUGHT_EVERLIGHT: 'caughtEverlight',
 };
 
 // Milestones that co-op partners keep in step, in the order they happen.
 const SHARED_MILESTONES = [
   FLAGS.GOT_STARTER, FLAGS.LEFT_TOWN, FLAGS.ENTERED_FOREST, FLAGS.FOREST_GRUNT,
   FLAGS.REACHED_ALDERMERE, FLAGS.BADGE_1, FLAGS.ENTERED_CAVE, FLAGS.BEAT_COMMANDER,
+  FLAGS.CAUGHT_EVERLIGHT,
 ];
 
 function createFlags() { return {}; }
@@ -4328,7 +4532,8 @@ function progressLabel(n) {
   return [
     'Just starting out', 'On the road', 'In Route 202', 'Through the forest',
     'In Oreburgh', 'One badge', 'Into Oreburgh Gate', 'Faced Galactic',
-  ][Math.min(n, 7)];
+    'Woke the Everlight',
+  ][Math.min(n, 8)];
 }
 
 __exports(__x, { FLAGS: () => FLAGS, SHARED_MILESTONES: () => SHARED_MILESTONES, createFlags: () => createFlags, setFlag: () => setFlag, getFlag: () => getFlag, storyProgress: () => storyProgress, progressLabel: () => progressLabel });
@@ -5807,6 +6012,7 @@ __exports(__x, { MAX_PARTY: () => MAX_PARTY, BOX_COUNT: () => BOX_COUNT, BOX_SIZ
 
 __defs['ui/title.js'] = function (__x, __req) {
 const { Screen, FADE } = __req('ui/screen.js');
+const { KEY_ROWS, keyGrid } = __req('ui/naming.js');
 const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
 const { PAL, shade } = __req('render/palette.js');
@@ -5817,6 +6023,7 @@ const { getSpecies } = __req('data/species.js');
 const { MUSIC } = __req('data/music.js');
 const { formatPlayTime } = __req('game/state.js');
 // Title, new game and character creation.
+
 
 
 
@@ -6045,15 +6252,7 @@ class TitleOptionsScreen extends Screen {
 
 // ---------------------------------------------------------------------------
 
-const ROWS = [
-  'ABCDEFGHIJ',
-  'KLMNOPQRST',
-  'UVWXYZ    ',
-  'abcdefghij',
-  'klmnopqrst',
-  'uvwxyz-. 0',
-  '123456789 ',
-];
+const ROWS = KEY_ROWS;
 
 class CharacterScreen extends Screen {
   constructor(game) {
@@ -6171,21 +6370,8 @@ class CharacterScreen extends Screen {
     if (input.pressed('b')) { audio.sfx('back'); this.step = 2; }
   }
 
-  _keyGrid() {
-    const { width: W, height: H } = this.game.display;
-    const cw = Math.min(16, Math.floor((W - 24) / 10));
-    const ch = 13;
-    const gx = W / 2 - (cw * 10) / 2;
-    const gy = 44;
-    const cells = [];
-    ROWS.forEach((row, r) => {
-      for (let c = 0; c < 10; c++) {
-        if (row[c] === ' ') continue;
-        cells.push({ ch: row[c], x: gx + c * cw, y: gy + r * ch, w: cw - 1, h: ch - 1, r, c });
-      }
-    });
-    return { cells, gx, gy, cw, ch, okX: W / 2 + 6, okY: gy + ROWS.length * ch + 3, delX: W / 2 - 50, delY: gy + ROWS.length * ch + 3 };
-  }
+  // One keyboard in the game, shared with the nickname screen.
+  _keyGrid() { return keyGrid(this.game.display, 44); }
 
   render(ctx) {
     const { width: W, height: H } = this.game.display;
@@ -6609,6 +6795,19 @@ const TWINLEAF = defineMap('twinleaf', {
       id: 'bv_oldman', x: 20, y: 15, look: 'oldMan', name: 'Hollis', movement: 'lookAround', facing: 'left',
       dialogue: [
         {
+          when: { flag: 'caughtEverlight' },
+          lines: ['The sky went out.',
+            'Sixty years of watching it, and last night there was simply nothing there.',
+            'Whatever you brought back up out of that hill — look after it.',
+            'It was here a long time before Twinleaf was.'],
+        },
+        {
+          when: { flag: 'everlightOpened' },
+          lines: ['You found the seam, then. I can see it on you.',
+            'The aurora has been brighter since. Not worse. Brighter.',
+            'I do not know which of those is the good news.'],
+        },
+        {
           when: { flag: 'beatCommander' },
           lines: ['You went into the Gate and came back out. Not everyone does.',
             'The light has settled since. Not gone. Settled.',
@@ -6765,6 +6964,19 @@ const OREBURGH = defineMap('oreburgh', {
     {
       id: 'al_scientist', x: 19, y: 21, look: 'scientist', name: 'Ines', movement: 'still', facing: 'down',
       dialogue: [
+        {
+          when: { flag: 'caughtEverlight' },
+          lines: ['It is in a ball. You are carrying it around in a ball.',
+            'Ninety years of survey notes and a word nobody could source, and it fits in a ball.',
+            'I am not being sarcastic. I have never been less sarcastic in my life.',
+            'Come back when you have decided what to do with it. I will still be here.'],
+        },
+        {
+          when: { flag: 'everlightOpened' },
+          lines: ['The rock OPENED for you? The rock opened.',
+            'That confirms the charm is a key and not a keepsake, which is my third theory and my worst.',
+            'Whatever is down there, it was expecting somebody. Eventually.'],
+        },
         {
           when: { flag: 'beatCommander' },
           lines: ['You saw it, then. The seam. The light in the rock.',
@@ -7082,6 +7294,36 @@ const ROUTE202 = defineMap('route202', {
   },
 });
 
+// ---- The Everlight Chamber -------------------------------------------------
+// Where four maps and a dozen NPCs have been pointing. Reachable only with the
+// Aurora Charm, and only once Galactic has been cleared out of the Gate.
+
+const EVERLIGHT_CHAMBER = defineMap('everlight_chamber', {
+  name: 'Everlight Chamber', kind: 'cave', music: 'cave', darkEdges: true,
+  tiles: [
+    'CCCCCCCCCCCCCCC',
+    'CCCCcccccccCCCC',
+    'CCcccccccccccCC',
+    'CcccccccccccccC',
+    'CcccccccccccccC',
+    'CcccccccccccccC',
+    'CCcccccccccccCC',
+    'CCCCcccccccCCCC',
+    'CCCCCCCccCCCCCC',
+  ],
+  warps: [
+    { x: 7, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
+    { x: 8, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
+  ],
+  events: [
+    // Standing in front of it is the encounter. It repeats until the thing is
+    // caught, because a legendary you knocked out should not be gone forever.
+    { x: 7, y: 4, flag: 'everlightResolved', script: 'everlightDialga', repeat: true },
+    { x: 8, y: 4, flag: 'everlightResolved', script: 'everlightDialga', repeat: true },
+  ],
+  encounters: { grass: null, cave: null },
+});
+
 const OREBURGH_GATE = defineMap('oreburgh_gate', {
   name: 'Oreburgh Gate', kind: 'cave', music: 'cave',
   tiles: [
@@ -7111,6 +7353,11 @@ const OREBURGH_GATE = defineMap('oreburgh_gate', {
     { id: 'sf_revive', x: 21, y: 3, item: 'revive', qty: 1 },
     { id: 'sf_charm', x: 12, y: 1, item: 'auroracharm', qty: 1, story: true },
   ],
+  events: [
+    // The seam in the rock the whole region has been talking about. It fires
+    // every time you stand on it: shut without the charm, a door with it.
+    { x: 12, y: 2, flag: 'everlightOpened', script: 'everlight', repeat: true },
+  ],
   npcs: [
     { id: 'sf_t1', x: 6, y: 5, look: 'grunt', trainer: 'cave_grunt1', facing: 'right', sight: 4, movement: 'still' },
     { id: 'sf_t2', x: 18, y: 11, look: 'gruntF', trainer: 'cave_grunt2', facing: 'left', sight: 4, movement: 'still' },
@@ -7137,7 +7384,7 @@ const OREBURGH_GATE = defineMap('oreburgh_gate', {
   },
 });
 
-__exports(__x, { ROUTE202: () => ROUTE202, OREBURGH_GATE: () => OREBURGH_GATE });
+__exports(__x, { ROUTE202: () => ROUTE202, EVERLIGHT_CHAMBER: () => EVERLIGHT_CHAMBER, OREBURGH_GATE: () => OREBURGH_GATE });
 
 };
 
@@ -7709,7 +7956,7 @@ __defs['data/maps/index.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
 const { TWINLEAF, OREBURGH } = __req('data/maps/towns.js');
 const { ROUTE201, ROUTE207 } = __req('data/maps/routes.js');
-const { ROUTE202, OREBURGH_GATE } = __req('data/maps/wilds.js');
+const { ROUTE202, OREBURGH_GATE, EVERLIGHT_CHAMBER } = __req('data/maps/wilds.js');
 const { INTERIORS } = __req('data/maps/interiors.js');
 // Map registry.
 //
@@ -7724,7 +7971,8 @@ const { INTERIORS } = __req('data/maps/interiors.js');
 
 
 
-const ALL = [TWINLEAF, OREBURGH, ROUTE201, ROUTE207, ROUTE202, OREBURGH_GATE, ...INTERIORS];
+const ALL = [TWINLEAF, OREBURGH, ROUTE201, ROUTE207, ROUTE202, OREBURGH_GATE,
+  EVERLIGHT_CHAMBER, ...INTERIORS];
 
 const MAPS = {};
 for (const m of ALL) MAPS[m.id] = m;
@@ -7737,12 +7985,68 @@ function getMap(id) {
 
 const MAP_IDS = Object.keys(MAPS);
 
-// Region order, used by the Town Map and by "where can I go" checks.
-const REGION_ORDER = [
-  'twinleaf', 'route201', 'route202', 'oreburgh', 'route207', 'oreburgh_gate',
-];
 
-__exports(__x, { MAPS: () => MAPS, getMap: () => getMap, MAP_IDS: () => MAP_IDS, REGION_ORDER: () => REGION_ORDER, defineMap: () => defineMap });
+__exports(__x, { MAPS: () => MAPS, getMap: () => getMap, MAP_IDS: () => MAP_IDS, defineMap: () => defineMap });
+
+};
+
+__defs['game/friendship.js'] = function (__x, __req) {
+
+// Friendship.
+//
+// Every Pokémon has carried a `friendship` value since the first commit, the
+// evolution resolver reads it, and nothing ever changed it — so a friendship
+// evolution could never fire and the number on the summary screen was a
+// constant 70 pretending to be a relationship.
+//
+// The rules are the series' own, simplified: it grows from levelling and from
+// winning, and it falls when a Pokémon faints. Walking with it helps a little.
+
+const FRIENDSHIP_MAX = 255;
+const FRIENDSHIP_START = 70;
+
+/** Gains shrink as a Pokémon gets fonder of you, the way the games do it. */
+function bandGain(value, base) {
+  if (value >= 200) return Math.max(1, Math.round(base * 0.4));
+  if (value >= 100) return Math.max(1, Math.round(base * 0.7));
+  return base;
+}
+
+function adjustFriendship(mon, base) {
+  if (!mon) return 0;
+  const before = mon.friendship || 0;
+  const delta = base > 0 ? bandGain(before, base) : base;
+  mon.friendship = Math.max(0, Math.min(FRIENDSHIP_MAX, before + delta));
+  return mon.friendship - before;
+}
+
+const FRIENDSHIP_EVENTS = {
+  levelUp: 3,
+  wonBattle: 1,
+  caught: 0,
+  walked: 1,          // per 128 steps, and only for the lead Pokémon
+  fainted: -5,
+  usedBitterItem: -5,
+};
+
+function onLevelUp(mon) { return adjustFriendship(mon, FRIENDSHIP_EVENTS.levelUp); }
+function onWonBattle(mon) { return adjustFriendship(mon, FRIENDSHIP_EVENTS.wonBattle); }
+function onFainted(mon) { return adjustFriendship(mon, FRIENDSHIP_EVENTS.fainted); }
+function onWalked(mon) { return adjustFriendship(mon, FRIENDSHIP_EVENTS.walked); }
+
+/** Words rather than a number, because 174 means nothing to a player. */
+function friendshipLabel(mon) {
+  const v = mon.friendship || 0;
+  if (v >= 250) return 'Inseparable';
+  if (v >= 200) return 'Devoted';
+  if (v >= 150) return 'Very friendly';
+  if (v >= 100) return 'Friendly';
+  if (v >= 70) return 'Warming up';
+  if (v >= 30) return 'Wary';
+  return 'Distant';
+}
+
+__exports(__x, { FRIENDSHIP_MAX: () => FRIENDSHIP_MAX, FRIENDSHIP_START: () => FRIENDSHIP_START, adjustFriendship: () => adjustFriendship, FRIENDSHIP_EVENTS: () => FRIENDSHIP_EVENTS, onLevelUp: () => onLevelUp, onWonBattle: () => onWonBattle, onFainted: () => onFainted, onWalked: () => onWalked, friendshipLabel: () => friendshipLabel });
 
 };
 
@@ -7916,6 +8220,7 @@ __exports(__x, { TRAINERS: () => TRAINERS, getTrainer: () => getTrainer, STARTER
 
 __defs['game/overworld/world.js'] = function (__x, __req) {
 const { getMap } = __req('data/maps/index.js');
+const { onWalked } = __req('game/friendship.js');
 const { tileDef } = __req('render/tiles.js');
 const { getTrainer } = __req('data/trainers.js');
 const { weightedPick } = __req('core/rng.js');
@@ -7926,6 +8231,7 @@ const { TILE } = __req('render/canvas.js');
 // whole tile and animates between tiles. Everything downstream — collision,
 // encounters, trainer sight, the camera — is simple and predictable because
 // of that, and it is what makes the movement feel right rather than floaty.
+
 
 
 
@@ -8170,6 +8476,11 @@ class World {
     this.state.player.y = p.y;
     this.state.player.dir = p.dir;
     this.state.stats.steps++;
+    // Walking with you is how a Pokémon warms to you. Only the lead one, and
+    // only every so often, so a long route is a nudge and not a shortcut.
+    if (this.state.stats.steps % 128 === 0 && this.state.party.length) {
+      onWalked(this.state.party[0]);
+    }
     if (this.state.repelSteps > 0) this.state.repelSteps--;
     if (this.onStep) this.onStep();
 
@@ -8177,9 +8488,11 @@ class World {
     const warp = this.warpAt(p.x, p.y);
     if (warp) { this.pendingWarp = warp; return; }
 
-    // Scripted step event?
+    // Scripted step event? Most fire once and set their flag; one marked
+    // `repeat` fires every time you stand on it, which is how a doorway that
+    // is also a cutscene works — the script decides what state you are in.
     const stepEvent = this.map.events.find((ev) => ev.x === p.x && ev.y === p.y
-      && !this.state.flags[ev.flag]);
+      && (ev.repeat || !this.state.flags[ev.flag]));
     if (stepEvent) { this.pendingEvent = stepEvent; return; }
 
     // Trainer spotted us?
@@ -8768,6 +9081,83 @@ SCRIPTS.circuitDesk = async (ctx) => {
   }
 
   await ctx.openCircuit();
+};
+
+// ---- The Everlight ----------------------------------------------------------
+//
+// The payoff the whole region has been talking about. Four maps of NPCs, a
+// scientist reading ninety-year-old survey notes, an old man watching the
+// aurora come further south every night, and a commander who says the mountain
+// is not finished with either of you — all of it pointed at a door that did
+// not exist. This is the door.
+
+SCRIPTS.everlight = async (ctx) => {
+  const st = ctx.state;
+  const hasCharm = ctx.hasItem('auroracharm');
+
+  if (!hasCharm) {
+    await ctx.say('A seam of pale light runs up the rock face.');
+    await ctx.say('It is cold to the touch, and it does not move.');
+    return;
+  }
+
+  if (!st.flags[FLAGS.EVERLIGHT_OPENED]) {
+    await ctx.say('The seam of light is directly ahead.');
+    await ctx.say('The Aurora Charm in your bag has started to glow.');
+    ctx.sfx('warp');
+    ctx.shake(1);
+    await ctx.wait(0.8);
+    await ctx.say('The light answers it.\fThe rock draws back like a held breath.');
+    ctx.setFlag(FLAGS.EVERLIGHT_OPENED);
+    ctx.shareMilestone(FLAGS.EVERLIGHT_OPENED);
+    ctx.autosave();
+  }
+  await ctx.warpTo('everlight_chamber', 7, 7);
+};
+
+SCRIPTS.everlightDialga = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.CAUGHT_EVERLIGHT]) {
+    await ctx.say('The chamber is quiet now.');
+    await ctx.say('The light in the rock is ordinary light, and the room is just a room.');
+    return;
+  }
+
+  if (!st.flags[FLAGS.EVERLIGHT_RESOLVED]) {
+    await ctx.say('The chamber opens out, and the light has a shape in it.');
+    await ctx.say('Something enormous is standing very still at the centre of the room.');
+    await ctx.say('It has been standing there, you understand suddenly, for a very long time.');
+  } else {
+    await ctx.say('It is still here. It has not moved at all.');
+  }
+
+  ctx.dex.seen(37);
+  await ctx.showMonster(37);
+  await ctx.say('DIALGA: ...');
+  ctx.hideMonster();
+
+  const level = Math.max(30, Math.min(55, (st.party[0] ? st.party[0].level : 30) + 6));
+  const result = await ctx.wild(37, level, {
+    name: 'The Everlight', canRun: true, monster: { friendship: 0 },
+  });
+
+  if (result === 'caught') {
+    ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
+    ctx.setFlag(FLAGS.CAUGHT_EVERLIGHT);
+    ctx.shareMilestone(FLAGS.CAUGHT_EVERLIGHT);
+    ctx.sfx('badge');
+    await ctx.say('The light goes out of the rock, all at once, everywhere.');
+    await ctx.say('Somewhere above you, a whole region stops seeing an aurora it could not explain.');
+    ctx.autosave();
+    return;
+  }
+
+  // Knocked out, or you ran. Either way it is still here tomorrow — a
+  // legendary you can permanently lose is a save file you have to restart.
+  ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
+  ctx.autosave();
+  if (result === 'run') await ctx.say('You back out of the chamber. It does not follow.');
+  else await ctx.say('It folds back into the light, unhurried.\fIt will be here when you are ready.');
 };
 
 function scriptFor(name) { return SCRIPTS[name] || null; }
@@ -9870,6 +10260,7 @@ class OverworldScreen extends Screen {
     this.bannerName = '';
     this.timers = [];
     this.script = null;
+    this.shakeT = 0;
     this.showcase = null;         // a monster held up during a cutscene
     this.netToast = null;
     this.netToastT = 0;
@@ -10227,7 +10618,29 @@ class OverworldScreen extends Screen {
         screen.game.startTrainerBattle(cfg.trainer, resolve);
       }),
 
+      // A one-off wild encounter a script can await — a legendary standing in
+      // a room rather than something that walked out of the grass. Resolves
+      // with the battle's own result, so the script can tell "caught" from
+      // "it got away" and behave differently next time.
+      wild: (speciesId, level, opts = {}) => new Promise((resolve) => {
+        const scr = screen.game.startWildBattle(speciesId, level, {
+          ...opts,
+          onFinish: () => resolve(scr ? scr.result : null),
+        });
+      }),
+
+      warpTo: (mapId, x, y) => new Promise((resolve) => {
+        // Resolved by the fade itself: this screen stops updating while a
+        // transition runs, so its own timers would never come back.
+        screen.game.teleport(mapId, x, y, resolve);
+      }),
+
       give: (itemId, qty) => addItem(st.inventory, itemId, qty),
+
+      hasItem: (itemId) => (st.inventory.items[itemId] || 0) > 0,
+
+      // A one-shot screen kick, for a mountain opening.
+      shake: (strength = 1) => { screen.shakeT = Math.max(screen.shakeT || 0, strength); },
 
       setFlag: (k, v = true) => setStoryFlag(st, k, v),
 
@@ -10272,7 +10685,20 @@ class OverworldScreen extends Screen {
 
   render(ctx) {
     const { width: W, height: H } = this.game.display;
+    // A script-driven camera kick. Applied to the camera rather than the
+    // canvas transform so the HUD and the dialogue box stay put.
+    let shakeX = 0, shakeY = 0;
+    if (this.shakeT > 0) {
+      this.shakeT = Math.max(0, this.shakeT - 1 / 60);
+      const mag = this.shakeT * 4;
+      shakeX = Math.round(Math.sin(this.shakeT * 47) * mag);
+      shakeY = Math.round(Math.cos(this.shakeT * 61) * mag);
+      this.camera.x += shakeX;
+      this.camera.y += shakeY;
+    }
     drawWorld(ctx, this.world, this.camera, W, H);
+    this.camera.x -= shakeX;
+    this.camera.y -= shakeY;
 
     // Trainer "!" bubble.
     for (const e of this.world.entities) {
@@ -10372,10 +10798,281 @@ __exports(__x, { OverworldScreen: () => OverworldScreen });
 
 };
 
+__defs['game/battle/abilities.js'] = function (__x, __req) {
+const { displayName, isFainted, maxHp, typesOf } = __req('game/monster.js');
+// Abilities.
+//
+// Every Pokémon in this game already carries an ability name — it is on the
+// summary screen and in the Pokédex — but until now nothing read it, so a
+// Turtwig's Overgrow and a Bidoof's Simple were the same thing: decoration.
+// This is the table that makes them mean something.
+//
+// Two rules hold the whole file together:
+//
+//  1. Hooks are pure functions of (battle, side, mon, ...). They may push text
+//     events and mutate battle state, and they may use `battle.rng` — but only
+//     `battle.rng`, never Math.random, because a link battle replays the same
+//     stream on both phones and an ability that rolled its own dice would
+//     desync the two clients on the first proc.
+//  2. An ability this engine cannot honestly implement is listed as inert with
+//     the reason, rather than quietly doing nothing. A silent no-op is how a
+//     system rots: nobody can tell the unimplemented from the broken.
+
+
+/** Pinch abilities: +50% to their own type once HP drops to a third. */
+function pinch(type) {
+  return {
+    pinchType: type,
+    describe: `Powers up ${type} moves in a pinch.`,
+  };
+}
+
+const ABILITIES = {
+  Overgrow: pinch('Grass'),
+  Blaze: pinch('Fire'),
+  Torrent: pinch('Water'),
+  Swarm: pinch('Bug'),
+
+  Intimidate: {
+    describe: 'Lowers the foe’s Attack on entry.',
+    onSwitchIn(battle, sideIdx, ctx) {
+      ctx.statChange(1 - sideIdx, 'atk', -1);
+      ctx.say(`${ctx.name}'s Intimidate cut the foe's Attack!`);
+    },
+  },
+
+  'Rock Head': {
+    describe: 'Takes no recoil damage.',
+    noRecoil: true,
+  },
+
+  Levitate: {
+    describe: 'Immune to Ground moves.',
+    immuneTo: 'Ground',
+  },
+
+  'Flash Fire': {
+    describe: 'Fire moves miss, and power up its own.',
+    immuneTo: 'Fire',
+    onImmune(battle, sideIdx, ctx) {
+      const side = battle.sides[sideIdx];
+      if (!side.volatile.flashFire) {
+        side.volatile.flashFire = true;
+        ctx.say(`${ctx.name}'s Flash Fire raised its Fire power!`);
+      }
+    },
+  },
+
+  Guts: {
+    describe: 'Attack rises when it has a status problem.',
+    attackMultiplier(mon) { return mon.status ? 1.5 : 1; },
+    ignoresBurnDrop: true,
+  },
+
+  'Natural Cure': {
+    describe: 'Recovers from status on switching out.',
+    onSwitchOut(battle, sideIdx, ctx, mon) {
+      if (!mon.status) return;
+      mon.status = null;
+      mon.statusCounter = 0;
+      mon.badPoison = false;
+      ctx.say(`${displayName(mon)}'s Natural Cure healed its status!`);
+    },
+  },
+
+  'Shed Skin': {
+    describe: 'Sometimes sheds a status problem.',
+    onEndOfTurn(battle, sideIdx, ctx, mon) {
+      if (!mon.status) return;
+      if (battle.rng() >= 1 / 3) return;
+      mon.status = null;
+      mon.statusCounter = 0;
+      mon.badPoison = false;
+      ctx.say(`${displayName(mon)} shed its skin and lost its status!`);
+    },
+  },
+
+  'Inner Focus': {
+    describe: 'Never flinches.',
+    preventsFlinch: true,
+  },
+
+  Steadfast: {
+    describe: 'Speed rises each time it flinches.',
+    onFlinch(battle, sideIdx, ctx) {
+      ctx.statChange(sideIdx, 'spe', 1);
+    },
+  },
+
+  'Keen Eye': {
+    describe: 'Its accuracy cannot be lowered.',
+    protectedStats: ['acc'],
+  },
+
+  'Hyper Cutter': {
+    describe: 'Its Attack cannot be lowered.',
+    protectedStats: ['atk'],
+  },
+
+  Pressure: {
+    describe: 'Makes the foe’s moves cost extra PP.',
+    extraPpCost: 1,
+  },
+
+  'Shield Dust': {
+    describe: 'Blocks the added effects of attacks.',
+    blocksSecondary: true,
+  },
+
+  Synchronize: {
+    describe: 'Passes poison, paralysis or burn back to the attacker.',
+    onStatused(battle, sideIdx, ctx, mon, status) {
+      if (!['PSN', 'PAR', 'BRN'].includes(status)) return;
+      ctx.passStatus(1 - sideIdx, status);
+    },
+  },
+
+  'Run Away': {
+    describe: 'Always able to flee a wild battle.',
+    alwaysFlees: true,
+  },
+};
+
+/**
+ * Abilities carried by species in this game that the engine deliberately does
+ * not implement, and why. Kept as data so tools/audit.mjs can prove every
+ * ability in the Pokédex is either implemented or knowingly inert — and so a
+ * player reading the summary screen is not told about an effect that is not
+ * there.
+ */
+const INERT_ABILITIES = {
+  Simple: 'stat-stage doubling would need the boost system to distinguish source',
+  'Sticky Hold': 'nothing in this game steals held items',
+  Damp: 'no self-destructing moves exist',
+  'Honey Gather': 'no post-battle item pickup',
+  Chlorophyll: 'no weather system',
+  'Flower Gift': 'no weather system',
+  'Swift Swim': 'no weather system',
+  'Cute Charm': 'no infatuation status',
+};
+
+function abilityOf(mon) {
+  return (mon && mon.ability && ABILITIES[mon.ability]) || null;
+}
+
+function abilityName(mon) { return (mon && mon.ability) || null; }
+
+/** Text for the summary screen: honest about the inert ones. */
+function abilityDescription(name) {
+  if (ABILITIES[name]) return ABILITIES[name].describe;
+  if (INERT_ABILITIES[name]) return 'Has no effect in battle here.';
+  return '';
+}
+
+// ---- the hooks the engine calls --------------------------------------------
+// Each takes a small `ctx` of the few engine operations an ability may perform,
+// so this file never imports the engine and the two cannot form a cycle.
+
+function onSwitchIn(battle, sideIdx, ctx) {
+  const a = abilityOf(ctx.mon);
+  if (a && a.onSwitchIn) a.onSwitchIn(battle, sideIdx, ctx);
+}
+
+function onSwitchOut(battle, sideIdx, ctx, mon) {
+  const a = abilityOf(mon);
+  if (a && a.onSwitchOut) a.onSwitchOut(battle, sideIdx, ctx, mon);
+}
+
+function onEndOfTurn(battle, sideIdx, ctx, mon) {
+  const a = abilityOf(mon);
+  if (a && a.onEndOfTurn) a.onEndOfTurn(battle, sideIdx, ctx, mon);
+}
+
+function onStatused(battle, sideIdx, ctx, mon, status) {
+  const a = abilityOf(mon);
+  if (a && a.onStatused) a.onStatused(battle, sideIdx, ctx, mon, status);
+}
+
+function onFlinch(battle, sideIdx, ctx) {
+  const a = abilityOf(ctx.mon);
+  if (a && a.onFlinch) a.onFlinch(battle, sideIdx, ctx);
+}
+
+/** True if this Pokémon simply is not hit by moves of `type`. */
+function immuneToType(mon, type) {
+  const a = abilityOf(mon);
+  return !!(a && a.immuneTo === type);
+}
+
+function onImmune(battle, sideIdx, ctx) {
+  const a = abilityOf(ctx.mon);
+  if (a && a.onImmune) a.onImmune(battle, sideIdx, ctx);
+}
+
+function preventsFlinch(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.preventsFlinch);
+}
+
+function blocksSecondary(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.blocksSecondary);
+}
+
+function protectsStat(mon, stat) {
+  const a = abilityOf(mon);
+  return !!(a && a.protectedStats && a.protectedStats.includes(stat));
+}
+
+function noRecoil(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.noRecoil);
+}
+
+function ignoresBurnDrop(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.ignoresBurnDrop);
+}
+
+function alwaysFlees(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.alwaysFlees);
+}
+
+/** Extra PP the *defending* side's ability charges the attacker. */
+function extraPpCost(defender) {
+  const a = abilityOf(defender);
+  return (a && a.extraPpCost) || 0;
+}
+
+/**
+ * Every multiplier an attacker's ability applies to one damaging move.
+ * Returns 1 when nothing applies, so the caller can multiply unconditionally.
+ */
+function attackMultiplier(user, move, side) {
+  const a = abilityOf(user);
+  if (!a) return 1;
+  let m = 1;
+  if (a.pinchType && move.type === a.pinchType && user.hp * 3 <= maxHp(user)) m *= 1.5;
+  if (a.attackMultiplier) m *= a.attackMultiplier(user);
+  // Flash Fire's stored charge lives on the side, not the Pokémon, so it
+  // clears when the Pokémon leaves the field — same as the real thing.
+  if (side && side.volatile.flashFire && move.type === 'Fire') m *= 1.5;
+  return m;
+}
+
+
+
+__exports(__x, { ABILITIES: () => ABILITIES, INERT_ABILITIES: () => INERT_ABILITIES, abilityOf: () => abilityOf, abilityName: () => abilityName, abilityDescription: () => abilityDescription, onSwitchIn: () => onSwitchIn, onSwitchOut: () => onSwitchOut, onEndOfTurn: () => onEndOfTurn, onStatused: () => onStatused, onFlinch: () => onFlinch, immuneToType: () => immuneToType, onImmune: () => onImmune, preventsFlinch: () => preventsFlinch, blocksSecondary: () => blocksSecondary, protectsStat: () => protectsStat, noRecoil: () => noRecoil, ignoresBurnDrop: () => ignoresBurnDrop, alwaysFlees: () => alwaysFlees, extraPpCost: () => extraPpCost, attackMultiplier: () => attackMultiplier, isFainted: () => isFainted, typesOf: () => typesOf });
+
+};
+
 __defs['game/battle/engine.js'] = function (__x, __req) {
 const { makeRng } = __req('core/rng.js');
 const { getMove } = __req('data/moves.js');
 const { typeMultiplier, effectivenessText } = __req('data/types.js');
+const ability = __req('game/battle/abilities.js');
+const { onLevelUp, onWonBattle, onFainted } = __req('game/friendship.js');
 const { getSpecies } = __req('data/species.js');
 const { getItem } = __req('data/items.js');
 const { maxHp, statValue, displayName, typesOf, isFainted, gainExp, expYield, awardEvs, expProgress } = __req('game/monster.js');
@@ -10390,6 +11087,8 @@ const { maxHp, statValue, displayName, typesOf, isFainted, gainExp, expYield, aw
 //     the battle object. Give two clients the same seed and the same pair of
 //     actions and they produce byte-identical results — which is what makes
 //     networked PvP possible without a referee server.
+
+
 
 
 
@@ -10549,12 +11248,32 @@ function buildOrder(battle, actions) {
 
 // ---- individual actions ------------------------------------------------
 
+/**
+ * The handful of engine operations an ability is allowed to perform. Passing
+ * this rather than the engine keeps abilities/engine free of a cycle and keeps
+ * the surface an ability can touch small enough to reason about.
+ */
+function abilityCtx(battle, sideIdx, out, mon) {
+  return {
+    mon,
+    get name() { return displayName(mon); },
+    say: (text) => out.push({ t: 'text', s: text }),
+    statChange: (target, stat, delta) => applyStatChange(battle, target, stat, delta, out),
+    passStatus: (target, status) => {
+      const t = activeOf(battle.sides[target]);
+      if (!t || isFainted(t) || t.status) return;
+      applyStatus(battle, target, { status }, out);
+    },
+  };
+}
+
 function doSwitch(battle, sideIdx, index, out) {
   const side = battle.sides[sideIdx];
   const target = side.party[index];
   if (!target || isFainted(target) || index === side.active) return;
   const leaving = activeOf(side);
   if (leaving && !isFainted(leaving)) {
+    ability.onSwitchOut(battle, sideIdx, abilityCtx(battle, sideIdx, out, leaving), leaving);
     out.push({ t: 'text', s: `${side.isPlayer ? '' : `${side.name} withdrew `}${displayName(leaving)}${side.isPlayer ? ', come back!' : '!'}` });
   }
   out.push({ t: 'withdraw', side: sideIdx });
@@ -10564,6 +11283,7 @@ function doSwitch(battle, sideIdx, index, out) {
   side.participants.add(index);
   out.push({ t: 'sendout', side: sideIdx, index });
   out.push({ t: 'text', s: `${side.isPlayer ? 'Go!' : `${side.name} sent out`} ${displayName(target)}!` });
+  ability.onSwitchIn(battle, sideIdx, abilityCtx(battle, sideIdx, out, target));
 }
 
 function doItem(battle, sideIdx, action, out) {
@@ -10631,7 +11351,8 @@ function doRun(battle, sideIdx, out) {
   side.runAttempts += 1;
   const attempts = side.runAttempts;
   const odds = theirs > 0 ? ((mine * 128) / theirs + 30 * attempts) % 256 : 256;
-  if (mine >= theirs || battle.rng.int(256) < odds) {
+  const runner = activeOf(side);
+  if (ability.alwaysFlees(runner) || mine >= theirs || battle.rng.int(256) < odds) {
     out.push({ t: 'sfx', s: 'escape' });
     out.push({ t: 'text', s: 'Got away safely!' });
     battle.over = true;
@@ -10733,6 +11454,7 @@ function doMove(battle, sideIdx, action, out) {
   }
   if (side.volatile.flinch) {
     out.push({ t: 'text', s: `${displayName(user)} flinched!` });
+    ability.onFlinch(battle, sideIdx, abilityCtx(battle, sideIdx, out, user));
     return;
   }
   if (user.status === 'PAR' && battle.rng() < 0.25) {
@@ -10756,7 +11478,8 @@ function doMove(battle, sideIdx, action, out) {
     }
   }
 
-  if (!isStruggle) slot.pp = Math.max(0, slot.pp - 1);
+  // Pressure is the defender's ability charging the attacker extra PP.
+  if (!isStruggle) slot.pp = Math.max(0, slot.pp - (1 + ability.extraPpCost(target)));
   side.lastMove = used.id;
 
   out.push({ t: 'usemove', side: sideIdx, move: used.id });
@@ -10818,11 +11541,15 @@ function computeDamage(battle, sideIdx, move, opts = {}) {
   let dmg = Math.floor(Math.floor(Math.floor((2 * user.level) / 5 + 2) * power * A / D) / 50) + 2;
 
   const stab = typesOf(user).includes(move.type) ? 1.5 : 1;
-  const eff = typeMultiplier(move.type, typesOf(target));
+  // An ability that grants outright immunity zeroes the type chart, so the
+  // caller's existing "doesn't affect" path handles it with no new branch.
+  const eff = ability.immuneToType(target, move.type)
+    ? 0 : typeMultiplier(move.type, typesOf(target));
   dmg = Math.floor(dmg * stab);
   dmg = Math.floor(dmg * eff);
+  dmg = Math.floor(dmg * ability.attackMultiplier(user, move, side));
   if (crit) dmg = Math.floor(dmg * 2);
-  if (user.status === 'BRN' && physical) dmg = Math.floor(dmg * 0.5);
+  if (user.status === 'BRN' && physical && !ability.ignoresBurnDrop(user)) dmg = Math.floor(dmg * 0.5);
   // Damage roll: 85%..100%. A peek uses the average roll so the AI's
   // evaluation is stable and costs the shared stream nothing.
   dmg = Math.floor(dmg * (opts.peek ? 0.925 : 0.85 + battle.rng() * 0.15));
@@ -10851,7 +11578,12 @@ function applyDamagingMove(battle, sideIdx, move, out) {
     const { dmg, eff, crit } = computeDamage(battle, sideIdx, move);
     lastEff = eff;
     if (eff === 0) {
-      out.push({ t: 'text', s: `It doesn't affect ${displayName(target)}...` });
+      if (ability.immuneToType(target, move.type)) {
+        out.push({ t: 'text', s: `${displayName(target)}'s ${target.ability} made it immune!` });
+        ability.onImmune(battle, foeIndex(sideIdx), abilityCtx(battle, foeIndex(sideIdx), out, target));
+      } else {
+        out.push({ t: 'text', s: `It doesn't affect ${displayName(target)}...` });
+      }
       return;
     }
     target.hp = Math.max(0, target.hp - dmg);
@@ -10876,16 +11608,19 @@ function applyDamagingMove(battle, sideIdx, move, out) {
       out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp });
       out.push({ t: 'text', s: `${displayName(target)} had its energy drained!` });
     }
-    if (fx.kind === 'recoil') {
+    if (fx.kind === 'recoil' && !ability.noRecoil(user)) {
       const hurt = Math.max(1, Math.floor(total * fx.fraction));
       user.hp = Math.max(0, user.hp - hurt);
       out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp, shake: true });
       out.push({ t: 'text', s: `${displayName(user)} is hit with recoil!` });
     }
+    // The roll happens either way, so an ability that blocks the effect cannot
+    // shift the shared random stream a link battle replays on both phones.
     if (fx.kind === 'status' && (!fx.chance || battle.rng() < fx.chance)) {
-      applyStatus(battle, foeIndex(sideIdx), fx, out);
+      if (!ability.blocksSecondary(target)) applyStatus(battle, foeIndex(sideIdx), fx, out);
     }
-    if (fx.kind === 'stat' && (!fx.chance || battle.rng() < fx.chance)) {
+    if (fx.kind === 'stat' && (!fx.chance || battle.rng() < fx.chance)
+      && !(fx.target === 'foe' && ability.blocksSecondary(target))) {
       const tgt = fx.target === 'self' ? sideIdx : foeIndex(sideIdx);
       applyStatChange(battle, tgt, fx.stat, fx.stages, out);
     }
@@ -10951,6 +11686,7 @@ function applyStatus(battle, sideIdx, fx, out) {
   if (fx.status === 'flinch') {
     // Flinch only lands if the target has not moved yet this turn; the
     // engine approximates that by only setting it when the target is slower.
+    if (ability.preventsFlinch(mon)) return;
     side.volatile.flinch = true;
     return;
   }
@@ -10977,12 +11713,17 @@ function applyStatus(battle, sideIdx, fx, out) {
   mon.badPoison = !!fx.bad;
   out.push({ t: 'status', side: sideIdx, status: fx.status });
   out.push({ t: 'text', s: `${displayName(mon)} was ${STATUS_NAMES[fx.status]}!` });
+  ability.onStatused(battle, sideIdx, abilityCtx(battle, sideIdx, out, mon), mon, fx.status);
 }
 
 function applyStatChange(battle, sideIdx, stat, delta, out) {
   const side = battle.sides[sideIdx];
   const mon = activeOf(side);
   if (!mon || isFainted(mon)) return;
+  if (delta < 0 && ability.protectsStat(mon, stat)) {
+    out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} prevents stat loss!` });
+    return;
+  }
   const cur = side.boosts[stat] || 0;
   const next = Math.max(-6, Math.min(6, cur + delta));
   const label = { atk: 'Attack', def: 'Defense', spa: 'Sp. Atk', spd: 'Sp. Def', spe: 'Speed', acc: 'accuracy', eva: 'evasiveness' }[stat] || stat;
@@ -11015,6 +11756,7 @@ function endOfTurn(battle, out) {
       out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp, shake: true });
       out.push({ t: 'text', s: `${displayName(mon)} is hurt by its burn!` });
     }
+    ability.onEndOfTurn(battle, i, abilityCtx(battle, i, out, mon), mon);
     // Held berry that triggers in a pinch.
     if (mon.heldItem) {
       const held = getItem(mon.heldItem);
@@ -11037,6 +11779,7 @@ function checkFaints(battle, out) {
     const mon = activeOf(side);
     if (!mon || !isFainted(mon) || battle.announcedFaints.has(mon.uid)) continue;
     battle.announcedFaints.add(mon.uid);
+    onFainted(mon);
     out.push({ t: 'sfx', s: 'faint' });
     out.push({ t: 'faint', side: i });
     out.push({ t: 'text', s: `${side.isPlayer ? '' : 'Foe '}${displayName(mon)} fainted!` });
@@ -11058,6 +11801,7 @@ function awardExperience(battle, sideIdx, loser, out) {
     const scaled = battle.difficulty === 'easy' ? Math.floor(amount * 1.5) : amount;
     const before = { level: mon.level, progress: expProgress(mon) };
     out.push({ t: 'text', s: `${displayName(mon)} gained ${scaled} EXP. Points!` });
+    onWonBattle(mon);
     awardEvs(mon, loser);
     const events = gainExp(mon, scaled);
     out.push({
@@ -11066,6 +11810,7 @@ function awardExperience(battle, sideIdx, loser, out) {
     });
     for (const e of events) {
       if (e.type === 'level') {
+        onLevelUp(mon);
         out.push({ t: 'sfx', s: 'levelup' });
         out.push({ t: 'levelup', uid: mon.uid, index: idx, level: e.level });
         out.push({ t: 'text', s: `${displayName(mon)} grew to Lv. ${e.level}!` });
@@ -12001,8 +12746,9 @@ const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
 const { bus } = __req('core/events.js');
 const { PAL, shade, typeColor } = __req('render/palette.js');
-const { window9, panel, rect, label, labelDim, cursor, hpBar, expBar, hpColor, drawTextCentered, drawTextRight, drawText, statusChip, genderMark, typeChip, LINE, money } = __req('ui/kit.js');
+const { window9, panel, rect, label, labelDim, cursor, hpBar, expBar, hpColor, drawTextCentered, drawTextRight, drawText, statusChip, genderMark, typeChip, LINE, money, rowHighlight } = __req('ui/kit.js');
 const { renderMonster } = __req('render/monsterart.js');
+const { NicknameScreen } = __req('ui/naming.js');
 const { drawChar, lookFor } = __req('render/sprites.js');
 const { drawBackChip } = __req('ui/controls.js');
 const { getSpecies } = __req('data/species.js');
@@ -12022,6 +12768,7 @@ const { PVP_STATE } = __req('net/RoomManager.js');
 // The engine produces a list of events; this screen is a player for that
 // list. Keeping the two apart is what lets the identical engine drive a wild
 // encounter, a gym leader and a networked link battle with no special cases.
+
 
 
 
@@ -12074,6 +12821,7 @@ class BattleScreen extends Screen {
     this.moveIndex = 0;
     this.bagIndex = 0;
     this.bagScroll = 0;
+    this.bagPocket = 0;
     this.partyIndex = 0;
     this.learnIndex = 0;
 
@@ -12302,6 +13050,14 @@ class BattleScreen extends Screen {
         this.current = null;
         break;
       }
+      case 'nickname': {
+        // Ask once, on top of the battle screen; the queue resumes when the
+        // keyboard pops, so a skipped nickname costs nothing but a tap.
+        const mon = e.mon;
+        this.current = null;
+        if (mon) this.game.screens.push(new NicknameScreen(this.game, mon, null));
+        break;
+      }
       case 'openLearn': this.pendingLearnOpen = true; this.current = null; break;
       case 'openEvolve': this.current = null; break;
       case 'finishEvolve': this.current = null; break;
@@ -12387,7 +13143,7 @@ class BattleScreen extends Screen {
 
   _runCommand(i) {
     if (i === 0) { this.mode = MODE.MOVES; this.moveIndex = 0; }
-    else if (i === 1) { this.mode = MODE.BAG; this.bagIndex = 0; this.bagScroll = 0; }
+    else if (i === 1) { this.mode = MODE.BAG; this.bagIndex = 0; this.bagScroll = 0; this.bagPocket = 0; }
     else if (i === 2) { this.mode = MODE.PARTY; this.partyIndex = 0; }
     else this._tryRun();
   }
@@ -12424,28 +13180,112 @@ class BattleScreen extends Screen {
     this._submit({ type: 'move', index: i });
   }
 
+  // ---- battle bag ---------------------------------------------------------
+  // Pocketed like the field bag, because reaching for a ball is the single
+  // most time-critical thing a player does in this game and hunting for it in
+  // a flat list is the wrong feel.
+
+  BAG_ROWS = 4;
+
+  /** The pockets that have something usable in them right now. */
+  _bagPockets() {
+    const inv = this.game.state.inventory;
+    const all = battleUsable(inv);
+    const order = ['Poké Balls', 'Medicine', 'Items'];
+    const pockets = order
+      .map((name) => ({ name, items: all.filter((e) => e.item.pocket === name) }))
+      .filter((p) => p.items.length);
+    // Balls are meaningless in a trainer battle, so the pocket is not offered.
+    return this.battle.canCatch ? pockets : pockets.filter((p) => p.name !== 'Poké Balls');
+  }
+
+  _bagItems() {
+    const pockets = this._bagPockets();
+    if (!pockets.length) return [];
+    this.bagPocket = Math.max(0, Math.min(this.bagPocket, pockets.length - 1));
+    return pockets[this.bagPocket].items;
+  }
+
+  /**
+   * One source of truth for where the bag's rows are. Hit-testing used to
+   * compute its own geometry and disagree with the drawing by 18 pixels, so
+   * every row's tap target sat below the row it belonged to — which is why a
+   * Poké Ball could not be tapped at all.
+   */
+  /**
+   * The bag takes the bottom of the screen rather than squeezing into the
+   * message box: four rows of 10 pixels did not fit in 46, and a row a thumb
+   * has to hit needs more than ten pixels anyway.
+   */
+  _bagBox() {
+    const { width: W } = this.game.display;
+    return { x: 4, y: this._boxY() - 30, w: W - 8, h: 76 };
+  }
+
+  BAG_ROW_H = 12;
+
+  _bagRects() {
+    const b = this._bagBox();
+    const items = this._bagItems();
+    const shown = Math.min(this.BAG_ROWS, Math.max(0, items.length - this.bagScroll));
+    const out = [];
+    for (let i = 0; i < shown; i++) {
+      out.push({
+        x: b.x + 4, y: b.y + 17 + i * this.BAG_ROW_H, w: b.w - 8, h: this.BAG_ROW_H,
+        index: this.bagScroll + i,
+      });
+    }
+    return out;
+  }
+
+  /** Tabs across the top of the bag window, one per non-empty pocket. */
+  _bagTabRects() {
+    const b = this._bagBox();
+    const pockets = this._bagPockets();
+    if (pockets.length < 2) return [];
+    // Inside the window, with room kept clear on the right for the BACK chip.
+    const room = b.w - 8 - 50;
+    const tw = Math.min(84, Math.floor(room / pockets.length) - 2);
+    return pockets.map((p, i) => ({ ...p, i, x: b.x + 4 + i * (tw + 2), y: b.y + 3, w: tw, h: 11 }));
+  }
+
   _updateBag() {
-    const items = battleUsable(this.game.state.inventory);
-    const rows = 4;
+    const pockets = this._bagPockets();
+    const items = this._bagItems();
+    const rows = this.BAG_ROWS;
     const tap = input.consumeTap();
-    const listX = 6, listY = this._boxY() + 4;
+
     if (tap) {
-      for (let i = 0; i < Math.min(rows, items.length - this.bagScroll); i++) {
-        if (hit(tap, listX, listY + 6 + i * LINE, 150, LINE)) {
-          this.bagIndex = this.bagScroll + i; audio.sfx('select'); this._useItem(items[this.bagIndex]); return;
+      for (const t of this._bagTabRects()) {
+        if (hit(tap, t.x, t.y, t.w, t.h)) { this._setBagPocket(t.i); return; }
+      }
+      for (const r of this._bagRects()) {
+        if (hit(tap, r.x, r.y, r.w, r.h)) {
+          this.bagIndex = r.index; audio.sfx('select'); this._useItem(items[this.bagIndex]); return;
         }
       }
     }
-    if (!items.length) {
-      if (input.pressed('a') || input.pressed('b')) { audio.sfx('back'); this.mode = MODE.COMMAND; }
+
+    if (!pockets.length) {
+      if (input.pressed('a') || input.pressed('b') || tap) { audio.sfx('back'); this.mode = MODE.COMMAND; }
       return;
     }
+    if (input.repeated('left')) this._setBagPocket((this.bagPocket - 1 + pockets.length) % pockets.length);
+    if (input.repeated('right')) this._setBagPocket((this.bagPocket + 1) % pockets.length);
     if (input.repeated('up')) { this.bagIndex = (this.bagIndex - 1 + items.length) % items.length; audio.sfx('cursor'); }
     if (input.repeated('down')) { this.bagIndex = (this.bagIndex + 1) % items.length; audio.sfx('cursor'); }
     this.bagScroll = Math.max(0, Math.min(this.bagIndex - rows + 1, Math.max(0, items.length - rows)));
     if (this.bagIndex < this.bagScroll) this.bagScroll = this.bagIndex;
     if (input.pressed('b')) { audio.sfx('back'); this.mode = MODE.COMMAND; return; }
     if (input.pressed('a')) { audio.sfx('select'); this._useItem(items[this.bagIndex]); }
+  }
+
+  _setBagPocket(i) {
+    if (i === this.bagPocket) return;
+    this.bagPocket = i;
+    this.bagIndex = 0;
+    this.bagScroll = 0;
+    audio.sfx('cursor');
   }
 
   _useItem(entry) {
@@ -12664,6 +13504,8 @@ class BattleScreen extends Screen {
       if (dest && dest.where === 'box') {
         this.queue.push({ t: 'text', s: `Your party is full, so ${displayName(mon)}\nwas sent to ${dest.boxName}.` });
       }
+      // The moment it stops being a species and becomes yours.
+      this.queue.push({ t: 'nickname', mon });
       this.queue.push({ t: 'finish' });
       this.mode = MODE.PLAY;
       return;
@@ -12721,7 +13563,7 @@ class BattleScreen extends Screen {
     switch (this.mode) {
       case MODE.COMMAND: this._drawCommand(ctx, W, H); break;
       case MODE.MOVES: this._drawMoves(ctx, W, H); drawBackChip(ctx, 4, this._boxY() - 26); break;
-      case MODE.BAG: this._drawBag(ctx, W, H); drawBackChip(ctx, 4, this._boxY() - 26); break;
+      case MODE.BAG: this._drawBag(ctx, W, H); break;
       case MODE.PARTY:
         this._drawPartyPicker(ctx, W, H); drawBackChip(ctx, W - 52, 4); break;
       case MODE.SWITCH: this._drawPartyPicker(ctx, W, H); break;
@@ -12847,7 +13689,11 @@ class BattleScreen extends Screen {
     const foe = activeOf(this.battle.sides[this.foeSide]);
     const me = activeOf(this.battle.sides[this.mySide]);
     if (foe) this._monHud(ctx, foe, 6, 8, false, this.dispHp[this.foeSide]);
-    if (me) this._monHud(ctx, me, W - 122, H * 0.44, true, this.dispHp[this.mySide]);
+    // The bag takes the lower half of the screen, the way the DS bag takes the
+    // lower screen — drawing your own HUD under it just leaves a sliced panel.
+    if (me && this.mode !== MODE.BAG) {
+      this._monHud(ctx, me, W - 122, H * 0.44, true, this.dispHp[this.mySide]);
+    }
     this._partyPips(ctx, W, H);
   }
 
@@ -12970,24 +13816,55 @@ class BattleScreen extends Screen {
   }
 
   _drawBag(ctx, W, H) {
-    const y = this._boxY();
-    window9(ctx, 4, y - 12, W - 8, 54);
-    const items = battleUsable(this.game.state.inventory);
-    if (!items.length) {
-      label(ctx, 'Your bag is empty.', 12, y - 4);
-      labelDim(ctx, 'B: back', 12, y + 22);
+    const b = this._bagBox();
+    const pockets = this._bagPockets();
+    window9(ctx, b.x, b.y, b.w, b.h);
+    drawBackChip(ctx, b.x + b.w - 48, b.y + 3);
+    if (!pockets.length) {
+      label(ctx, 'You have nothing you can use here.', b.x + 8, b.y + 20);
+      labelDim(ctx, 'B: back', b.x + 8, b.y + 34);
+      void W; void H;
       return;
     }
-    const rows = 4;
-    const view = items.slice(this.bagScroll, this.bagScroll + rows);
-    view.forEach((e, i) => {
-      const iy = y - 8 + i * LINE;
-      const idx = this.bagScroll + i;
-      if (idx === this.bagIndex) cursor(ctx, 8, iy);
-      label(ctx, e.item.name, 16, iy);
-      drawTextRight(ctx, `x${e.qty}`, W - 12, iy, { color: PAL.uiTextDim });
-    });
-    void H;
+
+    // Pocket tabs sit on the window's top edge, the way the hub's do.
+    for (const t of this._bagTabRects()) {
+      const on = t.i === this.bagPocket;
+      const col = t.name === 'Poké Balls' ? PAL.uiDanger : t.name === 'Medicine' ? '#3f9060' : '#e08a30';
+      rect(ctx, t.x, t.y, t.w, t.h + 2, on ? col : shade(col, 0.5));
+      rect(ctx, t.x, t.y, t.w, 1, shade(col, 0.35));
+      drawTextCentered(ctx, t.name === 'Poké Balls' ? 'BALLS' : t.name.toUpperCase(),
+        t.x + t.w / 2, t.y + 2, { color: on ? '#ffffff' : PAL.uiText });
+    }
+
+    const items = this._bagItems();
+    for (const r of this._bagRects()) {
+      const e = items[r.index];
+      if (!e) continue;
+      const sel = r.index === this.bagIndex;
+      // The highlight covers exactly the tap target — no more, no less, so
+      // what the player can see is what the player can hit.
+      if (sel) rowHighlight(ctx, r.x, r.y, r.w, r.h, PAL.uiSelect);
+      const ty = r.y + Math.floor((r.h - 7) / 2);
+      label(ctx, e.item.name, r.x + 5, ty, { color: sel ? PAL.uiTextLight : PAL.uiText });
+      drawTextRight(ctx, `x${e.qty}`, r.x + r.w - 14, ty,
+        { color: sel ? shade(PAL.uiSelect, 0.7) : PAL.uiTextDim });
+    }
+
+    // What the highlighted item does, and where you are in the pocket.
+    const sel = items[this.bagIndex];
+    if (sel) {
+      const count = `${this.bagIndex + 1}/${items.length}`;
+      drawTextRight(ctx, count, b.x + b.w - 6, b.y + b.h - 10, { color: PAL.uiTextDim });
+      labelDim(ctx, (sel.item.desc || '').slice(0, Math.floor((b.w - 22 - count.length * 6) / 6)),
+        b.x + 6, b.y + b.h - 10);
+    }
+    if (this.bagScroll > 0) drawText(ctx, '▲', b.x + b.w - 11, b.y + 18, { color: PAL.uiTextDim });
+    if (this.bagScroll + this.BAG_ROWS < items.length) {
+      drawText(ctx, '▼', b.x + b.w - 11, b.y + 17 + (this.BAG_ROWS - 1) * this.BAG_ROW_H,
+        { color: PAL.uiTextDim });
+    }
+    void W; void H;
   }
 
   _drawPartyPicker(ctx, W, H) {
@@ -13092,12 +13969,16 @@ const { pocketContents, removeItem, addItem } = __req('game/inventory.js');
 const { swapParty, formatPlayTime, badgeCount } = __req('game/state.js');
 const { seenCount, caughtCount } = __req('game/pokedex.js');
 const { tryStone } = __req('game/evolution.js');
+const { abilityDescription } = __req('game/battle/abilities.js');
+const { friendshipLabel } = __req('game/friendship.js');
 const { net } = __req('net/NetworkManager.js');
 const { drawControls, drawBackChip } = __req('ui/controls.js');
 // The pause menu and everything under it.
 //
 // Every screen here follows the same rules: D-pad or a direct tap both work,
 // B always goes back, and nothing ever traps the player.
+
+
 
 
 
@@ -13253,7 +14134,10 @@ class PartyScreen extends Screen {
       this.swapFrom = -1;
       return;
     }
-    this.sub = ['SUMMARY', 'SWITCH', 'ITEM', 'CANCEL'];
+    // A Pokémon holding something offers TAKE; one with free hands offers GIVE.
+    const mon = party[this.index];
+    this.sub = ['SUMMARY', 'SWITCH', 'ITEM',
+      mon && mon.heldItem ? 'TAKE ITEM' : 'GIVE ITEM', 'CANCEL'];
     this.subIndex = 0;
   }
 
@@ -13281,6 +14165,35 @@ class PartyScreen extends Screen {
     else if (label_ === 'ITEM') this.game.screens.push(new BagScreen(this.game, {
       mode: 'use', target: this.index,
     }));
+    else if (label_ === 'GIVE ITEM') this._giveItem();
+    else if (label_ === 'TAKE ITEM') this._takeItem();
+  }
+
+  _giveItem() {
+    const mon = this.game.state.party[this.index];
+    if (!mon) return;
+    this.game.screens.push(new BagScreen(this.game, {
+      mode: 'give',
+      onPick: (itemId) => {
+        if (!itemId) return;
+        const st = this.game.state;
+        // Swapping is a swap, not a loss: whatever it was holding comes back.
+        if (mon.heldItem) addItem(st.inventory, mon.heldItem, 1);
+        removeItem(st.inventory, itemId, 1);
+        mon.heldItem = itemId;
+        audio.sfx('select');
+        if (this.game.save) this.game.save.markDirty();
+      },
+    }));
+  }
+
+  _takeItem() {
+    const mon = this.game.state.party[this.index];
+    if (!mon || !mon.heldItem) return;
+    addItem(this.game.state.inventory, mon.heldItem, 1);
+    mon.heldItem = null;
+    audio.sfx('select');
+    if (this.game.save) this.game.save.markDirty();
   }
 
   _updateDetail() {
@@ -13386,12 +14299,19 @@ class PartyScreen extends Screen {
     } else {
       labelDim(ctx, `OT: ${mon.ot || '???'}`, px, 18);
       labelDim(ctx, `ID: ${String(mon.otId ?? 0).padStart(5, '0')}`, px, 28);
-      labelDim(ctx, `Ability: ${mon.ability}`, px, 38);
-      labelDim(ctx, `Met at Lv${mon.caughtLevel}`, px, 48);
-      labelDim(ctx, mon.heldItem ? `Holding ${getItem(mon.heldItem).name}` : 'No held item', px, 58);
+      label(ctx, `Ability: ${mon.ability}`, px, 38, { color: PAL.uiText });
+      // What the ability actually does, said plainly — including when the
+      // honest answer is that this engine does not implement it.
+      const abilityText = abilityDescription(mon.ability);
+      if (abilityText) {
+        labelDim(ctx, abilityText.slice(0, Math.floor((W - px - 12) / 6)), px, 48);
+      }
+      labelDim(ctx, `Friendship: ${friendshipLabel(mon)}`, px, 58);
+      labelDim(ctx, `Met at Lv${mon.caughtLevel}`, px, 68);
+      labelDim(ctx, mon.heldItem ? `Holding ${getItem(mon.heldItem).name}` : 'No held item', px, 78);
       const dex = sp.dex;
       const words = dex.split(' ');
-      let line = '', y = 86;
+      let line = '', y = 96;
       for (const wd of words) {
         if ((line + ' ' + wd).length > Math.floor((W - 16) / 6)) { label(ctx, line, 8, y); y += 9; line = wd; }
         else line = line ? `${line} ${wd}` : wd;
@@ -13411,7 +14331,7 @@ class BagScreen extends Screen {
     this.pocket = 0;
     this.index = 0;
     this.scroll = 0;
-    this.mode = opts.mode || 'browse';   // browse | use | sell | pick
+    this.mode = opts.mode || 'browse';   // browse | use | sell | pick | give
     this.target = opts.target ?? null;
     this.onPick = opts.onPick || null;
     this.message = null;
@@ -13455,7 +14375,14 @@ class BagScreen extends Screen {
     const st = this.game.state;
     const item = entry.item;
 
-    if (this.mode === 'pick') { const cb = this.onPick; this.game.screens.pop(); if (cb) cb(item.id); return; }
+    if (this.mode === 'pick' || this.mode === 'give') {
+      if (this.mode === 'give' && !this._holdable(item)) {
+        this._say(`${item.name} is not something a Pokémon can hold.`);
+        audio.sfx('deny');
+        return;
+      }
+      const cb = this.onPick; this.game.screens.pop(); if (cb) cb(item.id); return;
+    }
 
     const u = item.use;
     if (!u) { this._say(item.desc); return; }
@@ -13543,6 +14470,9 @@ class BagScreen extends Screen {
       if (this.mode === 'use') this.game.screens.pop();
     }
   }
+
+  /** Key items stay in the bag; everything else can be carried. */
+  _holdable(item) { return !item.key && item.pocket !== 'Key Items'; }
 
   _say(text) { this.message = text; this.messageT = 2.4; }
 
@@ -17190,6 +18120,7 @@ const { TradeScreen } = __req('ui/trade.js');
 const { DebugScreen } = __req('ui/debug.js');
 const { CircuitScreen, TournamentScreen, PressScreen } = __req('ui/circuit.js');
 const { resolveDialogue, worldSnapshot } = __req('game/overworld/gossip.js');
+const { NicknameScreen } = __req('ui/naming.js');
 const { createGameState, healParty, setStoryFlag } = __req('game/state.js');
 const { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } = __req('game/monster.js');
 const { createBattle } = __req('game/battle/engine.js');
@@ -17209,6 +18140,7 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
 
 
 
@@ -17367,7 +18299,7 @@ class Game {
     try { return getMap(this.state.player.map).name; } catch { return '???'; }
   }
 
-  teleport(mapId) {
+  teleport(mapId, atX = null, atY = null, onDone = null) {
     const map = getMap(mapId);
     // Land on the first walkable tile near the middle of the map.
     let tx = Math.floor(map.width / 2), ty = Math.floor(map.height / 2);
@@ -17384,13 +18316,14 @@ class Game {
         }
       }
     }
+    if (atX != null && atY != null) { tx = atX; ty = atY; }
     this.screens.popTo('OverworldScreen');
     dialogue.hide();
     this.screens.fade(FADE.BLACK, () => {
       this.overworld.world.load(mapId, tx, ty, 'down');
       this.overworld.showBanner(getMap(mapId));
       this.overworld.playMusic();
-    });
+    }, { onDone });
   }
 
   escapeToHealPoint() {
@@ -17415,6 +18348,8 @@ class Game {
   openPC() { this.screens.push(new PCScreen(this)); }
   openMultiplayer() { this.screens.push(new MultiplayerScreen(this)); }
   openCircuit(opts) { return this.screens.push(new CircuitScreen(this, opts)); }
+  /** Opens the nickname keyboard for a Pokémon. Used after a catch. */
+  openNickname(mon, onDone) { return this.screens.push(new NicknameScreen(this, mon, onDone)); }
   openPress() {
     const p = this.career.pendingPress;
     if (!p || this.screens.contains('PressScreen')) return null;
@@ -17455,20 +18390,24 @@ class Game {
     } catch { return 'grass'; }
   }
 
-  startWildBattle(speciesId, level) {
+  startWildBattle(speciesId, level, opts = {}) {
     const st = this.state;
-    const wild = createMonster(speciesId, level);
+    const wild = createMonster(speciesId, level, opts.monster || {});
     const battle = createBattle({
       seed: randomSeed(),
       kind: 'wild',
       difficulty: st.difficulty,
       location: st.player.map,
+      canRun: opts.canRun !== false,
       a: { id: 'player', name: st.player.name, isPlayer: true, party: st.party, bag: st.inventory },
-      b: { id: 'wild', name: `Wild ${getSpecies(speciesId).name}`, party: [wild] },
+      b: { id: 'wild', name: opts.name || `Wild ${getSpecies(speciesId).name}`, party: [wild] },
     });
-    this.screens.push(new BattleScreen(this, battle, {
+    return this.screens.push(new BattleScreen(this, battle, {
       terrain: this._terrainFor(st.player.map),
       location: st.player.map,
+      // A static encounter wants to know how it ended, not just that it did.
+      onFinish: opts.onFinish || null,
+      music: opts.music || null,
     }));
   }
 

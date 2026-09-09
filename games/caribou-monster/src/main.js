@@ -24,6 +24,7 @@ import { TradeScreen } from './ui/trade.js';
 import { DebugScreen } from './ui/debug.js';
 import { CircuitScreen, TournamentScreen, PressScreen } from './ui/circuit.js';
 import { resolveDialogue, worldSnapshot } from './game/overworld/gossip.js';
+import { NicknameScreen } from './ui/naming.js';
 import { createGameState, healParty, setStoryFlag } from './game/state.js';
 import { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } from './game/monster.js';
 import { createBattle } from './game/battle/engine.js';
@@ -161,7 +162,7 @@ class Game {
     try { return getMap(this.state.player.map).name; } catch { return '???'; }
   }
 
-  teleport(mapId) {
+  teleport(mapId, atX = null, atY = null, onDone = null) {
     const map = getMap(mapId);
     // Land on the first walkable tile near the middle of the map.
     let tx = Math.floor(map.width / 2), ty = Math.floor(map.height / 2);
@@ -178,13 +179,14 @@ class Game {
         }
       }
     }
+    if (atX != null && atY != null) { tx = atX; ty = atY; }
     this.screens.popTo('OverworldScreen');
     dialogue.hide();
     this.screens.fade(FADE.BLACK, () => {
       this.overworld.world.load(mapId, tx, ty, 'down');
       this.overworld.showBanner(getMap(mapId));
       this.overworld.playMusic();
-    });
+    }, { onDone });
   }
 
   escapeToHealPoint() {
@@ -209,6 +211,8 @@ class Game {
   openPC() { this.screens.push(new PCScreen(this)); }
   openMultiplayer() { this.screens.push(new MultiplayerScreen(this)); }
   openCircuit(opts) { return this.screens.push(new CircuitScreen(this, opts)); }
+  /** Opens the nickname keyboard for a Pokémon. Used after a catch. */
+  openNickname(mon, onDone) { return this.screens.push(new NicknameScreen(this, mon, onDone)); }
   openPress() {
     const p = this.career.pendingPress;
     if (!p || this.screens.contains('PressScreen')) return null;
@@ -249,20 +253,24 @@ class Game {
     } catch { return 'grass'; }
   }
 
-  startWildBattle(speciesId, level) {
+  startWildBattle(speciesId, level, opts = {}) {
     const st = this.state;
-    const wild = createMonster(speciesId, level);
+    const wild = createMonster(speciesId, level, opts.monster || {});
     const battle = createBattle({
       seed: randomSeed(),
       kind: 'wild',
       difficulty: st.difficulty,
       location: st.player.map,
+      canRun: opts.canRun !== false,
       a: { id: 'player', name: st.player.name, isPlayer: true, party: st.party, bag: st.inventory },
-      b: { id: 'wild', name: `Wild ${getSpecies(speciesId).name}`, party: [wild] },
+      b: { id: 'wild', name: opts.name || `Wild ${getSpecies(speciesId).name}`, party: [wild] },
     });
-    this.screens.push(new BattleScreen(this, battle, {
+    return this.screens.push(new BattleScreen(this, battle, {
       terrain: this._terrainFor(st.player.map),
       location: st.player.map,
+      // A static encounter wants to know how it ended, not just that it did.
+      onFinish: opts.onFinish || null,
+      music: opts.music || null,
     }));
   }
 

@@ -37,6 +37,7 @@ export class OverworldScreen extends Screen {
     this.bannerName = '';
     this.timers = [];
     this.script = null;
+    this.shakeT = 0;
     this.showcase = null;         // a monster held up during a cutscene
     this.netToast = null;
     this.netToastT = 0;
@@ -394,7 +395,29 @@ export class OverworldScreen extends Screen {
         screen.game.startTrainerBattle(cfg.trainer, resolve);
       }),
 
+      // A one-off wild encounter a script can await — a legendary standing in
+      // a room rather than something that walked out of the grass. Resolves
+      // with the battle's own result, so the script can tell "caught" from
+      // "it got away" and behave differently next time.
+      wild: (speciesId, level, opts = {}) => new Promise((resolve) => {
+        const scr = screen.game.startWildBattle(speciesId, level, {
+          ...opts,
+          onFinish: () => resolve(scr ? scr.result : null),
+        });
+      }),
+
+      warpTo: (mapId, x, y) => new Promise((resolve) => {
+        // Resolved by the fade itself: this screen stops updating while a
+        // transition runs, so its own timers would never come back.
+        screen.game.teleport(mapId, x, y, resolve);
+      }),
+
       give: (itemId, qty) => addItem(st.inventory, itemId, qty),
+
+      hasItem: (itemId) => (st.inventory.items[itemId] || 0) > 0,
+
+      // A one-shot screen kick, for a mountain opening.
+      shake: (strength = 1) => { screen.shakeT = Math.max(screen.shakeT || 0, strength); },
 
       setFlag: (k, v = true) => setStoryFlag(st, k, v),
 
@@ -439,7 +462,20 @@ export class OverworldScreen extends Screen {
 
   render(ctx) {
     const { width: W, height: H } = this.game.display;
+    // A script-driven camera kick. Applied to the camera rather than the
+    // canvas transform so the HUD and the dialogue box stay put.
+    let shakeX = 0, shakeY = 0;
+    if (this.shakeT > 0) {
+      this.shakeT = Math.max(0, this.shakeT - 1 / 60);
+      const mag = this.shakeT * 4;
+      shakeX = Math.round(Math.sin(this.shakeT * 47) * mag);
+      shakeY = Math.round(Math.cos(this.shakeT * 61) * mag);
+      this.camera.x += shakeX;
+      this.camera.y += shakeY;
+    }
     drawWorld(ctx, this.world, this.camera, W, H);
+    this.camera.x -= shakeX;
+    this.camera.y -= shakeY;
 
     // Trainer "!" bubble.
     for (const e of this.world.entities) {

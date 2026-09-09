@@ -32,8 +32,8 @@ controls.
 
 | | |
 |---|---|
-| **World** | 15 maps: Twinleaf Town, Route 201, Route 202, Oreburgh City, Route 207, Oreburgh Gate and nine interiors |
-| **Pokémon** | 54 species with real base stats, types, abilities, natures, genders, IVs/EVs, shinies, learnsets and evolution lines |
+| **World** | 16 maps: Twinleaf Town, Route 201, Route 202, Oreburgh City, Route 207, Oreburgh Gate, the Everlight Chamber and nine interiors |
+| **Pokémon** | 54 species with real base stats, types, natures, genders, IVs/EVs, shinies, learnsets and evolution lines — plus nicknaming, friendship that moves, held items you can give and take, and **18 working abilities** |
 | **Moves** | 119, all data-driven, with the 17-type chart, STAB, criticals, accuracy, five status conditions, confusion, flinch and stat stages |
 | **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, the Oreburgh Gym and its badge |
 | **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, trainer card, save/load, EASY and NORMAL difficulty |
@@ -44,7 +44,11 @@ controls.
 
 The story runs from waking up at home through Professor Rowan's lab, the rival,
 Route 202, the first badge, and into Oreburgh Gate where Team Galactic is
-listening to something under the hill.
+listening to something under the hill — and then into the hill itself. The
+Aurora Charm opens a seam in the rock that four maps of NPCs have been talking
+about, and what is behind it is Dialga, standing very still, and has been for a
+very long time. Decline it and it waits; a legendary you can permanently lose is
+a save file you have to restart.
 
 ---
 
@@ -78,6 +82,32 @@ Link battles against the other player count towards the same ranking — but onl
 when both clients played the match to a conclusion. A forfeit, a timeout or a
 disconnect ends the session and moves nothing, because a ranking built on
 unverified results is not a ranking.
+
+---
+
+## Abilities
+
+Every Pokémon has always carried an ability name on its summary screen, and for
+a long time nothing read it — so Overgrow and Simple were the same thing:
+decoration. `game/battle/abilities.js` is the table that makes them mean
+something. Eighteen are implemented: the pinch boosters, Intimidate, Levitate,
+Flash Fire, Guts, Rock Head, Natural Cure, Shed Skin, Inner Focus, Steadfast,
+Keen Eye, Hyper Cutter, Pressure, Shield Dust, Synchronize and Run Away.
+
+Eight more are listed as **knowingly inert**, with the reason — Chlorophyll and
+Swift Swim need weather this game does not have, Cute Charm needs infatuation,
+Sticky Hold needs something that steals held items. The summary screen says so
+in as many words rather than describing an effect that is not there, and
+`tools/audit.mjs` rejects any ability that is neither implemented nor on that
+list. A silent no-op is how a system rots: nobody can tell the unimplemented
+from the broken.
+
+Two rules keep them safe in a link battle: an ability may only use
+`battle.rng`, and a roll that an ability cancels still happens — otherwise the
+first proc would shift the shared random stream and desync the two phones.
+`tools/abilitytest.mjs` builds the exact situation each one is for, runs a real
+turn, and asserts the outcome differs from the same turn without it. An ability
+that cannot be told apart from its absence is a label, not a mechanic.
 
 ---
 
@@ -216,7 +246,8 @@ node tools/coop.mjs index.html /tmp/co # full two-player session
 node tools/touch.mjs index.html /tmp/t # touch-only run at four device sizes
 node tools/audit.mjs                   # static world audit — softlocks, warps, data
 node tools/circuittest.mjs             # World Circuit careers, brackets, press, saves
-node tools/dialoguetest.mjs            # every NPC branch, across twelve career stages
+node tools/dialoguetest.mjs            # every NPC branch, across fourteen career stages
+node tools/abilitytest.mjs             # every ability, proved against its own absence
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```

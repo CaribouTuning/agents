@@ -82,6 +82,10 @@ export class ScreenManager {
     const inMs = opts.inMs != null ? opts.inMs : 240;
     this.transition = {
       kind, t: 0, phase: 'out', outMs: outMs / 1000, inMs: inMs / 1000, action, done: false,
+      // Screens below a transition are not updated, so anything waiting on a
+      // fade cannot use their timers to find out when it ended. This is how
+      // it finds out.
+      onDone: opts.onDone || null,
     };
   }
 
@@ -97,6 +101,7 @@ export class ScreenManager {
         if (tr.action) { const a = tr.action; tr.action = null; a(); }
       } else if (tr.phase === 'in' && tr.t >= tr.inMs) {
         this.transition = null;
+        if (tr.onDone) tr.onDone();
       }
       // Input is swallowed during a transition.
       return;

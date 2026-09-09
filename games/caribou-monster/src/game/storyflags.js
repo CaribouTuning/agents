@@ -18,12 +18,16 @@ export const FLAGS = {
   ENTERED_CAVE: 'enteredCave',
   GOT_CHARM: 'gotCharm',
   BEAT_COMMANDER: 'beatCommander',
+  EVERLIGHT_OPENED: 'everlightOpened',
+  EVERLIGHT_RESOLVED: 'everlightResolved',
+  CAUGHT_EVERLIGHT: 'caughtEverlight',
 };
 
 // Milestones that co-op partners keep in step, in the order they happen.
 export const SHARED_MILESTONES = [
   FLAGS.GOT_STARTER, FLAGS.LEFT_TOWN, FLAGS.ENTERED_FOREST, FLAGS.FOREST_GRUNT,
   FLAGS.REACHED_ALDERMERE, FLAGS.BADGE_1, FLAGS.ENTERED_CAVE, FLAGS.BEAT_COMMANDER,
+  FLAGS.CAUGHT_EVERLIGHT,
 ];
 
 export function createFlags() { return {}; }
@@ -48,5 +52,6 @@ export function progressLabel(n) {
   return [
     'Just starting out', 'On the road', 'In Route 202', 'Through the forest',
     'In Oreburgh', 'One badge', 'Into Oreburgh Gate', 'Faced Galactic',
-  ][Math.min(n, 7)];
+    'Woke the Everlight',
+  ][Math.min(n, 8)];
 }

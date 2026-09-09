@@ -237,4 +237,81 @@ SCRIPTS.circuitDesk = async (ctx) => {
   await ctx.openCircuit();
 };
 
+// ---- The Everlight ----------------------------------------------------------
+//
+// The payoff the whole region has been talking about. Four maps of NPCs, a
+// scientist reading ninety-year-old survey notes, an old man watching the
+// aurora come further south every night, and a commander who says the mountain
+// is not finished with either of you — all of it pointed at a door that did
+// not exist. This is the door.
+
+SCRIPTS.everlight = async (ctx) => {
+  const st = ctx.state;
+  const hasCharm = ctx.hasItem('auroracharm');
+
+  if (!hasCharm) {
+    await ctx.say('A seam of pale light runs up the rock face.');
+    await ctx.say('It is cold to the touch, and it does not move.');
+    return;
+  }
+
+  if (!st.flags[FLAGS.EVERLIGHT_OPENED]) {
+    await ctx.say('The seam of light is directly ahead.');
+    await ctx.say('The Aurora Charm in your bag has started to glow.');
+    ctx.sfx('warp');
+    ctx.shake(1);
+    await ctx.wait(0.8);
+    await ctx.say('The light answers it.\fThe rock draws back like a held breath.');
+    ctx.setFlag(FLAGS.EVERLIGHT_OPENED);
+    ctx.shareMilestone(FLAGS.EVERLIGHT_OPENED);
+    ctx.autosave();
+  }
+  await ctx.warpTo('everlight_chamber', 7, 7);
+};
+
+SCRIPTS.everlightDialga = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.CAUGHT_EVERLIGHT]) {
+    await ctx.say('The chamber is quiet now.');
+    await ctx.say('The light in the rock is ordinary light, and the room is just a room.');
+    return;
+  }
+
+  if (!st.flags[FLAGS.EVERLIGHT_RESOLVED]) {
+    await ctx.say('The chamber opens out, and the light has a shape in it.');
+    await ctx.say('Something enormous is standing very still at the centre of the room.');
+    await ctx.say('It has been standing there, you understand suddenly, for a very long time.');
+  } else {
+    await ctx.say('It is still here. It has not moved at all.');
+  }
+
+  ctx.dex.seen(37);
+  await ctx.showMonster(37);
+  await ctx.say('DIALGA: ...');
+  ctx.hideMonster();
+
+  const level = Math.max(30, Math.min(55, (st.party[0] ? st.party[0].level : 30) + 6));
+  const result = await ctx.wild(37, level, {
+    name: 'The Everlight', canRun: true, monster: { friendship: 0 },
+  });
+
+  if (result === 'caught') {
+    ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
+    ctx.setFlag(FLAGS.CAUGHT_EVERLIGHT);
+    ctx.shareMilestone(FLAGS.CAUGHT_EVERLIGHT);
+    ctx.sfx('badge');
+    await ctx.say('The light goes out of the rock, all at once, everywhere.');
+    await ctx.say('Somewhere above you, a whole region stops seeing an aurora it could not explain.');
+    ctx.autosave();
+    return;
+  }
+
+  // Knocked out, or you ran. Either way it is still here tomorrow — a
+  // legendary you can permanently lose is a save file you have to restart.
+  ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
+  ctx.autosave();
+  if (result === 'run') await ctx.say('You back out of the chamber. It does not follow.');
+  else await ctx.say('It folds back into the light, unhurried.\fIt will be here when you are ready.');
+};
+
 export function scriptFor(name) { return SCRIPTS[name] || null; }

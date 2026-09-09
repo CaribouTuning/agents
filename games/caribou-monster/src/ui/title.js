@@ -1,5 +1,6 @@
 // Title, new game and character creation.
 import { Screen, FADE } from './screen.js';
+import { KEY_ROWS, keyGrid } from './naming.js';
 import { input } from '../core/input.js';
 import { audio } from '../core/audio.js';
 import { PAL, shade } from '../render/palette.js';
@@ -230,15 +231,7 @@ export class TitleOptionsScreen extends Screen {
 
 // ---------------------------------------------------------------------------
 
-const ROWS = [
-  'ABCDEFGHIJ',
-  'KLMNOPQRST',
-  'UVWXYZ    ',
-  'abcdefghij',
-  'klmnopqrst',
-  'uvwxyz-. 0',
-  '123456789 ',
-];
+const ROWS = KEY_ROWS;
 
 export class CharacterScreen extends Screen {
   constructor(game) {
@@ -356,21 +349,8 @@ export class CharacterScreen extends Screen {
     if (input.pressed('b')) { audio.sfx('back'); this.step = 2; }
   }
 
-  _keyGrid() {
-    const { width: W, height: H } = this.game.display;
-    const cw = Math.min(16, Math.floor((W - 24) / 10));
-    const ch = 13;
-    const gx = W / 2 - (cw * 10) / 2;
-    const gy = 44;
-    const cells = [];
-    ROWS.forEach((row, r) => {
-      for (let c = 0; c < 10; c++) {
-        if (row[c] === ' ') continue;
-        cells.push({ ch: row[c], x: gx + c * cw, y: gy + r * ch, w: cw - 1, h: ch - 1, r, c });
-      }
-    });
-    return { cells, gx, gy, cw, ch, okX: W / 2 + 6, okY: gy + ROWS.length * ch + 3, delX: W / 2 - 50, delY: gy + ROWS.length * ch + 3 };
-  }
+  // One keyboard in the game, shared with the nickname screen.
+  _keyGrid() { return keyGrid(this.game.display, 44); }
 
   render(ctx) {
     const { width: W, height: H } = this.game.display;
