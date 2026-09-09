@@ -1,0 +1,517 @@
+// The overworld screen: walking around, talking, warping, running into
+// monsters — and the host for every cutscene.
+//
+// Cutscenes are written as async functions (see game/overworld/scripts.js).
+// This screen supplies the primitives they await, and blocks player input for
+// as long as one is running.
+import { Screen, FADE } from './screen.js';
+import { World, DIRS } from '../game/overworld/world.js';
+import { Camera, drawWorld, drawLocationBanner } from '../render/worldrender.js';
+import { drawControls, hintBar, computeLayout } from './controls.js';
+import { dialogue } from './dialogue.js';
+import { input } from '../core/input.js';
+import { audio } from '../core/audio.js';
+import { bus } from '../core/events.js';
+import { PAL } from '../render/palette.js';
+import { window9, label, labelLight, rect, money, drawTextCentered, drawText } from './kit.js';
+import { TILE } from '../render/canvas.js';
+import { getMap } from '../data/maps/index.js';
+import { getTrainer } from '../data/trainers.js';
+import { getItem } from '../data/items.js';
+import { getSpecies } from '../data/species.js';
+import { addItem } from '../game/inventory.js';
+import { recordSeen, recordCaught } from '../game/pokedex.js';
+import { awardBadge, healParty, setStoryFlag, progress } from '../game/state.js';
+import { scriptFor } from '../game/overworld/scripts.js';
+import { renderMonster } from '../render/monsterart.js';
+import { musicFor } from '../data/music.js';
+import { net } from '../net/NetworkManager.js';
+
+export class OverworldScreen extends Screen {
+  constructor(game) {
+    super(game);
+    this.world = new World(game.state);
+    this.camera = new Camera();
+    this.bannerT = 99;
+    this.bannerName = '';
+    this.timers = [];
+    this.script = null;
+    this.showcase = null;         // a monster held up during a cutscene
+    this.netToast = null;
+    this.netToastT = 0;
+    this.encounterFlash = 0;
+    this.world.onBump = () => audio.sfx('bump');
+    this.world.onStep = () => { if (this.game.save) this.game.save.markDirty(); };
+  }
+
+  onEnter() {
+    const st = this.game.state;
+    this.world.load(st.player.map, st.player.x, st.player.y, st.player.dir);
+    this.showBanner(this.world.map);
+    this.playMusic();
+    this._wireNet();
+  }
+
+  onResume() {
+    this.playMusic();
+    // A partner may have joined or left while a menu was open.
+    this.syncRemotes();
+  }
+
+  onExit() { for (const u of (this.netSubs || [])) u(); this.netSubs = []; }
+
+  _wireNet() {
+    this.netSubs = [
+      bus.on('net:partnerJoined', ({ name }) => {
+        this.toast(`${name} joined!`);
+        audio.sfx('join');
+      }),
+      bus.on('net:partnerLeft', ({ name, reason }) => {
+        if (reason === 'self') return;
+        this.toast(`${name || 'Your partner'} left.`);
+        audio.sfx('leave');
+      }),
+      bus.on('story:partnerMilestone', ({ key }) => {
+        // Keep the two saves compatible: adopt a milestone the partner has
+        // reached so neither player gets stuck behind a door the other opened.
+        if (!this.game.state.flags[key]) {
+          setStoryFlag(this.game.state, key, true);
+          this.toast('Story synced with your partner');
+        }
+      }),
+      bus.on('trade:changed', () => this.game.openTradeIfNeeded()),
+      bus.on('pvp:changed', () => this.game.openPvpIfNeeded()),
+    ];
+  }
+
+  playMusic() {
+    const track = musicFor(this.world.map.music);
+    audio.playMusic(track, this.world.map.music);
+  }
+
+  showBanner(map) {
+    if (map.kind === 'indoor') return;
+    this.bannerName = map.name;
+    this.bannerT = 0;
+  }
+
+  toast(text) { this.netToast = text; this.netToastT = 0; }
+
+  // ---- update -----------------------------------------------------------
+
+  update(dt, isTop) {
+    const { display } = this.game;
+    this.bannerT += dt;
+    if (this.netToast) { this.netToastT += dt; if (this.netToastT > 3.2) this.netToast = null; }
+    if (this.encounterFlash > 0) this.encounterFlash -= dt;
+
+    // Cutscene timers.
+    for (let i = this.timers.length - 1; i >= 0; i--) {
+      this.timers[i].t -= dt;
+      if (this.timers[i].t <= 0) { this.timers[i].resolve(); this.timers.splice(i, 1); }
+    }
+
+    dialogue.update(dt, isTop && !this.game.screens.busy);
+
+    const blocked = !isTop || dialogue.busy || !!this.script || this.game.screens.busy;
+    this.world.busy = blocked;
+
+    let moveDir = null;
+    let running = false;
+    if (!blocked) {
+      moveDir = input.direction();
+      running = input.isDown('b') && this.game.state.flags.hasRunningShoes !== false;
+    }
+    this.world.update(dt, !blocked, moveDir, running);
+    this.camera.follow(this.world, display.width, display.height);
+
+    if (!blocked) this._handleInput();
+    this._handleWorldEvents();
+    this.syncRemotes();
+    this._pushPresence(moveDir);
+  }
+
+  syncRemotes() {
+    if (!net.inRoom) { this.world.remotes.clear(); return; }
+    this.world.syncRemotes(net.roomPeers());
+  }
+
+  _pushPresence(moveDir) {
+    if (!net.inRoom) return;
+    net.sendPlayerPosition({
+      moving: this.world.player.moving,
+      frame: this.world.player.frame,
+      story: progress(this.game.state),
+    });
+    void moveDir;
+  }
+
+  _handleInput() {
+    if (input.pressed('start')) { audio.sfx('select'); this.game.openMenu(); return; }
+    if (input.pressed('a') && !this.world.player.moving) this._interact();
+  }
+
+  _interact() {
+    const target = this.world.facingTarget();
+    if (!target) return;
+    audio.sfx('select');
+
+    if (target.type === 'sign') { this.say(target.sign.text); return; }
+    if (target.type === 'flavour') { this.say(target.text); return; }
+    if (target.type === 'pc') { this.game.openPC(); return; }
+    if (target.type === 'item') { this._pickUp(target.entity); return; }
+    if (target.type === 'player') { this._interactPlayer(target.entity); return; }
+    if (target.type === 'npc') { this._talkTo(target.entity); return; }
+  }
+
+  _pickUp(e) {
+    const item = getItem(e.data.item);
+    const qty = e.data.qty || 1;
+    addItem(this.game.state.inventory, e.data.item, qty);
+    setStoryFlag(this.game.state, `item_${e.data.id}`, true);
+    this.world.removeEntity(e.id);
+    audio.sfx('buy');
+    this.say(`You found ${qty > 1 ? `${qty} ` : ''}${item.name}${qty > 1 ? 's' : ''}!`);
+    if (this.game.save) this.game.save.markDirty();
+  }
+
+  _interactPlayer(e) {
+    if (!net.hasPartner) { this.say('They seem to be somewhere else right now.'); return; }
+    if (e.busy && e.busy !== 'free') {
+      this.say(`${e.name} is busy right now.`);
+      return;
+    }
+    dialogue.ask(`${e.name} is right here.\nWhat would you like to do?`,
+      ['Battle', 'Trade', 'Nothing'], (pick) => {
+        if (pick === 0) this.game.requestPvp();
+        else if (pick === 1) this.game.requestTrade();
+      }, { width: this.game.display.width });
+  }
+
+  _talkTo(e) {
+    this.world.faceEntityToPlayer(e);
+    const d = e.data;
+
+    if (d.trainer) { this._trainerTalk(e); return; }
+    if (d.script) { this.runScript(d.script, e); return; }
+
+    let lines = d.dialogue || ['...'];
+    if (d.dialogueAfter && this.game.state.flags[d.dialogueAfter.flag]) lines = d.dialogueAfter.lines;
+    const speaker = d.name || null;
+    this.say(lines.join('\f'), { speaker });
+  }
+
+  _trainerTalk(e) {
+    const t = getTrainer(e.data.trainer);
+    if (!t) return;
+    if (t.leader) { this.runScript('gymLeader', e); return; }
+    if (t.id === 'cave_commander') { this.runScript('commander', e); return; }
+
+    if (this.game.state.flags[`beat_${t.id}`]) {
+      const after = e.data.after || [t.defeat];
+      this.say(after.join('\f'), { speaker: t.name });
+      return;
+    }
+    this.runScript(null, e, async (ctx) => {
+      await ctx.say(t.intro, { speaker: t.name });
+      await ctx.battle({ trainer: t, kind: 'trainer' });
+    });
+  }
+
+  _handleWorldEvents() {
+    const w = this.world;
+    if (this.script) return;
+
+    if (w.pendingWarp) { const warp = w.pendingWarp; w.pendingWarp = null; this._doWarp(warp); return; }
+    if (w.pendingEncounter) {
+      const enc = w.pendingEncounter;
+      w.pendingEncounter = null;
+      this._startWildBattle(enc);
+      return;
+    }
+    if (w.pendingTrainer) {
+      const npc = w.pendingTrainer;
+      w.pendingTrainer = null;
+      this._trainerSpotted(npc);
+      return;
+    }
+    if (w.pendingEvent) {
+      const ev = w.pendingEvent;
+      w.pendingEvent = null;
+      if (ev.requires && !this.game.state.flags[ev.requires]) return;
+      this.runScript(ev.script);
+    }
+  }
+
+  _doWarp(warp) {
+    const kind = warp.edge ? FADE.BLACK : FADE.DOOR;
+    if (!warp.edge) audio.sfx('door');
+    this.game.screens.fade(kind, () => {
+      this.world.load(warp.to, warp.tx, warp.ty, warp.dir || 'down');
+      this.camera.follow(this.world, this.game.display.width, this.game.display.height);
+      this.showBanner(this.world.map);
+      this.playMusic();
+      const st = this.game.state;
+      // Arriving somewhere new is a natural autosave point.
+      if (this.game.save) { this.game.save.markDirty(); this.game.save.maybeAutosave(st, true); }
+      const map = getMap(warp.to);
+      if (map.kind === 'cave') setStoryFlag(st, 'enteredCave', true);
+      if (warp.to === 'whisperwood') setStoryFlag(st, 'enteredForest', true);
+    }, { outMs: warp.edge ? 240 : 300, inMs: warp.edge ? 260 : 320 });
+  }
+
+  // ---- battles -------------------------------------------------------------
+
+  _startWildBattle(enc) {
+    const st = this.game.state;
+    if (!st.party.some((m) => m.hp > 0)) return;
+    recordSeen(st.dex, enc.species);
+    audio.sfx('encounter');
+    this.encounterFlash = 0.45;
+    this.game.screens.fade(FADE.BATTLE, () => {
+      this.game.startWildBattle(enc.species, enc.level);
+    }, { outMs: 620, inMs: 120 });
+  }
+
+  _trainerSpotted(npc) {
+    const t = getTrainer(npc.data.trainer);
+    if (!t) return;
+    this.runScript(null, npc, async (ctx) => {
+      ctx.exclaim(npc);
+      audio.sfx('encounter');
+      await ctx.wait(0.7);
+      // Walk the trainer up to the player.
+      await ctx.approach(npc);
+      await ctx.say(t.intro, { speaker: t.name });
+      await ctx.battle({ trainer: t, kind: 'trainer' });
+    });
+  }
+
+  // ---- cutscene runtime ------------------------------------------------------
+
+  say(text, opts = {}) {
+    dialogue.show(text, { ...opts, width: this.game.display.width });
+  }
+
+  /** Runs a named script (or an inline one) as a cutscene. */
+  runScript(name, npc = null, inline = null) {
+    if (this.script) return;
+    const fn = inline || scriptFor(name);
+    if (!fn) return;
+    const ctx = this._makeCutsceneContext();
+    this.script = fn(ctx, npc)
+      .catch((err) => console.error('[script]', err))
+      .finally(() => {
+        this.script = null;
+        this.showcase = null;
+        input.releaseAll();
+        if (this.game.save) this.game.save.markDirty();
+      });
+  }
+
+  _makeCutsceneContext() {
+    const screen = this;
+    const st = this.game.state;
+    return {
+      state: st,
+      get player() { return screen.world.player; },
+
+      say: (text, opts = {}) => new Promise((resolve) => {
+        dialogue.show(text, { ...opts, width: screen.game.display.width, onDone: resolve });
+      }),
+
+      ask: (text, options, opts = {}) => new Promise((resolve) => {
+        dialogue.ask(text, options, resolve, { ...opts, width: screen.game.display.width });
+      }),
+
+      wait: (sec) => new Promise((resolve) => screen.timers.push({ t: sec, resolve })),
+
+      sfx: (n) => audio.sfx(n),
+
+      // Walks an entity `n` tiles and resolves when it stops.
+      walk: (entity, dir, n) => new Promise((resolve) => {
+        let left = n;
+        const step = () => {
+          if (left <= 0 || !screen.world.startMove(entity, dir)) { resolve(); return; }
+          left--;
+          const check = setInterval(() => {
+            if (!entity.moving) { clearInterval(check); step(); }
+          }, 16);
+        };
+        step();
+      }),
+
+      // Trainer walks until adjacent to the player.
+      approach: (npc) => new Promise((resolve) => {
+        const p = screen.world.player;
+        const [dx, dy] = DIRS[npc.dir];
+        const dist = Math.abs(p.x - npc.x) + Math.abs(p.y - npc.y);
+        let steps = Math.max(0, dist - 1);
+        const step = () => {
+          if (steps <= 0) {
+            p.dir = { up: 'down', down: 'up', left: 'right', right: 'left' }[npc.dir];
+            resolve();
+            return;
+          }
+          if (!screen.world.startMove(npc, npc.dir)) { resolve(); return; }
+          steps--;
+          const check = setInterval(() => {
+            if (!npc.moving) { clearInterval(check); step(); }
+          }, 16);
+        };
+        void dx; void dy;
+        step();
+      }),
+
+      exclaim: (npc) => { npc.exclaimT = performance.now(); },
+
+      spawnNpc: (cfg) => {
+        const e = screen.world.entities.find((x) => x.id === cfg.id);
+        if (e) return e;
+        const ent = screen.world.entities[0];
+        const made = { ...cfg, kind: 'npc', movement: 'still' };
+        const entity = screen.world.entities.push(makeNpc(made)) && screen.world.entities[screen.world.entities.length - 1];
+        void ent;
+        return entity;
+      },
+
+      despawn: (entity) => screen.world.removeEntity(entity.id),
+
+      battle: (cfg) => new Promise((resolve) => {
+        screen.game.startTrainerBattle(cfg.trainer, resolve);
+      }),
+
+      give: (itemId, qty) => addItem(st.inventory, itemId, qty),
+
+      setFlag: (k, v = true) => setStoryFlag(st, k, v),
+
+      shareMilestone: (k) => net.sendStoryEvent(k),
+
+      awardBadge: (n, name) => awardBadge(st, n, name),
+
+      dex: { seen: (id) => recordSeen(st.dex, id), caught: (id) => recordCaught(st.dex, id) },
+
+      showMonster: (speciesId) => new Promise((resolve) => {
+        screen.showcase = { species: speciesId, t: 0 };
+        audio.cry(speciesId);
+        screen.timers.push({ t: 0.35, resolve });
+      }),
+      hideMonster: () => { screen.showcase = null; },
+
+      healAnimation: () => new Promise((resolve) => {
+        audio.sfx('heal');
+        healParty(st);
+        screen.healFlash = 1.1;
+        screen.timers.push({ t: 1.2, resolve });
+      }),
+
+      setHealPoint: () => {
+        const hp = screen.world.map.healPoint;
+        if (hp) st.lastHealPoint = { ...hp };
+      },
+
+      openShop: () => new Promise((resolve) => screen.game.openShop(resolve)),
+
+      autosave: () => { if (screen.game.save) screen.game.save.save(st); },
+    };
+  }
+
+  // ---- render -----------------------------------------------------------------
+
+  render(ctx) {
+    const { width: W, height: H } = this.game.display;
+    drawWorld(ctx, this.world, this.camera, W, H);
+
+    // Trainer "!" bubble.
+    for (const e of this.world.entities) {
+      if (!e.exclaimT) continue;
+      const age = (performance.now() - e.exclaimT) / 1000;
+      if (age > 0.9) { e.exclaimT = 0; continue; }
+      const p = this.world.renderPos(e);
+      const x = p.x - this.camera.x + 4;
+      const y = p.y - this.camera.y - 16 - Math.min(4, age * 30);
+      rect(ctx, x, y, 9, 12, PAL.uiBg);
+      rect(ctx, x + 1, y - 1, 7, 14, PAL.uiBg);
+      drawText(ctx, '!', x + 2, y + 2, { color: PAL.uiDanger });
+    }
+
+    if (this.healFlash > 0) {
+      this.healFlash -= 1 / 60;
+      ctx.globalAlpha = Math.max(0, Math.min(0.5, this.healFlash * 0.5));
+      rect(ctx, 0, 0, W, H, '#ffffff');
+      ctx.globalAlpha = 1;
+    }
+    if (this.encounterFlash > 0) {
+      ctx.globalAlpha = Math.min(0.7, this.encounterFlash);
+      rect(ctx, 0, 0, W, H, '#ffffff');
+      ctx.globalAlpha = 1;
+    }
+
+    drawLocationBanner(ctx, this.bannerName, this.bannerT, W);
+    this._drawNetBadge(ctx, W);
+
+    if (this.showcase) {
+      const img = renderMonster(getSpecies(this.showcase.species).art, { size: 64 });
+      const bx = W / 2 - 32, by = H / 2 - 70;
+      window9(ctx, bx - 6, by - 6, 76, 76);
+      ctx.drawImage(img, Math.round(bx), Math.round(by));
+    }
+
+    if (dialogue.visible) dialogue.render(ctx, W, H);
+
+    if (this.netToast) {
+      const a = this.netToastT < 0.2 ? this.netToastT / 0.2 : this.netToastT > 2.8 ? (3.2 - this.netToastT) / 0.4 : 1;
+      ctx.globalAlpha = Math.max(0, Math.min(1, a));
+      const w = this.netToast.length * 6 + 16;
+      window9(ctx, W / 2 - w / 2, 22, w, 15);
+      drawTextCentered(ctx, this.netToast, W / 2, 27);
+      ctx.globalAlpha = 1;
+    }
+
+    // While text is on screen the gamepad would sit on top of the box, so it
+    // steps aside and a tap anywhere advances instead.
+    const textUp = dialogue.visible;
+    if (!textUp) {
+      drawControls(ctx, {
+        alpha: this.script ? 0.5 : 0.82,
+        aLabel: 'A', bLabel: 'B',
+        startLabel: 'MENU',
+      });
+    } else if (dialogue.choice) {
+      drawControls(ctx, { alpha: 0.7, dirs: true, start: false });
+    }
+    void hintBar; void labelLight; void label; void money; void computeLayout; void TILE;
+  }
+
+  _drawNetBadge(ctx, W) {
+    const snap = net.snapshot();
+    if (!snap.code && snap.transport === 'offline') return;
+    const online = snap.connected && snap.code;
+    const text = snap.code ? snap.code : (snap.connected ? 'LINK' : 'OFF');
+    const w = text.length * 6 + 16;
+    const x = W - w - 4, y = 19;
+    ctx.globalAlpha = 0.85;
+    rect(ctx, x, y, w, 11, PAL.uiFrame);
+    ctx.globalAlpha = 1;
+    drawText(ctx, '●', x + 3, y + 2, { color: online ? '#48c04a' : '#d8493f' });
+    drawText(ctx, text, x + 11, y + 2, { color: PAL.uiTextLight });
+    if (snap.partner) {
+      const pw = snap.partner.name.length * 6 + 10;
+      ctx.globalAlpha = 0.85;
+      rect(ctx, W - pw - 4, y + 12, pw, 11, PAL.uiFrame);
+      ctx.globalAlpha = 1;
+      drawText(ctx, snap.partner.name, W - pw, y + 14, { color: '#9ee0a0' });
+    }
+  }
+}
+
+// Small local helper so scripts can add a walk-on character.
+function makeNpc(cfg) {
+  return {
+    id: cfg.id, kind: 'npc', x: cfg.x, y: cfg.y, dir: cfg.dir || 'down',
+    look: cfg.look, name: cfg.name || null, moving: false, moveT: 0, moveDur: 14,
+    fromX: cfg.x, fromY: cfg.y, frame: 0, stepPhase: 0, solid: true, data: cfg,
+    movement: 'still', homeX: cfg.x, homeY: cfg.y, think: 999999, visible: true,
+    hopping: 0, alpha: 1,
+  };
+}

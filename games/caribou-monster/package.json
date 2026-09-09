@@ -1,0 +1,17 @@
+{
+  "name": "caribou-monster",
+  "version": "1.0.0",
+  "description": "Caribou Monster - a mobile multiplayer monster-catching RPG",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "playwright": "^1.49.1"
+  },
+  "type": "module",
+  "private": true
+}
