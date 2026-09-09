@@ -540,9 +540,14 @@ export class PvpSession {
     this.phase = PVP_STATE.ENDED;
     this.message = message;
     this.deadline = 0;
+    // Only a battle that actually played to a conclusion counts as a result.
+    // A forfeit, a disconnect, a timeout or a desync still ends the session
+    // and still tells the player they "win", but nothing that reaches a
+    // ranking may be built on a match the two clients did not both finish.
+    const ranked = !!(this.battle && this.battle.over && !this.desynced);
     net.setBusy('free');
     this._changed();
-    bus.emit('pvp:finished', { message, result: this.result, desynced: this.desynced });
+    bus.emit('pvp:finished', { message, result: this.result, desynced: this.desynced, ranked });
   }
 
   _changed() { bus.emit('pvp:changed', this); }

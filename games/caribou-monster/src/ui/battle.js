@@ -665,7 +665,12 @@ export class BattleScreen extends Screen {
     }
     if (b.result === 'lose') {
       this.queue.push({ t: 'text', s: `${st.player.name} is out of usable Pokémon!` });
-      this.queue.push({ t: 'text', s: `${st.player.name} panicked and ran all the way\nto the last Pokémon Center...` });
+      if (this.opts.noBlackout) {
+        // Sanctioned events have medical staff at the side of the floor.
+        this.queue.push({ t: 'text', s: 'The match is over. Officials take your team\nstraight to the recovery room.' });
+      } else {
+        this.queue.push({ t: 'text', s: `${st.player.name} panicked and ran all the way\nto the last Pokémon Center...` });
+      }
     }
     if (this.pendingEvolve) { this._startEvolve(); return; }
     this.queue.push({ t: 'finish' });

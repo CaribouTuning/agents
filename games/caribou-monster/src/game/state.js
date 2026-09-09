@@ -10,6 +10,7 @@ import { createFlags, setFlag, getFlag, FLAGS, storyProgress } from './storyflag
 import {
   createMonster, healFully, isFainted, reviveMonster, serializeMonster, displayName,
 } from './monster.js';
+import { createCircuit, serializeCircuit, reviveCircuit } from './circuit/circuit.js';
 
 export const MAX_PARTY = 6;
 export const BOX_COUNT = 8;
@@ -42,6 +43,8 @@ export function createGameState(opts = {}) {
     repelSteps: 0,
     starterBase: null,
     stats: { battlesWon: 0, caught: 0, steps: 0 },
+    // The World Circuit career runs alongside the badge quest.
+    circuit: createCircuit(),
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false },
   };
 }
@@ -168,6 +171,7 @@ export function serializeState(st) {
     starterBase: st.starterBase,
     stats: { ...st.stats },
     settings: { ...st.settings },
+    circuit: serializeCircuit(st.circuit),
   };
 }
 
@@ -195,6 +199,7 @@ export function deserializeState(raw) {
   st.starterBase = raw.starterBase ?? null;
   Object.assign(st.stats, raw.stats || {});
   Object.assign(st.settings, raw.settings || {});
+  st.circuit = reviveCircuit(raw.circuit);
   return st;
 }
 

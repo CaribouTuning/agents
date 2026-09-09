@@ -32,17 +32,51 @@ controls.
 
 | | |
 |---|---|
-| **World** | 14 maps: Brackenvale Town, Route 1, Whisperwood Forest, Aldermere City, Route 2, Stonefall Cave and eight interiors |
+| **World** | 15 maps: Twinleaf Town, Route 201, Route 202, Oreburgh City, Route 207, Oreburgh Gate and nine interiors |
 | **Pokémon** | 54 species with real base stats, types, abilities, natures, genders, IVs/EVs, shinies, learnsets and evolution lines |
 | **Moves** | 119, all data-driven, with the 17-type chart, STAB, criticals, accuracy, five status conditions, confusion, flinch and stat stages |
-| **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, the Aldermere Gym and its badge |
-| **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Monster Centre, Pokédex, trainer card, save/load, EASY and NORMAL difficulty |
+| **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, the Oreburgh Gym and its badge |
+| **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, trainer card, save/load, EASY and NORMAL difficulty |
+| **World Circuit** | A second career track: 6 sanctioned tournaments, 12 professional trainers, an Elo world ranking, Circuit Points, promotions, a press feed and post-event press conferences |
 | **Co-op** | Room codes, a shared overworld, link trades and link battles |
 | **Debug** | A developer menu behind OPTIONS: teleport, give monsters/items/money, set flags, force battles, inspect the network |
 
-The story runs from waking up at home through Professor Aspen's lab, the rival,
-Whisperwood, the first badge, and into Stonefall Cave where Team Meridian is
+The story runs from waking up at home through Professor Rowan's lab, the rival,
+Route 202, the first badge, and into Oreburgh Gate where Team Galactic is
 listening to something under the hill.
+
+---
+
+## The World Circuit
+
+The competitive side story, entered at the **Oreburgh Battle Hall** — the grey
+building on the east side of Oreburgh City. Register at the desk and you join a
+world ranking that was already running before you arrived.
+
+| | |
+|---|---|
+| **Ladder** | Eight ranks from Rookie to Circuit Legend, gated on Circuit Points |
+| **Events** | Rookie Cup → Sinnoh Open → Regional Invitational → National Championship → Continental Cup → World Circuit Finals, at levels 14 to 70 |
+| **Field** | 12 pros with fixed species pools, personalities and their own Elo — including Cass Wren, who came up one season ahead of you, and Nadia Sable, world number one for eleven straight seasons |
+| **Ranking** | Elo rating that moves both ways, plus Circuit Points that only go up. One measures how good you are now; the other measures what you have done |
+| **Press** | Five outlets and six analysts filing on every result, promotion, streak, upset and rivalry, plus a press conference after each event where your answer trades Respect against Hype |
+
+Two properties are load-bearing:
+
+**The season runs without you.** The twelve pros play each other every week
+whether or not you entered anything. Ratings drift, upsets happen, and the
+standings you come back to are not the ones you left. A rank you climb to is a
+rank you took off somebody.
+
+**Nothing in the feed is flavour.** Every headline is generated from a result
+the engine actually produced — a real opponent, a real round, a real number.
+`tools/circuittest.mjs` asserts that: no story may contain an unfilled slot, and
+every title, opponent and event named in the feed has to exist.
+
+Link battles against the other player count towards the same ranking — but only
+when both clients played the match to a conclusion. A forfeit, a timeout or a
+disconnect ends the session and moves nothing, because a ranking built on
+unverified results is not a ranking.
 
 ---
 
@@ -101,13 +135,13 @@ adapter behind the same interface.
 src/
   core/     rng · events · input · loop · audio · storage
   render/   canvas · palette · font · tiles · sprites · monsterart · worldrender
-  data/     types · moves · species · items · trainers · music · maps/
+  data/     types · moves · species · items · trainers · music · circuit · news · maps/
   game/     monster · party/state · inventory · pokedex · storyflags · evolution
-            battle/{engine,ai} · overworld/{world,scripts}
+            battle/{engine,ai} · overworld/{world,scripts} · circuit/{circuit,news,career}
   net/      protocol · adapters · NetworkManager · RoomManager
   save/     SaveManager
   ui/       screen · kit · controls · dialogue · overworld · battle · menus
-            pc · shop · trade · multiplayer · title · debug
+            pc · shop · trade · multiplayer · circuit · title · debug
 ```
 
 Three rules hold the thing together:
@@ -141,6 +175,7 @@ node tools/play.mjs /tmp/shots         # drive every screen, screenshot each
 node tools/coop.mjs index.html /tmp/co # full two-player session
 node tools/touch.mjs index.html /tmp/t # touch-only run at four device sizes
 node tools/audit.mjs                   # static world audit — softlocks, warps, data
+node tools/circuittest.mjs             # World Circuit careers, brackets, press, saves
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```
@@ -152,8 +187,10 @@ imports, and emits one file.
 the world is playable: every warp lands somewhere you can stand, every arrival
 leaves at least one legal move, every map can be left again, and every NPC,
 item and sign can actually be reached. It also cross-checks every species,
-move, item and trainer reference. A softlock costs a player their session and
-is entirely preventable at build time — run it before shipping.
+move, item and trainer reference. It also checks the circuit: every pro's
+species pool, every bracket size, every rank gate's reachability, and every
+news template's slots. A softlock costs a player their session and is entirely
+preventable at build time — run it before shipping.
 
 `tools/touch.mjs` uses no keyboard and no debug API — every step is a real tap
 at a real screen coordinate, on four device shapes including high-DPR phones.
@@ -168,7 +205,7 @@ canvas backing store instead of logical pixels.
 The slice is Phases 1–4 of the plan (playable single-player, progression,
 multiplayer foundation, multiplayer gameplay). Still ahead:
 
-- Gyms 2–8, the remaining region, the Lumaros storyline, the Monster League
+- Gyms 2–8, the remaining region, the Team Galactic storyline, the Pokémon League
 - Co-op double battles — the battle engine's side model already anticipates it
 - Surf/fishing water routes, the bicycle, more evolution methods (the resolver
   already handles stones, friendship, trade, held items, time and location)

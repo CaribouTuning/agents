@@ -201,6 +201,75 @@ for (const dev of DEVICES) {
     await page.screenshot({ path: path.join(OUT, `${dev.name}-3-menu.png`) });
   }
 
+  // --- the World Circuit, reached and driven entirely by tapping ---
+  // The only non-tap step is registering the career, which in the game happens
+  // at the Battle Hall desk several maps away; everything after it is a thumb.
+  if ((await screenName()) === 'MainMenuScreen') {
+    await page.evaluate(() => { window.CARIBOU.state.circuit.joined = true; });
+    const row = await page.evaluate(() => {
+      const s = window.CARIBOU.screens.top;
+      const items = s.entries;
+      const b = s._box();
+      const i = items.findIndex((e) => e.key === 'circuit');
+      return i < 0 ? null : { x: b.x + b.w / 2, y: b.y + 5 + i * 10 + 3 };
+    });
+    check(dev.name, 'CIRCUIT appears in the pause menu once registered', !!row);
+    if (row) {
+      await tapLogical(row.x, row.y);
+      let scr2 = await screenName();
+      check(dev.name, 'tapping CIRCUIT opens the hub', scr2 === 'CircuitScreen', scr2);
+
+      if (scr2 === 'CircuitScreen') {
+        // Every tab must be reachable by tapping its header.
+        for (const want of [1, 2, 3, 0]) {
+          const pt = await page.evaluate((i) => {
+            const r = window.CARIBOU.screens.top._tabRects()[i];
+            return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+          }, want);
+          await tapLogical(pt.x, pt.y);
+          const got = await page.evaluate(() => window.CARIBOU.screens.top.tab);
+          check(dev.name, `tapping tab ${want} selects it`, got === want, `tab ${got}`);
+        }
+        await page.screenshot({ path: path.join(OUT, `${dev.name}-4-circuit.png`) });
+
+        // Enter the open event by tapping its row.
+        const evPt = await page.evaluate(() => {
+          const s = window.CARIBOU.screens.top;
+          s.tab = 1; s.index = 0; s.scroll = 0;
+          const b = s._listBox();
+          return { x: b.x + b.w / 2, y: b.y + 4 + 3 };
+        });
+        await tapLogical(evPt.x, evPt.y);
+        await page.waitForTimeout(300);
+        scr2 = await screenName();
+        check(dev.name, 'tapping an event opens the bracket', scr2 === 'TournamentScreen', scr2);
+        await page.screenshot({ path: path.join(OUT, `${dev.name}-5-bracket.png`) });
+
+        if (scr2 === 'TournamentScreen') {
+          // WITHDRAW is the second button; tapping it must return to the hub.
+          const btn = await page.evaluate(() => {
+            const b = window.CARIBOU.screens.top._btnBox();
+            return { x: b.x + b.w / 2, y: b.y + 15 + 6 };
+          });
+          await tapLogical(btn.x, btn.y);
+          await page.waitForTimeout(300);
+          const after = await screenName();
+          check(dev.name, 'tapping WITHDRAW leaves the bracket', after === 'CircuitScreen', after);
+        }
+
+        // The BACK chip closes the hub.
+        const back = await page.evaluate(() => {
+          const b = window.CARIBOU.screens.top.game.display;
+          return { x: b.width - 46 + 20, y: b.height - 14 + 6 };
+        });
+        await tapLogical(back.x, back.y);
+        await page.waitForTimeout(250);
+        const closed = await screenName();
+        check(dev.name, 'the BACK chip closes the circuit hub', closed !== 'CircuitScreen', closed);
+      }
+    }
+  }
+
   if (errs.length) { console.log(`  page errors: ${errs.slice(0, 3).join(' | ')}`); failures += errs.length; }
   await ctx.close();
 }

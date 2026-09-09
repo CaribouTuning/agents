@@ -1532,6 +1532,7 @@ const GLYPHS = {
   '…': '.....' + '.....' + '.....' + '.....' + '.....' + '.....' + '#.#.#', // ellipsis
   '→': '.....' + '..#..' + '...#.' + '#####' + '...#.' + '..#..' + '.....', // right arrow
   '←': '.....' + '..#..' + '.#...' + '#####' + '.#...' + '..#..' + '.....', // left arrow
+  '✓': '.....' + '....#' + '...#.' + '#..#.' + '.##..' + '.....' + '.....', // tick
 };
 
 const GLYPH_W = 5;
@@ -4754,17 +4755,726 @@ __exports(__x, { STAT_KEYS: () => STAT_KEYS, STAT_NAMES: () => STAT_NAMES, STAT_
 
 };
 
+__defs['data/circuit.js'] = function (__x, __req) {
+
+// The World Circuit — the competitive side story.
+//
+// A parallel career track to the badge quest: sanctioned tournaments, a world
+// ranking, a roster of professional trainers who play their own matches
+// whether you are watching or not, and a press that reports on all of it.
+//
+// Everything here is data. The circuit engine (game/circuit/) reads it; no
+// system hardcodes a tournament, a rank or an opponent.
+
+// ---- ranks ----------------------------------------------------------------
+// Circuit Points are the career currency. Rating (Elo) is separate and moves
+// per match — points only ever go up, rating goes both ways, exactly like a
+// real tour ranking sitting on top of a results record.
+
+const RANKS = [
+  { id: 'rookie', name: 'Rookie', cp: 0, blurb: 'Unranked. Nobody has heard of you yet.' },
+  { id: 'prospect', name: 'Prospect', cp: 150, blurb: 'Scouts have started writing your name down.' },
+  { id: 'contender', name: 'Contender', cp: 400, blurb: 'You are on the card, not just in the draw.' },
+  { id: 'regional', name: 'Regional Ace', cp: 850, blurb: 'The best in Sinnoh know your team sheet.' },
+  { id: 'national', name: 'National Star', cp: 1600, blurb: 'You headline domestic events.' },
+  { id: 'continental', name: 'Continental Elite', cp: 2800, blurb: 'A name on every continent.' },
+  { id: 'world', name: 'World Class', cp: 4500, blurb: 'Top ten on the planet, and climbing.' },
+  { id: 'legend', name: 'Circuit Legend', cp: 7000, blurb: 'They will be showing your matches in twenty years.' },
+];
+
+function rankForCp(cp) {
+  let r = RANKS[0];
+  for (const rank of RANKS) if (cp >= rank.cp) r = rank;
+  return r;
+}
+
+function rankIndex(id) { return Math.max(0, RANKS.findIndex((r) => r.id === id)); }
+
+function nextRank(cp) {
+  return RANKS.find((r) => r.cp > cp) || null;
+}
+
+// ---- professional roster ---------------------------------------------------
+// Each pro is a persona plus a species pool. Teams are generated at the
+// tournament's level, so one pro works at every tier of the circuit.
+//
+//  style   drives their AI tier and how the press describes them
+//  rating  starting Elo; it moves as they win and lose
+//  pool    species they draw from
+//  lines   what they say — before, after winning, after losing
+
+const P = (id, o) => ({ id, ai: 1, ...o });
+
+const PROS = {
+  wren: P('wren', {
+    name: 'Cass Wren', look: 'rivalGirl', region: 'Sinnoh', style: 'aggressive',
+    rating: 1180, rival: true,
+    pool: [17, 12, 49, 6, 54, 30],
+    tag: 'The Metronome',
+    bio: 'Came up through the same regional circuit as you, one season earlier.',
+    lines: {
+      pre: ['Same route, same year, and here we both are. Try to make it interesting.',
+        'I have watched every match you have played. All of them.'],
+      win: ['You are getting closer. That is not a compliment yet.',
+        'Next time bring the team you actually practise with.'],
+      lose: ['Fine. That one was yours.', 'I hate that you are good at this.'],
+    },
+  }),
+  calder: P('calder', {
+    name: 'Rhea Calder', look: 'lass', region: 'Unova', style: 'technical', rating: 1240,
+    pool: [35, 47, 33, 9, 40, 21],
+    tag: 'The Architect',
+    bio: 'Builds a match three turns before it happens. Rarely improvises.',
+    lines: {
+      pre: ['I have modelled this. You have about eleven percent.'],
+      win: ['Eleven percent was generous.'],
+      lose: ['Then my model was wrong. Interesting.'],
+    },
+  }),
+  vance: P('vance', {
+    name: 'Dario Vance', look: 'youngster', region: 'Kalos', style: 'aggressive', rating: 1205,
+    pool: [6, 12, 49, 17, 54, 3],
+    tag: 'First Blood',
+    bio: 'Has never once switched out on turn one. Not once.',
+    lines: {
+      pre: ['I do not play long matches. Hope you brought a fast one.'],
+      win: ['Told you. Short.'],
+      lose: ['You lasted. Nobody lasts.'],
+    },
+  }),
+  park: P('park', {
+    name: 'Sun-Mi Park', look: 'nurse', region: 'Johto', style: 'defensive', rating: 1265,
+    pool: [9, 47, 45, 3, 52, 28],
+    tag: 'The Wall',
+    bio: 'Holds the circuit record for the longest sanctioned match: 148 turns.',
+    lines: {
+      pre: ['Take your time. I have plenty of it.'],
+      win: ['You ran out of patience before you ran out of options.'],
+      lose: ['You out-waited me. Very few people do.'],
+    },
+  }),
+  kestrel: P('kestrel', {
+    name: 'Bram Kestrel', look: 'hiker', region: 'Hoenn', style: 'balanced', rating: 1150,
+    pool: [12, 27, 30, 49, 14, 52],
+    tag: 'The Journeyman',
+    bio: 'Nineteen seasons. Never won a major. Never finished outside the top sixteen.',
+    lines: {
+      pre: ['I have been doing this since before you had a Pokédex. Be gentle.'],
+      win: ['Still here.'],
+      lose: ['Good. The circuit needs new names.'],
+    },
+  }),
+  osei: P('osei', {
+    name: 'Imani Osei', look: 'sailor', region: 'Alola', style: 'aggressive', rating: 1222,
+    pool: [49, 6, 40, 17, 33, 12],
+    tag: 'Riptide',
+    bio: 'Won her first major at seventeen and has not been out of the top ten since.',
+    lines: {
+      pre: ['Let us not make this a long afternoon for either of us.'],
+      win: ['Clean. I like clean.'],
+      lose: ['Ha! Where did that come from?'],
+    },
+  }),
+  frost: P('frost', {
+    name: 'Nikolai Frost', look: 'oldMan', region: 'Sinnoh', style: 'defensive', rating: 1290,
+    pool: [47, 9, 28, 52, 45, 3],
+    tag: 'The Glacier',
+    bio: 'Two-time Continental champion. Speaks to the press roughly once a year.',
+    lines: {
+      pre: ['...'],
+      win: ['Mm.'],
+      lose: ['Good match.'],
+    },
+  }),
+  bloom: P('bloom', {
+    name: 'Yara Bloom', look: 'mom', region: 'Galar', style: 'technical', rating: 1198,
+    pool: [21, 43, 40, 35, 54, 9],
+    tag: 'The Gardener',
+    bio: 'Coaches four juniors and still finds time to be ranked eighth in the world.',
+    lines: {
+      pre: ['My students are watching this one. Make me look good.'],
+      win: ['A teaching moment. Thank you.'],
+      lose: ['They are going to be insufferable about this.'],
+    },
+  }),
+  quint: P('quint', {
+    name: 'Teo Quint', look: 'clerk', region: 'Kanto', style: 'balanced', rating: 1120,
+    pool: [14, 23, 12, 30, 33, 49],
+    tag: 'The Analyst',
+    bio: 'Retired from commentary to compete. The commentary was going better.',
+    lines: {
+      pre: ['I have called four hundred of these. Odd to be in one.'],
+      win: ['I would have picked me too.'],
+      lose: ['I would have picked me. Note that for the record.'],
+    },
+  }),
+  ferris: P('ferris', {
+    name: 'Odile Ferris', look: 'scientist', region: 'Unova', style: 'technical', rating: 1170,
+    pool: [47, 35, 46, 9, 21, 45],
+    tag: 'Cold Read',
+    bio: 'Publishes her own matchup data after every event. Nobody asked her to.',
+    lines: {
+      pre: ['I will be writing this one up either way.'],
+      win: ['The data holds.'],
+      lose: ['Fascinating. Genuinely.'],
+    },
+  }),
+  marek: P('marek', {
+    name: 'Josip Marek', look: 'worker', region: 'Hoenn', style: 'aggressive', rating: 1135,
+    pool: [30, 27, 52, 17, 6, 12],
+    tag: 'The Hammer',
+    bio: 'Trains in a quarry. This is not a metaphor.',
+    lines: {
+      pre: ['Big swings. That is all I do.'],
+      win: ['Big swings.'],
+      lose: ['Missed.'],
+    },
+  }),
+  sable: P('sable', {
+    name: 'Nadia Sable', look: 'boss', region: 'Kalos', style: 'technical', rating: 1330,
+    pool: [54, 49, 9, 47, 12, 6],
+    tag: 'The Standard',
+    bio: 'World number one for eleven straight seasons. The rank everyone measures against.',
+    lines: {
+      pre: ['Everyone gets one match against me. Spend it well.'],
+      win: ['That is the level. Come back to it.'],
+      lose: ['...Well. The circuit just changed. Congratulations.'],
+    },
+  }),
+};
+
+const PRO_LIST = Object.values(PROS);
+function getPro(id) { return PROS[id]; }
+const RIVAL_PRO = 'wren';
+
+const STYLE_AI = { aggressive: 1, balanced: 1, defensive: 2, technical: 2 };
+function aiForStyle(style) { return STYLE_AI[style] ?? 1; }
+
+// ---- tournaments -----------------------------------------------------------
+//
+//  entrants   bracket size (4 = two rounds, 8 = three)
+//  level      the level opponents are built at
+//  cp         Circuit Points for winning it (semi/final losses scale down)
+//  requires   minimum rank index to enter
+//  field      pros who show up, in seeding order
+
+const T = (id, o) => ({ id, entrants: 4, ...o });
+
+const TOURNAMENTS = [
+  T('rookie_cup', {
+    name: 'Oreburgh Rookie Cup', short: 'Rookie Cup', venue: 'Oreburgh Battle Hall',
+    tier: 'Local', level: 14, cp: 70, prize: 3000, requires: 0, entrants: 4,
+    field: ['quint', 'marek', 'kestrel'],
+    blurb: 'Open entry. Where every career on the circuit starts.',
+  }),
+  T('sinnoh_open', {
+    name: 'Sinnoh Open', short: 'Sinnoh Open', venue: 'Oreburgh Battle Hall',
+    tier: 'Regional', level: 24, cp: 140, prize: 8000, requires: 1, entrants: 4,
+    field: ['kestrel', 'wren', 'quint'],
+    blurb: 'The domestic season opener. Televised, for the first time in your career.',
+  }),
+  T('regional_invitational', {
+    name: 'Regional Invitational', short: 'Invitational', venue: 'Oreburgh Battle Hall',
+    tier: 'Regional', level: 34, cp: 260, prize: 18000, requires: 2, entrants: 8,
+    field: ['wren', 'marek', 'quint', 'kestrel', 'bloom', 'ferris', 'osei'],
+    blurb: 'Eight invited trainers. Only the winner leaves with ranking points that matter.',
+  }),
+  T('national_champs', {
+    name: 'National Championship', short: 'Nationals', venue: 'Oreburgh Battle Hall',
+    tier: 'National', level: 46, cp: 450, prize: 40000, requires: 3, entrants: 8,
+    field: ['wren', 'frost', 'bloom', 'ferris', 'kestrel', 'marek', 'osei'],
+    blurb: 'The title that decides who represents the region abroad.',
+  }),
+  T('continental_cup', {
+    name: 'Continental Cup', short: 'Continental', venue: 'Oreburgh Battle Hall',
+    tier: 'Continental', level: 58, cp: 800, prize: 90000, requires: 4, entrants: 8,
+    field: ['calder', 'park', 'vance', 'osei', 'frost', 'bloom', 'wren'],
+    blurb: 'Four regions, one bracket, no second chances.',
+  }),
+  T('world_finals', {
+    name: 'World Circuit Finals', short: 'World Finals', venue: 'Oreburgh Battle Hall',
+    tier: 'World', level: 70, cp: 1500, prize: 250000, requires: 5, entrants: 8,
+    field: ['sable', 'calder', 'frost', 'park', 'vance', 'osei', 'wren'],
+    blurb: 'The eight best trainers alive. Winner takes the season.',
+  }),
+];
+
+function getTournament(id) { return TOURNAMENTS.find((t) => t.id === id) || null; }
+
+// Rounds are named from the back so a 4-draw and an 8-draw read correctly.
+function roundName(entrants, round) {
+  const remaining = entrants >> round;
+  if (remaining <= 2) return 'Final';
+  if (remaining === 4) return 'Semi-final';
+  if (remaining === 8) return 'Quarter-final';
+  return `Round of ${remaining}`;
+}
+
+function roundsFor(entrants) { return Math.log2(entrants); }
+
+// Points awarded for reaching each stage — winning is worth the headline
+// number, everything else a documented fraction of it.
+function pointsForFinish(tournament, roundsSurvived) {
+  const total = roundsFor(tournament.entrants);
+  if (roundsSurvived >= total) return tournament.cp;
+  const share = [0.12, 0.28, 0.5][Math.min(2, roundsSurvived)] ?? 0.12;
+  return Math.max(10, Math.round(tournament.cp * share));
+}
+
+__exports(__x, { RANKS: () => RANKS, rankForCp: () => rankForCp, rankIndex: () => rankIndex, nextRank: () => nextRank, PROS: () => PROS, PRO_LIST: () => PRO_LIST, getPro: () => getPro, RIVAL_PRO: () => RIVAL_PRO, aiForStyle: () => aiForStyle, TOURNAMENTS: () => TOURNAMENTS, getTournament: () => getTournament, roundName: () => roundName, roundsFor: () => roundsFor, pointsForFinish: () => pointsForFinish });
+
+};
+
+__defs['game/circuit/circuit.js'] = function (__x, __req) {
+const { RANKS, PROS, PRO_LIST, TOURNAMENTS, RIVAL_PRO, getPro, getTournament, rankForCp, rankIndex, nextRank, roundName, roundsFor, pointsForFinish, aiForStyle } = __req('data/circuit.js');
+const { getSpecies } = __req('data/species.js');
+const { movesAtLevel } = __req('game/monster.js');
+const { makeRng } = __req('core/rng.js');
+// The World Circuit engine.
+//
+// Owns the player's competitive career: rating, points, rank, records, the
+// live bracket, and the pro standings that keep moving whether or not the
+// player is entered. Like the battle engine it is pure state plus functions —
+// it never touches a canvas, which is what lets the UI, the tests and the
+// news generator all read the same career.
+
+
+
+
+
+// ---- career state ----------------------------------------------------------
+
+function createCircuit() {
+  return {
+    joined: false,
+    cp: 0,
+    rating: 1000,
+    peakRating: 1000,
+    rank: 'rookie',
+    wins: 0,
+    losses: 0,
+    streak: 0,
+    bestStreak: 0,
+    titles: [],                  // tournament ids won
+    entered: [],                 // tournament ids attempted
+    hype: 10,                    // press attention, 0-100
+    respect: 10,                 // peer standing, 0-100
+    week: 1,
+    // Pro ratings live here so they drift with results across a save.
+    pros: Object.fromEntries(PRO_LIST.map((p) => [p.id, {
+      rating: p.rating, wins: 0, losses: 0, titles: 0,
+    }])),
+    h2h: {},                     // proId -> { w, l }
+    news: [],                    // newest first, capped
+    active: null,                // live tournament run
+    lastPress: null,
+    seed: (Math.random() * 0xffffffff) >>> 0,
+  };
+}
+
+function serializeCircuit(c) {
+  if (!c) return null;
+  return {
+    ...c,
+    pros: JSON.parse(JSON.stringify(c.pros)),
+    h2h: JSON.parse(JSON.stringify(c.h2h)),
+    titles: [...c.titles],
+    entered: [...c.entered],
+    news: c.news.slice(0, 40).map((n) => ({ ...n, body: [...n.body] })),
+    active: c.active ? JSON.parse(JSON.stringify(c.active)) : null,
+  };
+}
+
+function reviveCircuit(raw) {
+  const c = createCircuit();
+  if (!raw || typeof raw !== 'object') return c;
+  Object.assign(c, {
+    joined: !!raw.joined,
+    cp: Number(raw.cp) || 0,
+    rating: Number(raw.rating) || 1000,
+    peakRating: Number(raw.peakRating) || 1000,
+    wins: Number(raw.wins) || 0,
+    losses: Number(raw.losses) || 0,
+    streak: Number(raw.streak) || 0,
+    bestStreak: Number(raw.bestStreak) || 0,
+    hype: Number(raw.hype) || 10,
+    respect: Number(raw.respect) || 10,
+    week: Number(raw.week) || 1,
+    seed: (Number(raw.seed) || 1) >>> 0,
+  });
+  c.titles = Array.isArray(raw.titles) ? raw.titles.filter((t) => getTournament(t)) : [];
+  c.entered = Array.isArray(raw.entered) ? raw.entered.filter((t) => getTournament(t)) : [];
+  c.news = Array.isArray(raw.news) ? raw.news.slice(0, 40) : [];
+  c.h2h = raw.h2h && typeof raw.h2h === 'object' ? { ...raw.h2h } : {};
+  // Pro table is rebuilt from data so a roster change never corrupts a save.
+  for (const p of PRO_LIST) {
+    const saved = raw.pros && raw.pros[p.id];
+    c.pros[p.id] = {
+      rating: Number(saved?.rating) || p.rating,
+      wins: Number(saved?.wins) || 0,
+      losses: Number(saved?.losses) || 0,
+      titles: Number(saved?.titles) || 0,
+    };
+  }
+  c.active = raw.active && getTournament(raw.active.id) ? raw.active : null;
+  c.lastPress = raw.lastPress && typeof raw.lastPress === 'object' ? raw.lastPress : null;
+  c.rank = rankForCp(c.cp).id;
+  return c;
+}
+
+// ---- rating ----------------------------------------------------------------
+
+const K = 28;
+function expectedScore(a, b) { return 1 / (1 + 10 ** ((b - a) / 400)); }
+
+function applyElo(ratingA, ratingB, scoreA, k = K) {
+  return Math.round(ratingA + k * (scoreA - expectedScore(ratingA, ratingB)));
+}
+
+// ---- queries ---------------------------------------------------------------
+
+function currentRank(c) { return rankForCp(c.cp); }
+function rankProgress(c) {
+  const next = nextRank(c.cp);
+  if (!next) return { next: null, frac: 1, need: 0 };
+  const cur = currentRank(c);
+  const span = next.cp - cur.cp;
+  return { next, frac: span > 0 ? (c.cp - cur.cp) / span : 1, need: next.cp - c.cp };
+}
+
+function canEnter(c, t) {
+  if (c.active) return { ok: false, why: 'You are already in a tournament.' };
+  return rankIndex(currentRank(c).id) >= t.requires
+    ? { ok: true }
+    : { ok: false, why: `Requires ${RANKS[t.requires].name}.` };
+}
+
+function availableTournaments(c) {
+  return TOURNAMENTS.map((t) => ({ t, gate: canEnter(c, t) }));
+}
+
+/** The world ranking: pros and the player in one table, best first. */
+function standings(c, playerName) {
+  const rows = PRO_LIST.map((p) => ({
+    id: p.id, name: p.name, tag: p.tag, region: p.region,
+    rating: c.pros[p.id].rating,
+    wins: c.pros[p.id].wins, losses: c.pros[p.id].losses, titles: c.pros[p.id].titles,
+    isPlayer: false,
+  }));
+  rows.push({
+    id: 'player', name: playerName, tag: currentRank(c).name, region: 'Sinnoh',
+    rating: c.rating, wins: c.wins, losses: c.losses, titles: c.titles.length, isPlayer: true,
+  });
+  rows.sort((a, b) => b.rating - a.rating);
+  rows.forEach((r, i) => { r.place = i + 1; });
+  return rows;
+}
+
+function playerPlace(c, playerName) {
+  return standings(c, playerName).find((r) => r.isPlayer).place;
+}
+
+function headToHead(c, proId) {
+  return c.h2h[proId] || { w: 0, l: 0 };
+}
+
+// ---- opponents -------------------------------------------------------------
+
+/**
+ * Builds a pro's team at a given level. Their species pool is fixed, so a
+ * trainer is recognisable across tiers while still scaling with the circuit.
+ */
+function proTeam(pro, level, rng) {
+  const size = level >= 46 ? 4 : level >= 24 ? 3 : 2;
+  const pool = [...pro.pool];
+  const team = [];
+  for (let i = 0; i < size && pool.length; i++) {
+    const idx = Math.floor(rng() * pool.length) % pool.length;
+    const species = pool.splice(idx, 1)[0];
+    if (!getSpecies(species)) continue;
+    const lv = Math.max(2, level - (i === 0 ? 0 : 1 + Math.floor(rng() * 2)));
+    team.push({ species, level: lv, moves: movesAtLevel(species, lv) });
+  }
+  return team;
+}
+
+/** A pro packaged as a trainer the existing battle system already understands. */
+function proAsTrainer(pro, level, rng, roundLabel) {
+  return {
+    id: `circuit_${pro.id}`,
+    name: pro.name,
+    cls: pro.tag,
+    look: pro.look,
+    ai: aiForStyle(pro.style),
+    prize: Math.round(level * 60),
+    intro: pro.lines.pre[Math.floor(rng() * pro.lines.pre.length) % pro.lines.pre.length],
+    defeat: pro.lines.lose[Math.floor(rng() * pro.lines.lose.length) % pro.lines.lose.length],
+    team: proTeam(pro, level, rng),
+    circuit: true,
+    roundLabel,
+  };
+}
+
+// ---- tournament run --------------------------------------------------------
+
+/**
+ * Starts a tournament. The bracket is drawn up-front and stored, so a save in
+ * the middle of an event resumes exactly where it left off.
+ */
+function enterTournament(c, tournamentId) {
+  const t = getTournament(tournamentId);
+  if (!t) return null;
+  const gate = canEnter(c, t);
+  if (!gate.ok) return null;
+
+  const rng = makeRng((c.seed ^ (tournamentId.length * 2654435761)) >>> 0);
+  c.seed = (c.seed * 1664525 + 1013904223) >>> 0;
+
+  const field = t.field.slice(0, t.entrants - 1).map((id) => getPro(id)).filter(Boolean);
+  // Fill any short field from the wider roster so a bracket is always complete.
+  const spare = PRO_LIST.filter((p) => !field.includes(p));
+  while (field.length < t.entrants - 1 && spare.length) {
+    field.push(spare.splice(Math.floor(rng() * spare.length) % spare.length, 1)[0]);
+  }
+
+  c.active = {
+    id: t.id,
+    round: 0,
+    rounds: roundsFor(t.entrants),
+    // Opponents the player meets, seeded hardest-last.
+    ladder: field
+      .slice()
+      .sort((a, b) => c.pros[a.id].rating - c.pros[b.id].rating)
+      .slice(-roundsFor(t.entrants))
+      .map((p) => p.id),
+    others: field.map((p) => p.id),
+    log: [],
+    eliminated: false,
+    done: false,
+  };
+  if (!c.entered.includes(t.id)) c.entered.push(t.id);
+  return c.active;
+}
+
+function activeTournament(c) {
+  return c.active ? getTournament(c.active.id) : null;
+}
+
+/** The pro the player faces in the current round. */
+function currentOpponent(c) {
+  if (!c.active || c.active.done) return null;
+  const id = c.active.ladder[c.active.round];
+  return id ? getPro(id) : null;
+}
+
+function currentRoundName(c) {
+  const t = activeTournament(c);
+  if (!t || !c.active) return '';
+  return roundName(t.entrants, c.active.round);
+}
+
+/**
+ * Records the player's result for the current round and advances the bracket.
+ * Returns a summary the caller turns into news.
+ */
+function resolveRound(c, won, detail = {}) {
+  if (!c.active || c.active.done) return null;
+  const t = activeTournament(c);
+  const pro = currentOpponent(c);
+  const rng = makeRng((c.seed ^ (c.active.round + 1) * 40503) >>> 0);
+  c.seed = (c.seed * 1664525 + 1013904223) >>> 0;
+
+  const proRating = pro ? c.pros[pro.id].rating : 1100;
+  const before = c.rating;
+  c.rating = applyElo(c.rating, proRating, won ? 1 : 0);
+  c.peakRating = Math.max(c.peakRating, c.rating);
+  if (pro) {
+    c.pros[pro.id].rating = applyElo(proRating, before, won ? 0 : 1);
+    if (won) c.pros[pro.id].losses++; else c.pros[pro.id].wins++;
+    const h = c.h2h[pro.id] || { w: 0, l: 0 };
+    if (won) h.w++; else h.l++;
+    c.h2h[pro.id] = h;
+  }
+
+  if (won) {
+    c.wins++;
+    c.streak = Math.max(0, c.streak) + 1;
+    c.bestStreak = Math.max(c.bestStreak, c.streak);
+  } else {
+    c.losses++;
+    c.streak = 0;
+  }
+
+  const roundLabel = roundName(t.entrants, c.active.round);
+  const entry = {
+    round: c.active.round,
+    roundLabel,
+    opponent: pro ? pro.id : null,
+    opponentName: pro ? pro.name : 'a qualifier',
+    won,
+    ratingDelta: c.rating - before,
+    ...detail,
+  };
+  c.active.log.push(entry);
+
+  // Everyone else in the draw plays too.
+  const sideResults = simulateOtherMatches(c, t, rng);
+  entry.sideResults = sideResults;
+
+  if (!won) {
+    c.active.eliminated = true;
+    c.active.done = true;
+  } else {
+    c.active.round++;
+    if (c.active.round >= c.active.rounds) c.active.done = true;
+  }
+  return entry;
+}
+
+/** Pros play their half of the bracket; ratings move and upsets happen. */
+function simulateOtherMatches(c, t, rng) {
+  const out = [];
+  const pool = c.active.others.filter((id) => id !== (currentOpponent(c) || {}).id);
+  for (let i = 0; i + 1 < pool.length; i += 2) {
+    const a = pool[i], b = pool[i + 1];
+    const ra = c.pros[a].rating, rb = c.pros[b].rating;
+    const aWins = rng() < expectedScore(ra, rb);
+    c.pros[a].rating = applyElo(ra, rb, aWins ? 1 : 0);
+    c.pros[b].rating = applyElo(rb, ra, aWins ? 0 : 1);
+    if (aWins) { c.pros[a].wins++; c.pros[b].losses++; } else { c.pros[b].wins++; c.pros[a].losses++; }
+    out.push({
+      winner: aWins ? a : b,
+      loser: aWins ? b : a,
+      upset: Math.abs(ra - rb) > 60 && ((aWins && ra < rb) || (!aWins && rb < ra)),
+    });
+  }
+  void t;
+  return out;
+}
+
+/**
+ * Closes out the run: awards points, money and rank. Returns what changed so
+ * the press has something to report.
+ */
+function finishTournament(c) {
+  if (!c.active) return null;
+  const t = activeTournament(c);
+  const won = !c.active.eliminated;
+  const roundsSurvived = won ? c.active.rounds : c.active.round;
+  const points = pointsForFinish(t, roundsSurvived);
+
+  const rankBefore = currentRank(c).id;
+  c.cp += points;
+  c.rank = currentRank(c).id;
+  const rankedUp = c.rank !== rankBefore;
+
+  if (won) {
+    if (!c.titles.includes(t.id)) c.titles.push(t.id);
+    c.hype = Math.min(100, c.hype + 12);
+    c.respect = Math.min(100, c.respect + 8);
+  } else {
+    c.hype = Math.min(100, c.hype + 3);
+  }
+  c.week++;
+
+  const summary = {
+    tournament: t,
+    won,
+    points,
+    prize: won ? t.prize : Math.round(t.prize * (roundsSurvived / Math.max(1, c.active.rounds)) * 0.4),
+    roundsSurvived,
+    rankedUp,
+    newRank: currentRank(c),
+    log: c.active.log,
+    firstTitle: won && c.titles.length === 1,
+  };
+  c.active = null;
+  return summary;
+}
+
+function abandonTournament(c) {
+  if (!c.active) return;
+  c.losses++;
+  c.streak = 0;
+  c.rating = Math.max(600, c.rating - 12);
+  c.active = null;
+}
+
+// ---- ranked link play ------------------------------------------------------
+
+/** A player-versus-player link battle counts towards the world ranking. */
+function recordLinkResult(c, won, opponentName) {
+  const before = c.rating;
+  // Peers on the link ladder are treated as an even-money opponent; the
+  // circuit cannot verify their rating, so it never over-rewards a win.
+  c.rating = applyElo(c.rating, c.rating, won ? 1 : 0, 16);
+  if (won) {
+    c.wins++;
+    c.streak = Math.max(0, c.streak) + 1;
+    c.bestStreak = Math.max(c.bestStreak, c.streak);
+    c.cp += 25;
+    c.hype = Math.min(100, c.hype + 2);
+  } else {
+    c.losses++;
+    c.streak = 0;
+    c.cp += 5;
+  }
+  const rankBefore = c.rank;
+  c.rank = currentRank(c).id;
+  return {
+    won, opponentName, ratingDelta: c.rating - before,
+    rankedUp: c.rank !== rankBefore, newRank: currentRank(c),
+  };
+}
+
+// ---- off-screen season -----------------------------------------------------
+
+/**
+ * Advances the pro season without the player. Called when a tournament ends so
+ * the ladder above them keeps moving — the thing that makes a rank feel earned
+ * rather than handed out.
+ */
+function simulateSeasonWeek(c) {
+  const rng = makeRng((c.seed ^ (c.week * 2246822519)) >>> 0);
+  c.seed = (c.seed * 1664525 + 1013904223) >>> 0;
+  const ids = PRO_LIST.map((p) => p.id);
+  const results = [];
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1)) % (i + 1);
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  for (let i = 0; i + 1 < ids.length; i += 2) {
+    const a = ids[i], b = ids[i + 1];
+    const ra = c.pros[a].rating, rb = c.pros[b].rating;
+    const aWins = rng() < expectedScore(ra, rb);
+    c.pros[a].rating = applyElo(ra, rb, aWins ? 1 : 0);
+    c.pros[b].rating = applyElo(rb, ra, aWins ? 0 : 1);
+    if (aWins) { c.pros[a].wins++; c.pros[b].losses++; } else { c.pros[b].wins++; c.pros[a].losses++; }
+    results.push({ winner: aWins ? a : b, loser: aWins ? b : a,
+      upset: Math.abs(ra - rb) > 60 && ((aWins && ra < rb) || (!aWins && rb < ra)) });
+  }
+  return results;
+}
+
+
+
+__exports(__x, { createCircuit: () => createCircuit, serializeCircuit: () => serializeCircuit, reviveCircuit: () => reviveCircuit, expectedScore: () => expectedScore, applyElo: () => applyElo, currentRank: () => currentRank, rankProgress: () => rankProgress, canEnter: () => canEnter, availableTournaments: () => availableTournaments, standings: () => standings, playerPlace: () => playerPlace, headToHead: () => headToHead, proTeam: () => proTeam, proAsTrainer: () => proAsTrainer, enterTournament: () => enterTournament, activeTournament: () => activeTournament, currentOpponent: () => currentOpponent, currentRoundName: () => currentRoundName, resolveRound: () => resolveRound, finishTournament: () => finishTournament, abandonTournament: () => abandonTournament, recordLinkResult: () => recordLinkResult, simulateSeasonWeek: () => simulateSeasonWeek, RANKS: () => RANKS, PROS: () => PROS, PRO_LIST: () => PRO_LIST, TOURNAMENTS: () => TOURNAMENTS, RIVAL_PRO: () => RIVAL_PRO, getPro: () => getPro, getTournament: () => getTournament, roundName: () => roundName });
+
+};
+
 __defs['game/state.js'] = function (__x, __req) {
 const { createInventory, addItem } = __req('game/inventory.js');
 const { createDex, recordSeen, recordCaught } = __req('game/pokedex.js');
 const { createFlags, setFlag, getFlag, FLAGS, storyProgress } = __req('game/storyflags.js');
 const { createMonster, healFully, isFainted, reviveMonster, serializeMonster, displayName } = __req('game/monster.js');
+const { createCircuit, serializeCircuit, reviveCircuit } = __req('game/circuit/circuit.js');
 // The player's entire game state.
 //
 // Deliberately one plain object graph: it is what the save layer writes, what
 // the debug menu inspects, and what a future cloud backend would sync. Two
 // co-op players each own a completely separate GameState — only the room and
 // the shared story milestones are common.
+
 
 
 
@@ -4801,6 +5511,8 @@ function createGameState(opts = {}) {
     repelSteps: 0,
     starterBase: null,
     stats: { battlesWon: 0, caught: 0, steps: 0 },
+    // The World Circuit career runs alongside the badge quest.
+    circuit: createCircuit(),
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false },
   };
 }
@@ -4927,6 +5639,7 @@ function serializeState(st) {
     starterBase: st.starterBase,
     stats: { ...st.stats },
     settings: { ...st.settings },
+    circuit: serializeCircuit(st.circuit),
   };
 }
 
@@ -4954,6 +5667,7 @@ function deserializeState(raw) {
   st.starterBase = raw.starterBase ?? null;
   Object.assign(st.stats, raw.stats || {});
   Object.assign(st.settings, raw.settings || {});
+  st.circuit = reviveCircuit(raw.circuit);
   return st;
 }
 
@@ -5749,10 +6463,10 @@ const OREBURGH = defineMap('oreburgh', {
     'T..#W#D#W.....::......#W#D#W...T',
     'T.....:.......::.........:.....T',
     'T.....::::::::::::::::::::.....T',
-    'T.............::...............T',
-    'T....*........::........*......T',
-    'T.............::...............T',
-    'T..GGGGG......::........GGGGG..T',
+    'T.............::..EEEEEEE......T',
+    'T....*........::..EEEEEEE......T',
+    'T.............::..#WWDDW#......T',
+    'T..GGGGG......::...S....GGGGG..T',
     'T..GGGGG......::........GGGGG..T',
     'T..#WDW#......::........#WDW#..T',
     'T....:.....EEEEEEEE.......:....T',
@@ -5776,10 +6490,13 @@ const OREBURGH = defineMap('oreburgh', {
     { x: 26, y: 14, to: 'oreburgh_house2', tx: 5, ty: 6, dir: 'up' },
     { x: 14, y: 18, to: 'oreburgh_gym', tx: 7, ty: 14, dir: 'up' },
     { x: 15, y: 18, to: 'oreburgh_gym', tx: 8, ty: 14, dir: 'up' },
+    { x: 21, y: 11, to: 'oreburgh_hall', tx: 7, ty: 8, dir: 'up' },
+    { x: 22, y: 11, to: 'oreburgh_hall', tx: 8, ty: 8, dir: 'up' },
   ],
   signs: [
     { x: 3, y: 22, text: 'OREBURGH CITY\nCut from the hillside, stone by stone.' },
     { x: 26, y: 22, text: 'OREBURGH GYM\nLeader: ROARK\n"The quarry does not blink."' },
+    { x: 19, y: 12, text: 'OREBURGH BATTLE HALL\nSanctioned venue of the World Circuit.\nOpen entry. Bring a team.' },
   ],
   npcs: [
     {
@@ -5788,7 +6505,7 @@ const OREBURGH = defineMap('oreburgh', {
         'Only once, though. The Mart does not heal anything.'],
     },
     {
-      id: 'al_worker', x: 21, y: 11, look: 'worker', name: 'Dell', movement: 'lookAround', facing: 'left',
+      id: 'al_worker', x: 20, y: 13, look: 'worker', name: 'Dell', movement: 'lookAround', facing: 'left',
       dialogue: ['Roark runs the gym and the quarry both. Rock types, obviously.',
         'Grass and Water tear straight through rock. That is not a secret, it is just true.'],
     },
@@ -5796,6 +6513,12 @@ const OREBURGH = defineMap('oreburgh', {
       id: 'al_scientist', x: 19, y: 21, look: 'scientist', name: 'Ines', movement: 'still', facing: 'down',
       dialogue: ['Team Galactic has people up on Route 207 taking light readings. Odd hobby for a group with matching coats.',
         'They keep saying "the Everlight". I have read every book in this city and found the word twice.'],
+    },
+    {
+      id: 'al_fan', x: 18, y: 13, look: 'youngster', name: 'Kip', movement: 'still', facing: 'up',
+      dialogue: ['That grey building is the Battle Hall. Sanctioned circuit events, every week.',
+        'Badges make you a trainer. The circuit tells you what kind.',
+        'Nadia Sable has been world number one for eleven seasons. Eleven.'],
     },
     {
       id: 'al_sailor', x: 6, y: 21, look: 'sailor', name: 'Bram', movement: 'wander', facing: 'right',
@@ -6270,9 +6993,58 @@ const OREBURGH_HOUSE2 = defineMap('oreburgh_house2', {
   ],
 });
 
+// ---- Oreburgh Battle Hall -------------------------------------------------
+// Home of the World Circuit. The registration desk is the entry point to the
+// whole side story; everything else in here is atmosphere.
+
+const OREBURGH_HALL = defineMap('oreburgh_hall', {
+  name: 'Oreburgh Battle Hall', kind: 'indoor', music: 'gym', darkEdges: false,
+  tiles: [
+    '||||||||||||||||',
+    '|++++++++++++++|',
+    '|+S++++++++++!+|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|+++xxxxxxxx+++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|||||||DD|||||||',
+  ],
+  warps: [
+    { x: 7, y: 9, to: 'oreburgh', tx: 21, ty: 12, dir: 'down' },
+    { x: 8, y: 9, to: 'oreburgh', tx: 22, ty: 12, dir: 'down' },
+  ],
+  signs: [
+    { x: 2, y: 2, text: 'WORLD CIRCUIT — HOUSE RULES\nSingle elimination. No substitutions\nbetween rounds. Medical staff on site.' },
+  ],
+  npcs: [
+    {
+      id: 'bh_desk', x: 7, y: 4, look: 'nurse', name: 'Registrar', movement: 'still', facing: 'down',
+      script: 'circuitDesk', overCounter: true,
+      dialogue: ['Welcome to the Battle Hall. Circuit business?'],
+    },
+    {
+      id: 'bh_analyst', x: 3, y: 7, look: 'scientist', name: 'Analyst', movement: 'lookAround', facing: 'down',
+      dialogue: ['Rating moves every match. Circuit Points only ever go up.',
+        'That is deliberate. One measures how good you are right now. The other measures what you have done.'],
+    },
+    {
+      id: 'bh_fan', x: 12, y: 7, look: 'lass', name: 'Reporter', movement: 'still', facing: 'left',
+      dialogue: ['I file for the Sinnoh Battle Wire. Every result in this building goes out on the feed.',
+        'Win enough and you will read about yourself. Lose enough and you will read about that too.'],
+    },
+    {
+      id: 'bh_vet', x: 12, y: 3, look: 'oldMan', name: 'Old Hand', movement: 'still', facing: 'down',
+      dialogue: ['Rookie Cup, Sinnoh Open, Invitational, Nationals, Continental, then the World Finals.',
+        'Six steps. Nobody has ever taken them in one season.'],
+    },
+  ],
+});
+
 const INTERIORS = [
   PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB, OREBURGH_CENTER, OREBURGH_MART,
-  OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2,
+  OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2, OREBURGH_HALL,
 ];
 
 __exports(__x, { INTERIORS: () => INTERIORS });
@@ -7101,6 +7873,7 @@ __exports(__x, { Camera: () => Camera, drawWorld: () => drawWorld, drawLocationB
 
 __defs['game/overworld/scripts.js'] = function (__x, __req) {
 const { STARTER_LINES, rivalStarterBase, getTrainer } = __req('data/trainers.js');
+const { getTournament } = __req('data/circuit.js');
 const { getSpecies } = __req('data/species.js');
 const { createMonster } = __req('game/monster.js');
 const { FLAGS } = __req('game/storyflags.js');
@@ -7110,6 +7883,7 @@ const { FLAGS } = __req('game/storyflags.js');
 // say, ask, battle, give, wait, move — and awaits them. Writing cutscenes as
 // straight-line async code keeps them readable, and keeps the sequencing out
 // of the render loop entirely.
+
 
 
 
@@ -7305,6 +8079,41 @@ SCRIPTS.commander = async (ctx, npc) => {
   ctx.setFlag(FLAGS.BEAT_COMMANDER);
   ctx.shareMilestone(FLAGS.BEAT_COMMANDER);
   for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
+};
+
+// ---- The World Circuit registration desk -----------------------------------
+//
+// The one door into the side story. It is also the only place a run can be
+// resumed, so a save taken mid-tournament always has somewhere to come back to.
+
+SCRIPTS.circuitDesk = async (ctx) => {
+  const c = ctx.state.circuit;
+
+  if (c.active) {
+    const t = getTournament(c.active.id);
+    await ctx.say(`Registrar: You are still entered in the ${t ? t.name : 'event'}.\fThe floor is ready when you are.`);
+    ctx.resumeTournament();
+    return;
+  }
+
+  if (!ctx.state.party.length) {
+    await ctx.say('Registrar: Circuit entry requires at least one Pokémon.\fCome back with a team.');
+    return;
+  }
+
+  if (!c.joined) {
+    await ctx.say('Registrar: Welcome to the Oreburgh Battle Hall.');
+    await ctx.say('Registrar: This is a sanctioned venue of the World Circuit — the ranking\nevery professional trainer on the planet is measured against.');
+    const yes = await ctx.ask('Registrar: Would you like to register as a competitor?', ['Yes', 'Not yet']);
+    if (yes !== 0) { await ctx.say('Registrar: The desk is open whenever you change your mind.'); return; }
+    ctx.joinCircuit();
+    ctx.sfx('badge');
+    await ctx.say('Registrar: Registered. You start unranked, like everyone does.');
+    await ctx.say('Registrar: Win matches and your rating climbs. Reach a stage in an event\nand you bank Circuit Points, which is what promotes you.');
+    await ctx.say('Registrar: Rookie Cup is open entry. That is where every career starts.');
+  }
+
+  await ctx.openCircuit();
 };
 
 function scriptFor(name) { return SCRIPTS[name] || null; }
@@ -8541,6 +9350,12 @@ class OverworldScreen extends Screen {
       },
 
       openShop: () => new Promise((resolve) => screen.game.openShop(resolve)),
+
+      // World Circuit hooks. The screens they open sit above the overworld,
+      // so the script resolves immediately and the player is handed over.
+      joinCircuit: () => screen.game.career.join(),
+      openCircuit: () => { screen.game.openCircuit({ tab: 1 }); },
+      resumeTournament: () => { screen.game.resumeTournament(); },
 
       autosave: () => { if (screen.game.save) screen.game.save.save(st); },
     };
@@ -10217,9 +11032,14 @@ class PvpSession {
     this.phase = PVP_STATE.ENDED;
     this.message = message;
     this.deadline = 0;
+    // Only a battle that actually played to a conclusion counts as a result.
+    // A forfeit, a disconnect, a timeout or a desync still ends the session
+    // and still tells the player they "win", but nothing that reaches a
+    // ranking may be built on a match the two clients did not both finish.
+    const ranked = !!(this.battle && this.battle.over && !this.desynced);
     net.setBusy('free');
     this._changed();
-    bus.emit('pvp:finished', { message, result: this.result, desynced: this.desynced });
+    bus.emit('pvp:finished', { message, result: this.result, desynced: this.desynced, ranked });
   }
 
   _changed() { bus.emit('pvp:changed', this); }
@@ -10950,7 +11770,12 @@ class BattleScreen extends Screen {
     }
     if (b.result === 'lose') {
       this.queue.push({ t: 'text', s: `${st.player.name} is out of usable Pokémon!` });
-      this.queue.push({ t: 'text', s: `${st.player.name} panicked and ran all the way\nto the last Pokémon Center...` });
+      if (this.opts.noBlackout) {
+        // Sanctioned events have medical staff at the side of the floor.
+        this.queue.push({ t: 'text', s: 'The match is over. Officials take your team\nstraight to the recovery room.' });
+      } else {
+        this.queue.push({ t: 'text', s: `${st.player.name} panicked and ran all the way\nto the last Pokémon Center...` });
+      }
     }
     if (this.pendingEvolve) { this._startEvolve(); return; }
     this.queue.push({ t: 'finish' });
@@ -11402,6 +12227,7 @@ class MainMenuScreen extends Screen {
     if (st.party.length) out.push({ key: 'party', text: 'POKéMON' });
     out.push({ key: 'bag', text: 'BAG' });
     out.push({ key: 'card', text: st.player.name.toUpperCase() });
+    if (st.circuit && st.circuit.joined) out.push({ key: 'circuit', text: 'CIRCUIT' });
     out.push({ key: 'link', text: 'LINK' });
     out.push({ key: 'save', text: 'SAVE' });
     out.push({ key: 'options', text: 'OPTIONS' });
@@ -11432,6 +12258,7 @@ class MainMenuScreen extends Screen {
       case 'party': g.openParty(); break;
       case 'bag': g.openBag(); break;
       case 'card': g.openCard(); break;
+      case 'circuit': g.openCircuit(); break;
       case 'link': g.openMultiplayer(); break;
       case 'save': g.openSave(); break;
       case 'options': g.openOptions(); break;
@@ -13222,6 +14049,506 @@ __exports(__x, { TradeScreen: () => TradeScreen });
 
 };
 
+__defs['data/news.js'] = function (__x, __req) {
+
+// The circuit press.
+//
+// Templates, outlets and voices for the news feed. Everything here is a shape
+// with slots; game/circuit/news.js fills the slots from what actually
+// happened, so a headline always refers to a real result, a real opponent and
+// a real number. That is the whole trick — the feed is a report, not flavour.
+
+const OUTLETS = [
+  { id: 'wire', name: 'Sinnoh Battle Wire', voice: 'plain' },
+  { id: 'psn', name: 'Poké Sports Network', voice: 'loud' },
+  { id: 'weekly', name: 'Circuit Weekly', voice: 'considered' },
+  { id: 'chart', name: 'The Type Chart', voice: 'analytical' },
+  { id: 'global', name: 'Global Battle Report', voice: 'formal' },
+];
+
+const ANALYSTS = [
+  'Marlo Quint', 'Dr. Petra Shale', 'Coach Beniko', 'Rosalind Ferrow',
+  'the desk at PSN', 'former champion Elias Poole',
+];
+
+// ---- headline banks --------------------------------------------------------
+// {p} player, {o} opponent, {t} tournament, {r} rank, {n} a number,
+// {mon} a Pokémon, {streak} current streak.
+
+const HEADLINES = {
+  debut: [
+    'Unranked {p} files entry for the {t}',
+    '{p} enters first sanctioned event',
+    'Who is {p}? The {t} is about to find out',
+  ],
+  matchWin: [
+    '{p} takes down {o}',
+    '{p} through, past {o}',
+    '{o} falls to {p} at the {t}',
+    '{p} advances — {o} never settled',
+  ],
+  matchWinDominant: [
+    '{p} dismantles {o} without losing a Pokémon',
+    'Not close: {p} sweeps {o}',
+    '{p} runs {o} off the floor',
+  ],
+  matchWinClose: [
+    '{p} survives {o} in a one-Pokémon finish',
+    'Down to the last: {p} edges {o}',
+    '{p} steals it from {o}',
+  ],
+  matchLoss: [
+    '{o} ends {p}’s run at the {t}',
+    '{p} out, beaten by {o}',
+    '{o} too much for {p}',
+  ],
+  matchLossClose: [
+    '{p} falls one Pokémon short against {o}',
+    'So close: {o} survives {p}',
+  ],
+  titleWin: [
+    '{p} WINS THE {t}',
+    'Champion: {p} takes the {t}',
+    '{p} lifts the {t} title',
+  ],
+  titleWinFirst: [
+    'FIRST BLOOD: {p} wins a maiden title at the {t}',
+    'From nowhere — {p} takes the {t}',
+  ],
+  rankUp: [
+    '{p} promoted to {r}',
+    'Ranking update: {p} enters {r}',
+    '{p} climbs into {r} after {t}',
+  ],
+  streak: [
+    '{p} makes it {streak} straight',
+    '{streak} in a row for {p}',
+    'The {p} streak reaches {streak}',
+  ],
+  upset: [
+    'UPSET: {o} out early at the {t}',
+    '{o} bounced in the opening round',
+    'Bracket chaos as {o} exits the {t}',
+  ],
+  rivalWin: [
+    '{o} wins again — and mentions {p}',
+    '{o} keeps pace at the top',
+  ],
+  rivalry: [
+    '{p} and {o}: the circuit’s best argument',
+    'Head to head: {p} leads {o} {n}',
+    '{o} has now lost {n} straight to {p}',
+  ],
+  linkWin: [
+    'Sanctioned link match: {p} defeats {o}',
+    '{p} takes a ranked link battle from {o}',
+  ],
+  linkLoss: [
+    'Ranked link: {o} defeats {p}',
+  ],
+  preview: [
+    'Preview: the {t} draw is out',
+    '{t} field confirmed — {n} entered',
+    'What to watch at the {t}',
+  ],
+  powerRankings: [
+    'Power Rankings: week {n}',
+    'The Top Ten, updated',
+  ],
+};
+
+// ---- body paragraphs -------------------------------------------------------
+
+const BODIES = {
+  matchWin: [
+    '{p} beat {o} in the {round} of the {t}, finishing with {n} Pokémon still standing.',
+    'It took {p} {n} turns to put {o} away in the {round}.',
+    '{o} led early. {p} did not care.',
+  ],
+  matchLoss: [
+    '{o} eliminated {p} in the {round} of the {t}.',
+    '{p} exits the {t} at the {round} stage.',
+  ],
+  titleWin: [
+    '{p} is the {t} champion, taking the final and {n} Circuit Points with it.',
+    'The {t} belongs to {p}. It is a result that moves the ranking.',
+  ],
+  rankUp: [
+    'The promotion puts {p} in {r} — {blurb}',
+    '{p} now sits at {n} Circuit Points.',
+  ],
+  star: [
+    '{mon} carried the load again.',
+    'Once more it was {mon} doing the closing.',
+    '{mon} has now finished {n} matches for {p}.',
+  ],
+  quoteIntro: [
+    '{analyst}, afterwards:',
+    'Speaking on the broadcast, {analyst} said:',
+    '{analyst} had this:',
+  ],
+};
+
+const ANALYST_QUOTES = {
+  rising: [
+    '"You can see it in the switches. Six months ago that team did not switch."',
+    '"I have stopped calling it a surprise. That is just the level now."',
+    '"Whoever is coaching that team, keep them."',
+  ],
+  dominant: [
+    '"That was not a match, it was a demonstration."',
+    '"I have called finals with less control than that quarter-final."',
+  ],
+  struggling: [
+    '"The team is fine. The decisions in the back half are not."',
+    '"Too many turns spent reacting. That is a fixable problem."',
+  ],
+  upset: [
+    '"Brackets do this. It is why we play them."',
+    '"Somebody is going to have a very long flight home."',
+  ],
+  rivalry: [
+    '"Every era needs two people who cannot stand losing to each other."',
+    '"They have played enough now that the matches have their own grammar."',
+  ],
+};
+
+// ---- press conference ------------------------------------------------------
+// After a tournament the player answers one question. The choice nudges Hype,
+// which is what the press amplifies and what sponsors pay for.
+
+const PRESS_QUESTIONS = {
+  win: {
+    q: '{analyst}: "You just won the {t}. What changed?"',
+    options: [
+      { text: 'Credit the team.', tone: 'humble', hype: 4, respect: 6,
+        line: '"Nothing changed. My Pokémon got better and I got out of their way."' },
+      { text: 'Say you expected it.', tone: 'confident', hype: 9, respect: 1,
+        line: '"Nothing changed. I have been this good for a while. You were late."' },
+      { text: 'Call out the field.', tone: 'brash', hype: 12, respect: -4,
+        line: '"Nothing changed. The bracket got easier."' },
+    ],
+  },
+  loss: {
+    q: '{analyst}: "Tough exit at the {t}. Where did it go wrong?"',
+    options: [
+      { text: 'Take it on the chin.', tone: 'humble', hype: 2, respect: 6,
+        line: '"I was out-played. That is the whole answer."' },
+      { text: 'Point at the details.', tone: 'analytical', hype: 3, respect: 4,
+        line: '"Two switches. Both mine. Both wrong."' },
+      { text: 'Promise a rematch.', tone: 'brash', hype: 8, respect: 0,
+        line: '"Ask me again next event."' },
+    ],
+  },
+};
+
+function pickFrom(list, rng) {
+  return list[Math.floor(rng() * list.length) % list.length];
+}
+
+__exports(__x, { OUTLETS: () => OUTLETS, ANALYSTS: () => ANALYSTS, HEADLINES: () => HEADLINES, BODIES: () => BODIES, ANALYST_QUOTES: () => ANALYST_QUOTES, PRESS_QUESTIONS: () => PRESS_QUESTIONS, pickFrom: () => pickFrom });
+
+};
+
+__defs['game/circuit/news.js'] = function (__x, __req) {
+const { OUTLETS, ANALYSTS, HEADLINES, BODIES, ANALYST_QUOTES, PRESS_QUESTIONS, pickFrom } = __req('data/news.js');
+const { getPro, getTournament, RIVAL_PRO } = __req('data/circuit.js');
+const { makeRng } = __req('core/rng.js');
+const { standings, headToHead, currentRank } = __req('game/circuit/circuit.js');
+// The circuit press desk.
+//
+// Turns things that actually happened into things the feed can print. Every
+// item is generated from real career state — a headline never mentions a
+// score, an opponent or a rank the engine did not produce. The templates live
+// in data/news.js; the numbers come from here.
+
+
+
+
+
+const MAX_ITEMS = 40;
+
+// Each generated item gets its own deterministic stream so the same event
+// always reads the same way, even after a save/load cycle.
+function streamFor(c, salt) {
+  c.seed = (c.seed * 1664525 + 1013904223) >>> 0;
+  return makeRng((c.seed ^ (salt >>> 0)) >>> 0);
+}
+
+function hashOf(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+function fill(tpl, vars) {
+  return tpl.replace(/\{(\w+)\}/g, (m, k) => (vars[k] === undefined ? m : String(vars[k])));
+}
+
+/** Pushes an item onto the feed, newest first, and trims the tail. */
+function pushNews(c, item) {
+  c.news.unshift(item);
+  if (c.news.length > MAX_ITEMS) c.news.length = MAX_ITEMS;
+  return item;
+}
+
+function makeItem(c, rng, kind, headline, body, opts = {}) {
+  return {
+    id: `n${c.week}_${c.news.length}_${(rng() * 1e6) | 0}`,
+    week: c.week,
+    kind,
+    outlet: (opts.outlet || pickFrom(OUTLETS, rng)).name,
+    headline,
+    body: body.filter(Boolean),
+    big: !!opts.big,
+  };
+}
+
+function analyst(rng) { return pickFrom(ANALYSTS, rng); }
+
+function quoteBlock(rng, mood) {
+  const bank = ANALYST_QUOTES[mood];
+  if (!bank) return [];
+  return [fill(pickFrom(BODIES.quoteIntro, rng), { analyst: analyst(rng) }), pickFrom(bank, rng)];
+}
+
+// ---- event reporters -------------------------------------------------------
+
+/** The player files their first entry. */
+function reportDebut(c, playerName, tournament) {
+  const rng = streamFor(c, hashOf(`debut${tournament.id}`));
+  const vars = { p: playerName, t: tournament.short };
+  return pushNews(c, makeItem(c, rng, 'debut',
+    fill(pickFrom(HEADLINES.debut, rng), vars),
+    [
+      `${playerName} has been accepted into the ${tournament.name}, a ${tournament.tier.toLowerCase()} event at the ${tournament.venue}.`,
+      tournament.blurb,
+    ]));
+}
+
+/** The draw for a tournament the player just entered. */
+function reportDraw(c, playerName, tournament, run) {
+  const rng = streamFor(c, hashOf(`draw${tournament.id}${c.week}`));
+  const names = run.ladder.map((id) => (getPro(id) || {}).name).filter(Boolean);
+  const vars = { p: playerName, t: tournament.short, n: tournament.entrants };
+  const body = [
+    `${tournament.entrants} trainers, ${run.rounds} rounds, single elimination at the ${tournament.venue}.`,
+  ];
+  if (names.length) {
+    body.push(`${playerName}'s side of the draw: ${names.join(', then ')}.`);
+  }
+  const top = standings(c, playerName)[0];
+  if (top) body.push(`${top.name} goes in as the highest-rated trainer in the field at ${top.rating}.`);
+  return pushNews(c, makeItem(c, rng, 'preview',
+    fill(pickFrom(HEADLINES.preview, rng), vars), body));
+}
+
+/**
+ * A completed round. `entry` is what resolveRound returned; `detail` carries
+ * the battle facts (survivors, turns, star Pokémon) so the copy is specific.
+ */
+function reportMatch(c, playerName, tournament, entry) {
+  const rng = streamFor(c, hashOf(`m${tournament.id}${entry.round}${entry.won}`));
+  const survivors = Number(entry.survivors) || 0;
+  const turns = Number(entry.turns) || 0;
+  const close = entry.won ? survivors <= 1 : (Number(entry.oppSurvivors) || 0) <= 1;
+  const dominant = entry.won && survivors >= 3;
+
+  const bank = entry.won
+    ? (dominant ? HEADLINES.matchWinDominant : close ? HEADLINES.matchWinClose : HEADLINES.matchWin)
+    : (close ? HEADLINES.matchLossClose : HEADLINES.matchLoss);
+
+  const vars = {
+    p: playerName, o: entry.opponentName, t: tournament.short,
+    round: entry.roundLabel.toLowerCase(), n: entry.won ? survivors : turns,
+  };
+  const body = [fill(pickFrom(entry.won ? BODIES.matchWin : BODIES.matchLoss, rng),
+    { ...vars, n: turns || survivors })];
+
+  const delta = Number(entry.ratingDelta) || 0;
+  body.push(`Rating: ${c.rating} (${delta >= 0 ? '+' : ''}${delta}).`);
+
+  if (entry.star) {
+    body.push(fill(pickFrom(BODIES.star, rng), { mon: entry.star, p: playerName, n: c.wins }));
+  }
+  body.push(...quoteBlock(rng, dominant ? 'dominant' : entry.won ? 'rising' : 'struggling'));
+
+  const item = pushNews(c, makeItem(c, rng, entry.won ? 'matchWin' : 'matchLoss',
+    fill(pickFrom(bank, rng), vars), body, { big: !entry.won }));
+
+  reportSideResults(c, tournament, entry.sideResults || []);
+  if (entry.won && c.streak >= 3) reportStreak(c, playerName);
+  if (entry.opponent === RIVAL_PRO) reportRivalry(c, playerName);
+  return item;
+}
+
+/** Upsets elsewhere in the bracket. Only the notable ones get printed. */
+function reportSideResults(c, tournament, results) {
+  for (const r of results) {
+    if (!r.upset) continue;
+    const loser = getPro(r.loser);
+    const winner = getPro(r.winner);
+    if (!loser || !winner) continue;
+    const rng = streamFor(c, hashOf(`u${tournament.id}${r.loser}${r.winner}${c.week}`));
+    pushNews(c, makeItem(c, rng, 'upset',
+      fill(pickFrom(HEADLINES.upset, rng), { o: loser.name, t: tournament.short }),
+      [
+        `${winner.name} (${c.pros[r.winner].rating}) beat ${loser.name} (${c.pros[r.loser].rating}) on the other side of the ${tournament.short} draw.`,
+        ...quoteBlock(rng, 'upset'),
+      ]));
+    break; // one upset story per round is plenty
+  }
+}
+
+function reportStreak(c, playerName) {
+  const rng = streamFor(c, hashOf(`streak${c.streak}`));
+  pushNews(c, makeItem(c, rng, 'streak',
+    fill(pickFrom(HEADLINES.streak, rng), { p: playerName, streak: c.streak }),
+    [
+      `${playerName} has won ${c.streak} sanctioned matches in a row. Career best: ${c.bestStreak}.`,
+      ...(c.streak >= 5 ? quoteBlock(rng, 'rising') : []),
+    ]));
+}
+
+function reportRivalry(c, playerName) {
+  const rival = getPro(RIVAL_PRO);
+  if (!rival) return;
+  const h = headToHead(c, RIVAL_PRO);
+  if (h.w + h.l < 2) return;
+  const rng = streamFor(c, hashOf(`rivalry${h.w}${h.l}`));
+  const leader = h.w >= h.l ? playerName : rival.name;
+  const trailer = h.w >= h.l ? rival.name : playerName;
+  pushNews(c, makeItem(c, rng, 'rivalry',
+    fill(pickFrom(HEADLINES.rivalry, rng),
+      { p: leader, o: trailer, n: `${Math.max(h.w, h.l)}-${Math.min(h.w, h.l)}` }),
+    [
+      `${playerName} and ${rival.name} have now met ${h.w + h.l} times.`,
+      h.w === h.l
+        ? `The series is level at ${h.w}-${h.l}.`
+        : `${leader} leads the series ${Math.max(h.w, h.l)}-${Math.min(h.w, h.l)}.`,
+      ...quoteBlock(rng, 'rivalry'),
+    ], { big: true }));
+}
+
+/** The end of a run: title, or elimination, plus any promotion. */
+function reportTournamentResult(c, playerName, summary) {
+  const t = summary.tournament;
+  const rng = streamFor(c, hashOf(`fin${t.id}${summary.won}${c.week}`));
+  const vars = { p: playerName, t: t.short, n: summary.points, r: summary.newRank.name };
+
+  if (summary.won) {
+    const bank = summary.firstTitle ? HEADLINES.titleWinFirst : HEADLINES.titleWin;
+    pushNews(c, makeItem(c, rng, 'titleWin',
+      fill(pickFrom(bank, rng), { ...vars, t: t.short.toUpperCase() }),
+      [
+        fill(pickFrom(BODIES.titleWin, rng), vars),
+        `Prize money: ₽${summary.prize.toLocaleString('en-US')}. Circuit Points: +${summary.points}.`,
+        `${playerName} is now ranked #${playerPlaceSafe(c, playerName)} in the world at ${c.rating}.`,
+        ...quoteBlock(rng, 'dominant'),
+      ], { big: true }));
+  }
+
+  if (summary.rankedUp) {
+    const r2 = streamFor(c, hashOf(`rank${summary.newRank.id}`));
+    pushNews(c, makeItem(c, r2, 'rankUp',
+      fill(pickFrom(HEADLINES.rankUp, r2), vars),
+      [
+        fill(pickFrom(BODIES.rankUp, r2), { ...vars, blurb: summary.newRank.blurb, n: c.cp }),
+        `Career record: ${c.wins}-${c.losses}. Titles: ${c.titles.length}.`,
+      ], { big: true }));
+  }
+  return c.news[0];
+}
+
+function playerPlaceSafe(c, playerName) {
+  const row = standings(c, playerName).find((r) => r.isPlayer);
+  return row ? row.place : '-';
+}
+
+/** A ranked link battle against the other human. */
+function reportLinkResult(c, playerName, res) {
+  const rng = streamFor(c, hashOf(`link${res.opponentName}${c.wins}${c.losses}`));
+  const vars = { p: playerName, o: res.opponentName || 'a linked trainer' };
+  const bank = res.won ? HEADLINES.linkWin : HEADLINES.linkLoss;
+  pushNews(c, makeItem(c, rng, res.won ? 'linkWin' : 'linkLoss',
+    fill(pickFrom(bank, rng), vars),
+    [
+      `Result recorded as a sanctioned link match. Rating: ${c.rating} (${res.ratingDelta >= 0 ? '+' : ''}${res.ratingDelta}).`,
+      `${playerName} is ${c.wins}-${c.losses} on the circuit.`,
+    ]));
+  if (res.rankedUp) {
+    const r2 = streamFor(c, hashOf(`linkrank${res.newRank.id}`));
+    pushNews(c, makeItem(c, r2, 'rankUp',
+      fill(pickFrom(HEADLINES.rankUp, r2), { p: playerName, r: res.newRank.name, t: 'link play' }),
+      [`${playerName} reaches ${res.newRank.name}. ${res.newRank.blurb}`], { big: true }));
+  }
+  return c.news[0];
+}
+
+/** The weekly table. Printed after every event so the ladder stays visible. */
+function reportPowerRankings(c, playerName) {
+  const rng = streamFor(c, hashOf(`pr${c.week}`));
+  const rows = standings(c, playerName).slice(0, 5);
+  const body = rows.map((r) => `${r.place}. ${r.name}${r.isPlayer ? ' (you)' : ''} — ${r.rating}`);
+  const me = standings(c, playerName).find((r) => r.isPlayer);
+  if (me && me.place > 5) body.push(`...${me.place}. ${playerName} (you) — ${me.rating}`);
+  return pushNews(c, makeItem(c, rng, 'powerRankings',
+    fill(pickFrom(HEADLINES.powerRankings, rng), { n: c.week }), body));
+}
+
+/** Off-screen pro results between events. */
+function reportSeasonWeek(c, results) {
+  if (!results || !results.length) return null;
+  const rng = streamFor(c, hashOf(`week${c.week}`));
+  const upset = results.find((r) => r.upset) || results[0];
+  const w = getPro(upset.winner), l = getPro(upset.loser);
+  if (!w || !l) return null;
+  return pushNews(c, makeItem(c, rng, upset.upset ? 'upset' : 'rivalWin',
+    upset.upset
+      ? fill(pickFrom(HEADLINES.upset, rng), { o: l.name, t: 'exhibition circuit' })
+      : fill(pickFrom(HEADLINES.rivalWin, rng), { o: w.name, p: l.name }),
+    [
+      `Week ${c.week} exhibition results: ${w.name} def. ${l.name}.`,
+      results.slice(0, 3).map((r) => `${(getPro(r.winner) || {}).name} def. ${(getPro(r.loser) || {}).name}`).join(' · '),
+    ]));
+}
+
+// ---- press conference ------------------------------------------------------
+
+/** Builds the post-event question. Returns null when there is nothing to ask. */
+function buildPress(c, playerName, summary) {
+  if (!summary) return null;
+  const rng = streamFor(c, hashOf(`press${summary.tournament.id}${summary.won}`));
+  const q = summary.won ? PRESS_QUESTIONS.win : PRESS_QUESTIONS.loss;
+  return {
+    tournamentId: summary.tournament.id,
+    won: summary.won,
+    question: fill(q.q, { analyst: analyst(rng), t: summary.tournament.short, p: playerName }),
+    options: q.options.map((o) => ({ ...o })),
+  };
+}
+
+/** Applies the player's answer and prints the quote. */
+function answerPress(c, playerName, press, optionIndex) {
+  if (!press) return null;
+  const opt = press.options[optionIndex] || press.options[0];
+  const rng = streamFor(c, hashOf(`ans${press.tournamentId}${optionIndex}`));
+  c.hype = Math.max(0, Math.min(100, c.hype + opt.hype));
+  c.respect = Math.max(0, Math.min(100, c.respect + opt.respect));
+  const t = getTournament(press.tournamentId);
+  pushNews(c, makeItem(c, rng, 'press',
+    `${playerName} speaks after the ${t ? t.short : 'event'}`,
+    [press.question, opt.line, `Hype ${c.hype} · Respect ${c.respect}`]));
+  c.lastPress = null;
+  return opt;
+}
+
+
+
+__exports(__x, { pushNews: () => pushNews, reportDebut: () => reportDebut, reportDraw: () => reportDraw, reportMatch: () => reportMatch, reportTournamentResult: () => reportTournamentResult, reportLinkResult: () => reportLinkResult, reportPowerRankings: () => reportPowerRankings, reportSeasonWeek: () => reportSeasonWeek, buildPress: () => buildPress, answerPress: () => answerPress, currentRank: () => currentRank });
+
+};
+
 __defs['ui/debug.js'] = function (__x, __req) {
 const { Screen } = __req('ui/screen.js');
 const { drawBackChip } = __req('ui/controls.js');
@@ -13237,6 +14564,8 @@ const { FLAGS } = __req('game/storyflags.js');
 const { debugGive, debugGiveItem, healParty, awardBadge, setStoryFlag, formatPlayTime } = __req('game/state.js');
 const { createMonster, healFully } = __req('game/monster.js');
 const { net } = __req('net/NetworkManager.js');
+const { simulateSeasonWeek } = __req('game/circuit/circuit.js');
+const { reportSeasonWeek, reportPowerRankings } = __req('game/circuit/news.js');
 // Developer menu.
 //
 // Off by default and reachable only from OPTIONS, so it never gets in a
@@ -13256,6 +14585,15 @@ const { net } = __req('net/NetworkManager.js');
 
 
 
+
+
+
+// One off-screen week of pro results, plus the table it changes.
+function simulateWeek(game) {
+  const c = game.state.circuit;
+  reportSeasonWeek(c, simulateSeasonWeek(c));
+  reportPowerRankings(c, game.state.player.name);
+}
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
@@ -13282,6 +14620,7 @@ class DebugScreen extends Screen {
         { t: `Give ${money(10000)}`, a: () => { st.inventory.money = Math.min(999999, st.inventory.money + 10000); this._msg('Money added.'); } },
         { t: 'Award next badge', a: () => { const n = st.badges.length + 1; awardBadge(st, n, `Badge ${n}`); this._msg(`Badge ${n} awarded.`); audio.sfx('badge'); } },
         { t: `Level +5 (party)`, a: () => { for (const m of st.party) { m.level = Math.min(100, m.level + 5); healFully(m); } this._msg('Party levelled.'); } },
+        { t: 'Circuit...', a: () => { this.page = 'circuit'; this.index = 0; this.scroll = 0; } },
         { t: 'Network state...', a: () => { this.page = 'net'; this.index = 0; } },
         { t: 'Reset save', a: () => { this.page = 'reset'; this.index = 1; } },
         { t: 'Close', a: () => this.game.screens.pop() },
@@ -13309,6 +14648,26 @@ class DebugScreen extends Screen {
         t: f, right: st.flags[f] ? 'ON' : 'off',
         a: () => { setStoryFlag(st, f, !st.flags[f]); this._msg(`${f} = ${st.flags[f]}`); },
       }));
+      // Reaching the World Circuit legitimately means walking to Oreburgh and
+      // grinding a ladder. These skip to any point on it.
+      case 'circuit': {
+        const c = st.circuit;
+        const g = this.game;
+        return [
+          { t: 'Register on the circuit', right: c.joined ? 'joined' : 'no',
+            a: () => { g.career.join(); this._msg('Registered.'); audio.sfx('badge'); } },
+          { t: 'Open circuit hub', a: () => { g.screens.pop(); g.openCircuit(); } },
+          { t: 'Give 500 Circuit Points', right: `${c.cp} CP`,
+            a: () => { c.cp += 500; c.rank = g.career.rank().id; this._msg(`${c.cp} CP — ${g.career.rank().name}.`); } },
+          { t: 'Rating +50', right: `${c.rating}`,
+            a: () => { c.rating += 50; c.peakRating = Math.max(c.peakRating, c.rating); this._msg(`Rating ${c.rating}.`); } },
+          { t: 'Simulate a season week', right: `week ${c.week}`,
+            a: () => { c.week++; simulateWeek(g); this._msg(`Week ${c.week} played.`); } },
+          { t: 'Abandon active run', right: c.active ? c.active.id : 'none',
+            a: () => { g.career.withdraw(); this._msg('Run abandoned.'); } },
+          { t: 'Back', a: () => { this.page = 'main'; this.index = 0; this.scroll = 0; } },
+        ];
+      }
       case 'net': {
         const s = net.snapshot();
         return [
@@ -13387,6 +14746,729 @@ class DebugScreen extends Screen {
 }
 
 __exports(__x, { DebugScreen: () => DebugScreen });
+
+};
+
+__defs['ui/circuit.js'] = function (__x, __req) {
+const { Screen } = __req('ui/screen.js');
+const { input } = __req('core/input.js');
+const { audio } = __req('core/audio.js');
+const { PAL, shade } = __req('render/palette.js');
+const { window9, rect, label, labelDim, cursor, drawText, drawTextCentered, drawTextRight, moveCursor, money, LINE } = __req('ui/kit.js');
+const { drawBackChip } = __req('ui/controls.js');
+const { drawChar, lookFor } = __req('render/sprites.js');
+const { TOURNAMENTS, RANKS, getPro, getTournament, rankIndex } = __req('data/circuit.js');
+const { standings, rankProgress, headToHead, roundName } = __req('game/circuit/circuit.js');
+// The World Circuit hub — the side story's home screen.
+//
+// Four tabs over one career: your rank card, the events you can enter, the
+// world ranking, and the press feed. The tournament run itself lives in
+// TournamentScreen below, which is what actually starts the battles.
+
+
+
+
+
+
+
+
+
+
+const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
+const TABS = ['CAREER', 'EVENTS', 'RANKS', 'NEWS'];
+const HEADER_H = 26;
+
+function meter(ctx, x, y, w, frac, color) {
+  rect(ctx, x, y, w, 4, shade(PAL.uiFrame, 0.35));
+  rect(ctx, x + 1, y + 1, Math.max(0, Math.round((w - 2) * Math.max(0, Math.min(1, frac)))), 2, color);
+}
+
+class CircuitScreen extends Screen {
+  constructor(game, opts = {}) {
+    super(game);
+    this.tab = opts.tab || 0;
+    this.index = 0;
+    this.scroll = 0;
+    this.reading = null;      // a news item opened for reading
+    this.notice = '';
+    this.t = 0;
+  }
+
+  get career() { return this.game.career; }
+  get c() { return this.game.state.circuit; }
+
+  onEnter() {
+    this.career.join();
+    // Coming back from a run: drop straight onto the story that matters.
+    if (this.career.pendingPress) this.game.openPress();
+  }
+
+  onResume() {
+    if (this.career.pendingPress) this.game.openPress();
+  }
+
+  // ---- layout -------------------------------------------------------------
+
+  // Tabs 1-3 pair a list with a detail panel for whatever is highlighted, so
+  // the list only gets the height that is left over.
+  _detailH() { return this.tab === 0 ? 0 : LINE * 4 + 6; }
+
+  _rows() {
+    const box = this._listBox();
+    return Math.max(2, Math.floor((box.h - 10 - this._detailH()) / LINE));
+  }
+
+  _listBox() {
+    const { width: W, height: H } = this.game.display;
+    return { x: 4, y: HEADER_H, w: W - 8, h: H - HEADER_H - 14 };
+  }
+
+  _tabRects() {
+    const W = this.game.display.width;
+    const tw = Math.floor((W - 8) / TABS.length);
+    return TABS.map((name, i) => ({ name, i, x: 4 + i * tw, y: 4, w: tw - 2, h: 13 }));
+  }
+
+  _items() {
+    if (this.tab === 1) {
+      return TOURNAMENTS.map((t) => ({ t, gate: this.career.gateFor(t) }));
+    }
+    if (this.tab === 2) return standings(this.c, this.game.state.player.name);
+    if (this.tab === 3) return this.c.news;
+    return [];
+  }
+
+  // ---- input --------------------------------------------------------------
+
+  update(dt, isTop) {
+    if (!isTop) return;
+    this.t += dt;
+    if (this.reading) {
+      if (input.pressed('a') || input.pressed('b') || input.consumeTap()) {
+        audio.sfx('back'); this.reading = null;
+      }
+      return;
+    }
+
+    const items = this._items();
+    const rows = this._rows();
+    const box = this._listBox();
+    const tap = input.consumeTap();
+
+    if (tap) {
+      for (const r of this._tabRects()) {
+        if (hit(tap, r.x, r.y, r.w, r.h)) { this._setTab(r.i); return; }
+      }
+      for (let i = 0; i < rows && i + this.scroll < items.length; i++) {
+        if (hit(tap, box.x, box.y + 4 + i * LINE, box.w, LINE)) {
+          this.index = i + this.scroll; audio.sfx('select'); this._activate(); return;
+        }
+      }
+    }
+
+    if (input.repeated('left')) { this._setTab((this.tab - 1 + TABS.length) % TABS.length); }
+    if (input.repeated('right')) { this._setTab((this.tab + 1) % TABS.length); }
+    if (items.length) {
+      if (input.repeated('up')) {
+        const m = moveCursor(this.index, items.length, -1, rows, this.scroll);
+        this.index = m.index; this.scroll = m.scroll; audio.sfx('cursor');
+      }
+      if (input.repeated('down')) {
+        const m = moveCursor(this.index, items.length, 1, rows, this.scroll);
+        this.index = m.index; this.scroll = m.scroll; audio.sfx('cursor');
+      }
+      if (input.pressed('a')) { audio.sfx('select'); this._activate(); }
+    }
+    if (input.pressed('b') || input.pressed('start')) { audio.sfx('back'); this.game.screens.pop(); }
+  }
+
+  _setTab(i) {
+    if (i === this.tab) return;
+    this.tab = i; this.index = 0; this.scroll = 0; this.notice = '';
+    audio.sfx('cursor');
+  }
+
+  _activate() {
+    const items = this._items();
+    const it = items[this.index];
+    if (!it) return;
+    if (this.tab === 1) {
+      if (this.c.active && this.c.active.id === it.t.id) { this.game.resumeTournament(); return; }
+      if (!it.gate.ok) { this.notice = it.gate.why; audio.sfx('deny'); return; }
+      this.game.enterTournament(it.t.id);
+      return;
+    }
+    if (this.tab === 3) { this.reading = it; return; }
+  }
+
+  // ---- render -------------------------------------------------------------
+
+  render(ctx) {
+    const { width: W, height: H } = this.game.display;
+    rect(ctx, 0, 0, W, H, shade(PAL.uiSelect, -0.62));
+    for (let y = 0; y < H; y += 6) rect(ctx, 0, y, W, 3, shade(PAL.uiSelect, -0.58));
+
+    // Tab bar.
+    for (const r of this._tabRects()) {
+      const on = r.i === this.tab;
+      rect(ctx, r.x, r.y, r.w, r.h, on ? PAL.uiBg : shade(PAL.uiFrame, -0.05));
+      rect(ctx, r.x, r.y, r.w, 1, on ? PAL.uiHighlight : shade(PAL.uiFrame, 0.2));
+      drawTextCentered(ctx, r.name, r.x + r.w / 2, r.y + 3,
+        { color: on ? PAL.uiText : PAL.uiTextLight });
+    }
+
+    if (this.tab === 0) this._renderCareer(ctx, W, H);
+    else if (this.tab === 1) this._renderEvents(ctx, W, H);
+    else if (this.tab === 2) this._renderRanks(ctx, W, H);
+    else this._renderNews(ctx, W, H);
+
+    if (this.notice) {
+      rect(ctx, 0, H - 12, W, 12, shade(PAL.uiDanger, -0.35));
+      drawTextCentered(ctx, this.notice, W / 2, H - 10, { color: PAL.uiTextLight });
+    }
+    drawBackChip(ctx, W - 46, H - 14);
+    if (this.reading) this._renderArticle(ctx, W, H);
+  }
+
+  _renderCareer(ctx, W, H) {
+    const c = this.c;
+    const st = this.game.state;
+    const box = this._listBox();
+    window9(ctx, box.x, box.y, box.w, box.h);
+    const rank = this.career.rank();
+    const prog = rankProgress(c);
+    const place = standings(c, st.player.name).find((r) => r.isPlayer);
+
+    const chars = Math.floor((box.w - 16) / 6);
+    let y = box.y + 6;
+    drawText(ctx, rank.name.toUpperCase(), box.x + 7, y, { color: PAL.uiText });
+    drawTextRight(ctx, `WORLD #${place ? place.place : '-'}`, box.x + box.w - 8, y,
+      { color: PAL.uiSelect });
+    y += 11;
+    labelDim(ctx, clip(rank.blurb, chars), box.x + 7, y);
+    y += 12;
+
+    // Points towards the next promotion. The meter stops short of the figure
+    // so the two never collide on a narrow screen.
+    const cpText = prog.next ? `${c.cp}/${prog.next.cp} CP` : `${c.cp} CP`;
+    const cpW = cpText.length * 6 + 10;
+    meter(ctx, box.x + 7, y + 2, Math.max(20, box.w - 15 - cpW), prog.frac, PAL.uiHighlight);
+    drawTextRight(ctx, cpText, box.x + box.w - 8, y - 1, { color: PAL.uiTextDim });
+    y += 12;
+    if (prog.next) {
+      labelDim(ctx, `${prog.need} points to ${prog.next.name}.`, box.x + 7, y);
+      y += 11;
+    }
+
+    // Two columns of short pairs. Values stay terse so a narrow portrait
+    // screen never runs a figure into the label beside it.
+    const half = Math.floor(box.w / 2);
+    const col2 = box.x + half + 4;
+    const stat = (lx, ly, k, v, col) => {
+      labelDim(ctx, k, lx, ly);
+      drawTextRight(ctx, String(v), lx + half - 14, ly, { color: col || PAL.uiText });
+    };
+    stat(box.x + 7, y, 'RATING', `${c.rating}`);
+    stat(col2, y, 'PEAK', `${c.peakRating}`);
+    y += LINE;
+    stat(box.x + 7, y, 'RECORD', `${c.wins}-${c.losses}`);
+    stat(col2, y, 'STREAK', `${c.streak}`);
+    y += LINE;
+    stat(box.x + 7, y, 'TITLES', `${c.titles.length}`, c.titles.length ? PAL.uiHighlight : PAL.uiText);
+    stat(col2, y, 'BEST RUN', `${c.bestStreak}`);
+    y += LINE;
+    stat(box.x + 7, y, 'MONEY', money(st.inventory.money));
+    y += LINE + 2;
+
+    labelDim(ctx, 'HYPE', box.x + 7, y);
+    meter(ctx, box.x + 34, y + 2, 52, c.hype / 100, PAL.uiDanger);
+    labelDim(ctx, 'RESPECT', col2, y);
+    meter(ctx, col2 + 44, y + 2, 52, c.respect / 100, PAL.hpGreen);
+    y += LINE + 2;
+
+    const bottom = box.y + box.h - (c.active ? 20 : 6);
+    const room = (n) => y + n * LINE <= bottom;
+    if (c.titles.length && room(2)) {
+      labelDim(ctx, 'HELD TITLES', box.x + 7, y);
+      y += LINE;
+      for (const id of c.titles.slice(0, 3)) {
+        if (!room(1)) break;
+        const t = getTournament(id);
+        if (t) { drawText(ctx, clip(`★ ${t.name}`, chars), box.x + 9, y, { color: PAL.uiHighlight }); y += LINE; }
+      }
+      y += 2;
+    }
+    // Whatever vertical room is left goes to the feed — a tall portrait screen
+    // should not be a card floating in an empty box.
+    if (c.news.length && room(2)) {
+      labelDim(ctx, 'LATEST', box.x + 7, y);
+      y += LINE;
+      for (const n of c.news) {
+        if (!room(1)) break;
+        drawText(ctx, clip(n.headline, chars - 2), box.x + 9, y,
+          { color: n.big ? PAL.uiSelect : PAL.uiTextDim });
+        y += LINE;
+      }
+    }
+    if (c.active) {
+      const t = getTournament(c.active.id);
+      rect(ctx, box.x + 5, box.y + box.h - 15, box.w - 10, 12, PAL.uiSelect);
+      drawTextCentered(ctx, `IN PROGRESS: ${t ? t.short : ''}`, box.x + box.w / 2, box.y + box.h - 13,
+        { color: PAL.uiTextLight });
+    }
+    void W; void H;
+  }
+
+  // Tells the player there is more list than window.
+  _nubs(ctx, box, count, rows) {
+    if (this.scroll > 0) drawText(ctx, '▲', box.x + box.w - 11, box.y + 2, { color: PAL.uiTextDim });
+    if (this.scroll + rows < count) {
+      drawText(ctx, '▼', box.x + box.w - 11, box.y + rows * LINE - 4, { color: PAL.uiTextDim });
+    }
+  }
+
+  _renderEvents(ctx, W, H) {
+    const box = this._listBox();
+    window9(ctx, box.x, box.y, box.w, box.h);
+    const items = this._items();
+    const rows = this._rows();
+    for (let i = 0; i < rows && i + this.scroll < items.length; i++) {
+      const idx = i + this.scroll;
+      const { t, gate } = items[idx];
+      const y = box.y + 4 + i * LINE;
+      const held = this.c.titles.includes(t.id);
+      // Rank-locked and "you are mid-event" are different states and must not
+      // look the same: one is a wall, the other is a door you left open.
+      const locked = rankIndex(this.career.rank().id) < t.requires;
+      const live = !!this.c.active && this.c.active.id === t.id;
+      if (idx === this.index) cursor(ctx, box.x + 4, y);
+      drawText(ctx, t.short, box.x + 12, y,
+        { color: locked ? PAL.uiShadow : held ? PAL.uiHighlight : PAL.uiText });
+      const right = live ? 'IN PROGRESS'
+        : locked ? RANKS[t.requires].name
+          : `Lv${t.level} · ${t.cp}CP`;
+      drawTextRight(ctx, right, box.x + box.w - 8, y,
+        { color: live ? PAL.uiSelect : locked ? PAL.uiShadow : PAL.uiTextDim });
+      void gate;
+    }
+    this._nubs(ctx, box, items.length, rows);
+    // Detail panel for the highlighted event.
+    const sel = items[this.index];
+    if (sel) {
+      const dy = box.y + rows * LINE + 8;
+      rect(ctx, box.x + 5, dy - 3, box.w - 10, 1, PAL.uiBgAlt);
+      const chars = Math.floor((box.w - 16) / 6);
+      labelDim(ctx, clip(`${sel.t.tier} · ${sel.t.entrants} entrants · ${sel.t.venue}`, chars), box.x + 7, dy);
+      labelDim(ctx, clip(sel.t.blurb, chars), box.x + 7, dy + LINE);
+      drawText(ctx, `Purse ${money(sel.t.prize)}`, box.x + 7, dy + LINE * 2, { color: PAL.uiText });
+      const names = sel.t.field.map((id) => (getPro(id) || {}).name).filter(Boolean).join(', ');
+      labelDim(ctx, clip(names, chars), box.x + 7, dy + LINE * 3);
+    }
+    void W; void H;
+  }
+
+  _renderRanks(ctx, W, H) {
+    const box = this._listBox();
+    window9(ctx, box.x, box.y, box.w, box.h);
+    const items = this._items();
+    const rows = this._rows();
+    const wide = box.w > 250;
+    for (let i = 0; i < rows && i + this.scroll < items.length; i++) {
+      const idx = i + this.scroll;
+      const r = items[idx];
+      const y = box.y + 4 + i * LINE;
+      if (idx === this.index) cursor(ctx, box.x + 4, y);
+      const col = r.isPlayer ? PAL.uiSelect : PAL.uiText;
+      drawText(ctx, `${String(r.place).padStart(2, ' ')}`, box.x + 12, y, { color: PAL.uiTextDim });
+      drawText(ctx, r.name, box.x + 26, y, { color: col });
+      if (wide) {
+        drawText(ctx, r.tag, box.x + 26 + 84, y, { color: PAL.uiTextDim });
+        drawTextRight(ctx, `${r.wins}-${r.losses}`, box.x + box.w - 46, y, { color: PAL.uiTextDim });
+      }
+      drawTextRight(ctx, String(r.rating), box.x + box.w - 8, y, { color: col });
+    }
+    this._nubs(ctx, box, items.length, rows);
+    const sel = items[this.index];
+    if (sel && !sel.isPlayer) {
+      const pro = getPro(sel.id);
+      const dy = box.y + rows * LINE + 8;
+      rect(ctx, box.x + 5, dy - 3, box.w - 10, 1, PAL.uiBgAlt);
+      if (pro) {
+        // The portrait sits in the right-hand 34px, so the prose stops short.
+        const chars = Math.floor((box.w - 48) / 6);
+        drawText(ctx, clip(`${pro.name} — "${pro.tag}"`, chars), box.x + 7, dy, { color: PAL.uiText });
+        labelDim(ctx, clip(pro.bio, chars), box.x + 7, dy + LINE);
+        const h = headToHead(this.c, pro.id);
+        labelDim(ctx, clip(`${pro.region} · ${pro.style} · head to head ${h.w}-${h.l}`, chars),
+          box.x + 7, dy + LINE * 2);
+        drawChar(ctx, `crc:${pro.look}`, lookFor(pro.look), 'down', 0, box.x + box.w - 26, dy - 2);
+      }
+    }
+    void W; void H;
+  }
+
+  _renderNews(ctx, W, H) {
+    const box = this._listBox();
+    window9(ctx, box.x, box.y, box.w, box.h);
+    const items = this._items();
+    if (!items.length) {
+      labelDim(ctx, 'No stories yet. Enter an event and', box.x + 8, box.y + 8);
+      labelDim(ctx, 'the press will find you.', box.x + 8, box.y + 8 + LINE);
+      void W; void H;
+      return;
+    }
+    const rows = this._rows();
+    const maxChars = Math.floor((box.w - 22) / 6);
+    for (let i = 0; i < rows && i + this.scroll < items.length; i++) {
+      const idx = i + this.scroll;
+      const n = items[idx];
+      const y = box.y + 4 + i * LINE;
+      if (idx === this.index) cursor(ctx, box.x + 4, y);
+      const col = n.big ? PAL.uiSelect : PAL.uiText;
+      drawText(ctx, clip(n.headline, maxChars), box.x + 12, y, { color: col });
+    }
+    this._nubs(ctx, box, items.length, rows);
+    const sel = items[this.index];
+    if (sel) {
+      const dy = box.y + rows * LINE + 8;
+      rect(ctx, box.x + 5, dy - 3, box.w - 10, 1, PAL.uiBgAlt);
+      labelDim(ctx, `${sel.outlet} · week ${sel.week}`, box.x + 7, dy);
+      labelDim(ctx, 'A: read the full story', box.x + 7, dy + LINE);
+    }
+    void W; void H;
+  }
+
+  _renderArticle(ctx, W, H) {
+    const n = this.reading;
+    rect(ctx, 0, 0, W, H, 'rgba(0,0,0,0.5)');
+    const bx = 8, by = 12, bw = W - 16, bh = H - 28;
+    window9(ctx, bx, by, bw, bh);
+    const maxChars = Math.floor((bw - 16) / 6);
+    rect(ctx, bx + 5, by + 4, bw - 10, 9, PAL.uiFrame);
+    drawText(ctx, clip(n.outlet.toUpperCase(), maxChars), bx + 8, by + 5, { color: PAL.uiTextLight });
+    let y = by + 17;
+    for (const line of wrap(n.headline, maxChars)) {
+      drawText(ctx, line, bx + 8, y, { color: PAL.uiText }); y += LINE;
+    }
+    y += 2;
+    rect(ctx, bx + 6, y, bw - 12, 1, PAL.uiBgAlt);
+    y += 4;
+    for (const para of n.body) {
+      for (const line of wrap(para, maxChars)) {
+        if (y > by + bh - 14) break;
+        labelDim(ctx, line, bx + 8, y); y += 9;
+      }
+      y += 3;
+    }
+    drawTextCentered(ctx, 'A / B: close', W / 2, H - 13, { color: PAL.uiTextLight });
+  }
+}
+
+// Cuts to a whole word and marks the cut, so a bio never ends mid-syllable
+// or runs under the portrait beside it.
+function clip(str, maxChars) {
+  const t = String(str);
+  if (t.length <= maxChars) return t;
+  const cut = t.slice(0, Math.max(1, maxChars - 1));
+  const sp = cut.lastIndexOf(' ');
+  return (sp > maxChars * 0.5 ? cut.slice(0, sp) : cut) + '…';
+}
+
+function wrap(str, maxChars) {
+  const out = [];
+  let line = '';
+  for (const word of String(str).split(/\s+/)) {
+    if (!line.length) { line = word; continue; }
+    if (line.length + 1 + word.length > maxChars) { out.push(line); line = word; }
+    else line += ' ' + word;
+  }
+  if (line.length) out.push(line);
+  return out;
+}
+
+// ===========================================================================
+
+/**
+ * A live tournament run. Shows the ladder, who is next, and the one button
+ * that matters. Stays on the stack across every battle in the event so the
+ * bracket is never lost mid-run.
+ */
+class TournamentScreen extends Screen {
+  constructor(game) {
+    super(game);
+    this.index = 0;
+    this.busy = false;
+    this.summary = null;
+  }
+
+  get career() { return this.game.career; }
+  get c() { return this.game.state.circuit; }
+
+  onResume() {
+    this.busy = false;
+    // The battle screen records its result *after* it pops, so the run's state
+    // is checked in update() rather than here; all this does is patch the team
+    // up when there is another round to play.
+    if (this.c.active && !this.c.active.done) this.career.healBetweenRounds();
+  }
+
+  _settle() {
+    this.summary = this.career.settle();
+    audio.sfx(this.summary && this.summary.won ? 'levelup' : 'back');
+  }
+
+  get options() {
+    if (this.summary) return [{ k: 'close', text: 'CONTINUE' }];
+    return [{ k: 'fight', text: 'TAKE THE FLOOR' }, { k: 'quit', text: 'WITHDRAW' }];
+  }
+
+  update(dt, isTop) {
+    if (!isTop) return;
+    // A run that has just ended settles the moment this screen is on top
+    // again, whichever way it ended.
+    if (!this.summary) {
+      if (!this.c.active) { this.game.screens.pop(); return; }
+      if (this.c.active.done) this._settle();
+    }
+    if (this.busy) return;
+    const opts = this.options;
+    const box = this._btnBox();
+    const tap = input.consumeTap();
+    if (tap) {
+      for (let i = 0; i < opts.length; i++) {
+        if (hit(tap, box.x, box.y + i * 15, box.w, 13)) {
+          this.index = i; audio.sfx('select'); this._pick(opts[i].k); return;
+        }
+      }
+    }
+    if (input.repeated('up')) { this.index = (this.index - 1 + opts.length) % opts.length; audio.sfx('cursor'); }
+    if (input.repeated('down')) { this.index = (this.index + 1) % opts.length; audio.sfx('cursor'); }
+    if (input.pressed('a')) { audio.sfx('select'); this._pick(opts[this.index].k); }
+    if (input.pressed('b') && this.summary) this._pick('close');
+  }
+
+  _pick(k) {
+    if (k === 'fight') {
+      this.busy = true;
+      const started = this.career.startRound(() => { this.busy = false; });
+      if (!started) { this.busy = false; this.game.screens.pop(); }
+      return;
+    }
+    if (k === 'quit') {
+      this.career.withdraw();
+      this.game.screens.pop();
+      return;
+    }
+    this.game.screens.pop();
+    if (this.career.pendingPress) this.game.openPress();
+  }
+
+  _btnBox() {
+    const { width: W, height: H } = this.game.display;
+    return { x: W - 108, y: H - 42, w: 100 };
+  }
+
+  render(ctx) {
+    const { width: W, height: H } = this.game.display;
+    const c = this.c;
+    const t = c.active ? getTournament(c.active.id) : (this.summary && this.summary.tournament);
+    rect(ctx, 0, 0, W, H, shade(PAL.uiFrame, -0.4));
+    for (let y = 0; y < H; y += 10) rect(ctx, 0, y, W, 5, shade(PAL.uiFrame, -0.32));
+    if (!t) return;
+
+    window9(ctx, 4, 4, W - 8, H - 8);
+    drawText(ctx, t.name.toUpperCase(), 11, 9, { color: PAL.uiText });
+    drawTextRight(ctx, `${t.tier} · Lv${t.level}`, W - 12, 9, { color: PAL.uiTextDim });
+    rect(ctx, 11, 19, W - 22, 1, PAL.uiBgAlt);
+
+    if (this.summary) { this._renderSummary(ctx, W, H); return; }
+
+    const run = c.active;
+    // The ladder is name on the left, rating hard right; the name is clipped
+    // to whatever is left so the two columns can never overlap.
+    const ratingX = W - 12;
+    const nameChars = Math.max(8, Math.floor((W - 12 - 21 - 30) / 6));
+    let y = 25;
+    labelDim(ctx, 'YOUR PATH', 11, y);
+    y += LINE;
+    run.ladder.forEach((id, i) => {
+      const pro = getPro(id);
+      if (!pro) return;
+      const past = i < run.round;
+      const now = i === run.round;
+      const rn = roundName(t.entrants, i);
+      const col = past ? PAL.hpGreen : now ? PAL.uiText : PAL.uiShadow;
+      drawText(ctx, now ? '▶' : past ? '✓' : '·', 11, y, { color: col });
+      drawText(ctx, clip(`${rn}: ${pro.name}`, nameChars), 21, y, { color: col });
+      drawTextRight(ctx, String(c.pros[id].rating), ratingX, y, { color: PAL.uiTextDim });
+      y += LINE;
+    });
+
+    const pro = this.career.opponent();
+    if (pro) {
+      y += 4;
+      rect(ctx, 11, y, W - 22, 1, PAL.uiBgAlt);
+      y += 5;
+      // The opponent's portrait sits beside their card, not over the ladder.
+      drawChar(ctx, `trn:${pro.look}`, lookFor(pro.look), 'down', 0, W - 40, y - 2);
+      const chars = Math.max(10, Math.floor((W - 22 - 34) / 6));
+      drawText(ctx, clip(`NEXT: ${pro.name}`, chars), 11, y, { color: PAL.uiSelect });
+      y += LINE;
+      labelDim(ctx, clip(`"${pro.tag}" · ${pro.region} · ${pro.style}`, chars), 11, y);
+      y += LINE;
+      const h = headToHead(c, pro.id);
+      labelDim(ctx, clip(`Head to head ${h.w}-${h.l}`, chars), 11, y);
+      y += LINE;
+      labelDim(ctx, clip(`Your rating ${c.rating}`, chars), 11, y);
+      y += LINE;
+      labelDim(ctx, clip(`Career ${c.wins}-${c.losses}`, chars), 11, y);
+      y += LINE + 4;
+    }
+
+    // The rest of the draw, when the screen is tall enough to carry it. Real
+    // entrants with real ratings — this is who the player is not facing yet.
+    const box = this._btnBox();
+    const others = run.others.filter((id) => !run.ladder.includes(id));
+    if (others.length && y + LINE * 2 < box.y - 6) {
+      labelDim(ctx, 'ELSEWHERE IN THE DRAW', 11, y);
+      y += LINE;
+      for (const id of others) {
+        if (y + LINE > box.y - 6) break;
+        const p = getPro(id);
+        if (!p) continue;
+        drawText(ctx, clip(`${p.name}`, nameChars), 21, y, { color: PAL.uiShadow });
+        drawTextRight(ctx, String(c.pros[id].rating), ratingX, y, { color: PAL.uiShadow });
+        y += LINE;
+      }
+    }
+
+    this.options.forEach((o, i) => {
+      const by = box.y + i * 15;
+      const on = i === this.index;
+      rect(ctx, box.x, by, box.w, 13, on ? PAL.uiSelect : PAL.uiBgAlt);
+      drawTextCentered(ctx, o.text, box.x + box.w / 2, by + 3,
+        { color: on ? PAL.uiTextLight : PAL.uiText });
+    });
+  }
+
+  _renderSummary(ctx, W, H) {
+    const s = this.summary;
+    let y = 26;
+    drawTextCentered(ctx, s.won ? 'CHAMPION' : 'ELIMINATED', W / 2, y,
+      { color: s.won ? PAL.uiHighlight : PAL.uiDanger, scale: 2 });
+    y += 20;
+    drawTextCentered(ctx, s.won
+      ? `${this.game.state.player.name} wins the ${s.tournament.short}.`
+      : `Out at the ${roundName(s.tournament.entrants, s.roundsSurvived)} stage.`,
+    W / 2, y, { color: PAL.uiText });
+    y += 14;
+    drawTextCentered(ctx, `+${s.points} Circuit Points   ${money(s.prize)}`, W / 2, y,
+      { color: PAL.uiTextDim });
+    y += 12;
+    if (s.rankedUp) {
+      drawTextCentered(ctx, `PROMOTED — ${s.newRank.name}`, W / 2, y, { color: PAL.uiSelect });
+      y += 12;
+    }
+    drawTextCentered(ctx, `Rating ${this.c.rating}   Record ${this.c.wins}-${this.c.losses}`,
+      W / 2, y, { color: PAL.uiTextDim });
+
+    const box = this._btnBox();
+    rect(ctx, box.x, box.y, box.w, 13, PAL.uiSelect);
+    drawTextCentered(ctx, 'CONTINUE', box.x + box.w / 2, box.y + 3, { color: PAL.uiTextLight });
+    void H;
+  }
+}
+
+// ===========================================================================
+
+/** The post-event press conference. One question, three ways to answer it. */
+class PressScreen extends Screen {
+  constructor(game, press) {
+    super(game);
+    this.press = press;
+    this.index = 0;
+    this.answer = null;
+    this.t = 0;
+  }
+
+  update(dt, isTop) {
+    if (!isTop) return;
+    this.t += dt;
+    if (this.answer) {
+      if (this.t > 0.4 && (input.pressed('a') || input.pressed('b') || input.consumeTap())) {
+        audio.sfx('back'); this.game.screens.pop();
+      }
+      return;
+    }
+    const opts = this.press.options;
+    const box = this._box();
+    const tap = input.consumeTap();
+    if (tap) {
+      for (let i = 0; i < opts.length; i++) {
+        if (hit(tap, box.x, box.y + i * 15, box.w, 13)) { this.index = i; this._answer(i); return; }
+      }
+    }
+    if (input.repeated('up')) { this.index = (this.index - 1 + opts.length) % opts.length; audio.sfx('cursor'); }
+    if (input.repeated('down')) { this.index = (this.index + 1) % opts.length; audio.sfx('cursor'); }
+    if (input.pressed('a')) this._answer(this.index);
+  }
+
+  _answer(i) {
+    audio.sfx('select');
+    this.answer = this.game.career.answerPress(i);
+    this.t = 0;
+  }
+
+  _box() {
+    const { width: W, height: H } = this.game.display;
+    const w = Math.min(240, W - 24);
+    return { x: Math.round((W - w) / 2), y: H - 62, w };
+  }
+
+  render(ctx) {
+    const { width: W, height: H } = this.game.display;
+    rect(ctx, 0, 0, W, H, shade(PAL.uiFrame, -0.5));
+    // Camera flashes.
+    for (let i = 0; i < 6; i++) {
+      const on = ((this.t * 3 + i * 0.37) % 1) < 0.14;
+      if (!on) continue;
+      const fx = 12 + ((i * 53) % Math.max(1, W - 24));
+      rect(ctx, fx, 6 + (i % 3) * 7, 3, 3, PAL.white);
+    }
+    window9(ctx, 6, 6, W - 12, H - 12);
+    drawText(ctx, 'PRESS CONFERENCE', 13, 11, { color: PAL.uiText });
+    rect(ctx, 13, 21, W - 26, 1, PAL.uiBgAlt);
+
+    const maxChars = Math.floor((W - 30) / 6);
+    let y = 27;
+    for (const line of wrap(this.press.question, maxChars)) {
+      labelDim(ctx, line, 13, y); y += LINE;
+    }
+
+    const box = this._box();
+    if (this.answer) {
+      y += 4;
+      for (const line of wrap(this.answer.line, maxChars)) {
+        drawText(ctx, line, 13, y, { color: PAL.uiText }); y += LINE;
+      }
+      y += 4;
+      const c = this.game.state.circuit;
+      drawText(ctx, `Hype ${c.hype}   Respect ${c.respect}`, 13, y, { color: PAL.uiSelect });
+      drawTextCentered(ctx, 'A: done', W / 2, H - 16, { color: PAL.uiTextDim });
+      return;
+    }
+    this.press.options.forEach((o, i) => {
+      const by = box.y + i * 15;
+      const on = i === this.index;
+      rect(ctx, box.x, by, box.w, 13, on ? PAL.uiSelect : PAL.uiBgAlt);
+      drawText(ctx, o.text, box.x + 6, by + 3, { color: on ? PAL.uiTextLight : PAL.uiText });
+      drawTextRight(ctx, `HYPE ${o.hype >= 0 ? '+' : ''}${o.hype}`, box.x + box.w - 6, by + 3,
+        { color: on ? PAL.uiTextLight : PAL.uiTextDim });
+    });
+  }
+}
+
+__exports(__x, { CircuitScreen: () => CircuitScreen, TournamentScreen: () => TournamentScreen, PressScreen: () => PressScreen });
 
 };
 
@@ -13571,6 +15653,179 @@ __exports(__x, { SAVE_SLOT: () => SAVE_SLOT, LocalBackend: () => LocalBackend, C
 
 };
 
+__defs['game/circuit/career.js'] = function (__x, __req) {
+const { enterTournament, currentOpponent, currentRoundName, activeTournament, resolveRound, finishTournament, abandonTournament, recordLinkResult, simulateSeasonWeek, proAsTrainer, canEnter, currentRank } = __req('game/circuit/circuit.js');
+const { reportDebut, reportDraw, reportMatch, reportTournamentResult, reportLinkResult, reportPowerRankings, reportSeasonWeek, buildPress, answerPress } = __req('game/circuit/news.js');
+const { getTournament } = __req('data/circuit.js');
+const { makeRng } = __req('core/rng.js');
+const { displayName, healFully, isFainted, maxHp } = __req('game/monster.js');
+const { addItem } = __req('game/inventory.js');
+// Career orchestration: the layer between the circuit engine and the game.
+//
+// The engine (circuit.js) knows about ratings and brackets, the press desk
+// (news.js) knows about copy, and this knows about the *game* — it starts the
+// battles, reads what happened in them, heals between rounds and pays out.
+// Keeping it here rather than in the UI means tools/circuittest.mjs can run a
+// whole season without a canvas.
+
+
+
+
+
+
+
+/** Pulls the reportable facts out of a finished battle. */
+function battleDetail(battle, playerSideId = 'player') {
+  if (!battle) return {};
+  const [sa, sb] = battle.sides;
+  const me = sa.id === playerSideId ? sa : sb;
+  const foe = me === sa ? sb : sa;
+  const alive = (s) => s.party.filter((m) => !isFainted(m)).length;
+  const best = me.party
+    .filter((m) => !isFainted(m))
+    .sort((x, y) => (y.hp / maxHp(y)) - (x.hp / maxHp(x)))[0] || me.party[0];
+  return {
+    survivors: alive(me),
+    oppSurvivors: alive(foe),
+    turns: battle.turn || 0,
+    star: best ? displayName(best) : null,
+  };
+}
+
+class Career {
+  constructor(game) {
+    this.game = game;
+  }
+
+  get c() { return this.game.state.circuit; }
+  // The unanswered press question lives in the save, not on this object, so
+  // quitting after a final and coming back still owes you a podium interview.
+  get pendingPress() { return this.c.lastPress || null; }
+  set pendingPress(v) { this.c.lastPress = v || null; }
+  get playerName() { return this.game.state.player.name; }
+
+  /** First contact with the circuit desk. */
+  join() {
+    const c = this.c;
+    if (c.joined) return false;
+    c.joined = true;
+    return true;
+  }
+
+  rank() { return currentRank(this.c); }
+  gateFor(t) { return canEnter(this.c, t); }
+  activeTournament() { return activeTournament(this.c); }
+  opponent() { return currentOpponent(this.c); }
+  roundName() { return currentRoundName(this.c); }
+
+  /** Signs up and draws the bracket. Returns the run, or null if gated. */
+  enter(tournamentId) {
+    const c = this.c;
+    const t = getTournament(tournamentId);
+    if (!t) return null;
+    const first = !c.entered.length;
+    const run = enterTournament(c, tournamentId);
+    if (!run) return null;
+    if (first) reportDebut(c, this.playerName, t);
+    reportDraw(c, this.playerName, t, run);
+    return run;
+  }
+
+  /**
+   * Starts the current round's battle. `onDone(won)` fires after the fade,
+   * once the result has been recorded and the press has filed.
+   */
+  startRound(onDone) {
+    const c = this.c;
+    const t = activeTournament(c);
+    const pro = currentOpponent(c);
+    if (!t || !pro) return false;
+    const rng = makeRng((c.seed ^ 0x9e3779b9) >>> 0);
+    const trainer = proAsTrainer(pro, t.level, rng, currentRoundName(c));
+    const screen = this.game.startTrainerBattle(trainer, null, {
+      noBlackout: true,
+      circuit: true,
+      onFinish: (won) => {
+        const detail = battleDetail(screen ? screen.battle : null);
+        this.recordRound(won, detail);
+        if (onDone) onDone(won);
+      },
+    });
+    return true;
+  }
+
+  /** Records a round result and files the story. */
+  recordRound(won, detail = {}) {
+    const c = this.c;
+    const t = activeTournament(c);
+    const entry = resolveRound(c, won, detail);
+    if (entry && t) reportMatch(c, this.playerName, t, entry);
+    return entry;
+  }
+
+  /** True once the run is over one way or the other. */
+  runFinished() { return !!this.c.active && this.c.active.done; }
+
+  /**
+   * Closes the run: points, prize money, promotion, the press conference and
+   * the week of pro results that happens whether or not you were watching.
+   */
+  settle() {
+    const c = this.c;
+    if (!c.active) return null;
+    const summary = finishTournament(c);
+    if (!summary) return null;
+    reportTournamentResult(c, this.playerName, summary);
+    if (summary.prize > 0) {
+      this.game.state.inventory.money = Math.min(999999,
+        this.game.state.inventory.money + summary.prize);
+    }
+    if (summary.won) {
+      // A title always comes with something you can hold.
+      addItem(this.game.state.inventory, 'maxrevive', 1);
+      addItem(this.game.state.inventory, 'fullheal', 2);
+    }
+    reportSeasonWeek(c, simulateSeasonWeek(c));
+    reportPowerRankings(c, this.playerName);
+    c.lastPress = buildPress(c, this.playerName, summary);
+    this.game.save.markDirty();
+    return summary;
+  }
+
+  /** Applies a press-conference answer. */
+  answerPress(index) {
+    const res = answerPress(this.c, this.playerName, this.pendingPress, index);
+    this.c.lastPress = null;
+    this.game.save.markDirty();
+    return res;
+  }
+
+  /** Withdrawing mid-event. Costs rating, as it should. */
+  withdraw() {
+    abandonTournament(this.c);
+    this.game.save.markDirty();
+  }
+
+  /** Full heal between rounds — tournaments provide medical staff. */
+  healBetweenRounds() {
+    for (const m of this.game.state.party) healFully(m);
+  }
+
+  /** A finished link battle against the other human counts for the ranking. */
+  recordLink(won, opponentName) {
+    const c = this.c;
+    if (!c.joined) return null;
+    const res = recordLinkResult(c, won, opponentName || 'a linked trainer');
+    reportLinkResult(c, this.playerName, res);
+    this.game.save.markDirty();
+    return res;
+  }
+}
+
+__exports(__x, { battleDetail: () => battleDetail, Career: () => Career });
+
+};
+
 __defs['main.js'] = function (__x, __req) {
 const { display, TILE } = __req('render/canvas.js');
 const { GameLoop } = __req('core/loop.js');
@@ -13591,6 +15846,7 @@ const { ShopScreen } = __req('ui/shop.js');
 const { MultiplayerScreen } = __req('ui/multiplayer.js');
 const { TradeScreen } = __req('ui/trade.js');
 const { DebugScreen } = __req('ui/debug.js');
+const { CircuitScreen, TournamentScreen, PressScreen } = __req('ui/circuit.js');
 const { createGameState, healParty, setStoryFlag } = __req('game/state.js');
 const { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } = __req('game/monster.js');
 const { createBattle } = __req('game/battle/engine.js');
@@ -13601,6 +15857,7 @@ const { saveManager } = __req('save/SaveManager.js');
 const { net } = __req('net/NetworkManager.js');
 const { RoomManager, TRADE_STATE, PVP_STATE } = __req('net/RoomManager.js');
 const { MUSIC } = __req('data/music.js');
+const { Career } = __req('game/circuit/career.js');
 const { Screen } = __req('ui/screen.js');
 const { window9, rect, drawTextCentered, shadeScreen } = __req('ui/kit.js');
 const { PAL } = __req('render/palette.js');
@@ -13609,6 +15866,8 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
+
 
 
 
@@ -13659,6 +15918,9 @@ class Game {
     this.controlsLayout = getLayout;
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
+    // The World Circuit career. It reads and writes state.circuit, so it is
+    // rebuilt cheaply rather than serialized.
+    this.career = new Career(this);
   }
 
   async boot(canvas) {
@@ -13807,6 +16069,26 @@ class Game {
   openSave() { this.screens.push(new SaveScreen(this)); }
   openPC() { this.screens.push(new PCScreen(this)); }
   openMultiplayer() { this.screens.push(new MultiplayerScreen(this)); }
+  openCircuit(opts) { return this.screens.push(new CircuitScreen(this, opts)); }
+  openPress() {
+    const p = this.career.pendingPress;
+    if (!p || this.screens.contains('PressScreen')) return null;
+    return this.screens.push(new PressScreen(this, p));
+  }
+
+  /** Signs up for an event and opens the run. */
+  enterTournament(id) {
+    if (!this.career.enter(id)) return null;
+    this.career.healBetweenRounds();
+    this.save.markDirty();
+    return this.screens.push(new TournamentScreen(this));
+  }
+
+  /** Re-opens a run that a save was taken in the middle of. */
+  resumeTournament() {
+    if (!this.state.circuit.active) return null;
+    return this.screens.push(new TournamentScreen(this));
+  }
   openShop(onClose) { this.screens.push(new ShopScreen(this, onClose)); }
   openDebug() { this.screens.push(new DebugScreen(this)); }
 
@@ -13845,7 +16127,7 @@ class Game {
     }));
   }
 
-  startTrainerBattle(trainer, onFinish) {
+  startTrainerBattle(trainer, onFinish, opts = {}) {
     const st = this.state;
     const team = trainer.team.map((m) => {
       const mon = createMonster(m.species, m.level, { moves: m.moves || null });
@@ -13864,9 +16146,13 @@ class Game {
       a: { id: 'player', name: st.player.name, isPlayer: true, party: st.party, bag: st.inventory },
       b: { id: trainer.id, name: trainer.name, party: team, trainer },
     });
-    this.screens.push(new BattleScreen(this, battle, {
+    return this.screens.push(new BattleScreen(this, battle, {
       terrain: this._terrainFor(st.player.map),
-      onFinish,
+      onFinish: onFinish || opts.onFinish || null,
+      // Circuit rounds handle their own consequences: losing a tournament
+      // match ends the run, it does not send you home with a lighter wallet.
+      noBlackout: !!opts.noBlackout,
+      circuit: !!opts.circuit,
     }));
   }
 
@@ -13880,6 +16166,13 @@ class Game {
   // Called after every battle resolves.
   afterBattle(result, opts) {
     const st = this.state;
+    if (result === 'lose' && opts && opts.noBlackout) {
+      // A sanctioned loss: patched up on site, no black-out, no penalty.
+      healParty(st);
+      if (this.overworld) this.overworld.playMusic();
+      this.save.markDirty();
+      return;
+    }
     if (result === 'lose') {
       const hp = st.lastHealPoint;
       healParty(st);
@@ -13903,6 +16196,13 @@ class Game {
     bus.on('pvp:started', (session) => {
       if (this.screens.contains('BattleScreen')) return;
       this.screens.fade(FADE.BATTLE, () => this.startPvpBattle(session), { outMs: 500, inMs: 140 });
+    });
+    // Link battles are sanctioned play: they move the world ranking, but only
+    // once the player has actually joined the circuit.
+    bus.on('pvp:finished', ({ result, desynced, ranked }) => {
+      if (!ranked || desynced || (result !== 'win' && result !== 'lose')) return;
+      const snap = net.snapshot();
+      this.career.recordLink(result === 'win', snap.partner ? snap.partner.name : 'a linked trainer');
     });
   }
 

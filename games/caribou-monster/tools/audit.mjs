@@ -14,6 +14,8 @@ import { SPECIES } from '../src/data/species.js';
 import { MOVES } from '../src/data/moves.js';
 import { ITEMS } from '../src/data/items.js';
 import { TRAINERS } from '../src/data/trainers.js';
+import { PROS, TOURNAMENTS, RANKS, PRO_LIST, roundsFor, pointsForFinish } from '../src/data/circuit.js';
+import { HEADLINES, BODIES, PRESS_QUESTIONS, OUTLETS, ANALYSTS } from '../src/data/news.js';
 
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
@@ -253,6 +255,83 @@ for (const sp of Object.values(SPECIES)) {
 for (const it of Object.values(ITEMS)) {
   if (it.use?.kind === 'tm' && !MOVES[it.use.move]) err(`[item ${it.id}] TM teaches unknown move ${it.use.move}`);
 }
+
+// ---- World Circuit ---------------------------------------------------------
+// The circuit generates teams and brackets at runtime, so a bad pool or an
+// unreachable tier would only surface mid-tournament. Prove it here instead.
+
+for (const pro of PRO_LIST) {
+  if (!pro.pool.length) err(`[pro ${pro.id}] has an empty species pool`);
+  for (const sp of pro.pool) if (!SPECIES[sp]) err(`[pro ${pro.id}] unknown species ${sp}`);
+  // A team is built from distinct pool entries, up to four at the top tier.
+  if (new Set(pro.pool).size < 4) err(`[pro ${pro.id}] pool has fewer than 4 distinct species`);
+  for (const k of ['pre', 'win', 'lose']) {
+    if (!pro.lines[k] || !pro.lines[k].length) err(`[pro ${pro.id}] has no '${k}' lines`);
+  }
+  if (!pro.tag || !pro.bio) err(`[pro ${pro.id}] is missing a tag or bio`);
+}
+
+for (const t of TOURNAMENTS) {
+  const rounds = roundsFor(t.entrants);
+  if (!Number.isInteger(rounds) || rounds < 1) err(`[event ${t.id}] entrants must be a power of two`);
+  if (t.requires < 0 || t.requires >= RANKS.length) err(`[event ${t.id}] requires unknown rank ${t.requires}`);
+  // The bracket needs enough distinct pros to fill every slot but the player's.
+  if (t.field.length + 1 < t.entrants && PRO_LIST.length < t.entrants - 1) {
+    err(`[event ${t.id}] cannot fill a ${t.entrants}-draw`);
+  }
+  if (new Set(t.field).size !== t.field.length) err(`[event ${t.id}] field lists a pro twice`);
+  for (const id of t.field) if (!PROS[id]) err(`[event ${t.id}] unknown pro ${id}`);
+  if (t.level < 2 || t.level > 100) err(`[event ${t.id}] level out of range: ${t.level}`);
+  // Every finish must pay something, and winning must pay the most.
+  for (let r = 0; r <= rounds; r++) {
+    const pts = pointsForFinish(t, r);
+    if (pts <= 0) err(`[event ${t.id}] finish at round ${r} pays nothing`);
+    if (pts > t.cp) err(`[event ${t.id}] finish at round ${r} pays more than the title`);
+  }
+}
+
+// Rank gates must be reachable: the points from the events a rank unlocks have
+// to be able to carry the player to the next rank, or the ladder dead-ends.
+{
+  let cp = 0;
+  for (let i = 0; i < RANKS.length - 1; i++) {
+    const open = TOURNAMENTS.filter((t) => t.requires <= i);
+    if (!open.length) { err(`[rank ${RANKS[i].id}] unlocks no events`); break; }
+    const best = Math.max(...open.map((t) => t.cp));
+    if (best <= 0) { err(`[rank ${RANKS[i].id}] unlocks no event worth points`); break; }
+    // Repeatable events mean this is always eventually reachable; flag only a
+    // gate that a full career of the best available event cannot clear.
+    if (RANKS[i + 1].cp - cp > best * 40) {
+      err(`[rank ${RANKS[i + 1].id}] is unreachable from ${RANKS[i].id}`);
+    }
+    cp = RANKS[i + 1].cp;
+  }
+}
+
+// Templates: every slot a headline uses must be one the press desk fills.
+const KNOWN_SLOTS = new Set(['p', 'o', 't', 'r', 'n', 'mon', 'streak', 'round', 'blurb', 'analyst']);
+for (const [kind, list] of Object.entries(HEADLINES)) {
+  if (!list.length) err(`[news ${kind}] has no headlines`);
+  for (const tpl of list) {
+    for (const m of tpl.matchAll(/\{(\w+)\}/g)) {
+      if (!KNOWN_SLOTS.has(m[1])) err(`[news ${kind}] unknown slot {${m[1]}}`);
+    }
+  }
+}
+for (const [kind, list] of Object.entries(BODIES)) {
+  for (const tpl of list) {
+    for (const m of tpl.matchAll(/\{(\w+)\}/g)) {
+      if (!KNOWN_SLOTS.has(m[1])) err(`[news body ${kind}] unknown slot {${m[1]}}`);
+    }
+  }
+}
+for (const [kind, q] of Object.entries(PRESS_QUESTIONS)) {
+  if (q.options.length < 2) err(`[press ${kind}] needs at least two answers`);
+  for (const o of q.options) {
+    if (!o.line || !o.text) err(`[press ${kind}] an option is missing text`);
+  }
+}
+if (!OUTLETS.length || !ANALYSTS.length) err('[news] no outlets or analysts defined');
 
 // ---- report ---------------------------------------------------------------
 

@@ -44,6 +44,7 @@ export class MainMenuScreen extends Screen {
     if (st.party.length) out.push({ key: 'party', text: 'POKéMON' });
     out.push({ key: 'bag', text: 'BAG' });
     out.push({ key: 'card', text: st.player.name.toUpperCase() });
+    if (st.circuit && st.circuit.joined) out.push({ key: 'circuit', text: 'CIRCUIT' });
     out.push({ key: 'link', text: 'LINK' });
     out.push({ key: 'save', text: 'SAVE' });
     out.push({ key: 'options', text: 'OPTIONS' });
@@ -74,6 +75,7 @@ export class MainMenuScreen extends Screen {
       case 'party': g.openParty(); break;
       case 'bag': g.openBag(); break;
       case 'card': g.openCard(); break;
+      case 'circuit': g.openCircuit(); break;
       case 'link': g.openMultiplayer(); break;
       case 'save': g.openSave(); break;
       case 'options': g.openOptions(); break;

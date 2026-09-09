@@ -228,6 +228,15 @@ if (code) {
 
   await A.screenshot({ path: path.join(OUT, 'coop-05-battle-turn.png') });
 
+  // --- ranked link play ----------------------------------------------------
+  // A finished link battle counts towards the world ranking; an abandoned one
+  // must not. Register A on the circuit first so there is something to move.
+  await A.evaluate(() => { window.CARIBOU.state.circuit.joined = true; });
+  const circuitBeforeDrop = await A.evaluate(() => {
+    const c = window.CARIBOU.state.circuit;
+    return { rating: c.rating, wins: c.wins, losses: c.losses, news: c.news.length };
+  });
+
   // --- disconnect safety ---------------------------------------------------
   const partyBeforeDrop = await A.evaluate(() => window.CARIBOU.state.party.map((m) => `${m.species}:${m.hp}`));
   await B.close();
@@ -241,6 +250,28 @@ if (code) {
   check('a link battle never touches the real party',
     JSON.stringify(afterDrop.party) === JSON.stringify(partyBeforeDrop),
     JSON.stringify(afterDrop.party));
+
+  const circuitAfterDrop = await A.evaluate(() => {
+    const c = window.CARIBOU.state.circuit;
+    return { rating: c.rating, wins: c.wins, losses: c.losses, news: c.news.length };
+  });
+  check('an abandoned link battle does not move the world ranking',
+    JSON.stringify(circuitAfterDrop) === JSON.stringify(circuitBeforeDrop),
+    `${circuitBeforeDrop.rating} -> ${circuitAfterDrop.rating}`);
+
+  // A clean result does move it, and files a story naming the opponent.
+  const ranked = await A.evaluate(() => {
+    const g = window.CARIBOU;
+    const before = g.state.circuit.rating;
+    g.career.recordLink(true, 'Robin');
+    const c = g.state.circuit;
+    return { before, after: c.rating, cp: c.cp, headline: c.news[0] && c.news[0].headline };
+  });
+  check('a completed link win raises the world ranking',
+    ranked.after > ranked.before && ranked.cp > 0,
+    `${ranked.before} -> ${ranked.after}, ${ranked.cp} CP`);
+  check('the link result is reported by name',
+    !!ranked.headline && ranked.headline.includes('Robin'), ranked.headline);
 }
 
 console.log(errs.length ? `\nERRORS:\n${errs.slice(0, 12).join('\n')}` : '\nno page errors');

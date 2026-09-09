@@ -142,7 +142,7 @@ await page.screenshot({ path: path.join(OUT, '03-back-outside.png') });
 
 // Every interior, entered directly, must leave the player able to move.
 const interiors = ['player_house', 'rival_house', 'rowan_lab', 'oreburgh_center',
-  'oreburgh_mart', 'oreburgh_gym', 'oreburgh_house', 'oreburgh_house2',
+  'oreburgh_mart', 'oreburgh_gym', 'oreburgh_house', 'oreburgh_house2', 'oreburgh_hall',
   'oreburgh_gate', 'route201', 'route207', 'route202', 'oreburgh', 'twinleaf'];
 for (const id of interiors) {
   const res = await page.evaluate(async (mapId) => {
@@ -166,6 +166,126 @@ for (const id of interiors) {
   check(`entering ${id} leaves the player mobile`, res.legal.length > 0,
     `at ${res.entry.x},${res.entry.y} moves: ${res.legal.join(',') || 'NONE'}`);
 }
+
+// --- the World Circuit, played end to end ---
+// Walk into the Battle Hall, register at the desk, enter the Rookie Cup and
+// actually fight a round. This is the only test that proves the side story
+// connects to the real battle system rather than simulating one.
+console.log('\n--- world circuit ---');
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.overworld.world.load('oreburgh_hall', 7, 8, 'up');
+});
+await wait(500);
+check('the Battle Hall is enterable', (await where()).map === 'oreburgh_hall');
+
+await walkTo(7, 6);
+await page.evaluate(() => { window.CARIBOU.overworld.world.player.dir = 'up'; });
+await wait(150);
+
+// Talk the desk script through: several lines, one Yes/No, then the hub opens.
+for (let i = 0; i < 40; i++) {
+  const done = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name === 'CircuitScreen');
+  if (done) break;
+  await tap('KeyZ', 1, 170);
+}
+const joined = await page.evaluate(() => ({
+  screen: window.CARIBOU.screens.top.constructor.name,
+  joined: window.CARIBOU.state.circuit.joined,
+}));
+check('the desk registers the player and opens the circuit', joined.joined && joined.screen === 'CircuitScreen',
+  `${joined.screen} joined=${joined.joined}`);
+await page.screenshot({ path: path.join(OUT, '04-circuit-hub.png') });
+
+// Enter the Rookie Cup from the EVENTS tab.
+await page.evaluate(() => { const s = window.CARIBOU.screens.top; s.tab = 1; s.index = 0; s.scroll = 0; });
+await tap('KeyZ', 1, 500);
+const bracket = await page.evaluate(() => ({
+  screen: window.CARIBOU.screens.top.constructor.name,
+  active: window.CARIBOU.state.circuit.active && window.CARIBOU.state.circuit.active.id,
+  rounds: window.CARIBOU.state.circuit.active && window.CARIBOU.state.circuit.active.rounds,
+}));
+check('entering an event draws a bracket', bracket.screen === 'TournamentScreen' && bracket.active === 'rookie_cup',
+  `${bracket.screen} ${bracket.active} rounds=${bracket.rounds}`);
+await page.screenshot({ path: path.join(OUT, '05-bracket.png') });
+
+// Take the floor: this must start a real trainer battle against the pro's
+// generated team, not a scripted result.
+const before = await where();
+await tap('KeyZ', 1, 900);
+const inBattle = await page.evaluate(() => {
+  const g = window.CARIBOU;
+  const s = g.screens.top;
+  if (s.constructor.name !== 'BattleScreen') return { screen: s.constructor.name };
+  const foe = s.battle.sides[1];
+  return {
+    screen: 'BattleScreen',
+    foeName: foe.name,
+    foeTeam: foe.party.map((m) => `${m.species}:L${m.level}`),
+    noBlackout: !!s.opts.noBlackout,
+  };
+});
+check('the bracket starts a real battle against the pro', inBattle.screen === 'BattleScreen',
+  `${inBattle.screen} ${inBattle.foeName || ''} ${(inBattle.foeTeam || []).join(' ')}`);
+check('a circuit match is flagged as a no-blackout battle', !!inBattle.noBlackout);
+await page.screenshot({ path: path.join(OUT, '06-circuit-battle.png') });
+
+// Play it out. A level-5 starter against a level-14 pro loses, which is the
+// case worth proving: a sanctioned loss must not send the player home.
+for (let i = 0; i < 500; i++) {
+  const name = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
+  if (name !== 'BattleScreen') break;
+  await page.keyboard.press('KeyZ');
+  await wait(90);
+}
+await wait(1200);
+const after = await page.evaluate(() => {
+  const g = window.CARIBOU;
+  const c = g.state.circuit;
+  return {
+    screen: g.screens.top.constructor.name,
+    map: g.overworld.world.mapId,
+    x: g.overworld.world.player.x, y: g.overworld.world.player.y,
+    losses: c.losses, wins: c.wins, cp: c.cp, active: !!c.active,
+    news: c.news.length, press: !!c.lastPress, money: g.state.inventory.money,
+  };
+});
+check('a circuit result was recorded', after.wins + after.losses > 0,
+  `${after.wins}-${after.losses}, ${after.cp} CP`);
+check('losing a sanctioned match does not send the player home',
+  after.map === 'oreburgh_hall', `${after.map} ${after.x},${after.y}`);
+check('the press filed a story', after.news > 0, `${after.news} stories`);
+await page.screenshot({ path: path.join(OUT, '07-circuit-after.png') });
+
+// Whatever the result, the run must settle and the press conference must open.
+for (let i = 0; i < 12; i++) {
+  const name = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
+  if (name === 'PressScreen') break;
+  await tap('KeyZ', 1, 400);
+}
+const press = await page.evaluate(() => ({
+  screen: window.CARIBOU.screens.top.constructor.name,
+  active: !!window.CARIBOU.state.circuit.active,
+}));
+check('the run settles into a press conference', press.screen === 'PressScreen' && !press.active,
+  `${press.screen} active=${press.active}`);
+await page.screenshot({ path: path.join(OUT, '08-press.png') });
+await tap('KeyZ', 3, 350);
+
+// The career must survive a save/load round trip.
+const trip = await page.evaluate(async () => {
+  const g = window.CARIBOU;
+  await g.save.save(g.state);
+  const raw = await g.save.load();
+  return {
+    cp: g.state.circuit.cp, loadedCp: raw && raw.circuit && raw.circuit.cp,
+    news: g.state.circuit.news.length,
+    loadedNews: raw && raw.circuit && raw.circuit.news ? raw.circuit.news.length : -1,
+  };
+});
+check('the career survives a save', trip.loadedCp === trip.cp && trip.loadedNews === trip.news,
+  `cp ${trip.cp}/${trip.loadedCp}, stories ${trip.news}/${trip.loadedNews}`);
+void before;
 
 if (errs.length) { console.log(`  page errors: ${errs.slice(0, 5).join(' | ')}`); failures += errs.length; }
 console.log(failures ? `\n${failures} CHECK(S) FAILED` : '\nall walkthrough checks passed');

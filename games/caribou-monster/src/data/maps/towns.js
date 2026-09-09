@@ -67,10 +67,10 @@ export const OREBURGH = defineMap('oreburgh', {
     'T..#W#D#W.....::......#W#D#W...T',
     'T.....:.......::.........:.....T',
     'T.....::::::::::::::::::::.....T',
-    'T.............::...............T',
-    'T....*........::........*......T',
-    'T.............::...............T',
-    'T..GGGGG......::........GGGGG..T',
+    'T.............::..EEEEEEE......T',
+    'T....*........::..EEEEEEE......T',
+    'T.............::..#WWDDW#......T',
+    'T..GGGGG......::...S....GGGGG..T',
     'T..GGGGG......::........GGGGG..T',
     'T..#WDW#......::........#WDW#..T',
     'T....:.....EEEEEEEE.......:....T',
@@ -94,10 +94,13 @@ export const OREBURGH = defineMap('oreburgh', {
     { x: 26, y: 14, to: 'oreburgh_house2', tx: 5, ty: 6, dir: 'up' },
     { x: 14, y: 18, to: 'oreburgh_gym', tx: 7, ty: 14, dir: 'up' },
     { x: 15, y: 18, to: 'oreburgh_gym', tx: 8, ty: 14, dir: 'up' },
+    { x: 21, y: 11, to: 'oreburgh_hall', tx: 7, ty: 8, dir: 'up' },
+    { x: 22, y: 11, to: 'oreburgh_hall', tx: 8, ty: 8, dir: 'up' },
   ],
   signs: [
     { x: 3, y: 22, text: 'OREBURGH CITY\nCut from the hillside, stone by stone.' },
     { x: 26, y: 22, text: 'OREBURGH GYM\nLeader: ROARK\n"The quarry does not blink."' },
+    { x: 19, y: 12, text: 'OREBURGH BATTLE HALL\nSanctioned venue of the World Circuit.\nOpen entry. Bring a team.' },
   ],
   npcs: [
     {
@@ -106,7 +109,7 @@ export const OREBURGH = defineMap('oreburgh', {
         'Only once, though. The Mart does not heal anything.'],
     },
     {
-      id: 'al_worker', x: 21, y: 11, look: 'worker', name: 'Dell', movement: 'lookAround', facing: 'left',
+      id: 'al_worker', x: 20, y: 13, look: 'worker', name: 'Dell', movement: 'lookAround', facing: 'left',
       dialogue: ['Roark runs the gym and the quarry both. Rock types, obviously.',
         'Grass and Water tear straight through rock. That is not a secret, it is just true.'],
     },
@@ -114,6 +117,12 @@ export const OREBURGH = defineMap('oreburgh', {
       id: 'al_scientist', x: 19, y: 21, look: 'scientist', name: 'Ines', movement: 'still', facing: 'down',
       dialogue: ['Team Galactic has people up on Route 207 taking light readings. Odd hobby for a group with matching coats.',
         'They keep saying "the Everlight". I have read every book in this city and found the word twice.'],
+    },
+    {
+      id: 'al_fan', x: 18, y: 13, look: 'youngster', name: 'Kip', movement: 'still', facing: 'up',
+      dialogue: ['That grey building is the Battle Hall. Sanctioned circuit events, every week.',
+        'Badges make you a trainer. The circuit tells you what kind.',
+        'Nadia Sable has been world number one for eleven seasons. Eleven.'],
     },
     {
       id: 'al_sailor', x: 6, y: 21, look: 'sailor', name: 'Bram', movement: 'wander', facing: 'right',

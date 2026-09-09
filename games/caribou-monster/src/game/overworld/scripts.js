@@ -5,6 +5,7 @@
 // straight-line async code keeps them readable, and keeps the sequencing out
 // of the render loop entirely.
 import { STARTER_LINES, rivalStarterBase, getTrainer } from '../../data/trainers.js';
+import { getTournament } from '../../data/circuit.js';
 import { getSpecies } from '../../data/species.js';
 import { createMonster } from '../monster.js';
 import { FLAGS } from '../storyflags.js';
@@ -199,6 +200,41 @@ SCRIPTS.commander = async (ctx, npc) => {
   ctx.setFlag(FLAGS.BEAT_COMMANDER);
   ctx.shareMilestone(FLAGS.BEAT_COMMANDER);
   for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
+};
+
+// ---- The World Circuit registration desk -----------------------------------
+//
+// The one door into the side story. It is also the only place a run can be
+// resumed, so a save taken mid-tournament always has somewhere to come back to.
+
+SCRIPTS.circuitDesk = async (ctx) => {
+  const c = ctx.state.circuit;
+
+  if (c.active) {
+    const t = getTournament(c.active.id);
+    await ctx.say(`Registrar: You are still entered in the ${t ? t.name : 'event'}.\fThe floor is ready when you are.`);
+    ctx.resumeTournament();
+    return;
+  }
+
+  if (!ctx.state.party.length) {
+    await ctx.say('Registrar: Circuit entry requires at least one Pokémon.\fCome back with a team.');
+    return;
+  }
+
+  if (!c.joined) {
+    await ctx.say('Registrar: Welcome to the Oreburgh Battle Hall.');
+    await ctx.say('Registrar: This is a sanctioned venue of the World Circuit — the ranking\nevery professional trainer on the planet is measured against.');
+    const yes = await ctx.ask('Registrar: Would you like to register as a competitor?', ['Yes', 'Not yet']);
+    if (yes !== 0) { await ctx.say('Registrar: The desk is open whenever you change your mind.'); return; }
+    ctx.joinCircuit();
+    ctx.sfx('badge');
+    await ctx.say('Registrar: Registered. You start unranked, like everyone does.');
+    await ctx.say('Registrar: Win matches and your rating climbs. Reach a stage in an event\nand you bank Circuit Points, which is what promotes you.');
+    await ctx.say('Registrar: Rookie Cup is open entry. That is where every career starts.');
+  }
+
+  await ctx.openCircuit();
 };
 
 export function scriptFor(name) { return SCRIPTS[name] || null; }

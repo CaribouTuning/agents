@@ -412,6 +412,12 @@ export class OverworldScreen extends Screen {
 
       openShop: () => new Promise((resolve) => screen.game.openShop(resolve)),
 
+      // World Circuit hooks. The screens they open sit above the overworld,
+      // so the script resolves immediately and the player is handed over.
+      joinCircuit: () => screen.game.career.join(),
+      openCircuit: () => { screen.game.openCircuit({ tab: 1 }); },
+      resumeTournament: () => { screen.game.resumeTournament(); },
+
       autosave: () => { if (screen.game.save) screen.game.save.save(st); },
     };
   }

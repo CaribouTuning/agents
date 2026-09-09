@@ -21,6 +21,15 @@ import {
 } from '../game/state.js';
 import { createMonster, healFully } from '../game/monster.js';
 import { net } from '../net/NetworkManager.js';
+import { simulateSeasonWeek } from '../game/circuit/circuit.js';
+import { reportSeasonWeek, reportPowerRankings } from '../game/circuit/news.js';
+
+// One off-screen week of pro results, plus the table it changes.
+function simulateWeek(game) {
+  const c = game.state.circuit;
+  reportSeasonWeek(c, simulateSeasonWeek(c));
+  reportPowerRankings(c, game.state.player.name);
+}
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
@@ -47,6 +56,7 @@ export class DebugScreen extends Screen {
         { t: `Give ${money(10000)}`, a: () => { st.inventory.money = Math.min(999999, st.inventory.money + 10000); this._msg('Money added.'); } },
         { t: 'Award next badge', a: () => { const n = st.badges.length + 1; awardBadge(st, n, `Badge ${n}`); this._msg(`Badge ${n} awarded.`); audio.sfx('badge'); } },
         { t: `Level +5 (party)`, a: () => { for (const m of st.party) { m.level = Math.min(100, m.level + 5); healFully(m); } this._msg('Party levelled.'); } },
+        { t: 'Circuit...', a: () => { this.page = 'circuit'; this.index = 0; this.scroll = 0; } },
         { t: 'Network state...', a: () => { this.page = 'net'; this.index = 0; } },
         { t: 'Reset save', a: () => { this.page = 'reset'; this.index = 1; } },
         { t: 'Close', a: () => this.game.screens.pop() },
@@ -74,6 +84,26 @@ export class DebugScreen extends Screen {
         t: f, right: st.flags[f] ? 'ON' : 'off',
         a: () => { setStoryFlag(st, f, !st.flags[f]); this._msg(`${f} = ${st.flags[f]}`); },
       }));
+      // Reaching the World Circuit legitimately means walking to Oreburgh and
+      // grinding a ladder. These skip to any point on it.
+      case 'circuit': {
+        const c = st.circuit;
+        const g = this.game;
+        return [
+          { t: 'Register on the circuit', right: c.joined ? 'joined' : 'no',
+            a: () => { g.career.join(); this._msg('Registered.'); audio.sfx('badge'); } },
+          { t: 'Open circuit hub', a: () => { g.screens.pop(); g.openCircuit(); } },
+          { t: 'Give 500 Circuit Points', right: `${c.cp} CP`,
+            a: () => { c.cp += 500; c.rank = g.career.rank().id; this._msg(`${c.cp} CP — ${g.career.rank().name}.`); } },
+          { t: 'Rating +50', right: `${c.rating}`,
+            a: () => { c.rating += 50; c.peakRating = Math.max(c.peakRating, c.rating); this._msg(`Rating ${c.rating}.`); } },
+          { t: 'Simulate a season week', right: `week ${c.week}`,
+            a: () => { c.week++; simulateWeek(g); this._msg(`Week ${c.week} played.`); } },
+          { t: 'Abandon active run', right: c.active ? c.active.id : 'none',
+            a: () => { g.career.withdraw(); this._msg('Run abandoned.'); } },
+          { t: 'Back', a: () => { this.page = 'main'; this.index = 0; this.scroll = 0; } },
+        ];
+      }
       case 'net': {
         const s = net.snapshot();
         return [

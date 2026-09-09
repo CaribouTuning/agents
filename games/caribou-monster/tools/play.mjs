@@ -192,6 +192,71 @@ for (const [name, open] of [
   } catch (e) { console.log(`  !! ${name}: ${e.message}`); }
 }
 
+// World Circuit: the career hub, every tab, a live bracket and the press.
+await run(() => {
+  const g = window.CARIBOU;
+  const c = g.state.circuit;
+  c.joined = true;
+  c.cp = 900; c.rating = 1190; c.peakRating = 1210;
+  c.wins = 18; c.losses = 6; c.streak = 4; c.bestStreak = 7;
+  c.titles = ['rookie_cup', 'sinnoh_open'];
+  c.hype = 62; c.respect = 44;
+  g.career.enter('regional_invitational');
+  g.career.recordRound(true, { survivors: 3, turns: 14, star: 'Infernape' });
+});
+for (const [name, open] of [
+  ['31-circuit-career', () => window.CARIBOU.openCircuit({ tab: 0 })],
+  ['32-circuit-events', () => window.CARIBOU.openCircuit({ tab: 1 })],
+  ['33-circuit-ranks', () => window.CARIBOU.openCircuit({ tab: 2 })],
+  ['34-circuit-news', () => window.CARIBOU.openCircuit({ tab: 3 })],
+]) {
+  try {
+    await run(open);
+    await shot(name);
+    await run(() => window.CARIBOU.screens.pop());
+    await page.waitForTimeout(150);
+  } catch (e) { console.log(`  !! ${name}: ${e.message}`); }
+}
+// A full story, opened for reading.
+try {
+  await run(() => {
+    const g = window.CARIBOU;
+    const s = g.openCircuit({ tab: 3 });
+    s.reading = g.state.circuit.news[0];
+  });
+  await shot('35-circuit-article');
+  await run(() => window.CARIBOU.screens.pop());
+} catch (e) { console.log(`  !! 35-circuit-article: ${e.message}`); }
+
+// The live bracket.
+try {
+  await run(() => window.CARIBOU.resumeTournament());
+  await shot('36-tournament');
+  await run(() => window.CARIBOU.screens.pop());
+} catch (e) { console.log(`  !! 36-tournament: ${e.message}`); }
+
+// Podium and press conference.
+try {
+  await run(() => {
+    const g = window.CARIBOU;
+    while (g.state.circuit.active && !g.state.circuit.active.done) {
+      g.career.recordRound(true, { survivors: 2, turns: 18, star: 'Luxray' });
+    }
+    const s = g.resumeTournament();
+    s.onResume();
+  });
+  await shot('37-tournament-result');
+  await run(() => window.CARIBOU.screens.pop());
+  await run(() => window.CARIBOU.openPress());
+  await shot('38-press');
+  await run(() => {
+    const s = window.CARIBOU.screens.top;
+    if (s && s.constructor.name === 'PressScreen') s._answer(1);
+  });
+  await shot('39-press-answer');
+  await run(() => window.CARIBOU.screens.pop());
+} catch (e) { console.log(`  !! press: ${e.message}`); }
+
 // Save + reload round trip.
 await run(async () => { await window.CARIBOU.save.save(window.CARIBOU.state); });
 const meta = await run(async () => window.CARIBOU.save.peek());

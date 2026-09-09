@@ -227,7 +227,56 @@ const OREBURGH_HOUSE2 = defineMap('oreburgh_house2', {
   ],
 });
 
+// ---- Oreburgh Battle Hall -------------------------------------------------
+// Home of the World Circuit. The registration desk is the entry point to the
+// whole side story; everything else in here is atmosphere.
+
+const OREBURGH_HALL = defineMap('oreburgh_hall', {
+  name: 'Oreburgh Battle Hall', kind: 'indoor', music: 'gym', darkEdges: false,
+  tiles: [
+    '||||||||||||||||',
+    '|++++++++++++++|',
+    '|+S++++++++++!+|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|+++xxxxxxxx+++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|||||||DD|||||||',
+  ],
+  warps: [
+    { x: 7, y: 9, to: 'oreburgh', tx: 21, ty: 12, dir: 'down' },
+    { x: 8, y: 9, to: 'oreburgh', tx: 22, ty: 12, dir: 'down' },
+  ],
+  signs: [
+    { x: 2, y: 2, text: 'WORLD CIRCUIT — HOUSE RULES\nSingle elimination. No substitutions\nbetween rounds. Medical staff on site.' },
+  ],
+  npcs: [
+    {
+      id: 'bh_desk', x: 7, y: 4, look: 'nurse', name: 'Registrar', movement: 'still', facing: 'down',
+      script: 'circuitDesk', overCounter: true,
+      dialogue: ['Welcome to the Battle Hall. Circuit business?'],
+    },
+    {
+      id: 'bh_analyst', x: 3, y: 7, look: 'scientist', name: 'Analyst', movement: 'lookAround', facing: 'down',
+      dialogue: ['Rating moves every match. Circuit Points only ever go up.',
+        'That is deliberate. One measures how good you are right now. The other measures what you have done.'],
+    },
+    {
+      id: 'bh_fan', x: 12, y: 7, look: 'lass', name: 'Reporter', movement: 'still', facing: 'left',
+      dialogue: ['I file for the Sinnoh Battle Wire. Every result in this building goes out on the feed.',
+        'Win enough and you will read about yourself. Lose enough and you will read about that too.'],
+    },
+    {
+      id: 'bh_vet', x: 12, y: 3, look: 'oldMan', name: 'Old Hand', movement: 'still', facing: 'down',
+      dialogue: ['Rookie Cup, Sinnoh Open, Invitational, Nationals, Continental, then the World Finals.',
+        'Six steps. Nobody has ever taken them in one season.'],
+    },
+  ],
+});
+
 export const INTERIORS = [
   PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB, OREBURGH_CENTER, OREBURGH_MART,
-  OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2,
+  OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2, OREBURGH_HALL,
 ];

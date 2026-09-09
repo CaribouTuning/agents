@@ -22,6 +22,7 @@ import { ShopScreen } from './ui/shop.js';
 import { MultiplayerScreen } from './ui/multiplayer.js';
 import { TradeScreen } from './ui/trade.js';
 import { DebugScreen } from './ui/debug.js';
+import { CircuitScreen, TournamentScreen, PressScreen } from './ui/circuit.js';
 import { createGameState, healParty, setStoryFlag } from './game/state.js';
 import { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } from './game/monster.js';
 import { createBattle } from './game/battle/engine.js';
@@ -32,6 +33,7 @@ import { saveManager } from './save/SaveManager.js';
 import { net } from './net/NetworkManager.js';
 import { RoomManager, TRADE_STATE, PVP_STATE } from './net/RoomManager.js';
 import { MUSIC } from './data/music.js';
+import { Career } from './game/circuit/career.js';
 
 class Game {
   constructor() {
@@ -53,6 +55,9 @@ class Game {
     this.controlsLayout = getLayout;
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
+    // The World Circuit career. It reads and writes state.circuit, so it is
+    // rebuilt cheaply rather than serialized.
+    this.career = new Career(this);
   }
 
   async boot(canvas) {
@@ -201,6 +206,26 @@ class Game {
   openSave() { this.screens.push(new SaveScreen(this)); }
   openPC() { this.screens.push(new PCScreen(this)); }
   openMultiplayer() { this.screens.push(new MultiplayerScreen(this)); }
+  openCircuit(opts) { return this.screens.push(new CircuitScreen(this, opts)); }
+  openPress() {
+    const p = this.career.pendingPress;
+    if (!p || this.screens.contains('PressScreen')) return null;
+    return this.screens.push(new PressScreen(this, p));
+  }
+
+  /** Signs up for an event and opens the run. */
+  enterTournament(id) {
+    if (!this.career.enter(id)) return null;
+    this.career.healBetweenRounds();
+    this.save.markDirty();
+    return this.screens.push(new TournamentScreen(this));
+  }
+
+  /** Re-opens a run that a save was taken in the middle of. */
+  resumeTournament() {
+    if (!this.state.circuit.active) return null;
+    return this.screens.push(new TournamentScreen(this));
+  }
   openShop(onClose) { this.screens.push(new ShopScreen(this, onClose)); }
   openDebug() { this.screens.push(new DebugScreen(this)); }
 
@@ -239,7 +264,7 @@ class Game {
     }));
   }
 
-  startTrainerBattle(trainer, onFinish) {
+  startTrainerBattle(trainer, onFinish, opts = {}) {
     const st = this.state;
     const team = trainer.team.map((m) => {
       const mon = createMonster(m.species, m.level, { moves: m.moves || null });
@@ -258,9 +283,13 @@ class Game {
       a: { id: 'player', name: st.player.name, isPlayer: true, party: st.party, bag: st.inventory },
       b: { id: trainer.id, name: trainer.name, party: team, trainer },
     });
-    this.screens.push(new BattleScreen(this, battle, {
+    return this.screens.push(new BattleScreen(this, battle, {
       terrain: this._terrainFor(st.player.map),
-      onFinish,
+      onFinish: onFinish || opts.onFinish || null,
+      // Circuit rounds handle their own consequences: losing a tournament
+      // match ends the run, it does not send you home with a lighter wallet.
+      noBlackout: !!opts.noBlackout,
+      circuit: !!opts.circuit,
     }));
   }
 
@@ -274,6 +303,13 @@ class Game {
   // Called after every battle resolves.
   afterBattle(result, opts) {
     const st = this.state;
+    if (result === 'lose' && opts && opts.noBlackout) {
+      // A sanctioned loss: patched up on site, no black-out, no penalty.
+      healParty(st);
+      if (this.overworld) this.overworld.playMusic();
+      this.save.markDirty();
+      return;
+    }
     if (result === 'lose') {
       const hp = st.lastHealPoint;
       healParty(st);
@@ -297,6 +333,13 @@ class Game {
     bus.on('pvp:started', (session) => {
       if (this.screens.contains('BattleScreen')) return;
       this.screens.fade(FADE.BATTLE, () => this.startPvpBattle(session), { outMs: 500, inMs: 140 });
+    });
+    // Link battles are sanctioned play: they move the world ranking, but only
+    // once the player has actually joined the circuit.
+    bus.on('pvp:finished', ({ result, desynced, ranked }) => {
+      if (!ranked || desynced || (result !== 'win' && result !== 'lose')) return;
+      const snap = net.snapshot();
+      this.career.recordLink(result === 'win', snap.partner ? snap.partner.name : 'a linked trainer');
     });
   }
 
