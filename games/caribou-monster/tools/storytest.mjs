@@ -13,7 +13,7 @@ import { createGameState, serializeState, deserializeState } from '../src/game/s
 import { createMonster } from '../src/game/monster.js';
 import { FLAGS } from '../src/game/storyflags.js';
 import { ENTRIES, entriesFor, objective, record } from '../src/game/journal.js';
-import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS } from '../src/data/story.js';
+import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../src/data/story.js';
 import { TRAINERS } from '../src/data/trainers.js';
 import { unrenderable } from '../src/render/font.js';
 import { worldSnapshot, isKnownSlot } from '../src/game/overworld/gossip.js';
@@ -92,6 +92,34 @@ function freshState() {
   check(/ambient light/i.test(script),
     'Rowan must mention the light sensor in the opening scene');
   check(ctx.journalIds.includes('gotStarter'), 'the opening should write a journal entry');
+}
+
+// ---- 1b. Bandit ---------------------------------------------------------------
+// He is Sammy's dog and only Sammy's. Matthew hears about him instead.
+{
+  const sammy = createGameState({ name: 'Sammy', look: 'sammy' });
+  const ctx = fakeCtx(sammy, { answers: [0, 0] });
+  await SCRIPTS.starter(ctx);
+  check(sammy.party.length === 2, `Sammy should leave the lab with two, got ${sammy.party.length}`);
+  const dog = sammy.party[1];
+  check(dog && dog.species === BANDIT.species, `the second one should be a Houndour, got ${dog && dog.species}`);
+  check(dog && dog.nickname === 'Bandit', `he should already be called Bandit, got ${dog && dog.nickname}`);
+  check(dog && dog.friendship > 150, 'Bandit should arrive already attached to her');
+  check(!!sammy.flags.hasBandit, 'the Bandit flag should be set');
+  check(ctx.journalIds.includes('bandit'), 'Bandit should get a journal entry');
+  check(/sausages|followed you|picks a person/i.test(ctx.said.join(' ')),
+    'the scene should explain where he came from');
+
+  // Twice through the lab must not give her two dogs.
+  const again = fakeCtx(sammy, { answers: [0, 0] });
+  await SCRIPTS.starter(again);
+  check(sammy.party.length === 2, 'Bandit must not join twice');
+
+  const matthew = createGameState({ name: 'Matthew', look: 'matthew' });
+  const mctx = fakeCtx(matthew, { answers: [0, 0] });
+  await SCRIPTS.starter(mctx);
+  check(matthew.party.length === 1, 'Matthew should leave the lab with one');
+  check(!matthew.flags.hasBandit, 'Bandit is not Matthew\u2019s');
 }
 
 // ---- 2. Cass, three times ------------------------------------------------------

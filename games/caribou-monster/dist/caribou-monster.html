@@ -6529,6 +6529,7 @@ __defs['game/storyflags.js'] = function (__x, __req) {
 
 const FLAGS = {
   GOT_STARTER: 'gotStarter',
+  HAS_BANDIT: 'hasBandit',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',
@@ -7350,7 +7351,33 @@ function reviveMonster(raw) {
   return mon;
 }
 
-__exports(__x, { STAT_KEYS: () => STAT_KEYS, STAT_NAMES: () => STAT_NAMES, STAT_SHORT: () => STAT_SHORT, newUid: () => newUid, movesAtLevel: () => movesAtLevel, makeMoveSlot: () => makeMoveSlot, createMonster: () => createMonster, statValue: () => statValue, maxHp: () => maxHp, allStats: () => allStats, displayName: () => displayName, speciesOf: () => speciesOf, typesOf: () => typesOf, natureOf: () => natureOf, isFainted: () => isFainted, healFully: () => healFully, restorePP: () => restorePP, expToNext: () => expToNext, expProgress: () => expProgress, gainExp: () => gainExp, expYield: () => expYield, awardEvs: () => awardEvs, knowsMove: () => knowsMove, learnMove: () => learnMove, canLearnTm: () => canLearnTm, serializeMonster: () => serializeMonster, reviveMonster: () => reviveMonster });
+
+/**
+ * What the Pokemon walking behind you does when you turn round and talk to it.
+ *
+ * Rotates on the step count so it is different every time without needing a
+ * random roll — the same walk gives the same lines on both phones in a link
+ * session, which keeps two people looking at the same thing.
+ */
+function partnerLine(mon, steps, extra = null) {
+  const name = displayName(mon);
+  const own = extra && extra.length ? extra : null;
+  const generic = [
+    `${name} looks up at you.`,
+    `${name} is sniffing at something in the grass.`,
+    `${name} bumps its head against your leg.`,
+    `${name} seems happy to be out here.`,
+    `${name} is watching the road ahead.`,
+  ];
+  const hurt = [
+    `${name} is hurt and trying not to show it.`,
+    `${name} is limping. There is a Center in every city.`,
+  ];
+  const pool = mon.hp <= maxHp(mon) / 4 ? hurt : (own || generic);
+  return pool[Math.abs(steps) % pool.length];
+}
+
+__exports(__x, { STAT_KEYS: () => STAT_KEYS, STAT_NAMES: () => STAT_NAMES, STAT_SHORT: () => STAT_SHORT, newUid: () => newUid, movesAtLevel: () => movesAtLevel, makeMoveSlot: () => makeMoveSlot, createMonster: () => createMonster, statValue: () => statValue, maxHp: () => maxHp, allStats: () => allStats, displayName: () => displayName, speciesOf: () => speciesOf, typesOf: () => typesOf, natureOf: () => natureOf, isFainted: () => isFainted, healFully: () => healFully, restorePP: () => restorePP, expToNext: () => expToNext, expProgress: () => expProgress, gainExp: () => gainExp, expYield: () => expYield, awardEvs: () => awardEvs, knowsMove: () => knowsMove, learnMove: () => learnMove, canLearnTm: () => canLearnTm, serializeMonster: () => serializeMonster, reviveMonster: () => reviveMonster, partnerLine: () => partnerLine });
 
 };
 
@@ -8120,6 +8147,15 @@ const ENTRIES = [
       'He mentioned the Pokédex logs ambient light as well. He said not to\nworry about that part.',
     ],
     next: 'Head north out of Twinleaf, along Route 201.',
+  },
+  {
+    id: 'bandit',
+    title: 'Bandit came too',
+    body: [
+      'He was sitting outside the lab the whole time I was in it. Nobody let\nhim out. He just knew.',
+      'Rowan says a Pokémon that picks a person has already decided, and the\npaperwork only catches up later.',
+      'He is a Houndour. He is not really mine. He is completely mine.',
+    ],
   },
   {
     id: 'metCass',
@@ -9432,6 +9468,9 @@ const TWINLEAF = defineMap('twinleaf', {
             ['Is it true there are two of you? You and {buddy}?',
               'Somebody said you both got a Pokémon off Rowan on the same morning.',
               'That is a RIVALRY. That is what that is. I am writing it down.'],
+            ['Is that a HOUNDOUR? An actual Houndour, just walking about?',
+              'They are supposed to be really hard to get near. My book says so.',
+              'He is not even on a lead. He just... goes where you go.'],
             ['When {buddy} links up with you, come and find me first.',
               'I want to see it. A real link-up. Two trainers, one world.',
               'I will not get in the way. I will stand exactly here.'],
@@ -10163,7 +10202,9 @@ const PLAYER_HOUSE = defineMap('player_house', {
         },
         {
           lines: ['Professor Rowan came by looking for you. Something about a Pokémon she wants you to have.',
-            '{buddy} was called down as well, so do not dawdle. Go on. I already packed your bag.'],
+            '{buddy} was called down as well, so do not dawdle.\fGo on. I already packed your bag.',
+            'And that Houndour was on our step again this morning.',
+            'I said no. Then I gave him the end of the bacon.\fThat is how these arrangements start.'],
         },
       ],
       heals: true,
@@ -10199,6 +10240,12 @@ const RIVAL_HOUSE = defineMap('rival_house', {
           when: { flag: 'beatRival1' },
           lines: ['Heard you two had it out on Route 201. Heard who won, as well.',
             'Do not expect that to be the end of it. It never is.'],
+        },
+        {
+          when: { flag: 'hasBandit' },
+          lines: ['So he went with you. Of course he did.',
+            'That dog has slept on four different doorsteps in this street and chosen exactly one person.',
+            'Do not let him near anybody\u2019s washing line. I am asking as a favour.'],
         },
         {
           when: { linked: true },
@@ -11083,6 +11130,16 @@ class World {
     this.player = makeEntity({ id: 'player', kind: 'player', x, y, dir, look: this.state.player.look });
     this.entities.push(this.player);
 
+    // The lead Pokemon walks behind you, the way it does in HeartGold. It is
+    // a rendering companion, not a body: it never blocks anything, is never
+    // in a collision test, and is rebuilt from the party on every map load,
+    // so nothing about it can desync a save or a link session.
+    this.follower = makeEntity({
+      id: 'follower', kind: 'follower', x, y, dir, look: null, solid: false,
+    });
+    this.follower.trail = [];
+    this.refreshFollower();
+
     for (const npc of this.map.npcs) {
       if (npc.trainer && this.state.flags[`beat_${npc.trainer}`] && npc.removeAfter) continue;
       this.entities.push(makeEntity({ ...npc, kind: 'npc' }));
@@ -11164,10 +11221,58 @@ class World {
     entity.moveT = 0;
     entity.moveDur = (run ? RUN_FRAMES : WALK_FRAMES) * (hop ? 1.6 : 1);
     entity.hopping = hop;
+    if (entity.kind === 'player' && this.follower && this.follower.visible) {
+      this.follower.trail.push({
+        x: entity.fromX, y: entity.fromY, dur: entity.moveDur, hop: 0,
+      });
+      // One tile of slack. Any more and the partner trails off the screen.
+      while (this.follower.trail.length > 2) this.follower.trail.shift();
+    }
     return true;
   }
 
   face(entity, dirName) { if (!entity.moving) entity.dir = dirName; }
+
+  // ---- the walking partner ---------------------------------------------------
+
+  /**
+   * Reads the lead Pokemon off the party. Called on map load and whenever the
+   * party changes, so swapping your lead swaps who is walking with you.
+   */
+  refreshFollower() {
+    const f = this.follower;
+    if (!f) return;
+    const lead = (this.state.party || []).find((m) => m && m.hp > 0) || null;
+    f.mon = lead;
+    f.visible = !!lead && this.map && this.map.kind !== 'indoor';
+    if (!f.visible) return;
+    // Start folded into the player so it does not slide in from the corner.
+    f.x = this.player.x; f.y = this.player.y;
+    f.fromX = f.x; f.fromY = f.y;
+    f.dir = this.player.dir;
+    f.moving = false;
+    f.trail = [];
+  }
+
+  /**
+   * One step of the follower: it walks into the tile the player has just
+   * left. The trail is a queue of the player's last positions, so the partner
+   * traces the player's path rather than cutting corners through walls.
+   */
+  _followerStep() {
+    const f = this.follower;
+    if (!f || !f.visible || f.moving) return;
+    const next = f.trail.shift();
+    if (!next) return;
+    if (next.x === f.x && next.y === f.y) return;
+    f.fromX = f.x; f.fromY = f.y;
+    f.dir = next.x > f.x ? 'right' : next.x < f.x ? 'left' : next.y > f.y ? 'down' : 'up';
+    f.x = next.x; f.y = next.y;
+    f.moving = true;
+    f.moveT = 0;
+    f.moveDur = next.dur || WALK_FRAMES;
+    f.hopping = next.hop || 0;
+  }
 
   // Pixel position for rendering, interpolated across the step.
   renderPos(entity) {
@@ -11185,6 +11290,18 @@ class World {
     this.animTimer += dt;
     if (this.animTimer > 0.22) { this.animTimer -= 0.22; this.animFrame = (this.animFrame + 1) % 4; }
     if (this.encounterCooldown > 0) this.encounterCooldown--;
+
+    // The partner, first, so it is already moving on the frame the player
+    // starts its step and the two look like one procession.
+    const f = this.follower;
+    if (f && f.visible) {
+      if (f.moving) {
+        f.moveT++;
+        f.frame = 1 + (Math.floor((f.moveT / f.moveDur) * 2) % 2);
+        if (f.moveT >= f.moveDur) { f.moving = false; f.frame = 0; f.hopping = 0; }
+      }
+      if (!f.moving) this._followerStep();
+    }
 
     // Player.
     const p = this.player;
@@ -11328,6 +11445,13 @@ class World {
     const [dx, dy] = DIRS[p.dir];
     let tx = p.x + dx, ty = p.y + dy;
 
+    // The walking partner is not in the collision set, so it has to be
+    // checked by hand — otherwise you would talk straight through it.
+    const f = this.follower;
+    if (f && f.visible && f.mon && f.x === tx && f.y === ty) {
+      return { type: 'partner', mon: f.mon, entity: f };
+    }
+
     let e = this.entityAt(tx, ty) || this.remoteAt(tx, ty);
     // Talking across a shop or centre counter.
     if (!e && this.defAt(tx, ty).name === 'counter') {
@@ -11432,6 +11556,8 @@ __defs['render/worldrender.js'] = function (__x, __req) {
 const { TILE } = __req('render/canvas.js');
 const { drawTile, tileDef, drawEdge, drawCastShadow, drawRoofEdge, groundOf, groundRank, EDGE_DIRS } = __req('render/tiles.js');
 const { drawChar, lookFor, SPR_W, FOOT_OFFSET } = __req('render/sprites.js');
+const { renderMonster } = __req('render/monsterart.js');
+const { getSpecies } = __req('data/species.js');
 const { PAL, shade } = __req('render/palette.js');
 const { drawTextCentered, drawText } = __req('render/font.js');
 // Overworld renderer.
@@ -11440,6 +11566,8 @@ const { drawTextCentered, drawText } = __req('render/font.js');
 // characters walk behind things correctly, and re-draws the top half of tall
 // grass over anyone standing in it — the small detail that sells the
 // perspective in the games this is modelled on.
+
+
 
 
 
@@ -11558,11 +11686,17 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     drawables.push({ e, sortY: e.y });
   }
   for (const r of world.remotesHere()) drawables.push({ e: r, sortY: r.y, remote: true });
+  // The walking partner sorts by its feet like everything else, so it passes
+  // behind a tree and in front of the grass exactly as the player does.
+  if (world.follower && world.follower.visible && world.follower.mon) {
+    drawables.push({ e: world.follower, sortY: world.follower.y - 0.01, partner: true });
+  }
   drawables.sort((a, b) => a.sortY - b.sortY || (a.e.kind === 'player' ? 1 : -1));
 
   for (const d of drawables) {
     const e = d.e;
     if (d.item) { drawItemBall(ctx, e, camera); continue; }
+    if (d.partner) { drawPartner(ctx, world, e, camera); continue; }
     if (d.remote) { drawRemote(ctx, e, camera, opts); continue; }
     const pos = world.renderPos(e);
     const sx = pos.x - camera.x;
@@ -11617,6 +11751,40 @@ function drawShadow(ctx, sx, groundY, lift) {
   ctx.fillStyle = PAL.black;
   ctx.fillRect(Math.round(sx + 4), Math.round(groundY + 12), 8, 3);
   ctx.globalAlpha = 1;
+}
+
+/**
+ * The lead Pokemon, walking. It is drawn from the same generated artwork the
+ * battle screen uses, scaled to fit a tile, with a small bob so it reads as
+ * moving rather than sliding, and a ground shadow so it is standing on the
+ * map instead of floating over it.
+ */
+const PARTNER_SIZE = 20;
+
+function drawPartner(ctx, world, e, camera) {
+  const sp = getSpecies(e.mon.species);
+  if (!sp) return;
+  const pos = world.renderPos(e);
+  const sx = Math.round(pos.x - camera.x - (PARTNER_SIZE - TILE) / 2);
+  const sy = Math.round(pos.y - camera.y - (PARTNER_SIZE - TILE));
+  const bob = e.moving ? Math.round(Math.sin(e.moveT * 0.55) * 1.2) : 0;
+
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = PAL.black;
+  ctx.fillRect(Math.round(pos.x - camera.x) + 3, Math.round(pos.y - camera.y) + 12, 10, 3);
+  ctx.globalAlpha = 1;
+
+  const img = renderMonster(sp.art, { size: PARTNER_SIZE, shiny: !!e.mon.shiny });
+  // Facing right mirrors the sprite, the same trick the character sheets use.
+  if (e.dir === 'right') {
+    ctx.save();
+    ctx.translate(sx + PARTNER_SIZE, sy + bob);
+    ctx.scale(-1, 1);
+    ctx.drawImage(img, 0, 0);
+    ctx.restore();
+  } else {
+    ctx.drawImage(img, sx, sy + bob);
+  }
 }
 
 function drawItemBall(ctx, e, camera) {
@@ -12054,7 +12222,59 @@ const DOCUMENTS = {
   },
 };
 
-__exports(__x, { CASS: () => CASS, ROWAN: () => ROWAN, MARS: () => MARS, EVERLIGHT: () => EVERLIGHT, DOCUMENTS: () => DOCUMENTS });
+
+/**
+ * Bandit.
+ *
+ * Sammy's dog, which in this world means a Houndour — the Dark-type one with
+ * the bone-white markings and a face like a mask, which is where the name
+ * came from and also, as far as he is concerned, the job description.
+ *
+ * He is not a gift from a professor and he was never caught. He turned up at
+ * the back door one winter, stole a whole string of sausages, and then
+ * declined to leave. The family gave up and set a bowl down. He has been on
+ * the doorstep every morning since.
+ *
+ * When Sammy leaves town he simply comes too, and nobody consulted about it
+ * is surprised.
+ */
+const BANDIT = {
+  species: 228,           // Houndour
+  nickname: 'Bandit',
+  level: 5,
+  friendship: 200,
+
+  // In the lab, once the starter is chosen, if it is Sammy holding the phone.
+  arrives: [
+    '*Something scratches at the lab door. Twice. Then harder.*',
+    'Prof. Rowan: That will be the Houndour.',
+    'Prof. Rowan: He has been sitting outside since you went in.\fHe followed you up the hill.',
+    'Sammy: That is Bandit. He is not mine exactly. He just lives at our house.',
+    'Prof. Rowan: I have been doing this forty years.\fHe is yours exactly.',
+    'Prof. Rowan: A Pokémon that picks a person has already made the decision.\fThe paperwork only ever catches up.',
+  ],
+  joined: [
+    '*Bandit walks straight past the Professor, sits on your foot, and looks up.*',
+    'Prof. Rowan: Yes. Well. Take him with you, then.',
+  ],
+  // Matthew's version: Bandit is next door's, and Bandit likes Matthew more
+  // than Matthew has ever admitted to liking Bandit.
+  matthewMum: [
+    'Mum: That Houndour was on our step again this morning.',
+    'Mum: I said no. Then I gave him the end of the bacon.\fThat is how these arrangements start.',
+    'Mum: He is Sammy\u2019s, really. Everyone knows it but the two of them.',
+  ],
+  // The line the walking partner gives back when you talk to him.
+  talk: [
+    'Bandit shoves his whole head under your hand.',
+    'Bandit is chewing something. You decide not to ask what.',
+    'Bandit looks up at you, then back down the road, then at you again.',
+    'Bandit has found a stick considerably larger than Bandit.',
+    'Bandit leans his entire weight against your leg and closes his eyes.',
+  ],
+};
+
+__exports(__x, { CASS: () => CASS, ROWAN: () => ROWAN, MARS: () => MARS, EVERLIGHT: () => EVERLIGHT, DOCUMENTS: () => DOCUMENTS, BANDIT: () => BANDIT });
 
 };
 
@@ -12064,13 +12284,15 @@ const { getTournament } = __req('data/circuit.js');
 const { getSpecies } = __req('data/species.js');
 const { createMonster } = __req('game/monster.js');
 const { FLAGS } = __req('game/storyflags.js');
-const { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS } = __req('data/story.js');
+const { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } = __req('data/story.js');
+const { playerByLook } = __req('game/players.js');
 // Story scripts.
 //
 // A script is an async function that receives a small `ctx` of primitives —
 // say, ask, battle, give, wait, move — and awaits them. Writing cutscenes as
 // straight-line async code keeps them readable, and keeps the sequencing out
 // of the render loop entirely.
+
 
 
 
@@ -12138,7 +12360,40 @@ SCRIPTS.starter = async (ctx) => {
   ctx.setFlag(FLAGS.GOT_STARTER);
   ctx.shareMilestone(FLAGS.GOT_STARTER);
   ctx.journal('gotStarter');
+
+  await banditJoins(ctx);
 };
+
+/**
+ * Bandit lets himself in.
+ *
+ * Only for the player who is Sammy — he is her dog, and the whole point of
+ * him is that he chose one particular person. Matthew hears about him from
+ * his Mum instead, and sees him trotting along behind her on a link.
+ */
+async function banditJoins(ctx) {
+  const st = ctx.state;
+  if (st.flags[FLAGS.HAS_BANDIT]) return;
+  const who = playerByLook(st.player.look);
+  if (!who || who.key !== 'sammy') return;
+
+  await speak(ctx, BANDIT.arrives);
+  const dog = createMonster(BANDIT.species, BANDIT.level, {
+    nickname: BANDIT.nickname,
+    friendship: BANDIT.friendship,
+  });
+  dog.ot = st.player.name;
+  dog.otId = st.player.id;
+  dog.caughtAt = 'rowan_lab';
+  st.party.push(dog);
+  ctx.dex.seen(BANDIT.species);
+  ctx.dex.caught(BANDIT.species);
+  ctx.cry(BANDIT.species);
+  await speak(ctx, BANDIT.joined);
+  await ctx.say('Bandit joined your team!');
+  ctx.setFlag(FLAGS.HAS_BANDIT);
+  ctx.journal('bandit');
+}
 
 // ---- Rival battles ---------------------------------------------------------
 
@@ -13564,6 +13819,8 @@ const { getMap } = __req('data/maps/index.js');
 const { getTrainer } = __req('data/trainers.js');
 const { getItem } = __req('data/items.js');
 const { getSpecies } = __req('data/species.js');
+const { partnerLine } = __req('game/monster.js');
+const { BANDIT } = __req('data/story.js');
 const { addItem } = __req('game/inventory.js');
 const { recordSeen, recordCaught } = __req('game/pokedex.js');
 const { awardBadge, healParty, setStoryFlag, progress } = __req('game/state.js');
@@ -13579,6 +13836,8 @@ const { net } = __req('net/NetworkManager.js');
 // Cutscenes are written as async functions (see game/overworld/scripts.js).
 // This screen supplies the primitives they await, and blocks player input for
 // as long as one is running.
+
+
 
 
 
@@ -13634,6 +13893,9 @@ class OverworldScreen extends Screen {
     this.playMusic();
     // A partner may have joined or left while a menu was open.
     this.syncRemotes();
+    // The party may have changed too — a new lead, a fainted lead, a caught
+    // Pokemon — so whoever is walking behind you is re-read from it.
+    this.world.refreshFollower();
   }
 
   onExit() { for (const u of (this.netSubs || [])) u(); this.netSubs = []; }
@@ -13740,10 +14002,22 @@ class OverworldScreen extends Screen {
       return;
     }
     if (target.type === 'flavour') { this.say(target.text); return; }
+    if (target.type === 'partner') { this._talkToPartner(target.mon); return; }
     if (target.type === 'pc') { this.game.openPC(); return; }
     if (target.type === 'item') { this._pickUp(target.entity); return; }
     if (target.type === 'player') { this._interactPlayer(target.entity); return; }
     if (target.type === 'npc') { this._talkTo(target.entity); return; }
+  }
+
+  /**
+   * Turning round to talk to whoever is walking behind you. Bandit has his
+   * own lines, because he is a specific dog and not a generic one.
+   */
+  _talkToPartner(mon) {
+    const own = (mon.nickname === BANDIT.nickname && mon.species === BANDIT.species)
+      ? BANDIT.talk : null;
+    this.say(partnerLine(mon, this.game.state.stats.steps, own));
+    audio.cry(mon.species, 1.1);
   }
 
   _pickUp(e) {

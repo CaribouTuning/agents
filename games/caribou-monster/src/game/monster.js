@@ -214,3 +214,29 @@ export function reviveMonster(raw) {
   mon.hp = Math.max(0, Math.min(maxHp(mon), raw.hp ?? maxHp(mon)));
   return mon;
 }
+
+
+/**
+ * What the Pokemon walking behind you does when you turn round and talk to it.
+ *
+ * Rotates on the step count so it is different every time without needing a
+ * random roll — the same walk gives the same lines on both phones in a link
+ * session, which keeps two people looking at the same thing.
+ */
+export function partnerLine(mon, steps, extra = null) {
+  const name = displayName(mon);
+  const own = extra && extra.length ? extra : null;
+  const generic = [
+    `${name} looks up at you.`,
+    `${name} is sniffing at something in the grass.`,
+    `${name} bumps its head against your leg.`,
+    `${name} seems happy to be out here.`,
+    `${name} is watching the road ahead.`,
+  ];
+  const hurt = [
+    `${name} is hurt and trying not to show it.`,
+    `${name} is limping. There is a Center in every city.`,
+  ];
+  const pool = mon.hp <= maxHp(mon) / 4 ? hurt : (own || generic);
+  return pool[Math.abs(steps) % pool.length];
+}

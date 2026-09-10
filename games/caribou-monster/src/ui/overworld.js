@@ -19,6 +19,8 @@ import { getMap } from '../data/maps/index.js';
 import { getTrainer } from '../data/trainers.js';
 import { getItem } from '../data/items.js';
 import { getSpecies } from '../data/species.js';
+import { partnerLine } from '../game/monster.js';
+import { BANDIT } from '../data/story.js';
 import { addItem } from '../game/inventory.js';
 import { recordSeen, recordCaught } from '../game/pokedex.js';
 import { awardBadge, healParty, setStoryFlag, progress } from '../game/state.js';
@@ -59,6 +61,9 @@ export class OverworldScreen extends Screen {
     this.playMusic();
     // A partner may have joined or left while a menu was open.
     this.syncRemotes();
+    // The party may have changed too — a new lead, a fainted lead, a caught
+    // Pokemon — so whoever is walking behind you is re-read from it.
+    this.world.refreshFollower();
   }
 
   onExit() { for (const u of (this.netSubs || [])) u(); this.netSubs = []; }
@@ -165,10 +170,22 @@ export class OverworldScreen extends Screen {
       return;
     }
     if (target.type === 'flavour') { this.say(target.text); return; }
+    if (target.type === 'partner') { this._talkToPartner(target.mon); return; }
     if (target.type === 'pc') { this.game.openPC(); return; }
     if (target.type === 'item') { this._pickUp(target.entity); return; }
     if (target.type === 'player') { this._interactPlayer(target.entity); return; }
     if (target.type === 'npc') { this._talkTo(target.entity); return; }
+  }
+
+  /**
+   * Turning round to talk to whoever is walking behind you. Bandit has his
+   * own lines, because he is a specific dog and not a generic one.
+   */
+  _talkToPartner(mon) {
+    const own = (mon.nickname === BANDIT.nickname && mon.species === BANDIT.species)
+      ? BANDIT.talk : null;
+    this.say(partnerLine(mon, this.game.state.stats.steps, own));
+    audio.cry(mon.species, 1.1);
   }
 
   _pickUp(e) {

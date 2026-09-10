@@ -64,7 +64,9 @@ const PLAYER_HOUSE = defineMap('player_house', {
         },
         {
           lines: ['Professor Rowan came by looking for you. Something about a Pokémon she wants you to have.',
-            '{buddy} was called down as well, so do not dawdle. Go on. I already packed your bag.'],
+            '{buddy} was called down as well, so do not dawdle.\fGo on. I already packed your bag.',
+            'And that Houndour was on our step again this morning.',
+            'I said no. Then I gave him the end of the bacon.\fThat is how these arrangements start.'],
         },
       ],
       heals: true,
@@ -100,6 +102,12 @@ const RIVAL_HOUSE = defineMap('rival_house', {
           when: { flag: 'beatRival1' },
           lines: ['Heard you two had it out on Route 201. Heard who won, as well.',
             'Do not expect that to be the end of it. It never is.'],
+        },
+        {
+          when: { flag: 'hasBandit' },
+          lines: ['So he went with you. Of course he did.',
+            'That dog has slept on four different doorsteps in this street and chosen exactly one person.',
+            'Do not let him near anybody\u2019s washing line. I am asking as a favour.'],
         },
         {
           when: { linked: true },

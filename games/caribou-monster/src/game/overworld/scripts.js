@@ -9,7 +9,8 @@ import { getTournament } from '../../data/circuit.js';
 import { getSpecies } from '../../data/species.js';
 import { createMonster } from '../monster.js';
 import { FLAGS } from '../storyflags.js';
-import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS } from '../../data/story.js';
+import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../../data/story.js';
+import { playerByLook } from '../players.js';
 
 // The thing in the chamber: Dialga, by national dex number.
 const EVERLIGHT_SPECIES = 483;
@@ -71,7 +72,40 @@ SCRIPTS.starter = async (ctx) => {
   ctx.setFlag(FLAGS.GOT_STARTER);
   ctx.shareMilestone(FLAGS.GOT_STARTER);
   ctx.journal('gotStarter');
+
+  await banditJoins(ctx);
 };
+
+/**
+ * Bandit lets himself in.
+ *
+ * Only for the player who is Sammy — he is her dog, and the whole point of
+ * him is that he chose one particular person. Matthew hears about him from
+ * his Mum instead, and sees him trotting along behind her on a link.
+ */
+async function banditJoins(ctx) {
+  const st = ctx.state;
+  if (st.flags[FLAGS.HAS_BANDIT]) return;
+  const who = playerByLook(st.player.look);
+  if (!who || who.key !== 'sammy') return;
+
+  await speak(ctx, BANDIT.arrives);
+  const dog = createMonster(BANDIT.species, BANDIT.level, {
+    nickname: BANDIT.nickname,
+    friendship: BANDIT.friendship,
+  });
+  dog.ot = st.player.name;
+  dog.otId = st.player.id;
+  dog.caughtAt = 'rowan_lab';
+  st.party.push(dog);
+  ctx.dex.seen(BANDIT.species);
+  ctx.dex.caught(BANDIT.species);
+  ctx.cry(BANDIT.species);
+  await speak(ctx, BANDIT.joined);
+  await ctx.say('Bandit joined your team!');
+  ctx.setFlag(FLAGS.HAS_BANDIT);
+  ctx.journal('bandit');
+}
 
 // ---- Rival battles ---------------------------------------------------------
 

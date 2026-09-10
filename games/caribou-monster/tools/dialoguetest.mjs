@@ -27,6 +27,16 @@ function baseState(name = 'Matthew') {
   return st;
 }
 
+function withBandit(st) {
+  // Sammy's playthrough. Bandit is real content with real lines about him,
+  // so the sweep has to walk a save that has him in it.
+  st.player.look = 'sammy';
+  st.player.name = 'Sammy';
+  st.flags.hasBandit = true;
+  st.party = [...st.party, createMonster(228, 8)];
+  return st;
+}
+
 function withStarter(st) {
   st.flags.gotStarter = true;
   st.starterBase = 1;
@@ -120,6 +130,7 @@ function midEvent(st) {
 const STAGES = [
   ['fresh save', () => baseState()],
   ['got a starter', () => withStarter(baseState())],
+  ['Sammy, with Bandit', () => withBandit(withStarter(baseState('Sammy')))],
   ['first badge', () => withBadge(withStarter(baseState()))],
   ['into the cave', () => withCave(withBadge(withStarter(baseState())))],
   ['beat the commander', () => withCommander(withCave(withBadge(withStarter(baseState()))))],

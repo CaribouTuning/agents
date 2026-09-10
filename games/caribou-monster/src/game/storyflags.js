@@ -7,6 +7,7 @@
 
 export const FLAGS = {
   GOT_STARTER: 'gotStarter',
+  HAS_BANDIT: 'hasBandit',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',

@@ -26,6 +26,15 @@ export const ENTRIES = [
     next: 'Head north out of Twinleaf, along Route 201.',
   },
   {
+    id: 'bandit',
+    title: 'Bandit came too',
+    body: [
+      'He was sitting outside the lab the whole time I was in it. Nobody let\nhim out. He just knew.',
+      'Rowan says a Pokémon that picks a person has already decided, and the\npaperwork only catches up later.',
+      'He is a Houndour. He is not really mine. He is completely mine.',
+    ],
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [

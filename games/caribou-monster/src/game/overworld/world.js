@@ -77,6 +77,16 @@ export class World {
     this.player = makeEntity({ id: 'player', kind: 'player', x, y, dir, look: this.state.player.look });
     this.entities.push(this.player);
 
+    // The lead Pokemon walks behind you, the way it does in HeartGold. It is
+    // a rendering companion, not a body: it never blocks anything, is never
+    // in a collision test, and is rebuilt from the party on every map load,
+    // so nothing about it can desync a save or a link session.
+    this.follower = makeEntity({
+      id: 'follower', kind: 'follower', x, y, dir, look: null, solid: false,
+    });
+    this.follower.trail = [];
+    this.refreshFollower();
+
     for (const npc of this.map.npcs) {
       if (npc.trainer && this.state.flags[`beat_${npc.trainer}`] && npc.removeAfter) continue;
       this.entities.push(makeEntity({ ...npc, kind: 'npc' }));
@@ -158,10 +168,58 @@ export class World {
     entity.moveT = 0;
     entity.moveDur = (run ? RUN_FRAMES : WALK_FRAMES) * (hop ? 1.6 : 1);
     entity.hopping = hop;
+    if (entity.kind === 'player' && this.follower && this.follower.visible) {
+      this.follower.trail.push({
+        x: entity.fromX, y: entity.fromY, dur: entity.moveDur, hop: 0,
+      });
+      // One tile of slack. Any more and the partner trails off the screen.
+      while (this.follower.trail.length > 2) this.follower.trail.shift();
+    }
     return true;
   }
 
   face(entity, dirName) { if (!entity.moving) entity.dir = dirName; }
+
+  // ---- the walking partner ---------------------------------------------------
+
+  /**
+   * Reads the lead Pokemon off the party. Called on map load and whenever the
+   * party changes, so swapping your lead swaps who is walking with you.
+   */
+  refreshFollower() {
+    const f = this.follower;
+    if (!f) return;
+    const lead = (this.state.party || []).find((m) => m && m.hp > 0) || null;
+    f.mon = lead;
+    f.visible = !!lead && this.map && this.map.kind !== 'indoor';
+    if (!f.visible) return;
+    // Start folded into the player so it does not slide in from the corner.
+    f.x = this.player.x; f.y = this.player.y;
+    f.fromX = f.x; f.fromY = f.y;
+    f.dir = this.player.dir;
+    f.moving = false;
+    f.trail = [];
+  }
+
+  /**
+   * One step of the follower: it walks into the tile the player has just
+   * left. The trail is a queue of the player's last positions, so the partner
+   * traces the player's path rather than cutting corners through walls.
+   */
+  _followerStep() {
+    const f = this.follower;
+    if (!f || !f.visible || f.moving) return;
+    const next = f.trail.shift();
+    if (!next) return;
+    if (next.x === f.x && next.y === f.y) return;
+    f.fromX = f.x; f.fromY = f.y;
+    f.dir = next.x > f.x ? 'right' : next.x < f.x ? 'left' : next.y > f.y ? 'down' : 'up';
+    f.x = next.x; f.y = next.y;
+    f.moving = true;
+    f.moveT = 0;
+    f.moveDur = next.dur || WALK_FRAMES;
+    f.hopping = next.hop || 0;
+  }
 
   // Pixel position for rendering, interpolated across the step.
   renderPos(entity) {
@@ -179,6 +237,18 @@ export class World {
     this.animTimer += dt;
     if (this.animTimer > 0.22) { this.animTimer -= 0.22; this.animFrame = (this.animFrame + 1) % 4; }
     if (this.encounterCooldown > 0) this.encounterCooldown--;
+
+    // The partner, first, so it is already moving on the frame the player
+    // starts its step and the two look like one procession.
+    const f = this.follower;
+    if (f && f.visible) {
+      if (f.moving) {
+        f.moveT++;
+        f.frame = 1 + (Math.floor((f.moveT / f.moveDur) * 2) % 2);
+        if (f.moveT >= f.moveDur) { f.moving = false; f.frame = 0; f.hopping = 0; }
+      }
+      if (!f.moving) this._followerStep();
+    }
 
     // Player.
     const p = this.player;
@@ -321,6 +391,13 @@ export class World {
     const p = this.player;
     const [dx, dy] = DIRS[p.dir];
     let tx = p.x + dx, ty = p.y + dy;
+
+    // The walking partner is not in the collision set, so it has to be
+    // checked by hand — otherwise you would talk straight through it.
+    const f = this.follower;
+    if (f && f.visible && f.mon && f.x === tx && f.y === ty) {
+      return { type: 'partner', mon: f.mon, entity: f };
+    }
 
     let e = this.entityAt(tx, ty) || this.remoteAt(tx, ty);
     // Talking across a shop or centre counter.

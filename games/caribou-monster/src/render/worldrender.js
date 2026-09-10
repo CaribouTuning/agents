@@ -7,6 +7,8 @@
 import { TILE } from './canvas.js';
 import { drawTile, tileDef, drawEdge, drawCastShadow, drawRoofEdge, groundOf, groundRank, EDGE_DIRS } from './tiles.js';
 import { drawChar, lookFor, SPR_W, FOOT_OFFSET } from './sprites.js';
+import { renderMonster } from './monsterart.js';
+import { getSpecies } from '../data/species.js';
 import { PAL, shade } from './palette.js';
 import { drawTextCentered, drawText } from './font.js';
 
@@ -122,11 +124,17 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     drawables.push({ e, sortY: e.y });
   }
   for (const r of world.remotesHere()) drawables.push({ e: r, sortY: r.y, remote: true });
+  // The walking partner sorts by its feet like everything else, so it passes
+  // behind a tree and in front of the grass exactly as the player does.
+  if (world.follower && world.follower.visible && world.follower.mon) {
+    drawables.push({ e: world.follower, sortY: world.follower.y - 0.01, partner: true });
+  }
   drawables.sort((a, b) => a.sortY - b.sortY || (a.e.kind === 'player' ? 1 : -1));
 
   for (const d of drawables) {
     const e = d.e;
     if (d.item) { drawItemBall(ctx, e, camera); continue; }
+    if (d.partner) { drawPartner(ctx, world, e, camera); continue; }
     if (d.remote) { drawRemote(ctx, e, camera, opts); continue; }
     const pos = world.renderPos(e);
     const sx = pos.x - camera.x;
@@ -181,6 +189,40 @@ function drawShadow(ctx, sx, groundY, lift) {
   ctx.fillStyle = PAL.black;
   ctx.fillRect(Math.round(sx + 4), Math.round(groundY + 12), 8, 3);
   ctx.globalAlpha = 1;
+}
+
+/**
+ * The lead Pokemon, walking. It is drawn from the same generated artwork the
+ * battle screen uses, scaled to fit a tile, with a small bob so it reads as
+ * moving rather than sliding, and a ground shadow so it is standing on the
+ * map instead of floating over it.
+ */
+const PARTNER_SIZE = 20;
+
+function drawPartner(ctx, world, e, camera) {
+  const sp = getSpecies(e.mon.species);
+  if (!sp) return;
+  const pos = world.renderPos(e);
+  const sx = Math.round(pos.x - camera.x - (PARTNER_SIZE - TILE) / 2);
+  const sy = Math.round(pos.y - camera.y - (PARTNER_SIZE - TILE));
+  const bob = e.moving ? Math.round(Math.sin(e.moveT * 0.55) * 1.2) : 0;
+
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = PAL.black;
+  ctx.fillRect(Math.round(pos.x - camera.x) + 3, Math.round(pos.y - camera.y) + 12, 10, 3);
+  ctx.globalAlpha = 1;
+
+  const img = renderMonster(sp.art, { size: PARTNER_SIZE, shiny: !!e.mon.shiny });
+  // Facing right mirrors the sprite, the same trick the character sheets use.
+  if (e.dir === 'right') {
+    ctx.save();
+    ctx.translate(sx + PARTNER_SIZE, sy + bob);
+    ctx.scale(-1, 1);
+    ctx.drawImage(img, 0, 0);
+    ctx.restore();
+  } else {
+    ctx.drawImage(img, sx, sy + bob);
+  }
 }
 
 function drawItemBall(ctx, e, camera) {

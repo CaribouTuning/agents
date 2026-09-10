@@ -111,7 +111,7 @@ const walkTo = async (tx, ty, limit = 16) => {
     const before = `${w.x},${w.y},${w.map}`;
     // A single-tile move gets a short hold. A long one used to overshoot and
     // then oscillate around the target until the attempt budget ran out.
-    await hold(key, dist === 1 ? 170 : 150 + dist * 240);
+    await hold(key, dist === 1 ? 240 : 200 + dist * 240);
     let after = await where();
     if (after.map !== w.map) return true;                              // warped
 
