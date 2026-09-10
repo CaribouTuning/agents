@@ -6,6 +6,7 @@
 // entry, not an art asset.
 import { makeSurface, paintGrid } from './canvas.js';
 import { shade } from './palette.js';
+import { drawCharSprite } from './charsprites.js';
 
 export const SPR_W = 16;
 export const SPR_H = 20;
@@ -195,6 +196,11 @@ const DIR_ROW = { down: 0, up: 1, left: 2, right: 2 };
 // Draws a character. (x, y) is the top-left of the tile the character
 // stands on; the sprite is lifted so its feet sit in that tile.
 export function drawChar(ctx, key, look, dir, frame, x, y, opts = {}) {
+  // The real DS sprite whenever the atlas has this look and has decoded.
+  // Everything below is the generated stand-in, which still runs for a look
+  // the atlas does not carry and for the frame or two before it decodes.
+  if (drawCharSprite(ctx, look.name, dir, frame, x, y, opts.alpha == null ? 1 : opts.alpha)) return;
+
   const sheet = buildCharSheet(key, look);
   const row = DIR_ROW[dir] ?? 0;
   const sx = (frame % 3) * SPR_W;
@@ -242,6 +248,10 @@ export const LOOKS = {
   scientist: makeLook({ hair: '#3a3a48', shirt: '#f4f4f8', pants: '#8a9aa8', boots: '#4a4a52' }),
   boss: makeLook({ hair: '#c8b088', shirt: '#20283a', pants: '#101828', longHair: true, boots: '#0a0e18', outlineColor: '#05070d' }),
 };
+
+// Each look learns its own name, so drawChar can ask the sprite atlas for it
+// without every call site having to pass the name alongside the object.
+for (const [name, look] of Object.entries(LOOKS)) look.name = look.name || name;
 
 LOOKS.boy = LOOKS.matthew;
 LOOKS.girl = LOOKS.sammy;

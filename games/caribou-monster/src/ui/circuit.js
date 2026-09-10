@@ -377,7 +377,7 @@ export class CircuitScreen extends Screen {
     const px0 = p.x + 7, py0 = p.y + 7;
     rect(ctx, px0, py0, 22, 26, PAL.uiFrame);
     rect(ctx, px0 + 1, py0 + 1, 20, 24, shade(TABS[0].color, 0.5));
-    drawChar(ctx, `card:${st.player.look}`, lookFor(st.player.look), 'down', 0, px0 + 3, py0 + 4);
+    drawChar(ctx, `card:${st.player.look}`, lookFor(st.player.look), 'down', 0, px0 + 3, py0 + 14);
 
     const tx = px0 + 28;
     const tw = p.x + p.w - 7 - tx;
@@ -587,7 +587,7 @@ export class CircuitScreen extends Screen {
       { color: r.isPlayer ? PAL.uiSelect : TABS[2].color, right: `#${r.place}`, h: 11 });
     let ty = dy + 14;
     if (pro) {
-      drawChar(ctx, `crc:${pro.look}`, lookFor(pro.look), 'down', 0, p.x + p.w - 28, dy + 12);
+      drawChar(ctx, `crc:${pro.look}`, lookFor(pro.look), 'down', 0, p.x + p.w - 28, dy + 18);
       labelDim(ctx, clip(pro.bio, chars), p.x + 7, ty);
       ty += LINE;
       labelDim(ctx, clip(`${pro.region} · ${pro.style} · rating ${r.rating}`, chars), p.x + 7, ty);
@@ -597,7 +597,7 @@ export class CircuitScreen extends Screen {
     } else {
       const c = this.c;
       drawChar(ctx, `crc:${this.game.state.player.look}`, lookFor(this.game.state.player.look),
-        'down', 0, p.x + p.w - 28, dy + 12);
+        'down', 0, p.x + p.w - 28, dy + 18);
       labelDim(ctx, clip(`${this.career.rank().blurb}`, chars), p.x + 7, ty);
       ty += LINE;
       labelDim(ctx, clip(`Peak ${c.peakRating} · ${c.cp} CP · ${c.titles.length} titles`, chars), p.x + 7, ty);
@@ -867,7 +867,7 @@ export class TournamentScreen extends Screen {
 
     rect(ctx, p.x + 8, y + 4, 22, 26, PAL.uiFrame);
     rect(ctx, p.x + 9, y + 5, 20, 24, shade(accent, 0.56));
-    drawChar(ctx, `trn:${pro.look}`, lookFor(pro.look), 'down', 0, p.x + 11, y + 8);
+    drawChar(ctx, `trn:${pro.look}`, lookFor(pro.look), 'down', 0, p.x + 11, y + 16);
 
     const tx = p.x + 34;
     const twChars = Math.max(8, Math.floor((p.w - 46) / 6));
@@ -1069,7 +1069,7 @@ export class PressScreen extends Screen {
     const st = this.game.state;
     const cx = Math.round(W * 0.26);
     const deskY = floorY + 6;
-    drawChar(ctx, `press:${st.player.look}`, lookFor(st.player.look), 'down', 0, cx - 8, deskY - 26);
+    drawChar(ctx, `press:${st.player.look}`, lookFor(st.player.look), 'down', 0, cx - 8, deskY - 18);
     rect(ctx, cx - 22, deskY - 8, 44, 12, '#3c2a1e');
     rect(ctx, cx - 22, deskY - 8, 44, 2, '#5a4030');
     rect(ctx, cx - 18, deskY - 5, 36, 1, shade('#3c2a1e', -0.4));

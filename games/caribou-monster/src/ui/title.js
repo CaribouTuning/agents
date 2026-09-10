@@ -377,7 +377,7 @@ export class CharacterScreen extends Screen {
         window9(ctx, card.x, card.y, card.w, card.h,
           { bg: sel ? PAL.uiBg : PAL.uiBgAlt, frame: sel ? PAL.uiHighlight : PAL.uiFrame });
         drawChar(ctx, `cc:${card.l.key}`, lookFor(card.l.key), 'down',
-          sel ? (Math.floor(this.t * 5) % 3) : 0, card.x + card.w / 2 - 8, card.y + 10);
+          sel ? (Math.floor(this.t * 5) % 3) : 0, card.x + card.w / 2 - 8, card.y + 20);
         drawTextCentered(ctx, card.l.label, card.x + card.w / 2, card.y + card.h - 12,
           { color: sel ? PAL.uiText : PAL.uiTextDim });
       }
@@ -415,7 +415,7 @@ export class CharacterScreen extends Screen {
     } else {
       drawTextCentered(ctx, 'Ready?', W / 2, 18, { color: PAL.uiTextLight, shadow: PAL.black });
       window9(ctx, W / 2 - 80, 32, 160, H - 62);
-      drawChar(ctx, `cc2:${this.look}`, lookFor(this.look), 'down', Math.floor(this.t * 5) % 3, W / 2 - 8, 42);
+      drawChar(ctx, `cc2:${this.look}`, lookFor(this.look), 'down', Math.floor(this.t * 5) % 3, W / 2 - 8, 48);
       drawTextCentered(ctx, this.name, W / 2, 68);
       drawTextCentered(ctx, this.difficulty.toUpperCase(), W / 2, 80, { color: PAL.uiSelect });
       drawTextCentered(ctx, 'Twinleaf Town is waiting.', W / 2, 96, { color: PAL.uiTextDim });

@@ -1,0 +1,32 @@
+{
+ "cell": 32,
+ "dirs": [
+  "down",
+  "up",
+  "left",
+  "right"
+ ],
+ "rows": {
+  "matthew": 0,
+  "sammy": 1,
+  "rivalBoy": 2,
+  "rivalGirl": 3,
+  "youngster": 4,
+  "lass": 5,
+  "bugCatcher": 6,
+  "hiker": 7,
+  "worker": 8,
+  "sailor": 9,
+  "scientist": 10,
+  "professor": 11,
+  "nurse": 12,
+  "clerk": 13,
+  "mom": 14,
+  "oldMan": 15,
+  "kid": 16,
+  "grunt": 17,
+  "gruntF": 18,
+  "boss": 19,
+  "leaderRock": 20
+ }
+}

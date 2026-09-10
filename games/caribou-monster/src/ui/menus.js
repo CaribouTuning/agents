@@ -642,7 +642,7 @@ export class TrainerCardScreen extends Screen {
     label(ctx, String(st.player.id).padStart(5, '0'), 60, 76);
 
     // Trainer portrait.
-    drawChar(ctx, `card:${st.player.look}`, lookFor(st.player.look), 'down', 0, W - 40, 34);
+    drawChar(ctx, `card:${st.player.look}`, lookFor(st.player.look), 'down', 0, W - 40, 44);
 
     labelDim(ctx, 'BADGES', 14, H - 34);
     for (let i = 0; i < 8; i++) {
