@@ -15,6 +15,7 @@ import { objective, OBJECTIVE_MAX, ENTRIES as JOURNAL_ENTRIES } from '../src/gam
 import { PHASES, phaseAt, tintFor } from '../src/game/clock.js';
 import { SPECIES } from '../src/data/species.js';
 import { MOVES } from '../src/data/moves.js';
+import { TYPES } from '../src/data/types.js';
 import { ITEMS } from '../src/data/items.js';
 import { TRAINERS } from '../src/data/trainers.js';
 import { PROS, TOURNAMENTS, RANKS, PRO_LIST, roundsFor, pointsForFinish } from '../src/data/circuit.js';
@@ -276,6 +277,21 @@ for (const map of Object.values(MAPS)) {
 }
 
 // ---- data-level checks ----------------------------------------------------
+
+// Held items. The engine understands exactly three kinds; anything else in the
+// table is a description of an effect that does not happen, which is the one
+// thing this project refuses to ship.
+const HELD_KINDS = ['pinch-heal', 'pinch-cure', 'boost-type', 'friendship'];
+for (const [id, item] of Object.entries(ITEMS)) {
+  if (!item.held) continue;
+  if (!HELD_KINDS.includes(item.held.kind)) {
+    err(`[item ${id}] held effect '${item.held.kind}' is not implemented by the engine`);
+  }
+  if (item.held.kind === 'boost-type' && !TYPES.includes(item.held.type)) {
+    err(`[item ${id}] boosts unknown type ${item.held.type}`);
+  }
+}
+
 
 for (const [id, t] of Object.entries(TRAINERS)) {
   for (const m of t.team) {

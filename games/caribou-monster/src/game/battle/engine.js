@@ -627,6 +627,9 @@ export function computeDamage(battle, sideIdx, move, opts = {}) {
   dmg = Math.floor(dmg * ability.damageDealtMultiplier(user, eff));
   dmg = Math.floor(dmg * ability.damageTakenMultiplier(target, user, move, eff));
   dmg = Math.floor(dmg * weather.damageMultiplier(activeWeather(battle), move.type));
+  // A held item that toughens one type of move. It is not consumed, so unlike
+  // a berry it applies on every hit — which is the trade for how small it is.
+  dmg = Math.floor(dmg * heldTypeBoost(user, move));
   if (crit) dmg = Math.floor(dmg * ability.critMultiplier(user));
   if (user.status === 'BRN' && physical && !ability.ignoresBurnDrop(user)) dmg = Math.floor(dmg * 0.5);
   // Damage roll: 85%..100%. A peek uses the average roll so the AI's
@@ -639,6 +642,18 @@ export function computeDamage(battle, sideIdx, move, opts = {}) {
   }
 
   return { dmg: Math.max(eff === 0 ? 0 : 1, dmg), eff, crit };
+}
+
+/**
+ * The multiplier a held item gives a move of its type. Held items only work
+ * for a Pokémon whose ability lets it use one, the same rule the berries obey.
+ */
+function heldTypeBoost(user, move) {
+  if (!user.heldItem || !ability.usesHeldItem(user)) return 1;
+  const held = getItem(user.heldItem);
+  const spec = held && held.held;
+  if (!spec || spec.kind !== 'boost-type' || spec.type !== move.type) return 1;
+  return spec.mult;
 }
 
 function applyDamagingMove(battle, sideIdx, move, out) {

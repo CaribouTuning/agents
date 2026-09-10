@@ -75,6 +75,30 @@ export const ENTRIES = [
     ],
   },
   {
+    id: 'underground',
+    title: 'Under Sinnoh',
+    body: [
+      'An old man in Oreburgh gave me a bag of digging tools and told me there\nis another Sinnoh under this one.',
+      'He is right. Miles of tunnel, and nobody put them there. They were\nalready there when people arrived.',
+    ],
+  },
+  {
+    id: 'firstDig',
+    title: 'The seams',
+    body: [
+      'The rock glitters where there is something in it. You take the layers\noff and the shape of the thing underneath comes up out of the wall.',
+      'Hammer for ground, pick when it matters. I learned that the expensive\nway, with a fossil three-quarters out and the roof coming down.',
+    ],
+  },
+  {
+    id: 'secretBase',
+    title: 'A room of our own',
+    body: [
+      'I cut a room into a wall a hundred feet under Sinnoh. It is bare rock\nand it is completely mine.',
+      'There is a board on the back wall. Whatever I scratch on it, they will\nread it next time they are down here. That is the whole feature.',
+    ],
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [

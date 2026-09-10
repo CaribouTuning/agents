@@ -82,7 +82,11 @@ const waitIdle = async (limit = 40) => {
         busy: !!g.overworld?.script || g.dialogueForTest.visible || g.screens.busy,
       };
     });
-    if (state.screen === 'NicknameScreen') { await page.keyboard.press('KeyX'); await wait(160); continue; }
+    // Both keyboards back out of an empty field on B, which is what these
+    // phases want: get past the text entry rather than type into it.
+    if (state.screen === 'NicknameScreen' || state.screen === 'TextEntryScreen') {
+      await page.keyboard.press('KeyX'); await wait(160); continue;
+    }
     if (!state.busy && state.screen === 'OverworldScreen') return true;
     await page.keyboard.press('KeyZ');
     await wait(150);
@@ -456,6 +460,153 @@ if (inDaycare.map === 'sandgem_daycare') {
   });
   check('the Day Care survives a save', round.boarded === 2, `boarded ${round.boarded}`);
 }
+
+// --- the Underground ---
+// The kit, a ladder down, a seam, the minigame, a room cut into a wall, and
+// the board on the back of it. Gen 4's best idea, driven through the real UI.
+console.log('\n--- the underground ---');
+
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.repelSteps = 9999;
+  g.overworld.world.load('oreburgh', 10, 24, 'up');
+});
+await wait(500);
+await waitIdle();
+await tap('KeyZ', 1, 320);
+check('the Underground Man offers a kit', await choose('Yes'));
+await waitIdle();
+check('and hands it over',
+  await page.evaluate(() => (window.CARIBOU.state.inventory.items.explorerkit || 0) > 0));
+
+await page.evaluate(() => window.CARIBOU.overworld.runScript('goUnderground'));
+await wait(700);
+await waitIdle();
+const below = await where();
+check('the kit digs down into the tunnels', below.map === 'underground',
+  `${below.map} ${below.x},${below.y}`);
+check('and remembers where you came from', await page.evaluate(() => {
+  const r = window.CARIBOU.state.underground.returnTo;
+  return !!r && r.map === 'oreburgh';
+}));
+check('the tunnels leave the player mobile', (await canMove()).length > 0, (await canMove()).join(','));
+
+// A seam. The shallow one at 4,4 is a step from the north-west shaft.
+await page.evaluate(() => window.CARIBOU.overworld.world.load('underground', 5, 4, 'left'));
+await wait(400);
+await waitIdle();
+await tap('KeyZ', 1, 320);
+check('a seam offers to be dug', await choose('Dig'));
+await wait(600);
+const digging = await page.evaluate(() => {
+  const g = window.CARIBOU, s = g.screens.top;
+  return s.constructor.name === 'DigScreen'
+    ? { w: s.dig.w, h: s.dig.h, items: s.dig.items.length, tool: s.dig.tool } : null;
+});
+check('and opens a wall of rock', !!digging, digging ? `${digging.w}x${digging.h}, ${digging.items} buried` : 'no screen');
+await page.screenshot({ path: path.join(OUT, '08c-dig.png') });
+
+if (digging) {
+  // Clear the whole wall from the inside, the way a determined player would,
+  // then let the screen finish. The roof is not what is being tested here.
+  const haul = await page.evaluate(async () => {
+    const g = window.CARIBOU, s = g.screens.top;
+    const d = s.dig;
+    for (let y = 0; y < d.h; y++) {
+      for (let x = 0; x < d.w; x++) {
+        let guard = 0;
+        while (d.depth[y][x] > 0 && guard++ < 8) { d.strikes = 0; d.collapsed = false; s._strike(x, y); }
+      }
+    }
+    return { found: d.items.filter((i) => i.found).length, bag: { ...g.state.inventory.items } };
+  });
+  check('everything in the wall can be got out', haul.found > 0, `${haul.found} things`);
+  check('and it goes in the bag',
+    Object.keys(haul.bag).some((k) => k.endsWith('sphere') || k.endsWith('shard') || k === 'heartscale'),
+    Object.keys(haul.bag).filter((k) => k.endsWith('sphere')).join(', '));
+  await tap('KeyZ', 1, 300);
+  await waitIdle();
+  check('and the dig hands you back to the tunnels', (await where()).map === 'underground');
+  check('the seam is spent for a while', await page.evaluate(() => {
+    const ug = window.CARIBOU.state.underground;
+    return Object.keys(ug.walls).length > 0 && ug.digs > 0;
+  }));
+}
+
+// A room of your own. The base wall at 2,7 is on the west corridor.
+await page.evaluate(() => window.CARIBOU.overworld.world.load('underground', 3, 7, 'left'));
+await wait(400);
+await waitIdle();
+await tap('KeyZ', 1, 320);
+check('a soft wall offers a Secret Base', await choose('Yes'));
+await waitIdle();
+const base = await page.evaluate(() => {
+  const b = window.CARIBOU.state.underground.base;
+  return b ? { x: b.x, y: b.y, owner: b.owner } : null;
+});
+check('and cutting one records where it is', !!base, base ? `${base.x},${base.y} — ${base.owner}` : 'none');
+
+// Walk into it.
+await tap('KeyZ', 1, 320);
+await wait(700);
+await waitIdle();
+const inRoom = await where();
+check('you can walk into your own base', inRoom.map === 'secret_base', inRoom.map);
+
+if (inRoom.map === 'secret_base') {
+  check('the room leaves the player mobile', (await canMove()).length > 0, (await canMove()).join(','));
+  // Buy something for it, then check it is standing in the room.
+  await page.evaluate(() => {
+    const g = window.CARIBOU;
+    g.debugGiveItem('greensphere', 6);
+    g.overworld.runScript('baseGoods');
+  });
+  await wait(400);
+  check('the trader takes spheres', await choose('Pit Lamp'));
+  await waitIdle(60);
+  await tap('KeyX', 3, 200);
+  await waitIdle(60);
+  const furnished = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    return { decor: g.state.underground.base.decor.length,
+      spheres: g.state.inventory.greensphere || g.state.inventory.items.greensphere || 0 };
+  });
+  check('and something ends up in the room', furnished.decor > 0, `${furnished.decor} piece(s)`);
+  check('and the spheres are spent', furnished.spheres < 6, `${furnished.spheres} left`);
+  await page.screenshot({ path: path.join(OUT, '08d-base.png') });
+
+  // The board, and the line on it.
+  await page.evaluate(() => {
+    const b = window.CARIBOU.state.underground.base;
+    b.note = 'the kettle is on';
+    b.noteBy = 'Matthew';
+  });
+  await walkTo(5, 1, 6);
+  await hold('ArrowUp', 120);
+  await tap('KeyZ', 1, 320);
+  const board = await page.evaluate(() => window.CARIBOU.dialogueForTest.visible);
+  check('the board on the wall can be read', board);
+  await waitIdle(60);
+
+  // Out through the door, back into the tunnel in front of it.
+  await walkTo(5, 6, 8);
+  await wait(700);
+  await waitIdle();
+  const out = await where();
+  check('the door leads back out to your own wall', out.map === 'underground',
+    `${out.map} ${out.x},${out.y}`);
+}
+
+// And back up to daylight, where you went down.
+await page.evaluate(() => window.CARIBOU.overworld.world.load('underground', 2, 3, 'up'));
+await wait(400);
+await waitIdle();
+await hold('ArrowUp', 300);
+await wait(800);
+await waitIdle();
+const surfaced = await where();
+check('a ladder brings you up where you went down', surfaced.map === 'oreburgh',
+  `${surfaced.map} ${surfaced.x},${surfaced.y}`);
 
 // --- the Everlight, the story's ending ---
 // Four maps of NPCs point at a seam of light under Oreburgh Gate. This proves

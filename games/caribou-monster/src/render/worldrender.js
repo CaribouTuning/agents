@@ -12,6 +12,8 @@ import { getSpecies } from '../data/species.js';
 import { PAL, shade } from './palette.js';
 import { tintFor } from '../game/clock.js';
 import { patchAt, stageIndex } from '../game/berries.js';
+import { GOODS } from '../game/underground/base.js';
+import { BASE_BOARD } from '../data/maps/underground.js';
 import { getItem } from '../data/items.js';
 import { drawTextCentered, drawText } from './font.js';
 
@@ -109,6 +111,20 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
         if (!patch) continue;
         drawBerryPlant(ctx, patch, x * TILE - camera.x, y * TILE - camera.y, frame);
       }
+    }
+  }
+
+  // --- a Secret Base's furniture ---
+  // The room is a map; what is in it is save data, so it is drawn from the
+  // room the player is standing in rather than from the tiles.
+  const room = opts.room;
+  if (room && world.mapId === 'secret_base') {
+    drawBoard(ctx, BASE_BOARD, camera, room);
+    for (const d of room.decor) {
+      const g = GOODS[d.id];
+      if (!g) continue;
+      drawFurniture(ctx, d.id, (opts.origin.x + d.x) * TILE - camera.x,
+        (opts.origin.y + d.y) * TILE - camera.y, g);
     }
   }
 
@@ -282,6 +298,66 @@ function drawBerryPlant(ctx, patch, sx, sy, frame) {
   };
   berry(4 + sway, 7);
   berry(9 + sway, 5);
+}
+
+
+/**
+ * The board on the back wall of a Secret Base — the thing the whole room is
+ * really for. It is drawn with something on it whenever there is something on
+ * it, so you can see from the door that somebody has been.
+ */
+function drawBoard(ctx, board, camera, room) {
+  const sx = board.x * TILE - camera.x;
+  const sy = board.y * TILE - camera.y;
+  ctx.fillStyle = '#3a2c1e'; ctx.fillRect(sx + 1, sy + 2, 14, 12);
+  ctx.fillStyle = '#6b5236'; ctx.fillRect(sx + 2, sy + 3, 12, 10);
+  ctx.fillStyle = '#8a6d49'; ctx.fillRect(sx + 2, sy + 3, 12, 1);
+  if (room && room.note) {
+    ctx.fillStyle = '#efe6c8'; ctx.fillRect(sx + 4, sy + 5, 8, 6);
+    ctx.fillStyle = '#7b6a4a';
+    ctx.fillRect(sx + 5, sy + 6, 6, 1);
+    ctx.fillRect(sx + 5, sy + 8, 5, 1);
+  } else {
+    ctx.fillStyle = '#c8ad74'; ctx.fillRect(sx + 7, sy + 5, 2, 2);
+  }
+}
+
+/**
+ * One piece of furniture. Small, flat shapes with a shadow under them: the
+ * room is 9x5 and every piece has to read at a glance from the door.
+ */
+const FURN = {
+  lamp: ['#f0d060', '#8a6a20'],
+  rug: ['#b8506a', '#7c2f44'],
+  chair: ['#8a6a44', '#5a4429'],
+  table: ['#a8814e', '#6d5231'],
+  plant: ['#4f9c46', '#2f6b2c'],
+  shelf: ['#9a8a72', '#66594a'],
+  banner: ['#e8c060', '#a5822c'],
+  hearth: ['#e07a3c', '#8a4520'],
+};
+
+function drawFurniture(ctx, id, sx, sy, g) {
+  const [light, dark] = FURN[id] || ['#9a8a72', '#66594a'];
+  const w = g.w * TILE, h = g.h * TILE;
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(sx + 2, sy + h - 4, w - 4, 3);
+  ctx.fillStyle = dark; ctx.fillRect(sx + 1, sy + 3, w - 2, h - 5);
+  ctx.fillStyle = light; ctx.fillRect(sx + 2, sy + 4, w - 4, h - 7);
+  if (id === 'lamp' || id === 'hearth') {
+    ctx.fillStyle = '#fff4c0';
+    ctx.fillRect(sx + Math.floor(w / 2) - 2, sy + 6, 4, 3);
+  }
+  if (id === 'plant') {
+    ctx.fillStyle = dark;
+    ctx.fillRect(sx + 4, sy + 1, 2, 4); ctx.fillRect(sx + 10, sy + 1, 2, 4);
+    ctx.fillStyle = light;
+    ctx.fillRect(sx + 6, sy, 4, 5);
+  }
+  if (id === 'banner') {
+    ctx.fillStyle = '#2b3450';
+    ctx.fillRect(sx + 5, sy + 7, 3, 2); ctx.fillRect(sx + w - 8, sy + 7, 3, 2);
+  }
 }
 
 

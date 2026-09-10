@@ -284,6 +284,58 @@ if (code) {
       !/with you\b|out there|right now/i.test(alone), alone.slice(0, 90));
   }
 
+  // --- Secret Bases across the link ----------------------------------------
+  // The Underground's headline feature, and the only thing in this game one
+  // player publishes for the other to walk into. Everything B ends up with
+  // came off the wire from A, so this is the real path, not a copy.
+  {
+    const built = await A.evaluate(async () => {
+      const g = window.CARIBOU;
+      const b = await import('./src/game/underground/base.js');
+      const base = b.digBase(g.state.underground, 2, 7, g.state.player.name);
+      b.place(base, 'hearth', 0, 0);
+      b.place(base, 'banner', 3, 0);
+      b.leaveNote(base, 'the kettle is on', g.state.player.name);
+      g.netForTest.sendBase(b.shareable(base, g.state.player.name));
+      return { owner: base.owner, decor: base.decor.length, note: base.note };
+    });
+    await wait(900);
+    const seen = await B.evaluate(() => {
+      const pb = window.CARIBOU.state.underground.partnerBase;
+      return pb ? { owner: pb.owner, x: pb.x, y: pb.y, decor: pb.decor.length, note: pb.note } : null;
+    });
+    check('a Secret Base crosses the link', !!seen,
+      seen ? `${seen.owner} at ${seen.x},${seen.y}` : 'nothing arrived');
+    if (seen) {
+      check('and arrives at the same wall', seen.x === 2 && seen.y === 7, `${seen.x},${seen.y}`);
+      check('with the furniture in it', seen.decor === built.decor, `${seen.decor} piece(s)`);
+      check('and the line left on the board', seen.note === built.note, seen.note);
+      check('and whose room it is', seen.owner === built.owner, String(seen.owner));
+    }
+
+    // B walks in and takes the flag. A is the one who has to hear about it.
+    const flagBefore = await A.evaluate(() => window.CARIBOU.state.underground.base.flagTaken);
+    await B.evaluate(() => {
+      window.CARIBOU.state.underground.flagsTaken++;
+      window.CARIBOU.netForTest.sendFlagTaken();
+    });
+    await wait(900);
+    const flagAfter = await A.evaluate(() => window.CARIBOU.state.underground.base.flagTaken);
+    check('taking a flag tells the other player', flagAfter === flagBefore + 1,
+      `${flagBefore} -> ${flagAfter}`);
+
+    // And a hostile base is not a way into anybody's save.
+    const hostile = await B.evaluate(async () => {
+      const b = await import('./src/game/underground/base.js');
+      const bad = b.acceptShared({ x: 2, y: 7, owner: 'x'.repeat(500), note: 'y'.repeat(9000),
+        decor: Array.from({ length: 80 }, () => ({ id: 'nope', x: 999, y: -3 })) });
+      return { owner: bad.owner.length, note: bad.note.length, decor: bad.decor.length };
+    });
+    check('a base off the wire is rebuilt rather than trusted',
+      hostile.owner <= 16 && hostile.note <= 64 && hostile.decor === 0,
+      JSON.stringify(hostile));
+  }
+
   // --- ranked link play ----------------------------------------------------
   // A finished link battle counts towards the world ranking; an abandoned one
   // must not. Register A on the circuit first so there is something to move.

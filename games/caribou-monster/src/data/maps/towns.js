@@ -403,6 +403,15 @@ export const OREBURGH = defineMap('oreburgh', {
       ],
     },
     {
+      // Oreburgh is a mining town, so the man who knows about the tunnels
+      // under Sinnoh lives here and has never once gone down them himself.
+      id: 'al_ugman', x: 10, y: 23, look: 'oldMan', name: 'Underground Man',
+      movement: 'lookAround', facing: 'down', script: 'explorerKit',
+      dialogue: [
+        { lines: ['There is another Sinnoh under this one.'] },
+      ],
+    },
+    {
       id: 'al_sailor', x: 6, y: 21, look: 'sailor', name: 'Bram', movement: 'wander', facing: 'right',
       dialogue: [
         {

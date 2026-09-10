@@ -1578,6 +1578,47 @@ function caveWall(c) {
   c.fillStyle = PAL.caveWallDark; px(c, 0, 14, 16, 2);
 }
 
+// The Underground. A dig wall is cave rock with something showing through it:
+// the whole invitation of the Underground is that you can see there is
+// something in there before you have swung at it.
+function digWall(deep) {
+  return (c, f) => {
+    caveWall(c);
+    const seam = deep ? '#f0c860' : '#a8e4f8';
+    const glint = f === 1 || f === 3;
+    // Big enough to read through the dark. A seam nobody notices is a seam
+    // nobody digs, and the whole invitation of the Underground is seeing that
+    // there is something in the wall before you have swung at it.
+    c.fillStyle = shade(seam, -0.55);
+    px(c, 3, 3, 11, 11);
+    c.fillStyle = shade(seam, -0.25);
+    px(c, 4, 4, 9, 9);
+    c.fillStyle = seam;
+    px(c, 5, 6, 6, 5); px(c, 6, 5, 4, 7);
+    c.fillStyle = shade(seam, 0.55);
+    px(c, 6, 6, 3, 2);
+    if (glint) { px(c, 10, 9, 2, 2); px(c, 5, 10, 2, 1); }
+    // Pick marks around it, so it reads as somewhere people dig.
+    c.fillStyle = PAL.caveWallDark;
+    px(c, 2, 3, 2, 1); px(c, 12, 4, 2, 1); px(c, 3, 12, 2, 1); px(c, 11, 11, 2, 1);
+  };
+}
+
+// A wall soft enough to cut a room into. Marked with a doorway that is not a
+// door yet — the tile says "this could be a base", and the game says whose.
+function baseWall(c) {
+  caveWall(c);
+  c.fillStyle = shade(PAL.caveWall, -0.35);
+  px(c, 3, 4, 10, 12);
+  c.fillStyle = shade(PAL.caveWall, -0.55);
+  px(c, 4, 5, 8, 11);
+  c.fillStyle = shade(PAL.caveWall, 0.25);
+  px(c, 3, 4, 10, 1); px(c, 3, 4, 1, 12); px(c, 12, 4, 1, 12);
+  c.fillStyle = '#e0c060';
+  px(c, 10, 10, 1, 2);
+}
+
+
 function voidTile(c) {
   c.fillStyle = PAL.black; px(c, 0, 0, 16, 16);
 }
@@ -1648,6 +1689,9 @@ const TILES = {
   'w': { name: 'warp pad', draw: warpPad },
   'c': { name: 'cave floor', draw: caveFloor, ground: 'cave' },
   'C': { name: 'cave wall', draw: caveWall, solid: true },
+  'X': { name: 'dig wall', draw: digWall(false), solid: true, dig: 'shallow', anim: 4 },
+  'Z': { name: 'deep dig wall', draw: digWall(true), solid: true, dig: 'deep', anim: 4 },
+  'U': { name: 'base wall', draw: baseWall, solid: true, base: true },
 };
 
 const MAX_ANIM = 4;
@@ -2174,6 +2218,46 @@ berry('lumberry', 'Lum Berry', 400,
   { kind: 'cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] },
   'A berry that cures any status problem. It is slow to ripen.', 24, 2,
   { held: { kind: 'pinch-cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] } });
+// ---- the Underground -----------------------------------------------------
+// Spheres are the Underground's own money: nothing sells them and nothing else
+// buys a Secret Base decoration. Everything else down there is either worth
+// something at a counter or worth something to a Pokemon.
+
+const sphere = (id, name, colour, worth) =>
+  add(id, name, 'Items', 0, null,
+    `A ${colour} sphere, dug out of the Underground. Bases are furnished with these.`,
+    { sphere: true, worth });
+
+sphere('redsphere', 'Red Sphere', 'warm red', 1);
+sphere('bluesphere', 'Blue Sphere', 'deep blue', 1);
+sphere('greensphere', 'Green Sphere', 'clear green', 2);
+sphere('palesphere', 'Pale Sphere', 'colourless', 4);
+
+add('redshard', 'Red Shard', 'Items', 0, null,
+  'A shard of something older than the tunnels. It sells.', { sell: 700 });
+add('blueshard', 'Blue Shard', 'Items', 0, null,
+  'A shard of something older than the tunnels. It sells.', { sell: 700 });
+add('greenshard', 'Green Shard', 'Items', 0, null,
+  'A shard of something older than the tunnels. It sells.', { sell: 900 });
+add('yellowshard', 'Yellow Shard', 'Items', 0, null,
+  'A shard of something older than the tunnels. It sells.', { sell: 900 });
+add('heartscale', 'Heart Scale', 'Items', 0, null,
+  'A pretty scale. Somebody in a Pokémon Center will want it.', { sell: 500 });
+add('starpiece', 'Star Piece', 'Items', 0, null,
+  'A shard of a fallen star. It sells for a great deal.', { sell: 4900 });
+add('skullfossil', 'Skull Fossil', 'Items', 0, null,
+  'A fossil of an ancient Pokémon\u2019s skull. The museum in Oreburgh pays for these.',
+  { sell: 3000, fossil: true });
+add('armorfossil', 'Armor Fossil', 'Items', 0, null,
+  'A fossil of an ancient Pokémon\u2019s collar. The museum in Oreburgh pays for these.',
+  { sell: 3000, fossil: true });
+add('oddkeystone', 'Odd Keystone', 'Items', 0, null,
+  'A stone with something written on it that nobody has ever finished reading.',
+  { sell: 2100 });
+add('hardstone', 'Hard Stone', 'Items', 0, { kind: 'hold' },
+  'An unbreakable stone. Held, it toughens Rock-type moves.',
+  { held: { kind: 'boost-type', type: 'Rock', mult: 1.2 } });
+
 add('nugget', 'Nugget', 'Items', 0,
   null, 'A nugget of pure gold. It sells for a high price.', { sell: 5000 });
 add('stardust', 'Stardust', 'Items', 0,
@@ -2216,6 +2300,8 @@ add('bicycle', 'Bicycle', 'Key Items', 0, { kind: 'bike' },
   'A folding bicycle. Much faster than walking.', { key: true });
 add('oldrod', 'Old Rod', 'Key Items', 0, { kind: 'rod' },
   'An old fishing rod. Use it at the water’s edge.', { key: true });
+add('explorerkit', 'Explorer Kit', 'Key Items', 0, { kind: 'dig' },
+  'A bag of digging tools. Use it outdoors to go under Sinnoh.', { key: true });
 add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
   'A cold, faintly glowing charm. It hums near old stone.', { key: true });
 add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
@@ -6680,7 +6766,62 @@ class NicknameScreen extends Screen {
   }
 }
 
-__exports(__x, { KEY_ROWS: () => KEY_ROWS, keyGrid: () => keyGrid, drawKeyGrid: () => drawKeyGrid, typeFrame: () => typeFrame, NicknameScreen: () => NicknameScreen });
+/**
+ * A line of text, typed on the same keyboard everything else in this game is
+ * typed on. Used by the Secret Base board, where the whole feature is that the
+ * words are yours rather than picked off a list.
+ */
+class TextEntryScreen extends Screen {
+  constructor(game, prompt, maxLen, onDone) {
+    super(game);
+    this.prompt = prompt;
+    this.maxLen = maxLen || 24;
+    this.onDone = onDone || null;
+    this.text = '';
+    this.kx = 0; this.ky = 0;
+    this.t = 0;
+  }
+
+  _top() {
+    const H = this.game.display.height;
+    return Math.max(46, Math.round(H / 2) - 46);
+  }
+
+  update(dt, isTop) {
+    if (!isTop) return;
+    this.t += dt;
+    const g = keyGrid(this.game.display, this._top());
+    const r = typeFrame(g, this.text, this.maxLen, this, { skip: true });
+    this.text = r.text; this.kx = r.kx; this.ky = r.ky;
+    if (r.done) {
+      const out = r.skipped ? '' : this.text.trim();
+      audio.sfx('select');
+      this.game.screens.pop();
+      if (this.onDone) this.onDone(out || null);
+    }
+  }
+
+  hint() { return 'A: type   B: delete   START: done'; }
+
+  render(ctx) {
+    const { width: W, height: H } = this.game.display;
+    rect(ctx, 0, 0, W, H, shade(PAL.uiSelect, -0.6));
+    for (let y = 0; y < H; y += 8) rect(ctx, 0, y, W, 4, shade(PAL.uiSelect, -0.55));
+    drawTextCentered(ctx, this.prompt, W / 2, 8, { color: PAL.uiTextLight, shadow: PAL.black });
+
+    const top = this._top();
+    const boxW = Math.min(W - 16, this.maxLen * 6 + 12);
+    window9(ctx, Math.round(W / 2 - boxW / 2), top - 22, boxW, 16);
+    drawText(ctx, this.text + ((this.t * 2) % 1 < 0.5 ? '_' : ' '),
+      Math.round(W / 2 - boxW / 2) + 6, top - 18, { color: PAL.uiText });
+
+    drawKeyGrid(ctx, keyGrid(this.game.display, top), this.kx, this.ky, { skip: true });
+    label(ctx, `${this.text.length}/${this.maxLen}`, 8, H - 11, { color: '#9ab8ff' });
+    void drawBackChip;
+  }
+}
+
+__exports(__x, { KEY_ROWS: () => KEY_ROWS, keyGrid: () => keyGrid, drawKeyGrid: () => drawKeyGrid, typeFrame: () => typeFrame, NicknameScreen: () => NicknameScreen, TextEntryScreen: () => TextEntryScreen });
 
 };
 
@@ -9011,6 +9152,30 @@ const ENTRIES = [
     ],
   },
   {
+    id: 'underground',
+    title: 'Under Sinnoh',
+    body: [
+      'An old man in Oreburgh gave me a bag of digging tools and told me there\nis another Sinnoh under this one.',
+      'He is right. Miles of tunnel, and nobody put them there. They were\nalready there when people arrived.',
+    ],
+  },
+  {
+    id: 'firstDig',
+    title: 'The seams',
+    body: [
+      'The rock glitters where there is something in it. You take the layers\noff and the shape of the thing underneath comes up out of the wall.',
+      'Hammer for ground, pick when it matters. I learned that the expensive\nway, with a fossil three-quarters out and the roof coming down.',
+    ],
+  },
+  {
+    id: 'secretBase',
+    title: 'A room of our own',
+    body: [
+      'I cut a room into a wall a hundred feet under Sinnoh. It is bare rock\nand it is completely mine.',
+      'There is a board on the back wall. Whatever I scratch on it, they will\nread it next time they are down here. That is the whole feature.',
+    ],
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [
@@ -9778,6 +9943,301 @@ __exports(__x, { STAGES: () => STAGES, createPatches: () => createPatches, patch
 
 };
 
+__defs['game/underground/base.js'] = function (__x, __req) {
+const { now } = __req('game/clock.js');
+// Secret Bases.
+//
+// You cut a room into a wall a hundred feet under Sinnoh, and then you put
+// things in it, and then somebody else comes and looks at it. That is the
+// whole feature, and it is the most personal thing Gen 4 ever shipped.
+//
+// Here it is built for exactly two people. There is one other base you will
+// ever visit, and one person who will ever visit yours, and both of you know
+// whose it is. The note board is the part that matters: a line left in a room
+// underground for the other person to find next time they are down there.
+
+
+/**
+ * What a base can be furnished with, and what each costs in spheres.
+ *
+ * Spheres are the only currency that buys these, and nothing else buys
+ * anything, which keeps the Underground's economy closed: what you dig up
+ * down there is spent down there.
+ */
+const GOODS = {
+  lamp: { name: 'Pit Lamp', cost: 2, w: 1, h: 1, blurb: 'A steady yellow light.' },
+  rug: { name: 'Woven Rug', cost: 3, w: 2, h: 1, blurb: 'Warm underfoot.' },
+  chair: { name: 'Folding Chair', cost: 2, w: 1, h: 1, blurb: 'For sitting in, in a cave.' },
+  table: { name: 'Low Table', cost: 3, w: 2, h: 1, blurb: 'Two mugs fit on it.' },
+  plant: { name: 'Cave Fern', cost: 4, w: 1, h: 1, blurb: 'It should not grow down here. It does.' },
+  shelf: { name: 'Rock Shelf', cost: 5, w: 2, h: 1, blurb: 'For the things you dug up.' },
+  banner: { name: 'Pair Banner', cost: 8, w: 2, h: 1, blurb: 'Two names on one cloth.' },
+  hearth: { name: 'Little Hearth', cost: 10, w: 2, h: 1, blurb: 'It is not cold any more.' },
+};
+
+const GOODS_IDS = Object.keys(GOODS);
+
+/** Where a base's room lets you put things. Kept small on purpose. */
+const ROOM = { w: 9, h: 5, maxDecor: 8 };
+
+function createBase(x, y, owner) {
+  return {
+    x, y,                      // the wall in the tunnels this room is cut into
+    owner: owner || null,      // the trainer's name, for when somebody visits
+    dugAt: now(),
+    decor: [],                 // [{ id, x, y }]
+    note: '',                  // a line left for whoever comes next
+    noteBy: null,
+    flagTaken: 0,              // how many times the other one has taken the flag
+    visits: 0,
+  };
+}
+
+function hasBase(ug) { return !!(ug && ug.base); }
+
+/** Moving house. The old room is simply gone, which is how Platinum did it. */
+function digBase(ug, x, y, owner) {
+  ug.base = createBase(x, y, owner);
+  return ug.base;
+}
+
+function costOf(id) { return (GOODS[id] || {}).cost || 0; }
+
+function canAfford(spheres, id) { return spheres >= costOf(id); }
+
+/** Somewhere in the room that this piece fits and nothing else is standing. */
+function fits(base, id, x, y) {
+  const g = GOODS[id];
+  if (!g) return false;
+  if (x < 0 || y < 0 || x + g.w > ROOM.w || y + g.h > ROOM.h) return false;
+  for (const d of base.decor) {
+    const o = GOODS[d.id];
+    if (!o) continue;
+    if (x < d.x + o.w && x + g.w > d.x && y < d.y + o.h && y + g.h > d.y) return false;
+  }
+  return true;
+}
+
+/** The first free spot, scanning the room the way you would read it. */
+function freeSpot(base, id) {
+  for (let y = 0; y < ROOM.h; y++) {
+    for (let x = 0; x < ROOM.w; x++) if (fits(base, id, x, y)) return { x, y };
+  }
+  return null;
+}
+
+function place(base, id, x, y) {
+  if (base.decor.length >= ROOM.maxDecor) return false;
+  if (!fits(base, id, x, y)) return false;
+  base.decor.push({ id, x, y });
+  return true;
+}
+
+function removeAt(base, x, y) {
+  const i = base.decor.findIndex((d) => {
+    const g = GOODS[d.id];
+    return g && x >= d.x && x < d.x + g.w && y >= d.y && y < d.y + g.h;
+  });
+  if (i < 0) return null;
+  return base.decor.splice(i, 1)[0];
+}
+
+/** A line left on the board. Short, because it is scratched into rock. */
+const NOTE_MAX = 64;
+
+function leaveNote(base, text, by) {
+  base.note = String(text || '').slice(0, NOTE_MAX);
+  base.noteBy = by || null;
+  return base.note;
+}
+
+/**
+ * How the room reads to somebody standing in it. Kept here so the test can
+ * assert it without a canvas.
+ */
+function describe(base) {
+  if (!base.decor.length) return 'Bare rock, and room to put things.';
+  const names = base.decor.map((d) => GOODS[d.id].name);
+  const unique = [...new Set(names)];
+  if (unique.length === 1) return `${unique[0]}. Nothing else, yet.`;
+  return `${unique.slice(0, -1).join(', ')} and ${unique[unique.length - 1]}.`;
+}
+
+// ---- what crosses the wire ------------------------------------------------
+//
+// A base is sent to the partner whole, because it is small and because the
+// alternative — patching one across a link — would let the two rooms drift
+// apart. Nothing here is trusted: a base that comes off the wire is rebuilt
+// field by field, the same as a save.
+
+function shareable(base, ownerName) {
+  if (!base) return null;
+  return {
+    x: base.x, y: base.y,
+    owner: ownerName || base.owner || null,
+    decor: base.decor.map((d) => ({ id: d.id, x: d.x, y: d.y })),
+    note: base.note || '',
+    noteBy: base.noteBy || null,
+  };
+}
+
+function acceptShared(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const base = createBase(Number(raw.x) || 0, Number(raw.y) || 0,
+    typeof raw.owner === 'string' ? raw.owner.slice(0, 16) : null);
+  base.decor = (Array.isArray(raw.decor) ? raw.decor : [])
+    .filter((d) => d && GOODS[d.id])
+    .slice(0, ROOM.maxDecor)
+    .map((d) => ({ id: d.id, x: Math.max(0, Math.min(ROOM.w - 1, Number(d.x) || 0)),
+      y: Math.max(0, Math.min(ROOM.h - 1, Number(d.y) || 0)) }));
+  base.note = typeof raw.note === 'string' ? raw.note.slice(0, NOTE_MAX) : '';
+  base.noteBy = typeof raw.noteBy === 'string' ? raw.noteBy.slice(0, 16) : null;
+  return base;
+}
+
+// ---- saving ---------------------------------------------------------------
+
+function serializeBase(base) {
+  if (!base) return null;
+  return {
+    x: base.x, y: base.y, owner: base.owner, dugAt: base.dugAt,
+    decor: base.decor.map((d) => ({ ...d })),
+    note: base.note, noteBy: base.noteBy,
+    flagTaken: base.flagTaken || 0, visits: base.visits || 0,
+  };
+}
+
+function reviveBase(raw) {
+  const base = acceptShared(raw);
+  if (!base) return null;
+  base.dugAt = Number(raw.dugAt) || now();
+  base.flagTaken = Math.max(0, Number(raw.flagTaken) || 0);
+  base.visits = Math.max(0, Number(raw.visits) || 0);
+  return base;
+}
+
+__exports(__x, { GOODS: () => GOODS, GOODS_IDS: () => GOODS_IDS, ROOM: () => ROOM, createBase: () => createBase, hasBase: () => hasBase, digBase: () => digBase, costOf: () => costOf, canAfford: () => canAfford, fits: () => fits, freeSpot: () => freeSpot, place: () => place, removeAt: () => removeAt, NOTE_MAX: () => NOTE_MAX, leaveNote: () => leaveNote, describe: () => describe, shareable: () => shareable, acceptShared: () => acceptShared, serializeBase: () => serializeBase, reviveBase: () => reviveBase });
+
+};
+
+__defs['game/underground/site.js'] = function (__x, __req) {
+const { now } = __req('game/clock.js');
+const { serializeBase, reviveBase } = __req('game/underground/base.js');
+// The Underground as a place you keep coming back to.
+//
+// The dig minigame is stateless — you give it loot and a seed and it gives you
+// a wall. This is everything that has to persist: where you climbed down from,
+// which walls you have already emptied, and how long ago.
+//
+// Walls come back. A tunnel where every seam is gone forever is a tunnel
+// nobody visits twice, and this game is meant to be visited on a Tuesday
+// evening for ten minutes. The timer is the world clock, the same one the
+// berries grow on.
+
+
+
+/** How long a seam takes to be worth digging again. */
+const REFRESH_HOURS = 3;
+
+function createUnderground() {
+  return {
+    unlocked: false,        // the Explorer Kit has been used at least once
+    returnTo: null,         // { map, x, y, dir } — where you climbed down
+    walls: {},              // "x,y" -> the ms at which it was last emptied
+    digs: 0,                // how many walls you have worked, for the card
+    finds: 0,               // and how many things came out of them
+    base: null,             // your Secret Base, once you have cut one
+    partnerBase: null,      // theirs, as last sent over the link
+    flagsTaken: 0,          // how many times you have taken theirs
+    visiting: false,        // true while you are standing in theirs, not yours
+  };
+}
+
+function wallKey(x, y) { return `${x},${y}`; }
+
+/** Milliseconds until this seam is worth digging again; 0 if it is ready. */
+function coolingFor(ug, x, y, at = now()) {
+  const last = ug.walls[wallKey(x, y)];
+  if (!last) return 0;
+  const ready = last + REFRESH_HOURS * 3600 * 1000;
+  return Math.max(0, ready - at);
+}
+
+function isReady(ug, x, y, at = now()) { return coolingFor(ug, x, y, at) === 0; }
+
+function markDug(ug, x, y, finds = 0, at = now()) {
+  ug.walls[wallKey(x, y)] = at;
+  ug.digs++;
+  ug.finds += finds;
+}
+
+/** What the wall says when you press A on one that is not ready yet. */
+function coolingText(ms) {
+  const hours = ms / 3600000;
+  if (hours >= 1) return `This seam is worked out. Give it ${Math.ceil(hours)} hour${Math.ceil(hours) === 1 ? '' : 's'}.`;
+  const mins = Math.max(1, Math.ceil(ms / 60000));
+  return `This seam is worked out. Another ${mins} minute${mins === 1 ? '' : 's'} and there will be more.`;
+}
+
+/**
+ * A seed for one wall.
+ *
+ * Derived from where the wall is and which time slot it is in, so two people
+ * standing at the same seam in the same hour dig the same rock — and so the
+ * same seam is a different wall tomorrow.
+ */
+function seedFor(x, y, at = now()) {
+  const slot = Math.floor(at / (REFRESH_HOURS * 3600 * 1000));
+  let n = (x * 73856093) ^ (y * 19349663) ^ (slot * 83492791);
+  n = Math.abs(n | 0) || 1;
+  return n;
+}
+
+// ---- saving ---------------------------------------------------------------
+
+function serializeUnderground(ug) {
+  if (!ug) return null;
+  return {
+    unlocked: !!ug.unlocked,
+    returnTo: ug.returnTo ? { ...ug.returnTo } : null,
+    walls: { ...ug.walls },
+    digs: ug.digs || 0,
+    finds: ug.finds || 0,
+    base: serializeBase(ug.base),
+    flagsTaken: ug.flagsTaken || 0,
+  };
+}
+
+function reviveUnderground(raw) {
+  const ug = createUnderground();
+  if (!raw || typeof raw !== 'object') return ug;
+  ug.unlocked = !!raw.unlocked;
+  if (raw.returnTo && typeof raw.returnTo.map === 'string') {
+    ug.returnTo = {
+      map: raw.returnTo.map,
+      x: Number(raw.returnTo.x) || 0,
+      y: Number(raw.returnTo.y) || 0,
+      dir: raw.returnTo.dir || 'down',
+    };
+  }
+  for (const [k, v] of Object.entries(raw.walls || {})) {
+    if (!/^\d+,\d+$/.test(k)) continue;
+    const t = Number(v);
+    if (Number.isFinite(t) && t > 0) ug.walls[k] = t;
+  }
+  ug.digs = Math.max(0, Number(raw.digs) || 0);
+  ug.finds = Math.max(0, Number(raw.finds) || 0);
+  ug.base = reviveBase(raw.base);
+  ug.flagsTaken = Math.max(0, Number(raw.flagsTaken) || 0);
+  // A partner's base is never saved: it is theirs, and it arrives fresh over
+  // the link or not at all.
+  return ug;
+}
+
+__exports(__x, { REFRESH_HOURS: () => REFRESH_HOURS, createUnderground: () => createUnderground, wallKey: () => wallKey, coolingFor: () => coolingFor, isReady: () => isReady, markDug: () => markDug, coolingText: () => coolingText, seedFor: () => seedFor, serializeUnderground: () => serializeUnderground, reviveUnderground: () => reviveUnderground });
+
+};
+
 __defs['game/state.js'] = function (__x, __req) {
 const { createInventory, addItem } = __req('game/inventory.js');
 const { createDex, recordSeen, recordCaught } = __req('game/pokedex.js');
@@ -9787,12 +10247,14 @@ const { createCircuit, serializeCircuit, reviveCircuit } = __req('game/circuit/c
 const { createJournal, serializeJournal, reviveJournal } = __req('game/journal.js');
 const { createDaycare, serializeDaycare, reviveDaycare } = __req('game/daycare.js');
 const { createPatches, serializePatches, revivePatches } = __req('game/berries.js');
+const { createUnderground, serializeUnderground, reviveUnderground } = __req('game/underground/site.js');
 // The player's entire game state.
 //
 // Deliberately one plain object graph: it is what the save layer writes, what
 // the debug menu inspects, and what a future cloud backend would sync. Two
 // co-op players each own a completely separate GameState — only the room and
 // the shared story milestones are common.
+
 
 
 
@@ -9840,6 +10302,8 @@ function createGameState(opts = {}) {
     daycare: createDaycare(),
     // Berries in the ground, keyed by where they are.
     patches: createPatches(),
+    // The Underground: where you climbed down from, and which seams are spent.
+    underground: createUnderground(),
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
@@ -9970,6 +10434,7 @@ function serializeState(st) {
     journal: serializeJournal(st.journal),
     daycare: serializeDaycare(st.daycare),
     patches: serializePatches(st.patches),
+    underground: serializeUnderground(st.underground),
   };
 }
 
@@ -10001,6 +10466,7 @@ function deserializeState(raw) {
   st.journal = reviveJournal(raw.journal);
   st.daycare = reviveDaycare(raw.daycare, reviveMonster);
   st.patches = revivePatches(raw.patches);
+  st.underground = reviveUnderground(raw.underground);
   return st;
 }
 
@@ -10773,6 +11239,11 @@ function defineMap(id, def) {
     events: def.events || [],       // scripted triggers on step
     darkEdges: def.darkEdges !== false,
     healPoint: def.healPoint || null,
+    // A tile that runs a script when you step on it and leads out of the map.
+    // Used where a warp cannot say where it goes — the Underground's ladders
+    // come up wherever you went down, and a Secret Base's door comes out at
+    // whichever wall its owner cut it into.
+    stepOut: def.stepOut || null,
   };
 }
 
@@ -11184,6 +11655,15 @@ const OREBURGH = defineMap('oreburgh', {
             'Badges make you a trainer. The circuit tells you what kind.',
             '{champion} has been world number one for eleven seasons. Eleven.'],
         },
+      ],
+    },
+    {
+      // Oreburgh is a mining town, so the man who knows about the tunnels
+      // under Sinnoh lives here and has never once gone down them himself.
+      id: 'al_ugman', x: 10, y: 23, look: 'oldMan', name: 'Underground Man',
+      movement: 'lookAround', facing: 'down', script: 'explorerKit',
+      dialogue: [
+        { lines: ['There is another Sinnoh under this one.'] },
       ],
     },
     {
@@ -12879,12 +13359,135 @@ __exports(__x, { makeCenter: () => makeCenter, makeMart: () => makeMart, INTERIO
 
 };
 
+__defs['data/maps/underground.js'] = function (__x, __req) {
+const { defineMap } = __req('data/maps/define.js');
+// The Underground.
+//
+// Gen 4's best idea and the only one built for a touch screen: a second
+// Sinnoh under the first one, with nothing in it but rock, the things buried
+// in the rock, and — if somebody else is down there — them. There are no wild
+// Pokémon, no trainers and no story. It is the part of the game you go to when
+// you want to be somewhere with the other person rather than somewhere in the
+// plot.
+//
+// One map, three ladders. The ladder you come up is the one you went down, so
+// the Underground is a shortcut only in the sense that it is a nicer walk.
+
+
+const UNDERGROUND = defineMap('underground', {
+  name: 'The Underground', kind: 'cave', music: 'cave', dark: true,
+  tiles: [
+    'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+    'CccccccCCCCCXccccccCCCCCXcccccccCC',
+    'Cc<cccccccccccccccccccccccccccccCC',
+    'CccccccCCCCCcccccccCCCCCcccccccXCC',
+    'CCCCXccCCCCCcCCCCCcCCCCCcCCCCCccCC',
+    'CCCCcccccccccCCCCCcccccccCCCCCccCC',
+    'CCCCcCCCCCCCCCCCCCcCCCCCcCCCCCccCC',
+    'CCUccccccccccccccccccccccccccccccC',
+    'CCCCcCCCCCCcCCCCCcCCCCCCCCCCCCccCC',
+    'CCCCcCCCCCCcCCCCCcCCCCCCCCCCCCccCC',
+    'CCCCcccccccccccccccccccccccZCCccCC',
+    'CCCCcCCCCCCcCCCCCcCCCCCcccccccccCC',
+    'CCCCcCCCCCCcCCCCCcCCCCCcCCCCCCccCC',
+    'CCXcccccccccccCCCcccccccCCCCCCccCC',
+    'CCCCCCCCCCCCCcCCCcCCCCCcCCCCCCccCC',
+    'CCcccccc<ccccccCCcccccccccccccccCC',
+    'CCcCCCCCCCCCCCCCCCCCCCCCCCCCCCCcCC',
+    'CCccccccccccccccccccccccccZcccc<CC',
+    'CCCCCCCCCCCCCCCCUCCCCCCCCCCCCCCCCC',
+    'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+  ],
+  // Nothing warps out of here by walking. The ladders are scripted, because
+  // where each one comes up depends on which one you went down.
+  warps: [],
+  signs: [
+    { x: 0, y: 2, text: 'DIG SITE — NORTH-WEST\nThe rock here is soft and the seams are\nshallow. A good place to learn on.' },
+    { x: 32, y: 17, text: 'DIG SITE — SOUTH-EAST\nOlder rock. What is in it is older still.\nMind the roof.' },
+  ],
+  objects: [],
+  npcs: [
+    {
+      // The only person who lives down here, and the only counter that takes
+      // spheres. What you dig up in the Underground is spent in the
+      // Underground, which keeps its economy closed and its spheres worth
+      // carrying.
+      id: 'ug_goods', x: 16, y: 7, look: 'worker', name: 'Goods Trader',
+      movement: 'still', facing: 'down', script: 'baseGoods',
+      dialogue: [
+        { lines: ['Spheres only. I do not take money.'] },
+      ],
+    },
+  ],
+  // The one map in the game with nothing living in it. That is the point.
+  encounters: null,
+  // Every ladder in the tunnels leads back up where you came from.
+  stepOut: { tile: '<', script: 'surface' },
+});
+
+/**
+ * The inside of a Secret Base.
+ *
+ * One room, cut into rock, the same shape for everybody. What makes it yours
+ * is what you put in it — and the decorations are entities drawn from the
+ * save, not tiles, because two people looking at the same room have to be
+ * looking at the same data rather than at two copies of a map.
+ */
+const SECRET_BASE = defineMap('secret_base', {
+  name: 'Secret Base', kind: 'indoor', music: 'home', darkEdges: false,
+  tiles: [
+    'CCCCCCCCCCC',
+    'CcccccccccC',
+    'CcccccccccC',
+    'CcccccccccC',
+    'CcccccccccC',
+    'CcccccccccC',
+    'CCCCCcCCCCC',
+  ],
+  // No warp out. The door is a step trigger, because where it comes out
+  // depends on whose room this is and where in the tunnels they cut it.
+  warps: [],
+  signs: [],
+  objects: [],
+  npcs: [],
+  encounters: null,
+  stepOut: { x: 5, y: 6, script: 'leaveBase' },
+});
+
+/** Where a visitor stands when they come in, and where the board is. */
+const BASE_ENTRY = { x: 5, y: 5 };
+const BASE_BOARD = { x: 5, y: 0 };
+/** The top-left tile of the 9x5 area decorations live in. */
+const BASE_ORIGIN = { x: 1, y: 1 };
+
+/**
+ * Where each ladder comes up, and where each surface map goes down.
+ *
+ * A player using the Explorer Kit drops in at the ladder nearest to wherever
+ * they were standing; the nearest one for anywhere unlisted is the first.
+ */
+const LADDERS = [
+  { x: 2, y: 2, drop: [2, 3], name: 'North-west shaft', surface: ['twinleaf', 'route201', 'sandgem'] },
+  { x: 8, y: 15, drop: [7, 15], name: 'Central shaft', surface: ['route202', 'jubilife', 'route203'] },
+  { x: 31, y: 17, drop: [30, 17], name: 'South-east shaft', surface: ['oreburgh', 'route207', 'oreburgh_gate'] },
+];
+
+/** The ladder a player standing on `mapId` drops down to. */
+function ladderFor(mapId) {
+  return LADDERS.find((l) => l.surface.includes(mapId)) || LADDERS[0];
+}
+
+__exports(__x, { UNDERGROUND: () => UNDERGROUND, SECRET_BASE: () => SECRET_BASE, BASE_ENTRY: () => BASE_ENTRY, BASE_BOARD: () => BASE_BOARD, BASE_ORIGIN: () => BASE_ORIGIN, LADDERS: () => LADDERS, ladderFor: () => ladderFor });
+
+};
+
 __defs['data/maps/index.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
 const { TWINLEAF, SANDGEM, JUBILIFE, OREBURGH } = __req('data/maps/towns.js');
 const { ROUTE201, ROUTE203, ROUTE207 } = __req('data/maps/routes.js');
 const { ROUTE202, OREBURGH_GATE, EVERLIGHT_CHAMBER } = __req('data/maps/wilds.js');
 const { INTERIORS } = __req('data/maps/interiors.js');
+const { UNDERGROUND, SECRET_BASE } = __req('data/maps/underground.js');
 // Map registry.
 //
 // A map is: an ASCII tile grid, plus warps, NPCs, objects, signs and an
@@ -12898,10 +13501,11 @@ const { INTERIORS } = __req('data/maps/interiors.js');
 
 
 
+
 // The road, in the order a player walks it: Twinleaf, Route 201, Sandgem,
 // Route 202, Jubilife, Route 203, Oreburgh — then Route 207 and the Gate.
 const ALL = [TWINLEAF, ROUTE201, SANDGEM, ROUTE202, JUBILIFE, ROUTE203, OREBURGH,
-  ROUTE207, OREBURGH_GATE, EVERLIGHT_CHAMBER, ...INTERIORS];
+  ROUTE207, OREBURGH_GATE, EVERLIGHT_CHAMBER, UNDERGROUND, SECRET_BASE, ...INTERIORS];
 
 const MAPS = {};
 for (const m of ALL) MAPS[m.id] = m;
@@ -13241,6 +13845,7 @@ class World {
     this.animTimer = 0;
     this.encounterCooldown = 0;
     this.pendingEncounter = null;
+    this.pendingLadder = null;
     this.pendingWarp = null;
     this.pendingTrainer = null;
     this.pendingEvent = null;
@@ -13518,6 +14123,16 @@ class World {
     }
     if (this.onStep) this.onStep();
 
+    // A way out that a warp cannot describe: the Underground's ladders come up
+    // wherever you went down, and a Secret Base's door comes out at whichever
+    // wall its owner cut it into. Both are scripts, on a tile.
+    const out = this.map.stepOut;
+    if (out && ((out.tile && this.tileAt(p.x, p.y) === out.tile)
+      || (out.x === p.x && out.y === p.y))) {
+      this.pendingLadder = { x: p.x, y: p.y, script: out.script };
+      return;
+    }
+
     // Warp?
     const warp = this.warpAt(p.x, p.y);
     if (warp) { this.pendingWarp = warp; return; }
@@ -13623,6 +14238,18 @@ class World {
     if (def.name === 'TV') return { type: 'flavour', text: 'A documentary about migrating Pokémon is on.' };
     if (def.name === 'bed') return { type: 'flavour', text: 'Neatly made. It looks very comfortable.' };
     if (def.soil) return { type: 'soil', x: tx, y: ty };
+    // Inside a Secret Base: the board on the back wall, and whatever has been
+    // put on the floor. Both are save data rather than tiles, so the world has
+    // to ask the game for them.
+    if (this.mapId === 'secret_base') {
+      const found = this.baseTarget && this.baseTarget(tx, ty);
+      if (found) return found;
+    }
+    // The Underground. A seam you can work, a wall soft enough to cut a room
+    // into, and the way back up.
+    if (def.dig) return { type: 'dig', x: tx, y: ty, depth: def.dig };
+    if (def.base) return { type: 'baseWall', x: tx, y: ty };
+
     // The water's edge. Whether this is a fishing spot or a nice view is up
     // to the screen, which is the thing that knows what is in the bag.
     if (def.water) return { type: 'water', x: tx, y: ty };
@@ -13715,6 +14342,8 @@ const { getSpecies } = __req('data/species.js');
 const { PAL, shade } = __req('render/palette.js');
 const { tintFor } = __req('game/clock.js');
 const { patchAt, stageIndex } = __req('game/berries.js');
+const { GOODS } = __req('game/underground/base.js');
+const { BASE_BOARD } = __req('data/maps/underground.js');
 const { getItem } = __req('data/items.js');
 const { drawTextCentered, drawText } = __req('render/font.js');
 // Overworld renderer.
@@ -13723,6 +14352,8 @@ const { drawTextCentered, drawText } = __req('render/font.js');
 // characters walk behind things correctly, and re-draws the top half of tall
 // grass over anyone standing in it — the small detail that sells the
 // perspective in the games this is modelled on.
+
+
 
 
 
@@ -13828,6 +14459,20 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
         if (!patch) continue;
         drawBerryPlant(ctx, patch, x * TILE - camera.x, y * TILE - camera.y, frame);
       }
+    }
+  }
+
+  // --- a Secret Base's furniture ---
+  // The room is a map; what is in it is save data, so it is drawn from the
+  // room the player is standing in rather than from the tiles.
+  const room = opts.room;
+  if (room && world.mapId === 'secret_base') {
+    drawBoard(ctx, BASE_BOARD, camera, room);
+    for (const d of room.decor) {
+      const g = GOODS[d.id];
+      if (!g) continue;
+      drawFurniture(ctx, d.id, (opts.origin.x + d.x) * TILE - camera.x,
+        (opts.origin.y + d.y) * TILE - camera.y, g);
     }
   }
 
@@ -14001,6 +14646,66 @@ function drawBerryPlant(ctx, patch, sx, sy, frame) {
   };
   berry(4 + sway, 7);
   berry(9 + sway, 5);
+}
+
+
+/**
+ * The board on the back wall of a Secret Base — the thing the whole room is
+ * really for. It is drawn with something on it whenever there is something on
+ * it, so you can see from the door that somebody has been.
+ */
+function drawBoard(ctx, board, camera, room) {
+  const sx = board.x * TILE - camera.x;
+  const sy = board.y * TILE - camera.y;
+  ctx.fillStyle = '#3a2c1e'; ctx.fillRect(sx + 1, sy + 2, 14, 12);
+  ctx.fillStyle = '#6b5236'; ctx.fillRect(sx + 2, sy + 3, 12, 10);
+  ctx.fillStyle = '#8a6d49'; ctx.fillRect(sx + 2, sy + 3, 12, 1);
+  if (room && room.note) {
+    ctx.fillStyle = '#efe6c8'; ctx.fillRect(sx + 4, sy + 5, 8, 6);
+    ctx.fillStyle = '#7b6a4a';
+    ctx.fillRect(sx + 5, sy + 6, 6, 1);
+    ctx.fillRect(sx + 5, sy + 8, 5, 1);
+  } else {
+    ctx.fillStyle = '#c8ad74'; ctx.fillRect(sx + 7, sy + 5, 2, 2);
+  }
+}
+
+/**
+ * One piece of furniture. Small, flat shapes with a shadow under them: the
+ * room is 9x5 and every piece has to read at a glance from the door.
+ */
+const FURN = {
+  lamp: ['#f0d060', '#8a6a20'],
+  rug: ['#b8506a', '#7c2f44'],
+  chair: ['#8a6a44', '#5a4429'],
+  table: ['#a8814e', '#6d5231'],
+  plant: ['#4f9c46', '#2f6b2c'],
+  shelf: ['#9a8a72', '#66594a'],
+  banner: ['#e8c060', '#a5822c'],
+  hearth: ['#e07a3c', '#8a4520'],
+};
+
+function drawFurniture(ctx, id, sx, sy, g) {
+  const [light, dark] = FURN[id] || ['#9a8a72', '#66594a'];
+  const w = g.w * TILE, h = g.h * TILE;
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(sx + 2, sy + h - 4, w - 4, 3);
+  ctx.fillStyle = dark; ctx.fillRect(sx + 1, sy + 3, w - 2, h - 5);
+  ctx.fillStyle = light; ctx.fillRect(sx + 2, sy + 4, w - 4, h - 7);
+  if (id === 'lamp' || id === 'hearth') {
+    ctx.fillStyle = '#fff4c0';
+    ctx.fillRect(sx + Math.floor(w / 2) - 2, sy + 6, 4, 3);
+  }
+  if (id === 'plant') {
+    ctx.fillStyle = dark;
+    ctx.fillRect(sx + 4, sy + 1, 2, 4); ctx.fillRect(sx + 10, sy + 1, 2, 4);
+    ctx.fillStyle = light;
+    ctx.fillRect(sx + 6, sy, 4, 5);
+  }
+  if (id === 'banner') {
+    ctx.fillStyle = '#2b3450';
+    ctx.fillRect(sx + 5, sy + 7, 3, 2); ctx.fillRect(sx + w - 8, sy + 7, 3, 2);
+  }
 }
 
 
@@ -14547,6 +15252,283 @@ __exports(__x, { CASS: () => CASS, ROWAN: () => ROWAN, MARS: () => MARS, EVERLIG
 
 };
 
+__defs['game/underground/dig.js'] = function (__x, __req) {
+
+// The digging minigame.
+//
+// Platinum's Underground is the one thing in the series that was designed for
+// a touch screen and has never worked properly anywhere else: you tap a wall
+// of rock with a hammer or a pick, the rock comes away in layers, and what is
+// buried under it comes out whole or not at all. This game is played on a
+// phone, so it is the one Gen 4 feature that fits here better than it fitted
+// the DS.
+//
+// This module is the whole game and none of the drawing. It takes a seeded
+// RNG, so a dig can be replayed exactly — which is what lets two people dig
+// the same wall over a link and both see the same fossil.
+
+/** Rock depth at a cell: 3 is untouched, 0 is bare floor. */
+const MAX_DEPTH = 3;
+
+/** Strikes the wall will take before it comes down. */
+const MAX_STRIKES = 12;
+
+/**
+ * The two tools, and the damage each does around the cell you hit.
+ *
+ * The hammer clears ground fast and burns the wall down with it; the pick is
+ * slow and precise. Choosing between them *is* the game — a fossil under six
+ * cells is not coming out on hammer alone.
+ */
+const TOOLS = {
+  hammer: {
+    name: 'Hammer',
+    cost: 2,
+    // [dx, dy, damage]
+    pattern: [
+      [0, 0, 2], [-1, 0, 1], [1, 0, 1], [0, -1, 1], [0, 1, 1],
+      [-1, -1, 1], [1, -1, 1], [-1, 1, 1], [1, 1, 1],
+    ],
+  },
+  pick: {
+    name: 'Pick',
+    cost: 1,
+    pattern: [[0, 0, 2], [-1, 0, 1], [1, 0, 1], [0, -1, 1], [0, 1, 1]],
+  },
+};
+
+/**
+ * Buried things, and the shape each one takes up.
+ *
+ * Shape is a list of cells relative to the top-left of the item's box. A big
+ * awkward shape is worth more precisely because getting all of it out before
+ * the roof comes in is harder.
+ */
+const SHAPES = {
+  small: [[0, 0], [1, 0], [0, 1], [1, 1]],
+  bar: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]],
+  tee: [[0, 0], [1, 0], [2, 0], [1, 1], [1, 2]],
+  ell: [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2]],
+  big: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2]],
+};
+
+function shapeBox(shape) {
+  const cells = SHAPES[shape] || SHAPES.small;
+  return {
+    w: Math.max(...cells.map((c) => c[0])) + 1,
+    h: Math.max(...cells.map((c) => c[1])) + 1,
+    cells,
+  };
+}
+
+/**
+ * Lays out one wall.
+ *
+ * `loot` is a list of `{ item, shape, weight }` — the caller owns what can be
+ * found where, so a wall deep in the tunnels can hold things a wall near the
+ * entrance cannot.
+ */
+function createDig(loot, rng = Math.random, opts = {}) {
+  const w = opts.width || 11;
+  const h = opts.height || 7;
+  const dig = {
+    w, h,
+    depth: [],
+    items: [],
+    strikes: 0,
+    maxStrikes: opts.maxStrikes || MAX_STRIKES,
+    collapsed: false,
+    tool: 'hammer',
+  };
+  // The rock is not flat: a wall of uniform depth would make every strike
+  // worth the same, and there would be nothing to read in it. It never starts
+  // at one layer, though — a wall that already looks half-cleared reads as a
+  // wall somebody else has been at.
+  for (let y = 0; y < h; y++) {
+    const row = [];
+    for (let x = 0; x < w; x++) row.push(MAX_DEPTH - Math.floor(rng() * (MAX_DEPTH - 1)));
+    dig.depth.push(row);
+  }
+
+  const count = opts.count || (2 + Math.floor(rng() * 3));
+  for (let i = 0; i < count && loot.length; i++) {
+    const pick = weighted(loot, rng);
+    const box = shapeBox(pick.shape);
+    const placed = place(dig, box, rng);
+    if (!placed) continue;
+    dig.items.push({
+      item: pick.item, shape: pick.shape,
+      x: placed.x, y: placed.y, found: false,
+    });
+  }
+  return dig;
+}
+
+function weighted(list, rng) {
+  const total = list.reduce((n, e) => n + (e.weight || 1), 0);
+  let r = rng() * total;
+  for (const e of list) { r -= e.weight || 1; if (r <= 0) return e; }
+  return list[list.length - 1];
+}
+
+/** Finds somewhere the shape fits without overlapping another buried thing. */
+function place(dig, box, rng) {
+  for (let tries = 0; tries < 40; tries++) {
+    const x = Math.floor(rng() * (dig.w - box.w + 1));
+    const y = Math.floor(rng() * (dig.h - box.h + 1));
+    const cells = box.cells.map(([dx, dy]) => `${x + dx},${y + dy}`);
+    const clash = dig.items.some((it) => {
+      const b = shapeBox(it.shape);
+      return b.cells.some(([dx, dy]) => cells.includes(`${it.x + dx},${it.y + dy}`));
+    });
+    if (!clash) return { x, y };
+  }
+  return null;
+}
+
+function depthAt(dig, x, y) {
+  if (x < 0 || y < 0 || x >= dig.w || y >= dig.h) return null;
+  return dig.depth[y][x];
+}
+
+/** Which buried thing, if any, lies under this cell. */
+function itemAt(dig, x, y) {
+  for (const it of dig.items) {
+    const box = shapeBox(it.shape);
+    if (box.cells.some(([dx, dy]) => it.x + dx === x && it.y + dy === y)) return it;
+  }
+  return null;
+}
+
+/** True once every cell of the thing is down to bare floor. */
+function isExposed(dig, it) {
+  const box = shapeBox(it.shape);
+  return box.cells.every(([dx, dy]) => depthAt(dig, it.x + dx, it.y + dy) === 0);
+}
+
+/**
+ * One swing.
+ *
+ * Returns what happened, so the screen can play it: which cells moved, what
+ * came out of the wall, and whether that was the last swing this roof had in
+ * it. Striking a cell already at bare floor is refused rather than charged —
+ * an accidental tap should not cost you a fossil.
+ */
+function strike(dig, x, y, tool = dig.tool) {
+  const out = { ok: false, cells: [], found: [], collapsed: false, wasted: false };
+  if (dig.collapsed) return out;
+  const spec = TOOLS[tool] || TOOLS.hammer;
+  if (depthAt(dig, x, y) === null) return out;
+  if (depthAt(dig, x, y) === 0) { out.wasted = true; return out; }
+
+  out.ok = true;
+  for (const [dx, dy, dmg] of spec.pattern) {
+    const cx = x + dx, cy = y + dy;
+    const d = depthAt(dig, cx, cy);
+    if (d === null || d === 0) continue;
+    dig.depth[cy][cx] = Math.max(0, d - dmg);
+    out.cells.push({ x: cx, y: cy, depth: dig.depth[cy][cx] });
+  }
+
+  for (const it of dig.items) {
+    if (it.found || !isExposed(dig, it)) continue;
+    it.found = true;
+    out.found.push(it);
+  }
+
+  dig.strikes += spec.cost;
+  if (dig.strikes >= dig.maxStrikes) {
+    dig.collapsed = true;
+    out.collapsed = true;
+  }
+  return out;
+}
+
+/** 0..1 — how close the roof is to coming in. */
+function stability(dig) {
+  return Math.max(0, 1 - dig.strikes / dig.maxStrikes);
+}
+
+function found(dig) { return dig.items.filter((i) => i.found); }
+function missed(dig) { return dig.items.filter((i) => !i.found); }
+
+/** True once there is nothing left worth swinging at. */
+function isDone(dig) {
+  return dig.collapsed || dig.items.every((i) => i.found);
+}
+
+__exports(__x, { MAX_DEPTH: () => MAX_DEPTH, MAX_STRIKES: () => MAX_STRIKES, TOOLS: () => TOOLS, SHAPES: () => SHAPES, shapeBox: () => shapeBox, createDig: () => createDig, depthAt: () => depthAt, itemAt: () => itemAt, isExposed: () => isExposed, strike: () => strike, stability: () => stability, found: () => found, missed: () => missed, isDone: () => isDone });
+
+};
+
+__defs['game/underground/treasure.js'] = function (__x, __req) {
+
+// What is buried down there.
+//
+// Platinum's Underground has three kinds of thing in it: spheres, which are
+// the Underground's own currency; fossils and relics, which are worth money;
+// and things you would otherwise have to buy. Keeping all three means a dig
+// can be worth doing for three different reasons on three different days.
+//
+// The tables are keyed by how deep in the tunnels the wall is, so walking
+// further is the thing that changes what you find — not luck alone.
+
+/** `item` is an id in data/items.js; `shape` is one of dig.js's SHAPES. */
+const T = (item, shape, weight) => ({ item, shape, weight });
+
+const TABLES = {
+  // Near the entrance: spheres, shards, and the odd useful thing.
+  shallow: [
+    T('redsphere', 'small', 22),
+    T('bluesphere', 'small', 20),
+    T('greensphere', 'small', 18),
+    T('redshard', 'small', 12),
+    T('blueshard', 'small', 12),
+    T('heartscale', 'small', 8),
+    T('revive', 'bar', 5),
+    T('hardstone', 'bar', 3),
+  ],
+  // Deeper: the fossils, the stones, and the things worth real money.
+  deep: [
+    T('redsphere', 'small', 14),
+    T('bluesphere', 'small', 14),
+    T('palesphere', 'small', 10),
+    T('greenshard', 'small', 10),
+    T('yellowshard', 'small', 10),
+    T('heartscale', 'small', 8),
+    T('starpiece', 'bar', 7),
+    T('skullfossil', 'big', 6),
+    T('armorfossil', 'big', 6),
+    T('oddkeystone', 'tee', 5),
+    T('firestone', 'ell', 4),
+    T('waterstone', 'ell', 4),
+    T('thunderstone', 'ell', 4),
+    T('leafstone', 'ell', 4),
+    T('maxrevive', 'tee', 3),
+  ],
+};
+
+function tableFor(depth) {
+  return depth === 'deep' ? TABLES.deep : TABLES.shallow;
+}
+
+/**
+ * The spheres. They are the Underground's money: nothing else buys a base
+ * decoration, and nothing else is bought with them.
+ */
+const SPHERES = ['redsphere', 'bluesphere', 'greensphere', 'palesphere'];
+
+function isSphere(id) { return SPHERES.includes(id); }
+
+/** How many spheres of any colour the player is carrying. */
+function sphereCount(inventory) {
+  return SPHERES.reduce((n, id) => n + (inventory.items[id] || 0), 0);
+}
+
+__exports(__x, { TABLES: () => TABLES, tableFor: () => tableFor, SPHERES: () => SPHERES, isSphere: () => isSphere, sphereCount: () => sphereCount });
+
+};
+
 __defs['game/overworld/scripts.js'] = function (__x, __req) {
 const { STARTER_LINES, rivalStarterBase, getTrainer } = __req('data/trainers.js');
 const { getTournament } = __req('data/circuit.js');
@@ -14555,6 +15537,13 @@ const { createMonster, displayName } = __req('game/monster.js');
 const { deposit, withdraw, feeFor, hasEgg, collectEgg, compatibilityText, eggHint, hatch } = __req('game/daycare.js');
 const { patchAt, plant, isRipe, harvest, tend, patchText, cropOf } = __req('game/berries.js');
 const { getItem, BERRY_IDS } = __req('data/items.js');
+const { createDig } = __req('game/underground/dig.js');
+const { tableFor } = __req('game/underground/treasure.js');
+const { coolingFor, coolingText, isReady, markDug, seedFor } = __req('game/underground/site.js');
+const { LADDERS, ladderFor, BASE_ENTRY, BASE_BOARD } = __req('data/maps/underground.js');
+const { GOODS, GOODS_IDS, ROOM, digBase, place, freeSpot, removeAt, describe, leaveNote, NOTE_MAX, costOf } = __req('game/underground/base.js');
+const { SPHERES, sphereCount } = __req('game/underground/treasure.js');
+const { makeRng } = __req('core/rng.js');
 const { weightedPick } = __req('core/rng.js');
 const { spend, formatMoney: money } = __req('game/inventory.js');
 const { FLAGS } = __req('game/storyflags.js');
@@ -14566,6 +15555,13 @@ const { playerByLook } = __req('game/players.js');
 // say, ask, battle, give, wait, move — and awaits them. Writing cutscenes as
 // straight-line async code keeps them readable, and keeps the sequencing out
 // of the render loop entirely.
+
+
+
+
+
+
+
 
 
 
@@ -15341,6 +16337,296 @@ SCRIPTS.fish = async (ctx) => {
   await ctx.wild(species, level);
 };
 
+// ---- the Underground -------------------------------------------------------
+//
+// Gen 4's best idea, and the only feature in the series built for a touch
+// screen. There are no wild Pokemon down here and no plot: it is the part of
+// the game you go to because the other person is in it.
+
+/** The Underground Man, who hands over the kit and never comes down himself. */
+SCRIPTS.explorerKit = async (ctx) => {
+  if (ctx.hasItem('explorerkit')) {
+    if (ctx.linked()) {
+      await ctx.say('Underground Man: Both of you have kits? Then go down together.\fIt is a different place with somebody in it.');
+    } else {
+      await ctx.say('Underground Man: Seams come back after a few hours. The rock is\nolder than the impatience of any trainer.');
+      await ctx.say('Underground Man: Hammer for ground, pick for precision.\fEverybody learns that the expensive way.');
+    }
+    return;
+  }
+  await ctx.say('Underground Man: There is another Sinnoh under this one.');
+  await ctx.say('Underground Man: Tunnels. Miles of them. Nobody put them there —\nthey were simply already there when we arrived.');
+  await ctx.say('Underground Man: I dug for thirty years and I never once found the end.');
+  const yes = await ctx.ask('Underground Man: Would you like a kit?', ['Yes', 'Not today']);
+  if (yes !== 0) { await ctx.say('Underground Man: It will be here. So will the tunnels.'); return; }
+  ctx.give('explorerkit', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received the EXPLORER KIT!');
+  await ctx.say('Underground Man: Use it anywhere outdoors and you will go down.\fUse a ladder and you will come back up where you left.');
+  await ctx.say('Underground Man: Look for the seams — the rock that glitters.\fHammer to clear ground, pick when it matters.');
+  await ctx.say('Underground Man: And mind the roof. It only warns you once.');
+  ctx.journal('underground');
+};
+
+/** Going down. Called from the bag, so it knows nothing but where you stand. */
+SCRIPTS.goUnderground = async (ctx) => {
+  const st = ctx.state;
+  const here = ctx.here();
+  const ladder = ladderFor(here.map);
+  st.underground.returnTo = { map: here.map, x: here.x, y: here.y, dir: 'down' };
+  st.underground.unlocked = true;
+  ctx.sfx('door');
+  await ctx.say('You dug straight down.');
+  await ctx.warpTo('underground', ladder.drop[0], ladder.drop[1]);
+  await ctx.say(`${ladder.name}.\fThe tunnels go on further than the torchlight does.`);
+};
+
+/** Coming back up, exactly where you went down. */
+SCRIPTS.surface = async (ctx) => {
+  const st = ctx.state;
+  const back = st.underground.returnTo;
+  ctx.sfx('door');
+  if (!back) {
+    // A save from before the kit, or a ladder reached some other way. The
+    // nearest thing to "where you came from" is the town the shaft serves.
+    const ladder = LADDERS.find((l) => l.drop[0] === ctx.here().x || true);
+    await ctx.warpTo(ladder.surface[0], 12, 12);
+    return;
+  }
+  await ctx.warpTo(back.map, back.x, back.y);
+  await ctx.say('You climbed back up into the daylight.');
+};
+
+/** One seam. */
+SCRIPTS.digWall = async (ctx, npc) => {
+  const tile = npc && npc.data && npc.data.tile;
+  if (!tile) return;
+  const ug = ctx.state.underground;
+
+  if (!isReady(ug, tile.x, tile.y)) {
+    await ctx.say(coolingText(coolingFor(ug, tile.x, tile.y)));
+    return;
+  }
+  const deep = tile.depth === 'deep';
+  await ctx.say(deep
+    ? 'The seam here runs deep, and something in it catches the light.'
+    : 'Something in the rock catches the light.');
+  const go = await ctx.ask('Dig here?', ['Dig', 'Leave it']);
+  if (go !== 0) return;
+
+  // The wall is derived from where it is and which refresh window it is in,
+  // so two people at the same seam in the same evening dig the same rock.
+  const rng = makeRng(seedFor(tile.x, tile.y));
+  const dig = createDig(tableFor(tile.depth), rng, {
+    width: deep ? 11 : 10,
+    height: deep ? 7 : 6,
+    count: deep ? 3 + Math.floor(rng() * 2) : 2 + Math.floor(rng() * 2),
+    maxStrikes: deep ? 14 : 12,
+  });
+
+  const result = await ctx.dig(dig);
+  markDug(ug, tile.x, tile.y, result.found.length);
+
+  if (!result.found.length) {
+    await ctx.say(result.collapsed
+      ? 'The roof came in and took the lot with it.'
+      : 'You left with nothing but a sore arm.');
+    return;
+  }
+  const names = result.found.map((f) => getItem(f.item).name);
+  await ctx.say(`You came away with ${listOf(names)}.`);
+  if (result.collapsed && result.missed.length) {
+    await ctx.say(`There was ${listOf(result.missed.map((f) => getItem(f.item).name))} in there too.\fIt is under a great deal of rock now.`);
+  }
+  if (ctx.linked()) {
+    await ctx.say(`${ctx.partnerName()} is down here somewhere.\fIf you both work the same seam you will both find the same things.`);
+  }
+  ctx.journal('firstDig');
+};
+
+/** "a, b and c" — used by the dig and by anything else that hands over a haul. */
+function listOf(names) {
+  if (names.length === 1) return `a ${names[0]}`;
+  if (names.length === 2) return `a ${names[0]} and a ${names[1]}`;
+  return `a ${names.slice(0, -1).join(', a ')} and a ${names[names.length - 1]}`;
+}
+
+// ---- Secret Bases ----------------------------------------------------------
+//
+// The most personal thing Gen 4 ever shipped, and here it is built for exactly
+// two people: one other base you will ever visit, one person who will ever
+// visit yours, and a board on the wall to leave them a line on.
+
+SCRIPTS.secretBase = async (ctx, npc) => {
+  const tile = npc && npc.data && npc.data.tile;
+  if (!tile) return;
+  const st = ctx.state;
+  const ug = st.underground;
+  const mine = ug.base && ug.base.x === tile.x && ug.base.y === tile.y;
+  const theirs = ug.partnerBase && ug.partnerBase.x === tile.x && ug.partnerBase.y === tile.y;
+
+  if (theirs && !mine) {
+    await ctx.say(`A door, cut into the rock.\f${ug.partnerBase.owner || 'Somebody'} lives here.`);
+    const go = await ctx.ask('Go in?', ['Yes', 'Leave them be']);
+    if (go !== 0) return;
+    ug.visiting = true;
+    await ctx.warpTo('secret_base', BASE_ENTRY.x, BASE_ENTRY.y);
+    await ctx.say(`${ug.partnerBase.owner || 'Their'}’s base.\f${describe(ug.partnerBase)}`);
+    if (ug.partnerBase.note) {
+      await ctx.say(`There is something scratched on the board:\f“${ug.partnerBase.note}”`);
+    }
+    return;
+  }
+
+  if (mine) {
+    ug.visiting = false;
+    await ctx.warpTo('secret_base', BASE_ENTRY.x, BASE_ENTRY.y);
+    ug.base.visits++;
+    return;
+  }
+
+  if (ug.base) {
+    await ctx.say('This wall is soft enough to cut a room into.');
+    const move = await ctx.ask('You already have a base. Move it here?', ['Move it', 'Keep the old one']);
+    if (move !== 0) return;
+    await ctx.say('You filled in the old room and started again.\fThe things you put in it stayed where they were.');
+  } else {
+    await ctx.say('This wall is soft enough to cut a room into.');
+    const go = await ctx.ask('Make this your Secret Base?', ['Yes', 'Not here']);
+    if (go !== 0) return;
+  }
+  const kept = ug.base ? ug.base.decor : [];
+  const note = ug.base ? ug.base.note : '';
+  const noteBy = ug.base ? ug.base.noteBy : null;
+  const base = digBase(ug, tile.x, tile.y, st.player.name);
+  base.decor = kept;
+  base.note = note;
+  base.noteBy = noteBy;
+  ctx.sfx('badge');
+  await ctx.say('You dug out a room of your own, a hundred feet under Sinnoh.');
+  if (ctx.linked()) {
+    ctx.shareBase();
+    await ctx.say(`${ctx.partnerName()} can find this now.\fThat is rather the point of it.`);
+  } else {
+    await ctx.say('Link up and your partner will be able to find it.');
+  }
+  ctx.journal('secretBase');
+};
+
+/** The door, from the inside. */
+SCRIPTS.leaveBase = async (ctx) => {
+  const ug = ctx.state.underground;
+  const room = ug.visiting ? ug.partnerBase : ug.base;
+  ctx.sfx('door');
+  ug.visiting = false;
+  if (!room) { await ctx.warpTo('underground', LADDERS[0].drop[0], LADDERS[0].drop[1]); return; }
+  // Out into the tunnel, standing in front of the door you came through.
+  await ctx.warpTo('underground', room.x, room.y + 1);
+};
+
+/** The board on the back wall of your own room. */
+SCRIPTS.baseBoard = async (ctx) => {
+  const ug = ctx.state.underground;
+  const room = ug.visiting ? ug.partnerBase : ug.base;
+  if (!room) return;
+
+  if (ug.visiting) {
+    if (room.note) {
+      await ctx.say(`Scratched into the board:\f“${room.note}”`);
+      await ctx.say(`— ${room.noteBy || room.owner || 'them'}`);
+    } else {
+      await ctx.say('A blank board, and a nail with nothing on it.');
+    }
+    const take = await ctx.ask('Take the flag?', ['Take it', 'Leave it']);
+    if (take !== 0) return;
+    ug.flagsTaken++;
+    ctx.sfx('buy');
+    await ctx.say(`You took ${room.owner || 'their'}’s flag.\fThey will know. That is the game.`);
+    ctx.shareFlag();
+    return;
+  }
+
+  await ctx.say(room.note
+    ? `Your board reads:\f“${room.note}”`
+    : 'A blank board. Somebody else will read whatever goes on it.');
+  const pick = await ctx.ask('The board.', ['Leave a line', 'Just look', 'Nothing']);
+  if (pick !== 0) return;
+  const text = await ctx.askText('What should it say?', NOTE_MAX);
+  if (!text) return;
+  leaveNote(room, text, ctx.state.player.name);
+  ctx.sfx('select');
+  await ctx.say('You scratched it into the board.');
+  if (ctx.linked()) { ctx.shareBase(); await ctx.say(`${ctx.partnerName()} will see it next time they are down here.`); }
+};
+
+/** The Underground Man's other counter: spheres in, furniture out. */
+SCRIPTS.baseGoods = async (ctx) => {
+  const st = ctx.state;
+  const ug = st.underground;
+  if (!ug.base) {
+    await ctx.say('Goods Trader: Bring me a room and I will fill it.\fNo room, no furniture. That is the arrangement.');
+    return;
+  }
+  for (;;) {
+    const spheres = sphereCount(st.inventory);
+    if (!spheres) {
+      await ctx.say('Goods Trader: Spheres, please. I do not take money.\fMoney is for people who live above ground.');
+      return;
+    }
+    const affordable = GOODS_IDS.filter((id) => costOf(id) <= spheres);
+    if (!affordable.length) {
+      await ctx.say(`Goods Trader: ${spheres} sphere${spheres === 1 ? '' : 's'} does not reach anything I have.\fGo and dig.`);
+      return;
+    }
+    const options = affordable.map((id) => `${GOODS[id].name} (${costOf(id)})`).concat('Nothing today');
+    const pick = await ctx.ask(`Goods Trader: You have ${spheres} sphere${spheres === 1 ? '' : 's'}.`, options);
+    if (pick < 0 || pick >= affordable.length) { await ctx.say('Goods Trader: The tunnels will still be here.'); return; }
+    const id = affordable[pick];
+
+    if (ug.base.decor.length >= ROOM.maxDecor) {
+      await ctx.say('Goods Trader: Your room is full. Take something out of it first.');
+      continue;
+    }
+    const spot = freeSpot(ug.base, id);
+    if (!spot) { await ctx.say('Goods Trader: There is nowhere in your room that would fit.'); continue; }
+
+    spendSpheres(ctx, costOf(id));
+    place(ug.base, id, spot.x, spot.y);
+    ctx.sfx('buy');
+    await ctx.say(`Goods Trader: One ${GOODS[id].name}. It is in your room already.`);
+    await ctx.say(GOODS[id].blurb);
+    if (ctx.linked()) ctx.shareBase();
+  }
+};
+
+/**
+ * Pays in spheres, cheapest colour first, so the rare ones stay in the bag
+ * until the player chooses to spend them.
+ */
+function spendSpheres(ctx, cost) {
+  let left = cost;
+  const order = [...SPHERES].sort((a, b) => (getItem(a).worth || 1) - (getItem(b).worth || 1));
+  for (const id of order) {
+    while (left > 0 && ctx.countItem(id) > 0) {
+      ctx.take(id, 1);
+      left -= getItem(id).worth || 1;
+    }
+    if (left <= 0) break;
+  }
+}
+
+/** Taking something back out of your own room. */
+SCRIPTS.baseTidy = async (ctx, npc) => {
+  const ug = ctx.state.underground;
+  const tile = npc && npc.data && npc.data.tile;
+  if (!ug.base || ug.visiting || !tile) return;
+  const gone = removeAt(ug.base, tile.x, tile.y);
+  if (!gone) return;
+  ctx.sfx('select');
+  await ctx.say(`You put the ${GOODS[gone.id].name} away.`);
+  if (ctx.linked()) ctx.shareBase();
+};
+
 function scriptFor(name) { return SCRIPTS[name] || null; }
 
 __exports(__x, { SCRIPTS: () => SCRIPTS, scriptFor: () => scriptFor });
@@ -15633,6 +16919,10 @@ const TOPICS = {
   STORY: 'story',
   CHAT: 'chat',
   SYS: 'sys',
+  // The Underground: a Secret Base is the only thing in this game one player
+  // publishes for the other to walk into, so it gets its own topic rather
+  // than riding on the story channel.
+  BASE: 'base',
 };
 
 // Every topic a page may emit on must be opened to the `interact` level at
@@ -15724,6 +17014,9 @@ const MSG = {
   TRADE_CANCEL: 'trade.cancel',
   // story
   STORY_MILESTONE: 'story.milestone',
+  // the Underground
+  BASE_SHARE: 'base.share',
+  BASE_FLAG: 'base.flag',
 };
 
 const MSG_KINDS = new Set(Object.values(MSG));
@@ -16280,6 +17573,18 @@ class NetworkManager {
 
   sendBattleAction(kind, data = {}) { this._send(TOPICS.BATTLE, kind, this.partner?.peer, data); }
   sendTradeAction(kind, data = {}) { this._send(TOPICS.TRADE, kind, this.partner?.peer, data); }
+  /**
+   * Publishes your Secret Base to whoever is in the room.
+   *
+   * A base is sent whole rather than patched. It is a few hundred bytes, it
+   * changes about once an evening, and a room that drifted out of step with
+   * itself across a link would be worse than no room at all.
+   */
+  sendBase(base) { this._send(TOPICS.BASE, MSG.BASE_SHARE, null, { base }); }
+
+  /** "I took your flag." The other client is the one that has to believe it. */
+  sendFlagTaken() { this._send(TOPICS.BASE, MSG.BASE_FLAG, this.partner?.peer, {}); }
+
   sendStoryEvent(milestone, value = true) {
     this._send(TOPICS.STORY, MSG.STORY_MILESTONE, null, { m: milestone, v: value });
   }
@@ -16416,6 +17721,8 @@ const { getItem } = __req('data/items.js');
 const { getSpecies } = __req('data/species.js');
 const { partnerLine } = __req('game/monster.js');
 const { BANDIT } = __req('data/story.js');
+const { acceptShared, shareable, GOODS } = __req('game/underground/base.js');
+const { BASE_BOARD, BASE_ORIGIN } = __req('data/maps/underground.js');
 const { addItem, removeItem } = __req('game/inventory.js');
 const { recordSeen, recordCaught } = __req('game/pokedex.js');
 const { awardBadge, healParty, setStoryFlag, progress } = __req('game/state.js');
@@ -16458,6 +17765,8 @@ const { net } = __req('net/NetworkManager.js');
 
 
 
+
+
 class OverworldScreen extends Screen {
   constructor(game) {
     super(game);
@@ -16473,6 +17782,9 @@ class OverworldScreen extends Screen {
     this.netToastT = 0;
     this.encounterFlash = 0;
     this.world.onBump = () => audio.sfx('bump');
+    // Inside a Secret Base the furniture and the board are save data, not
+    // tiles, so the world asks this screen what is standing where.
+    this.world.baseTarget = (x, y) => this._baseTarget(x, y);
     this.world.onStep = () => { if (this.game.save) this.game.save.markDirty(); };
   }
 
@@ -16513,6 +17825,22 @@ class OverworldScreen extends Screen {
         if (!this.game.state.flags[key]) {
           setStoryFlag(this.game.state, key, true);
           this.toast('Story synced with your partner');
+        }
+      }),
+      // A partner's Secret Base arrives whole. It is another player's data, so
+      // it is rebuilt field by field before anything in this game touches it.
+      bus.on('net:base', ({ kind, data }) => {
+        const ug = this.game.state.underground;
+        if (kind === 'base.share') {
+          const base = acceptShared(data && data.base);
+          if (!base) return;
+          const first = !ug.partnerBase;
+          ug.partnerBase = base;
+          if (first) this.toast(`${base.owner || 'Your partner'} has a base down there`);
+        } else if (kind === 'base.flag') {
+          if (ug.base) ug.base.flagTaken++;
+          this.toast('Your flag has been taken!');
+          audio.sfx('deny');
         }
       }),
       bus.on('trade:changed', () => this.game.openTradeIfNeeded()),
@@ -16599,6 +17927,10 @@ class OverworldScreen extends Screen {
     }
     if (target.type === 'flavour') { this.say(target.text); return; }
     if (target.type === 'soil') { this.runScript('berryPatch', { data: { tile: target } }); return; }
+    if (target.type === 'dig') { this.runScript('digWall', { data: { tile: target } }); return; }
+    if (target.type === 'board') { this.runScript('baseBoard'); return; }
+    if (target.type === 'decor') { this.runScript('baseTidy', { data: { tile: target } }); return; }
+    if (target.type === 'baseWall') { this.runScript('secretBase', { data: { tile: target } }); return; }
     if (target.type === 'water') {
       // A rod turns the water's edge into somewhere to stand for ten minutes.
       // Without one it stays what it was: a nice view.
@@ -16611,6 +17943,29 @@ class OverworldScreen extends Screen {
     if (target.type === 'item') { this._pickUp(target.entity); return; }
     if (target.type === 'player') { this._interactPlayer(target.entity); return; }
     if (target.type === 'npc') { this._talkTo(target.entity); return; }
+  }
+
+  /**
+   * What is standing on this square of a Secret Base — the board, or a piece
+   * of furniture. Coordinates are the map's; the room's own grid starts at
+   * BASE_ORIGIN, which is what the decorations are stored against.
+   */
+  _baseTarget(x, y) {
+    const ug = this.game.state.underground;
+    const room = ug.visiting ? ug.partnerBase : ug.base;
+    if (!room) return null;
+    if (x === BASE_BOARD.x && y === BASE_BOARD.y) return { type: 'board' };
+    const rx = x - BASE_ORIGIN.x, ry = y - BASE_ORIGIN.y;
+    for (const d of room.decor) {
+      const g = GOODS[d.id];
+      if (!g) continue;
+      if (rx >= d.x && rx < d.x + g.w && ry >= d.y && ry < d.y + g.h) {
+        return ug.visiting
+          ? { type: 'flavour', text: `${g.name}. ${g.blurb}` }
+          : { type: 'decor', x: rx, y: ry, id: d.id };
+      }
+    }
+    return null;
   }
 
   /**
@@ -16706,6 +18061,12 @@ class OverworldScreen extends Screen {
       const enc = w.pendingEncounter;
       w.pendingEncounter = null;
       this._startWildBattle(enc);
+      return;
+    }
+    if (w.pendingLadder) {
+      const out = w.pendingLadder;
+      w.pendingLadder = null;
+      this.runScript(out.script || 'surface');
       return;
     }
     if (w.pendingTrainer) {
@@ -16904,6 +18265,19 @@ class OverworldScreen extends Screen {
 
       fishTable: () => (screen.world.map.encounters && screen.world.map.encounters.fish) || null,
 
+      // Hands the player a wall of rock and resolves with what came out of
+      // it. The screen above owns the minigame; this just awaits its answer.
+      dig: (cfg) => new Promise((resolve) => { screen.game.openDig(cfg, resolve); }),
+
+      // A line of text, typed on the same keyboard that named the player.
+      askText: (prompt, maxLen) => new Promise((resolve) => {
+        screen.game.openTextEntry(prompt, maxLen, resolve);
+      }),
+
+      // Publishing a Secret Base, and owning up to taking somebody's flag.
+      shareBase: () => net.sendBase(shareable(st.underground.base, st.player.name)),
+      shareFlag: () => net.sendFlagTaken(),
+
       hasItem: (itemId) => (st.inventory.items[itemId] || 0) > 0,
 
       cry: (speciesId) => audio.cry(speciesId),
@@ -16990,7 +18364,12 @@ class OverworldScreen extends Screen {
       this.camera.x += shakeX;
       this.camera.y += shakeY;
     }
-    drawWorld(ctx, this.world, this.camera, W, H, { patches: this.game.state.patches });
+    const ug = this.game.state.underground;
+    drawWorld(ctx, this.world, this.camera, W, H, {
+      patches: this.game.state.patches,
+      room: ug.visiting ? ug.partnerBase : ug.base,
+      origin: BASE_ORIGIN,
+    });
     this.camera.x -= shakeX;
     this.camera.y -= shakeY;
 
@@ -18651,6 +20030,9 @@ function computeDamage(battle, sideIdx, move, opts = {}) {
   dmg = Math.floor(dmg * ability.damageDealtMultiplier(user, eff));
   dmg = Math.floor(dmg * ability.damageTakenMultiplier(target, user, move, eff));
   dmg = Math.floor(dmg * weather.damageMultiplier(activeWeather(battle), move.type));
+  // A held item that toughens one type of move. It is not consumed, so unlike
+  // a berry it applies on every hit — which is the trade for how small it is.
+  dmg = Math.floor(dmg * heldTypeBoost(user, move));
   if (crit) dmg = Math.floor(dmg * ability.critMultiplier(user));
   if (user.status === 'BRN' && physical && !ability.ignoresBurnDrop(user)) dmg = Math.floor(dmg * 0.5);
   // Damage roll: 85%..100%. A peek uses the average roll so the AI's
@@ -18663,6 +20045,18 @@ function computeDamage(battle, sideIdx, move, opts = {}) {
   }
 
   return { dmg: Math.max(eff === 0 ? 0 : 1, dmg), eff, crit };
+}
+
+/**
+ * The multiplier a held item gives a move of its type. Held items only work
+ * for a Pokémon whose ability lets it use one, the same rule the berries obey.
+ */
+function heldTypeBoost(user, move) {
+  if (!user.heldItem || !ability.usesHeldItem(user)) return 1;
+  const held = getItem(user.heldItem);
+  const spec = held && held.held;
+  if (!spec || spec.kind !== 'boost-type' || spec.type !== move.type) return 1;
+  return spec.mult;
 }
 
 function applyDamagingMove(battle, sideIdx, move, out) {
@@ -21791,6 +23185,19 @@ class BagScreen extends Screen {
       this.game.escapeToHealPoint();
       return;
     }
+    if (u.kind === 'dig') {
+      // Only from outdoors, and never from under the ground you are already
+      // under. The kit digs down; there is nothing below the Underground.
+      const map = this.game.overworld && this.game.overworld.world.map;
+      if (!map || map.kind === 'indoor' || map.kind === 'cave') {
+        this._say('There is no ground to dig here.');
+        audio.sfx('deny');
+        return;
+      }
+      this.game.screens.popTo('OverworldScreen');
+      this.game.overworld.runScript('goUnderground');
+      return;
+    }
     this._say(item.desc);
   }
 
@@ -24000,6 +25407,307 @@ __exports(__x, { DebugScreen: () => DebugScreen });
 
 };
 
+__defs['ui/dig.js'] = function (__x, __req) {
+const { Screen } = __req('ui/screen.js');
+const { input } = __req('core/input.js');
+const { audio } = __req('core/audio.js');
+const { PAL, shade, window9, rect, stroke, label, labelDim, drawText, drawTextCentered, meterBar, LINE } = __req('ui/kit.js');
+const { drawBackChip, getBackChip } = __req('ui/controls.js');
+const { getItem } = __req('data/items.js');
+const { addItem } = __req('game/inventory.js');
+const { TOOLS, strike, stability, depthAt, itemAt, shapeBox, found, missed, isDone, MAX_DEPTH } = __req('game/underground/dig.js');
+// The dig screen.
+//
+// The one screen in this game that is better on a phone than it was on a DS:
+// you tap the rock and the rock comes away. Everything about it is aimed at a
+// thumb — big cells, two big tool chips, and a roof meter you can read without
+// looking away from where you are digging.
+//
+// The model is in game/underground/dig.js and knows nothing about drawing.
+// This file is the hands.
+
+
+
+
+
+
+
+
+
+const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
+
+// Rock, lightest at the surface. Layer 0 is not drawn: it is the floor.
+const ROCK = ['#000000', '#6a5646', '#8a705a', '#a4886c'];
+
+class DigScreen extends Screen {
+  constructor(game, dig, onFinish) {
+    super(game);
+    this.dig = dig;
+    this.onFinish = onFinish;
+    this.cursor = { x: Math.floor(dig.w / 2), y: Math.floor(dig.h / 2) };
+    this.message = 'Something is buried here. Get it out before the roof goes.';
+    this.messageT = 0;
+    this.shake = 0;
+    this.flash = 0;
+    this.ending = 0;          // counts up once the dig is over
+    this.collected = false;
+    this.hits = [];           // little animations: { x, y, t }
+  }
+
+  onEnter() { audio.sfx('select'); }
+
+  // ---- update -------------------------------------------------------------
+
+  update(dt, isTop) {
+    if (!isTop) return;
+    this.messageT += dt;
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 4);
+    if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 3);
+    for (const h2 of this.hits) h2.t += dt;
+    this.hits = this.hits.filter((h2) => h2.t < 0.35);
+
+    if (isDone(this.dig)) {
+      this.ending += dt;
+      // A beat to read the last thing that came out, then the tally.
+      if (this.ending > 0.9) this._finish();
+      return;
+    }
+
+    const tap = input.consumeTap();
+    if (tap) { this._handleTap(tap); return; }
+
+    if (input.pressed('b')) { this._finish(); return; }
+    if (input.pressed('start')) { this._swapTool(); return; }
+    const dir = input.pressedDirection ? input.pressedDirection() : null;
+    if (input.repeated('left')) this._move(-1, 0);
+    if (input.repeated('right')) this._move(1, 0);
+    if (input.repeated('up')) this._move(0, -1);
+    if (input.repeated('down')) this._move(0, 1);
+    if (input.pressed('a')) this._strike(this.cursor.x, this.cursor.y);
+    void dir;
+  }
+
+  _move(dx, dy) {
+    this.cursor.x = Math.max(0, Math.min(this.dig.w - 1, this.cursor.x + dx));
+    this.cursor.y = Math.max(0, Math.min(this.dig.h - 1, this.cursor.y + dy));
+    audio.sfx('cursor');
+  }
+
+  _swapTool() {
+    this.dig.tool = this.dig.tool === 'hammer' ? 'pick' : 'hammer';
+    audio.sfx('cursor');
+  }
+
+  _handleTap(tap) {
+    const L = this._layout();
+    const back = getBackChip();
+    if (back && hit(tap, back.x, back.y, back.w, back.h)) { this._finish(); return; }
+    for (const [name, box] of Object.entries(L.tools)) {
+      if (hit(tap, box.x, box.y, box.w, box.h)) {
+        if (this.dig.tool !== name) { this.dig.tool = name; audio.sfx('cursor'); }
+        return;
+      }
+    }
+    if (!hit(tap, L.gx, L.gy, L.cell * this.dig.w, L.cell * this.dig.h)) return;
+    const x = Math.floor((tap.x - L.gx) / L.cell);
+    const y = Math.floor((tap.y - L.gy) / L.cell);
+    this.cursor.x = x; this.cursor.y = y;
+    this._strike(x, y);
+  }
+
+  _strike(x, y) {
+    const res = strike(this.dig, x, y);
+    if (res.wasted) { audio.sfx('deny'); this._say('There is nothing left to take off there.'); return; }
+    if (!res.ok) return;
+
+    this.hits.push({ x, y, t: 0, tool: this.dig.tool });
+    audio.sfx(this.dig.tool === 'hammer' ? 'bump' : 'cursor');
+    this.shake = this.dig.tool === 'hammer' ? 1 : 0.5;
+
+    for (const it of res.found) {
+      addItem(this.game.state.inventory, it.item, 1);
+      audio.sfx('buy');
+      this.flash = 1;
+      this._say(`You dug up a ${getItem(it.item).name}!`);
+    }
+    if (res.collapsed) {
+      audio.sfx('deny');
+      this.shake = 1.4;
+      this._say('The roof is coming in!');
+    } else if (!res.found.length && stability(this.dig) < 0.34) {
+      this._say('The walls are shaking. Not much longer.');
+    }
+    if (this.game.save) this.game.save.markDirty();
+  }
+
+  _say(text) { this.message = text; this.messageT = 0; }
+
+  _finish() {
+    if (this.collected) return;
+    this.collected = true;
+    this.game.screens.pop();
+    if (this.onFinish) this.onFinish({ found: found(this.dig), missed: missed(this.dig), collapsed: this.dig.collapsed });
+  }
+
+  hint() { return 'Tap the rock · MENU swaps tool · B leaves'; }
+
+  // ---- layout -------------------------------------------------------------
+
+  _layout() {
+    const { width: W, height: H } = this.game.display;
+    const top = 22;                       // the roof meter
+    const bottom = 34;                    // a line of text, then the tools
+    const cell = Math.max(10, Math.min(
+      Math.floor((W - 12) / this.dig.w),
+      Math.floor((H - top - bottom) / this.dig.h),
+    ));
+    const gw = cell * this.dig.w;
+    const gh = cell * this.dig.h;
+    const gx = Math.round((W - gw) / 2);
+    const gy = top + Math.round((H - top - bottom - gh) / 2);
+    const tw = 52, th = 15;
+    const ty = H - th - 3;
+    // Two tool chips, centred, with the running commentary on its own line
+    // above them. It used to share the line and got cut off mid-sentence.
+    const tx = Math.round((W - (tw * 2 + 8)) / 2);
+    return {
+      W, H, cell, gx, gy, gw, gh,
+      tools: {
+        hammer: { x: tx, y: ty, w: tw, h: th },
+        pick: { x: tx + tw + 8, y: ty, w: tw, h: th },
+      },
+      msgY: ty - 11,
+    };
+  }
+
+  // ---- render -------------------------------------------------------------
+
+  render(ctx) {
+    const L = this._layout();
+    rect(ctx, 0, 0, L.W, L.H, shade(PAL.caveWallDark, -0.35));
+
+    ctx.save();
+    if (this.shake > 0) {
+      ctx.translate(Math.round((Math.random() - 0.5) * this.shake * 3),
+        Math.round((Math.random() - 0.5) * this.shake * 3));
+    }
+    this._drawGrid(ctx, L);
+    ctx.restore();
+
+    this._drawRoofMeter(ctx, L);
+    this._drawTools(ctx, L);
+    this._drawMessage(ctx, L);
+    drawBackChip(ctx, L.W - 40, 4, 'LEAVE');
+
+    if (this.flash > 0) {
+      ctx.save();
+      ctx.globalAlpha = this.flash * 0.35;
+      rect(ctx, 0, 0, L.W, L.H, '#ffffff');
+      ctx.restore();
+    }
+  }
+
+  _drawGrid(ctx, L) {
+    const { cell, gx, gy } = L;
+    // The floor under everything, so a cleared cell reveals rock face.
+    rect(ctx, gx - 2, gy - 2, L.gw + 4, L.gh + 4, shade(PAL.caveFloorDark, -0.2));
+
+    for (let y = 0; y < this.dig.h; y++) {
+      for (let x = 0; x < this.dig.w; x++) {
+        const sx = gx + x * cell, sy = gy + y * cell;
+        const d = depthAt(this.dig, x, y);
+
+        if (d === 0) {
+          // Bare floor — and whatever is sitting on it.
+          rect(ctx, sx, sy, cell, cell, PAL.caveFloor);
+          const it = itemAt(this.dig, x, y);
+          if (it) this._drawTreasureCell(ctx, it, x, y, sx, sy, cell);
+        } else {
+          // Rock erodes rather than just changing colour: each layer you take
+          // off shrinks the block and shows more of the floor around it, so
+          // how far down a cell is can be read at arm's length.
+          const inset = (MAX_DEPTH - d) * 2;
+          const col = ROCK[Math.min(MAX_DEPTH, d)];
+          const it = itemAt(this.dig, x, y);
+          rect(ctx, sx, sy, cell, cell, it ? shade(PAL.caveFloor, -0.1) : PAL.caveFloor);
+          rect(ctx, sx + inset, sy + inset, cell - inset * 2, cell - inset * 2, col);
+          rect(ctx, sx + inset, sy + inset, cell - inset * 2, 1, shade(col, 0.3));
+          rect(ctx, sx + inset, sy + inset, 1, cell - inset * 2, shade(col, 0.3));
+          rect(ctx, sx + inset, sy + cell - inset - 1, cell - inset * 2, 1, shade(col, -0.3));
+          rect(ctx, sx + cell - inset - 1, sy + inset, 1, cell - inset * 2, shade(col, -0.3));
+        }
+        rect(ctx, sx, sy + cell - 1, cell, 1, 'rgba(0,0,0,0.22)');
+        rect(ctx, sx + cell - 1, sy, 1, cell, 'rgba(0,0,0,0.22)');
+      }
+    }
+
+    // Swing marks.
+    for (const h2 of this.hits) {
+      const a = 1 - h2.t / 0.35;
+      const sx = gx + h2.x * cell, sy = gy + h2.y * cell;
+      ctx.save();
+      ctx.globalAlpha = a * 0.7;
+      const r = (h2.tool === 'hammer' ? 1.6 : 0.9) * cell * (0.4 + (1 - a));
+      ctx.strokeStyle = '#ffe9a8';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(sx + cell / 2, sy + cell / 2, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // The cursor, for anyone playing with keys.
+    const cx = gx + this.cursor.x * cell, cy = gy + this.cursor.y * cell;
+    stroke(ctx, cx, cy, cell, cell, '#ffe9a8', 1);
+  }
+
+  /**
+   * A buried thing, drawn only where it has been uncovered — which is what
+   * makes uncovering it worth doing: you see a corner and have to decide
+   * whether the shape is worth the rest of the roof.
+   */
+  _drawTreasureCell(ctx, it, x, y, sx, sy, cell) {
+    const box = shapeBox(it.shape);
+    const dx = x - it.x, dy = y - it.y;
+    const on = (ox, oy) => box.cells.some(([a, b]) => a === dx + ox && b === dy + oy);
+    const base = it.found ? '#f4d76a' : '#c9a227';
+    rect(ctx, sx + 1, sy + 1, cell - 2, cell - 2, base);
+    rect(ctx, sx + 1, sy + 1, cell - 2, 2, shade(base, 0.3));
+    // Fill the seams between cells of the same thing so it reads as one object.
+    if (on(1, 0)) rect(ctx, sx + cell - 2, sy + 1, 2, cell - 2, base);
+    if (on(0, 1)) rect(ctx, sx + 1, sy + cell - 2, cell - 2, 2, base);
+  }
+
+  _drawRoofMeter(ctx, L) {
+    const frac = stability(this.dig);
+    const col = frac > 0.55 ? '#63c46a' : frac > 0.28 ? '#e8c04a' : '#e05c4a';
+    rect(ctx, 0, 0, L.W, 20, shade(PAL.uiFrame, -0.35));
+    drawText(ctx, 'ROOF', 5, 6, { color: PAL.uiTextLight });
+    meterBar(ctx, 32, 7, L.W - 84, frac, col);
+  }
+
+  _drawTools(ctx, L) {
+    for (const [name, box] of Object.entries(L.tools)) {
+      const on = this.dig.tool === name;
+      rect(ctx, box.x, box.y, box.w, box.h, on ? PAL.uiSelect : shade(PAL.uiFrame, -0.15));
+      stroke(ctx, box.x, box.y, box.w, box.h, on ? PAL.uiTextLight : PAL.uiFrameLight, 1);
+      drawTextCentered(ctx, TOOLS[name].name.toUpperCase(), box.x + box.w / 2, box.y + 5,
+        { color: on ? PAL.uiTextLight : PAL.uiTextDim });
+    }
+  }
+
+  _drawMessage(ctx, L) {
+    const chars = Math.max(4, Math.floor((L.W - 8) / 6));
+    const text = this.message.length > chars ? this.message.slice(0, chars - 1) + '…' : this.message;
+    drawTextCentered(ctx, text, L.W / 2, L.msgY, { color: PAL.uiTextLight });
+    void window9; void labelDim; void LINE; void drawText; void label;
+  }
+}
+
+__exports(__x, { DigScreen: () => DigScreen });
+
+};
+
 __defs['ui/circuit.js'] = function (__x, __req) {
 const { Screen } = __req('ui/screen.js');
 const { input } = __req('core/input.js');
@@ -25822,9 +27530,10 @@ const { ShopScreen } = __req('ui/shop.js');
 const { MultiplayerScreen } = __req('ui/multiplayer.js');
 const { TradeScreen } = __req('ui/trade.js');
 const { DebugScreen } = __req('ui/debug.js');
+const { DigScreen } = __req('ui/dig.js');
 const { CircuitScreen, TournamentScreen, PressScreen } = __req('ui/circuit.js');
 const { resolveDialogue, worldSnapshot } = __req('game/overworld/gossip.js');
-const { NicknameScreen } = __req('ui/naming.js');
+const { NicknameScreen, TextEntryScreen } = __req('ui/naming.js');
 const { JournalScreen } = __req('ui/journal.js');
 const journalApi = __req('game/journal.js');
 const { createGameState, healParty, setStoryFlag } = __req('game/state.js');
@@ -25849,6 +27558,7 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
 
 
 
@@ -26089,6 +27799,14 @@ class Game {
   }
   openShop(onClose) { this.screens.push(new ShopScreen(this, onClose)); }
   openDebug() { this.screens.push(new DebugScreen(this)); }
+
+  // A wall of rock, and whatever is in it. `cfg` is already a dig from
+  // game/underground/dig.js — this only owns the screen.
+  openDig(dig, onFinish) { this.screens.push(new DigScreen(this, dig, onFinish)); }
+
+  openTextEntry(prompt, maxLen, onDone) {
+    this.screens.push(new TextEntryScreen(this, prompt, maxLen, onDone));
+  }
 
   // Puts an item in the bag. Same purpose as debugGive: the debug menu and
   // the integration tests both need a way to hand the player something.

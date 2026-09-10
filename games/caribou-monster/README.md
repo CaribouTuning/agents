@@ -32,7 +32,7 @@ controls.
 
 | | |
 |---|---|
-| **World** | 27 maps: Twinleaf Town, Sandgem Town, Jubilife City, Oreburgh City, Routes 201–203 and 207, Oreburgh Gate, the Everlight Chamber and eighteen interiors |
+| **World** | 29 maps: Twinleaf Town, Sandgem Town, Jubilife City, Oreburgh City, Routes 201–203 and 207, Oreburgh Gate, the Everlight Chamber, the Underground, a Secret Base and eighteen interiors |
 | **Pokémon** | 210 species with real base stats, types, natures, genders, IVs/EVs, shinies, learnsets, egg groups and evolution lines — plus nicknaming, friendship that moves, held items you can give and take, and **84 working abilities** |
 | **Moves** | 460, all data-driven, with the 17-type chart, STAB, criticals, accuracy, five status conditions, confusion, flinch and stat stages |
 | **Weather** | Sun, rain, sandstorm and hail — set by a move or walked into by an ability, with the damage, speed, accuracy, chip and healing rules that go with each |
@@ -40,11 +40,13 @@ controls.
 | **Day Care** | Leave two, walk a long way, come home to an Egg — and if the two of you were linked when you handed them over, both names go on it |
 | **Berries** | Nine berries you can eat, hold or plant. Soft soil beside four maps, four growth stages on the real clock, and a bigger crop for the ones you planted together |
 | **Fishing** | The Old Rod, a real bite roll, and three stretches of water with their own tables |
+| **The Underground** | A second Sinnoh under the first one: the Explorer Kit, three shafts, seams that come back, and a touch-first digging minigame |
+| **Secret Bases** | A room cut into a wall a hundred feet down, furnished with spheres, with a board on the back wall — and your partner can walk into it |
 | **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, the Oreburgh Gym and its badge |
 | **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, trainer card, save/load, EASY and NORMAL difficulty |
 | **World Circuit** | A second career track: 6 sanctioned tournaments, 12 professional trainers, an Elo world ranking, Circuit Points, promotions, a press feed and post-event press conferences |
 | **Living world** | Conditional NPC dialogue: everyone reacts to your starter, badges, Pokédex, story flags, circuit rank, titles and how you talk to the press — and names the trainer who is *actually* world number one |
-| **Co-op** | Room codes, a shared overworld, link trades, link battles, the Pair Bell register and Eggs with two names on them |
+| **Co-op** | Room codes, a shared overworld, link trades, link battles, the Pair Bell register, Eggs with two names on them, and each other's Secret Bases |
 | **Debug** | A developer menu behind OPTIONS: teleport, give monsters/items/money, set flags, force battles, inspect the network |
 
 ---
@@ -317,6 +319,47 @@ fails on a branch that never fires anywhere. Dead dialogue is dead content.
 
 ---
 
+## The Underground
+
+Gen 4's best idea, and the only feature the series ever built for a touch
+screen — which makes it the one thing in this game that fits a phone better
+than it fitted the DS. An old man in Oreburgh hands you the Explorer Kit; use
+it anywhere outdoors and you go straight down into a second Sinnoh with nothing
+in it but rock, what is buried in the rock, and whoever else is down there.
+
+**Digging.** A seam is a wall of rock in layers. Tap it and the layers come
+away — the hammer clears ground fast and takes the roof with it, the pick is
+slow and precise, and choosing between them *is* the game. A fossil takes nine
+cells; it comes out whole or it does not come out. The roof meter is the clock.
+
+```js
+strike(dig, x, y, 'hammer')  // -> { cells, found, collapsed, wasted }
+```
+
+The wall is derived from where it is and which three-hour window it is in, so
+**two people standing at the same seam in the same evening dig the same rock**
+— and the same seam is a different wall tomorrow. Seams come back after three
+hours on the world clock, because a tunnel where every seam is gone forever is
+a tunnel nobody visits twice.
+
+**Secret Bases** are the reason it is here. You cut a room into a soft wall,
+furnish it with the spheres you dug up (nothing else buys furniture, and
+spheres buy nothing else — the Underground's economy is closed), and leave a
+line on the board on the back wall. When you are linked, the whole room is
+published to your partner: they can find it in the tunnels, walk in, read what
+you scratched on the board, and take your flag. You will know.
+
+A base arriving over the link is another player's data, so it is rebuilt field
+by field before anything touches it — a name is cut to sixteen characters,
+furniture that does not exist is dropped, furniture outside the room is pulled
+back into it, and a room cannot be stuffed past full. `tools/coop.mjs` proves
+that across two real clients; `tools/undergroundtest.mjs` proves the dig, the
+seams, the room and the save; and the whole loop — kit, ladder, seam, minigame,
+room, board, ladder back up — is driven through the real UI in
+`tools/walkthrough.mjs`.
+
+---
+
 ## Multiplayer is real, and here is exactly how real
 
 The whole point of the architecture is that the game never fakes a second
@@ -420,6 +463,7 @@ node tools/savetest.mjs                # save round trip, migration, and refusal
 node tools/weathertest.mjs             # sun, rain, sand and hail, each against its absence
 node tools/daycaretest.mjs             # boarding, fees, Egg odds, hatching, and the save
 node tools/berrytest.mjs               # planting, growth on the clock, held berries, fishing
+node tools/undergroundtest.mjs         # the dig, the seams, the room, and what crosses the link
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```

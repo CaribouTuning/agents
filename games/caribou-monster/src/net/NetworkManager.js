@@ -185,6 +185,18 @@ class NetworkManager {
 
   sendBattleAction(kind, data = {}) { this._send(TOPICS.BATTLE, kind, this.partner?.peer, data); }
   sendTradeAction(kind, data = {}) { this._send(TOPICS.TRADE, kind, this.partner?.peer, data); }
+  /**
+   * Publishes your Secret Base to whoever is in the room.
+   *
+   * A base is sent whole rather than patched. It is a few hundred bytes, it
+   * changes about once an evening, and a room that drifted out of step with
+   * itself across a link would be worse than no room at all.
+   */
+  sendBase(base) { this._send(TOPICS.BASE, MSG.BASE_SHARE, null, { base }); }
+
+  /** "I took your flag." The other client is the one that has to believe it. */
+  sendFlagTaken() { this._send(TOPICS.BASE, MSG.BASE_FLAG, this.partner?.peer, {}); }
+
   sendStoryEvent(milestone, value = true) {
     this._send(TOPICS.STORY, MSG.STORY_MILESTONE, null, { m: milestone, v: value });
   }

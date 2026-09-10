@@ -8,13 +8,14 @@ import { TWINLEAF, SANDGEM, JUBILIFE, OREBURGH } from './towns.js';
 import { ROUTE201, ROUTE203, ROUTE207 } from './routes.js';
 import { ROUTE202, OREBURGH_GATE, EVERLIGHT_CHAMBER } from './wilds.js';
 import { INTERIORS } from './interiors.js';
+import { UNDERGROUND, SECRET_BASE } from './underground.js';
 
 export { defineMap };
 
 // The road, in the order a player walks it: Twinleaf, Route 201, Sandgem,
 // Route 202, Jubilife, Route 203, Oreburgh — then Route 207 and the Gate.
 const ALL = [TWINLEAF, ROUTE201, SANDGEM, ROUTE202, JUBILIFE, ROUTE203, OREBURGH,
-  ROUTE207, OREBURGH_GATE, EVERLIGHT_CHAMBER, ...INTERIORS];
+  ROUTE207, OREBURGH_GATE, EVERLIGHT_CHAMBER, UNDERGROUND, SECRET_BASE, ...INTERIORS];
 
 export const MAPS = {};
 for (const m of ALL) MAPS[m.id] = m;

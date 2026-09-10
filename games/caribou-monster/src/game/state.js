@@ -14,6 +14,7 @@ import { createCircuit, serializeCircuit, reviveCircuit } from './circuit/circui
 import { createJournal, serializeJournal, reviveJournal } from './journal.js';
 import { createDaycare, serializeDaycare, reviveDaycare } from './daycare.js';
 import { createPatches, serializePatches, revivePatches } from './berries.js';
+import { createUnderground, serializeUnderground, reviveUnderground } from './underground/site.js';
 
 export const MAX_PARTY = 6;
 export const BOX_COUNT = 8;
@@ -53,6 +54,8 @@ export function createGameState(opts = {}) {
     daycare: createDaycare(),
     // Berries in the ground, keyed by where they are.
     patches: createPatches(),
+    // The Underground: where you climbed down from, and which seams are spent.
+    underground: createUnderground(),
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
@@ -183,6 +186,7 @@ export function serializeState(st) {
     journal: serializeJournal(st.journal),
     daycare: serializeDaycare(st.daycare),
     patches: serializePatches(st.patches),
+    underground: serializeUnderground(st.underground),
   };
 }
 
@@ -214,6 +218,7 @@ export function deserializeState(raw) {
   st.journal = reviveJournal(raw.journal);
   st.daycare = reviveDaycare(raw.daycare, reviveMonster);
   st.patches = revivePatches(raw.patches);
+  st.underground = reviveUnderground(raw.underground);
   return st;
 }
 

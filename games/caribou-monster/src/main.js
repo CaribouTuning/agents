@@ -22,9 +22,10 @@ import { ShopScreen } from './ui/shop.js';
 import { MultiplayerScreen } from './ui/multiplayer.js';
 import { TradeScreen } from './ui/trade.js';
 import { DebugScreen } from './ui/debug.js';
+import { DigScreen } from './ui/dig.js';
 import { CircuitScreen, TournamentScreen, PressScreen } from './ui/circuit.js';
 import { resolveDialogue, worldSnapshot } from './game/overworld/gossip.js';
-import { NicknameScreen } from './ui/naming.js';
+import { NicknameScreen, TextEntryScreen } from './ui/naming.js';
 import { JournalScreen } from './ui/journal.js';
 import * as journalApi from './game/journal.js';
 import { createGameState, healParty, setStoryFlag } from './game/state.js';
@@ -243,6 +244,14 @@ class Game {
   }
   openShop(onClose) { this.screens.push(new ShopScreen(this, onClose)); }
   openDebug() { this.screens.push(new DebugScreen(this)); }
+
+  // A wall of rock, and whatever is in it. `cfg` is already a dig from
+  // game/underground/dig.js — this only owns the screen.
+  openDig(dig, onFinish) { this.screens.push(new DigScreen(this, dig, onFinish)); }
+
+  openTextEntry(prompt, maxLen, onDone) {
+    this.screens.push(new TextEntryScreen(this, prompt, maxLen, onDone));
+  }
 
   // Puts an item in the bag. Same purpose as debugGive: the debug menu and
   // the integration tests both need a way to hand the player something.

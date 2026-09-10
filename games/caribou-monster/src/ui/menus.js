@@ -446,6 +446,19 @@ export class BagScreen extends Screen {
       this.game.escapeToHealPoint();
       return;
     }
+    if (u.kind === 'dig') {
+      // Only from outdoors, and never from under the ground you are already
+      // under. The kit digs down; there is nothing below the Underground.
+      const map = this.game.overworld && this.game.overworld.world.map;
+      if (!map || map.kind === 'indoor' || map.kind === 'cave') {
+        this._say('There is no ground to dig here.');
+        audio.sfx('deny');
+        return;
+      }
+      this.game.screens.popTo('OverworldScreen');
+      this.game.overworld.runScript('goUnderground');
+      return;
+    }
     this._say(item.desc);
   }
 

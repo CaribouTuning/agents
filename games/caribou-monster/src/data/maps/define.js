@@ -89,5 +89,10 @@ export function defineMap(id, def) {
     events: def.events || [],       // scripted triggers on step
     darkEdges: def.darkEdges !== false,
     healPoint: def.healPoint || null,
+    // A tile that runs a script when you step on it and leads out of the map.
+    // Used where a warp cannot say where it goes — the Underground's ladders
+    // come up wherever you went down, and a Secret Base's door comes out at
+    // whichever wall its owner cut it into.
+    stepOut: def.stepOut || null,
   };
 }

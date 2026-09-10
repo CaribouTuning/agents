@@ -60,6 +60,7 @@ export class World {
     this.animTimer = 0;
     this.encounterCooldown = 0;
     this.pendingEncounter = null;
+    this.pendingLadder = null;
     this.pendingWarp = null;
     this.pendingTrainer = null;
     this.pendingEvent = null;
@@ -337,6 +338,16 @@ export class World {
     }
     if (this.onStep) this.onStep();
 
+    // A way out that a warp cannot describe: the Underground's ladders come up
+    // wherever you went down, and a Secret Base's door comes out at whichever
+    // wall its owner cut it into. Both are scripts, on a tile.
+    const out = this.map.stepOut;
+    if (out && ((out.tile && this.tileAt(p.x, p.y) === out.tile)
+      || (out.x === p.x && out.y === p.y))) {
+      this.pendingLadder = { x: p.x, y: p.y, script: out.script };
+      return;
+    }
+
     // Warp?
     const warp = this.warpAt(p.x, p.y);
     if (warp) { this.pendingWarp = warp; return; }
@@ -442,6 +453,18 @@ export class World {
     if (def.name === 'TV') return { type: 'flavour', text: 'A documentary about migrating Pokémon is on.' };
     if (def.name === 'bed') return { type: 'flavour', text: 'Neatly made. It looks very comfortable.' };
     if (def.soil) return { type: 'soil', x: tx, y: ty };
+    // Inside a Secret Base: the board on the back wall, and whatever has been
+    // put on the floor. Both are save data rather than tiles, so the world has
+    // to ask the game for them.
+    if (this.mapId === 'secret_base') {
+      const found = this.baseTarget && this.baseTarget(tx, ty);
+      if (found) return found;
+    }
+    // The Underground. A seam you can work, a wall soft enough to cut a room
+    // into, and the way back up.
+    if (def.dig) return { type: 'dig', x: tx, y: ty, depth: def.dig };
+    if (def.base) return { type: 'baseWall', x: tx, y: ty };
+
     // The water's edge. Whether this is a fishing spot or a nice view is up
     // to the screen, which is the thing that knows what is in the bag.
     if (def.water) return { type: 'water', x: tx, y: ty };

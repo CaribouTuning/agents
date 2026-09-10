@@ -15,6 +15,18 @@ import {
   patchAt, plant, isRipe, harvest, tend, patchText, cropOf,
 } from '../berries.js';
 import { getItem, BERRY_IDS } from '../../data/items.js';
+import { createDig } from '../underground/dig.js';
+import { tableFor } from '../underground/treasure.js';
+import {
+  coolingFor, coolingText, isReady, markDug, seedFor,
+} from '../underground/site.js';
+import { LADDERS, ladderFor, BASE_ENTRY, BASE_BOARD } from '../../data/maps/underground.js';
+import {
+  GOODS, GOODS_IDS, ROOM, digBase, place, freeSpot, removeAt, describe,
+  leaveNote, NOTE_MAX, costOf,
+} from '../underground/base.js';
+import { SPHERES, sphereCount } from '../underground/treasure.js';
+import { makeRng } from '../../core/rng.js';
 import { weightedPick } from '../../core/rng.js';
 import { spend, formatMoney as money } from '../inventory.js';
 import { FLAGS } from '../storyflags.js';
@@ -781,6 +793,296 @@ SCRIPTS.fish = async (ctx) => {
   const level = table.min + Math.floor(Math.random() * (table.max - table.min + 1));
   ctx.journal('fished');
   await ctx.wild(species, level);
+};
+
+// ---- the Underground -------------------------------------------------------
+//
+// Gen 4's best idea, and the only feature in the series built for a touch
+// screen. There are no wild Pokemon down here and no plot: it is the part of
+// the game you go to because the other person is in it.
+
+/** The Underground Man, who hands over the kit and never comes down himself. */
+SCRIPTS.explorerKit = async (ctx) => {
+  if (ctx.hasItem('explorerkit')) {
+    if (ctx.linked()) {
+      await ctx.say('Underground Man: Both of you have kits? Then go down together.\fIt is a different place with somebody in it.');
+    } else {
+      await ctx.say('Underground Man: Seams come back after a few hours. The rock is\nolder than the impatience of any trainer.');
+      await ctx.say('Underground Man: Hammer for ground, pick for precision.\fEverybody learns that the expensive way.');
+    }
+    return;
+  }
+  await ctx.say('Underground Man: There is another Sinnoh under this one.');
+  await ctx.say('Underground Man: Tunnels. Miles of them. Nobody put them there —\nthey were simply already there when we arrived.');
+  await ctx.say('Underground Man: I dug for thirty years and I never once found the end.');
+  const yes = await ctx.ask('Underground Man: Would you like a kit?', ['Yes', 'Not today']);
+  if (yes !== 0) { await ctx.say('Underground Man: It will be here. So will the tunnels.'); return; }
+  ctx.give('explorerkit', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received the EXPLORER KIT!');
+  await ctx.say('Underground Man: Use it anywhere outdoors and you will go down.\fUse a ladder and you will come back up where you left.');
+  await ctx.say('Underground Man: Look for the seams — the rock that glitters.\fHammer to clear ground, pick when it matters.');
+  await ctx.say('Underground Man: And mind the roof. It only warns you once.');
+  ctx.journal('underground');
+};
+
+/** Going down. Called from the bag, so it knows nothing but where you stand. */
+SCRIPTS.goUnderground = async (ctx) => {
+  const st = ctx.state;
+  const here = ctx.here();
+  const ladder = ladderFor(here.map);
+  st.underground.returnTo = { map: here.map, x: here.x, y: here.y, dir: 'down' };
+  st.underground.unlocked = true;
+  ctx.sfx('door');
+  await ctx.say('You dug straight down.');
+  await ctx.warpTo('underground', ladder.drop[0], ladder.drop[1]);
+  await ctx.say(`${ladder.name}.\fThe tunnels go on further than the torchlight does.`);
+};
+
+/** Coming back up, exactly where you went down. */
+SCRIPTS.surface = async (ctx) => {
+  const st = ctx.state;
+  const back = st.underground.returnTo;
+  ctx.sfx('door');
+  if (!back) {
+    // A save from before the kit, or a ladder reached some other way. The
+    // nearest thing to "where you came from" is the town the shaft serves.
+    const ladder = LADDERS.find((l) => l.drop[0] === ctx.here().x || true);
+    await ctx.warpTo(ladder.surface[0], 12, 12);
+    return;
+  }
+  await ctx.warpTo(back.map, back.x, back.y);
+  await ctx.say('You climbed back up into the daylight.');
+};
+
+/** One seam. */
+SCRIPTS.digWall = async (ctx, npc) => {
+  const tile = npc && npc.data && npc.data.tile;
+  if (!tile) return;
+  const ug = ctx.state.underground;
+
+  if (!isReady(ug, tile.x, tile.y)) {
+    await ctx.say(coolingText(coolingFor(ug, tile.x, tile.y)));
+    return;
+  }
+  const deep = tile.depth === 'deep';
+  await ctx.say(deep
+    ? 'The seam here runs deep, and something in it catches the light.'
+    : 'Something in the rock catches the light.');
+  const go = await ctx.ask('Dig here?', ['Dig', 'Leave it']);
+  if (go !== 0) return;
+
+  // The wall is derived from where it is and which refresh window it is in,
+  // so two people at the same seam in the same evening dig the same rock.
+  const rng = makeRng(seedFor(tile.x, tile.y));
+  const dig = createDig(tableFor(tile.depth), rng, {
+    width: deep ? 11 : 10,
+    height: deep ? 7 : 6,
+    count: deep ? 3 + Math.floor(rng() * 2) : 2 + Math.floor(rng() * 2),
+    maxStrikes: deep ? 14 : 12,
+  });
+
+  const result = await ctx.dig(dig);
+  markDug(ug, tile.x, tile.y, result.found.length);
+
+  if (!result.found.length) {
+    await ctx.say(result.collapsed
+      ? 'The roof came in and took the lot with it.'
+      : 'You left with nothing but a sore arm.');
+    return;
+  }
+  const names = result.found.map((f) => getItem(f.item).name);
+  await ctx.say(`You came away with ${listOf(names)}.`);
+  if (result.collapsed && result.missed.length) {
+    await ctx.say(`There was ${listOf(result.missed.map((f) => getItem(f.item).name))} in there too.\fIt is under a great deal of rock now.`);
+  }
+  if (ctx.linked()) {
+    await ctx.say(`${ctx.partnerName()} is down here somewhere.\fIf you both work the same seam you will both find the same things.`);
+  }
+  ctx.journal('firstDig');
+};
+
+/** "a, b and c" — used by the dig and by anything else that hands over a haul. */
+function listOf(names) {
+  if (names.length === 1) return `a ${names[0]}`;
+  if (names.length === 2) return `a ${names[0]} and a ${names[1]}`;
+  return `a ${names.slice(0, -1).join(', a ')} and a ${names[names.length - 1]}`;
+}
+
+// ---- Secret Bases ----------------------------------------------------------
+//
+// The most personal thing Gen 4 ever shipped, and here it is built for exactly
+// two people: one other base you will ever visit, one person who will ever
+// visit yours, and a board on the wall to leave them a line on.
+
+SCRIPTS.secretBase = async (ctx, npc) => {
+  const tile = npc && npc.data && npc.data.tile;
+  if (!tile) return;
+  const st = ctx.state;
+  const ug = st.underground;
+  const mine = ug.base && ug.base.x === tile.x && ug.base.y === tile.y;
+  const theirs = ug.partnerBase && ug.partnerBase.x === tile.x && ug.partnerBase.y === tile.y;
+
+  if (theirs && !mine) {
+    await ctx.say(`A door, cut into the rock.\f${ug.partnerBase.owner || 'Somebody'} lives here.`);
+    const go = await ctx.ask('Go in?', ['Yes', 'Leave them be']);
+    if (go !== 0) return;
+    ug.visiting = true;
+    await ctx.warpTo('secret_base', BASE_ENTRY.x, BASE_ENTRY.y);
+    await ctx.say(`${ug.partnerBase.owner || 'Their'}’s base.\f${describe(ug.partnerBase)}`);
+    if (ug.partnerBase.note) {
+      await ctx.say(`There is something scratched on the board:\f“${ug.partnerBase.note}”`);
+    }
+    return;
+  }
+
+  if (mine) {
+    ug.visiting = false;
+    await ctx.warpTo('secret_base', BASE_ENTRY.x, BASE_ENTRY.y);
+    ug.base.visits++;
+    return;
+  }
+
+  if (ug.base) {
+    await ctx.say('This wall is soft enough to cut a room into.');
+    const move = await ctx.ask('You already have a base. Move it here?', ['Move it', 'Keep the old one']);
+    if (move !== 0) return;
+    await ctx.say('You filled in the old room and started again.\fThe things you put in it stayed where they were.');
+  } else {
+    await ctx.say('This wall is soft enough to cut a room into.');
+    const go = await ctx.ask('Make this your Secret Base?', ['Yes', 'Not here']);
+    if (go !== 0) return;
+  }
+  const kept = ug.base ? ug.base.decor : [];
+  const note = ug.base ? ug.base.note : '';
+  const noteBy = ug.base ? ug.base.noteBy : null;
+  const base = digBase(ug, tile.x, tile.y, st.player.name);
+  base.decor = kept;
+  base.note = note;
+  base.noteBy = noteBy;
+  ctx.sfx('badge');
+  await ctx.say('You dug out a room of your own, a hundred feet under Sinnoh.');
+  if (ctx.linked()) {
+    ctx.shareBase();
+    await ctx.say(`${ctx.partnerName()} can find this now.\fThat is rather the point of it.`);
+  } else {
+    await ctx.say('Link up and your partner will be able to find it.');
+  }
+  ctx.journal('secretBase');
+};
+
+/** The door, from the inside. */
+SCRIPTS.leaveBase = async (ctx) => {
+  const ug = ctx.state.underground;
+  const room = ug.visiting ? ug.partnerBase : ug.base;
+  ctx.sfx('door');
+  ug.visiting = false;
+  if (!room) { await ctx.warpTo('underground', LADDERS[0].drop[0], LADDERS[0].drop[1]); return; }
+  // Out into the tunnel, standing in front of the door you came through.
+  await ctx.warpTo('underground', room.x, room.y + 1);
+};
+
+/** The board on the back wall of your own room. */
+SCRIPTS.baseBoard = async (ctx) => {
+  const ug = ctx.state.underground;
+  const room = ug.visiting ? ug.partnerBase : ug.base;
+  if (!room) return;
+
+  if (ug.visiting) {
+    if (room.note) {
+      await ctx.say(`Scratched into the board:\f“${room.note}”`);
+      await ctx.say(`— ${room.noteBy || room.owner || 'them'}`);
+    } else {
+      await ctx.say('A blank board, and a nail with nothing on it.');
+    }
+    const take = await ctx.ask('Take the flag?', ['Take it', 'Leave it']);
+    if (take !== 0) return;
+    ug.flagsTaken++;
+    ctx.sfx('buy');
+    await ctx.say(`You took ${room.owner || 'their'}’s flag.\fThey will know. That is the game.`);
+    ctx.shareFlag();
+    return;
+  }
+
+  await ctx.say(room.note
+    ? `Your board reads:\f“${room.note}”`
+    : 'A blank board. Somebody else will read whatever goes on it.');
+  const pick = await ctx.ask('The board.', ['Leave a line', 'Just look', 'Nothing']);
+  if (pick !== 0) return;
+  const text = await ctx.askText('What should it say?', NOTE_MAX);
+  if (!text) return;
+  leaveNote(room, text, ctx.state.player.name);
+  ctx.sfx('select');
+  await ctx.say('You scratched it into the board.');
+  if (ctx.linked()) { ctx.shareBase(); await ctx.say(`${ctx.partnerName()} will see it next time they are down here.`); }
+};
+
+/** The Underground Man's other counter: spheres in, furniture out. */
+SCRIPTS.baseGoods = async (ctx) => {
+  const st = ctx.state;
+  const ug = st.underground;
+  if (!ug.base) {
+    await ctx.say('Goods Trader: Bring me a room and I will fill it.\fNo room, no furniture. That is the arrangement.');
+    return;
+  }
+  for (;;) {
+    const spheres = sphereCount(st.inventory);
+    if (!spheres) {
+      await ctx.say('Goods Trader: Spheres, please. I do not take money.\fMoney is for people who live above ground.');
+      return;
+    }
+    const affordable = GOODS_IDS.filter((id) => costOf(id) <= spheres);
+    if (!affordable.length) {
+      await ctx.say(`Goods Trader: ${spheres} sphere${spheres === 1 ? '' : 's'} does not reach anything I have.\fGo and dig.`);
+      return;
+    }
+    const options = affordable.map((id) => `${GOODS[id].name} (${costOf(id)})`).concat('Nothing today');
+    const pick = await ctx.ask(`Goods Trader: You have ${spheres} sphere${spheres === 1 ? '' : 's'}.`, options);
+    if (pick < 0 || pick >= affordable.length) { await ctx.say('Goods Trader: The tunnels will still be here.'); return; }
+    const id = affordable[pick];
+
+    if (ug.base.decor.length >= ROOM.maxDecor) {
+      await ctx.say('Goods Trader: Your room is full. Take something out of it first.');
+      continue;
+    }
+    const spot = freeSpot(ug.base, id);
+    if (!spot) { await ctx.say('Goods Trader: There is nowhere in your room that would fit.'); continue; }
+
+    spendSpheres(ctx, costOf(id));
+    place(ug.base, id, spot.x, spot.y);
+    ctx.sfx('buy');
+    await ctx.say(`Goods Trader: One ${GOODS[id].name}. It is in your room already.`);
+    await ctx.say(GOODS[id].blurb);
+    if (ctx.linked()) ctx.shareBase();
+  }
+};
+
+/**
+ * Pays in spheres, cheapest colour first, so the rare ones stay in the bag
+ * until the player chooses to spend them.
+ */
+function spendSpheres(ctx, cost) {
+  let left = cost;
+  const order = [...SPHERES].sort((a, b) => (getItem(a).worth || 1) - (getItem(b).worth || 1));
+  for (const id of order) {
+    while (left > 0 && ctx.countItem(id) > 0) {
+      ctx.take(id, 1);
+      left -= getItem(id).worth || 1;
+    }
+    if (left <= 0) break;
+  }
+}
+
+/** Taking something back out of your own room. */
+SCRIPTS.baseTidy = async (ctx, npc) => {
+  const ug = ctx.state.underground;
+  const tile = npc && npc.data && npc.data.tile;
+  if (!ug.base || ug.visiting || !tile) return;
+  const gone = removeAt(ug.base, tile.x, tile.y);
+  if (!gone) return;
+  ctx.sfx('select');
+  await ctx.say(`You put the ${GOODS[gone.id].name} away.`);
+  if (ctx.linked()) ctx.shareBase();
 };
 
 export function scriptFor(name) { return SCRIPTS[name] || null; }

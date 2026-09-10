@@ -92,6 +92,46 @@ berry('lumberry', 'Lum Berry', 400,
   { kind: 'cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] },
   'A berry that cures any status problem. It is slow to ripen.', 24, 2,
   { held: { kind: 'pinch-cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] } });
+// ---- the Underground -----------------------------------------------------
+// Spheres are the Underground's own money: nothing sells them and nothing else
+// buys a Secret Base decoration. Everything else down there is either worth
+// something at a counter or worth something to a Pokemon.
+
+const sphere = (id, name, colour, worth) =>
+  add(id, name, 'Items', 0, null,
+    `A ${colour} sphere, dug out of the Underground. Bases are furnished with these.`,
+    { sphere: true, worth });
+
+sphere('redsphere', 'Red Sphere', 'warm red', 1);
+sphere('bluesphere', 'Blue Sphere', 'deep blue', 1);
+sphere('greensphere', 'Green Sphere', 'clear green', 2);
+sphere('palesphere', 'Pale Sphere', 'colourless', 4);
+
+add('redshard', 'Red Shard', 'Items', 0, null,
+  'A shard of something older than the tunnels. It sells.', { sell: 700 });
+add('blueshard', 'Blue Shard', 'Items', 0, null,
+  'A shard of something older than the tunnels. It sells.', { sell: 700 });
+add('greenshard', 'Green Shard', 'Items', 0, null,
+  'A shard of something older than the tunnels. It sells.', { sell: 900 });
+add('yellowshard', 'Yellow Shard', 'Items', 0, null,
+  'A shard of something older than the tunnels. It sells.', { sell: 900 });
+add('heartscale', 'Heart Scale', 'Items', 0, null,
+  'A pretty scale. Somebody in a Pokémon Center will want it.', { sell: 500 });
+add('starpiece', 'Star Piece', 'Items', 0, null,
+  'A shard of a fallen star. It sells for a great deal.', { sell: 4900 });
+add('skullfossil', 'Skull Fossil', 'Items', 0, null,
+  'A fossil of an ancient Pokémon\u2019s skull. The museum in Oreburgh pays for these.',
+  { sell: 3000, fossil: true });
+add('armorfossil', 'Armor Fossil', 'Items', 0, null,
+  'A fossil of an ancient Pokémon\u2019s collar. The museum in Oreburgh pays for these.',
+  { sell: 3000, fossil: true });
+add('oddkeystone', 'Odd Keystone', 'Items', 0, null,
+  'A stone with something written on it that nobody has ever finished reading.',
+  { sell: 2100 });
+add('hardstone', 'Hard Stone', 'Items', 0, { kind: 'hold' },
+  'An unbreakable stone. Held, it toughens Rock-type moves.',
+  { held: { kind: 'boost-type', type: 'Rock', mult: 1.2 } });
+
 add('nugget', 'Nugget', 'Items', 0,
   null, 'A nugget of pure gold. It sells for a high price.', { sell: 5000 });
 add('stardust', 'Stardust', 'Items', 0,
@@ -134,6 +174,8 @@ add('bicycle', 'Bicycle', 'Key Items', 0, { kind: 'bike' },
   'A folding bicycle. Much faster than walking.', { key: true });
 add('oldrod', 'Old Rod', 'Key Items', 0, { kind: 'rod' },
   'An old fishing rod. Use it at the water’s edge.', { key: true });
+add('explorerkit', 'Explorer Kit', 'Key Items', 0, { kind: 'dig' },
+  'A bag of digging tools. Use it outdoors to go under Sinnoh.', { key: true });
 add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
   'A cold, faintly glowing charm. It hums near old stone.', { key: true });
 add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,

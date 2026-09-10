@@ -23,6 +23,10 @@ export const TOPICS = {
   STORY: 'story',
   CHAT: 'chat',
   SYS: 'sys',
+  // The Underground: a Secret Base is the only thing in this game one player
+  // publishes for the other to walk into, so it gets its own topic rather
+  // than riding on the story channel.
+  BASE: 'base',
 };
 
 // Every topic a page may emit on must be opened to the `interact` level at
@@ -114,6 +118,9 @@ export const MSG = {
   TRADE_CANCEL: 'trade.cancel',
   // story
   STORY_MILESTONE: 'story.milestone',
+  // the Underground
+  BASE_SHARE: 'base.share',
+  BASE_FLAG: 'base.flag',
 };
 
 const MSG_KINDS = new Set(Object.values(MSG));

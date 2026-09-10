@@ -21,6 +21,8 @@ import { getItem } from '../data/items.js';
 import { getSpecies } from '../data/species.js';
 import { partnerLine } from '../game/monster.js';
 import { BANDIT } from '../data/story.js';
+import { acceptShared, shareable, GOODS } from '../game/underground/base.js';
+import { BASE_BOARD, BASE_ORIGIN } from '../data/maps/underground.js';
 import { addItem, removeItem } from '../game/inventory.js';
 import { recordSeen, recordCaught } from '../game/pokedex.js';
 import { awardBadge, healParty, setStoryFlag, progress } from '../game/state.js';
@@ -46,6 +48,9 @@ export class OverworldScreen extends Screen {
     this.netToastT = 0;
     this.encounterFlash = 0;
     this.world.onBump = () => audio.sfx('bump');
+    // Inside a Secret Base the furniture and the board are save data, not
+    // tiles, so the world asks this screen what is standing where.
+    this.world.baseTarget = (x, y) => this._baseTarget(x, y);
     this.world.onStep = () => { if (this.game.save) this.game.save.markDirty(); };
   }
 
@@ -86,6 +91,22 @@ export class OverworldScreen extends Screen {
         if (!this.game.state.flags[key]) {
           setStoryFlag(this.game.state, key, true);
           this.toast('Story synced with your partner');
+        }
+      }),
+      // A partner's Secret Base arrives whole. It is another player's data, so
+      // it is rebuilt field by field before anything in this game touches it.
+      bus.on('net:base', ({ kind, data }) => {
+        const ug = this.game.state.underground;
+        if (kind === 'base.share') {
+          const base = acceptShared(data && data.base);
+          if (!base) return;
+          const first = !ug.partnerBase;
+          ug.partnerBase = base;
+          if (first) this.toast(`${base.owner || 'Your partner'} has a base down there`);
+        } else if (kind === 'base.flag') {
+          if (ug.base) ug.base.flagTaken++;
+          this.toast('Your flag has been taken!');
+          audio.sfx('deny');
         }
       }),
       bus.on('trade:changed', () => this.game.openTradeIfNeeded()),
@@ -172,6 +193,10 @@ export class OverworldScreen extends Screen {
     }
     if (target.type === 'flavour') { this.say(target.text); return; }
     if (target.type === 'soil') { this.runScript('berryPatch', { data: { tile: target } }); return; }
+    if (target.type === 'dig') { this.runScript('digWall', { data: { tile: target } }); return; }
+    if (target.type === 'board') { this.runScript('baseBoard'); return; }
+    if (target.type === 'decor') { this.runScript('baseTidy', { data: { tile: target } }); return; }
+    if (target.type === 'baseWall') { this.runScript('secretBase', { data: { tile: target } }); return; }
     if (target.type === 'water') {
       // A rod turns the water's edge into somewhere to stand for ten minutes.
       // Without one it stays what it was: a nice view.
@@ -184,6 +209,29 @@ export class OverworldScreen extends Screen {
     if (target.type === 'item') { this._pickUp(target.entity); return; }
     if (target.type === 'player') { this._interactPlayer(target.entity); return; }
     if (target.type === 'npc') { this._talkTo(target.entity); return; }
+  }
+
+  /**
+   * What is standing on this square of a Secret Base — the board, or a piece
+   * of furniture. Coordinates are the map's; the room's own grid starts at
+   * BASE_ORIGIN, which is what the decorations are stored against.
+   */
+  _baseTarget(x, y) {
+    const ug = this.game.state.underground;
+    const room = ug.visiting ? ug.partnerBase : ug.base;
+    if (!room) return null;
+    if (x === BASE_BOARD.x && y === BASE_BOARD.y) return { type: 'board' };
+    const rx = x - BASE_ORIGIN.x, ry = y - BASE_ORIGIN.y;
+    for (const d of room.decor) {
+      const g = GOODS[d.id];
+      if (!g) continue;
+      if (rx >= d.x && rx < d.x + g.w && ry >= d.y && ry < d.y + g.h) {
+        return ug.visiting
+          ? { type: 'flavour', text: `${g.name}. ${g.blurb}` }
+          : { type: 'decor', x: rx, y: ry, id: d.id };
+      }
+    }
+    return null;
   }
 
   /**
@@ -279,6 +327,12 @@ export class OverworldScreen extends Screen {
       const enc = w.pendingEncounter;
       w.pendingEncounter = null;
       this._startWildBattle(enc);
+      return;
+    }
+    if (w.pendingLadder) {
+      const out = w.pendingLadder;
+      w.pendingLadder = null;
+      this.runScript(out.script || 'surface');
       return;
     }
     if (w.pendingTrainer) {
@@ -477,6 +531,19 @@ export class OverworldScreen extends Screen {
 
       fishTable: () => (screen.world.map.encounters && screen.world.map.encounters.fish) || null,
 
+      // Hands the player a wall of rock and resolves with what came out of
+      // it. The screen above owns the minigame; this just awaits its answer.
+      dig: (cfg) => new Promise((resolve) => { screen.game.openDig(cfg, resolve); }),
+
+      // A line of text, typed on the same keyboard that named the player.
+      askText: (prompt, maxLen) => new Promise((resolve) => {
+        screen.game.openTextEntry(prompt, maxLen, resolve);
+      }),
+
+      // Publishing a Secret Base, and owning up to taking somebody's flag.
+      shareBase: () => net.sendBase(shareable(st.underground.base, st.player.name)),
+      shareFlag: () => net.sendFlagTaken(),
+
       hasItem: (itemId) => (st.inventory.items[itemId] || 0) > 0,
 
       cry: (speciesId) => audio.cry(speciesId),
@@ -563,7 +630,12 @@ export class OverworldScreen extends Screen {
       this.camera.x += shakeX;
       this.camera.y += shakeY;
     }
-    drawWorld(ctx, this.world, this.camera, W, H, { patches: this.game.state.patches });
+    const ug = this.game.state.underground;
+    drawWorld(ctx, this.world, this.camera, W, H, {
+      patches: this.game.state.patches,
+      room: ug.visiting ? ug.partnerBase : ug.base,
+      origin: BASE_ORIGIN,
+    });
     this.camera.x -= shakeX;
     this.camera.y -= shakeY;
 

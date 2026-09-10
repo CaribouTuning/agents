@@ -184,3 +184,58 @@ export class NicknameScreen extends Screen {
     void drawText; void drawBackChip;
   }
 }
+
+/**
+ * A line of text, typed on the same keyboard everything else in this game is
+ * typed on. Used by the Secret Base board, where the whole feature is that the
+ * words are yours rather than picked off a list.
+ */
+export class TextEntryScreen extends Screen {
+  constructor(game, prompt, maxLen, onDone) {
+    super(game);
+    this.prompt = prompt;
+    this.maxLen = maxLen || 24;
+    this.onDone = onDone || null;
+    this.text = '';
+    this.kx = 0; this.ky = 0;
+    this.t = 0;
+  }
+
+  _top() {
+    const H = this.game.display.height;
+    return Math.max(46, Math.round(H / 2) - 46);
+  }
+
+  update(dt, isTop) {
+    if (!isTop) return;
+    this.t += dt;
+    const g = keyGrid(this.game.display, this._top());
+    const r = typeFrame(g, this.text, this.maxLen, this, { skip: true });
+    this.text = r.text; this.kx = r.kx; this.ky = r.ky;
+    if (r.done) {
+      const out = r.skipped ? '' : this.text.trim();
+      audio.sfx('select');
+      this.game.screens.pop();
+      if (this.onDone) this.onDone(out || null);
+    }
+  }
+
+  hint() { return 'A: type   B: delete   START: done'; }
+
+  render(ctx) {
+    const { width: W, height: H } = this.game.display;
+    rect(ctx, 0, 0, W, H, shade(PAL.uiSelect, -0.6));
+    for (let y = 0; y < H; y += 8) rect(ctx, 0, y, W, 4, shade(PAL.uiSelect, -0.55));
+    drawTextCentered(ctx, this.prompt, W / 2, 8, { color: PAL.uiTextLight, shadow: PAL.black });
+
+    const top = this._top();
+    const boxW = Math.min(W - 16, this.maxLen * 6 + 12);
+    window9(ctx, Math.round(W / 2 - boxW / 2), top - 22, boxW, 16);
+    drawText(ctx, this.text + ((this.t * 2) % 1 < 0.5 ? '_' : ' '),
+      Math.round(W / 2 - boxW / 2) + 6, top - 18, { color: PAL.uiText });
+
+    drawKeyGrid(ctx, keyGrid(this.game.display, top), this.kx, this.ky, { skip: true });
+    label(ctx, `${this.text.length}/${this.maxLen}`, 8, H - 11, { color: '#9ab8ff' });
+    void drawBackChip;
+  }
+}

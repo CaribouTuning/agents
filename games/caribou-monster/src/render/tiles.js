@@ -694,6 +694,47 @@ function caveWall(c) {
   c.fillStyle = PAL.caveWallDark; px(c, 0, 14, 16, 2);
 }
 
+// The Underground. A dig wall is cave rock with something showing through it:
+// the whole invitation of the Underground is that you can see there is
+// something in there before you have swung at it.
+function digWall(deep) {
+  return (c, f) => {
+    caveWall(c);
+    const seam = deep ? '#f0c860' : '#a8e4f8';
+    const glint = f === 1 || f === 3;
+    // Big enough to read through the dark. A seam nobody notices is a seam
+    // nobody digs, and the whole invitation of the Underground is seeing that
+    // there is something in the wall before you have swung at it.
+    c.fillStyle = shade(seam, -0.55);
+    px(c, 3, 3, 11, 11);
+    c.fillStyle = shade(seam, -0.25);
+    px(c, 4, 4, 9, 9);
+    c.fillStyle = seam;
+    px(c, 5, 6, 6, 5); px(c, 6, 5, 4, 7);
+    c.fillStyle = shade(seam, 0.55);
+    px(c, 6, 6, 3, 2);
+    if (glint) { px(c, 10, 9, 2, 2); px(c, 5, 10, 2, 1); }
+    // Pick marks around it, so it reads as somewhere people dig.
+    c.fillStyle = PAL.caveWallDark;
+    px(c, 2, 3, 2, 1); px(c, 12, 4, 2, 1); px(c, 3, 12, 2, 1); px(c, 11, 11, 2, 1);
+  };
+}
+
+// A wall soft enough to cut a room into. Marked with a doorway that is not a
+// door yet — the tile says "this could be a base", and the game says whose.
+function baseWall(c) {
+  caveWall(c);
+  c.fillStyle = shade(PAL.caveWall, -0.35);
+  px(c, 3, 4, 10, 12);
+  c.fillStyle = shade(PAL.caveWall, -0.55);
+  px(c, 4, 5, 8, 11);
+  c.fillStyle = shade(PAL.caveWall, 0.25);
+  px(c, 3, 4, 10, 1); px(c, 3, 4, 1, 12); px(c, 12, 4, 1, 12);
+  c.fillStyle = '#e0c060';
+  px(c, 10, 10, 1, 2);
+}
+
+
 function voidTile(c) {
   c.fillStyle = PAL.black; px(c, 0, 0, 16, 16);
 }
@@ -764,6 +805,9 @@ export const TILES = {
   'w': { name: 'warp pad', draw: warpPad },
   'c': { name: 'cave floor', draw: caveFloor, ground: 'cave' },
   'C': { name: 'cave wall', draw: caveWall, solid: true },
+  'X': { name: 'dig wall', draw: digWall(false), solid: true, dig: 'shallow', anim: 4 },
+  'Z': { name: 'deep dig wall', draw: digWall(true), solid: true, dig: 'deep', anim: 4 },
+  'U': { name: 'base wall', draw: baseWall, solid: true, base: true },
 };
 
 export const MAX_ANIM = 4;
