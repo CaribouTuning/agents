@@ -19,7 +19,7 @@ export const TWINLEAF = defineMap('twinleaf', {
     'T..#WDW#......::....#WDW#....T',
     'T....:........::......:......T',
     'T....:::::::::::::::::.......T',
-    'T.............::.............T',
+    'T...OOO.......::.............T',
     'T..S..........::..........S..T',
     'T.,...........::...........,.T',
     'T.............::.............T',
@@ -111,6 +111,15 @@ export const TWINLEAF = defineMap('twinleaf', {
           lines: ['Professor Rowan is handing out Pokémon today. Actual ones.',
             'I am too young. I asked. Twice.'],
         },
+      ],
+    },
+    {
+      // She keeps the beds at the end of the lane, and she has decided the two
+      // of you are going to keep one too.
+      id: 'bv_gardener', x: 7, y: 16, look: 'mom', name: 'Nel', movement: 'still', facing: 'left',
+      script: 'berryGift',
+      dialogue: [
+        { lines: ['Soft soil, that. Anything goes in it.'] },
       ],
     },
     {
@@ -446,7 +455,7 @@ export const SANDGEM = defineMap('sandgem', {
     'T.....:::::::::::::~~~~~~T',
     'T...........::.....~~~~~~T',
     'T...........::.....~~~~~~T',
-    'T...........::...........T',
+    'T...........::.......OOO.T',
     'T..S........::..........ST',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
@@ -469,7 +478,12 @@ export const SANDGEM = defineMap('sandgem', {
     { x: 3, y: 16, text: 'ROUTE 201 — SOUTH\nTwinleaf Town is back that way.' },
     { x: 24, y: 16, text: 'The beach is closed to trainers\nwithout a fishing licence.\nThe sea does not check.' },
   ],
-  encounters: null,
+  // Nothing lives in the grass in a town, but there is a sea at the bottom
+  // of it, and the man on the beach will give you a rod if you ask nicely.
+  encounters: {
+    grass: null,
+    fish: { min: 3, max: 7, table: [[129, 55], [72, 20], [456, 15], [458, 6], [349, 4]] },
+  },
   npcs: [
     {
       // The catching lesson. In the DS games somebody demonstrates this at you
@@ -495,15 +509,10 @@ export const SANDGEM = defineMap('sandgem', {
     },
     {
       id: 'sg_fisher', x: 20, y: 15, look: 'sailor', name: 'Bram', movement: 'still', facing: 'down',
+      script: 'oldRod',
       dialogue: [
         {
-          when: { badges: 1 },
-          lines: ['Coal Badge, is it? Roark does not hand those out for turning up.',
-            'The sea is that way and it is not going anywhere.\fGo and be famous first.'],
-        },
-        {
-          lines: ['The beach goes on for miles and the water is full of things I cannot name.',
-            'You will need a rod, and I have not got a spare. Sorry, friend.'],
+          lines: ['The beach goes on for miles and the water is full of things I cannot name.'],
         },
       ],
     },

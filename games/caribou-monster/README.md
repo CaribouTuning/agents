@@ -38,6 +38,8 @@ controls.
 | **Weather** | Sun, rain, sandstorm and hail — set by a move or walked into by an ability, with the damage, speed, accuracy, chip and healing rules that go with each |
 | **Time** | A day/night cycle read off the real clock: morning, day and night, tinted on the map and answered by the people in it |
 | **Day Care** | Leave two, walk a long way, come home to an Egg — and if the two of you were linked when you handed them over, both names go on it |
+| **Berries** | Nine berries you can eat, hold or plant. Soft soil beside four maps, four growth stages on the real clock, and a bigger crop for the ones you planted together |
+| **Fishing** | The Old Rod, a real bite roll, and three stretches of water with their own tables |
 | **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, the Oreburgh Gym and its badge |
 | **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, trainer card, save/load, EASY and NORMAL difficulty |
 | **World Circuit** | A second career track: 6 sanctioned tournaments, 12 professional trainers, an Elo world ranking, Circuit Points, promotions, a press feed and post-event press conferences |
@@ -233,6 +235,49 @@ driven through the real UI in `tools/walkthrough.mjs`.
 
 ---
 
+## Things that grow while you are not playing
+
+There is soft soil beside four of the maps. You push a berry into it, and then
+the only thing that will make it grow is time — real time, on the device's own
+clock, running whether the game is open or not. Three hours later there is a
+sprout. Four, and there is a bush with fruit on it.
+
+That is the point of it. Every other system in the game rewards you for
+playing; this one rewards you for coming back. Two people who play a bit at a
+time in the evening are exactly who it is for.
+
+| | |
+|---|---|
+| **Stages** | turned soil → sprout → plant → ripe, evenly spaced across the berry's own growth time |
+| **Time** | 3 hours for a Cheri, 4 for an Oran, 12 for a Sitrus, a full day for a Lum |
+| **Tending** | looking in on it while it grows is worth one extra berry, once per stage |
+| **Together** | a berry planted while you are linked is stamped with your partner's name, gives one more, and says so when you pick it |
+
+```js
+plant(patches, map, x, y, berryId, ctx.linked() ? ctx.partnerName() : null);
+//                                 ^ written once, at planting, and never again
+```
+
+Elapsed time comes from `clock.now()` rather than `Date.now()`, which is the
+only reason any of this is testable: `shiftHours(6)` moves the world clock, and
+the berries — and the debug menu's **Skip 6 hours** row — read it. Patches are
+the one thing in the save that keeps a wall-clock timestamp, because the plant
+has to keep growing while the game is shut.
+
+Nine berries, and all of them do something. Five cure a status, two heal, one
+restores PP, and the Lum Berry clears anything including confusion. Held, they
+fire in battle the moment they are needed — and `tools/berrytest.mjs` proves
+each one against its own absence, the same rule the abilities live under: the
+identical turn, twice, once holding the berry and once holding nothing.
+
+**Fishing.** Bram on the Sandgem beach hands over the Old Rod. Stand at the
+water's edge, face it, press A: a real roll against a real table, so a blank is
+a blank. It is mostly Magikarp. It is supposed to be mostly Magikarp. The audit
+refuses any map with water and nothing in it, and any fishing table that names
+a species the dex does not have.
+
+---
+
 ## The world talks back
 
 Every NPC line is data with a condition attached. `game/overworld/gossip.js`
@@ -374,6 +419,7 @@ node tools/storytest.mjs               # every story beat, headless, in order
 node tools/savetest.mjs                # save round trip, migration, and refusal
 node tools/weathertest.mjs             # sun, rain, sand and hail, each against its absence
 node tools/daycaretest.mjs             # boarding, fees, Egg odds, hatching, and the save
+node tools/berrytest.mjs               # planting, growth on the clock, held berries, fishing
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```

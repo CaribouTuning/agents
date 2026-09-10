@@ -441,7 +441,10 @@ export class World {
     if (def.name === 'bookshelf') return { type: 'flavour', text: 'Shelves of well-thumbed books about Pokémon.' };
     if (def.name === 'TV') return { type: 'flavour', text: 'A documentary about migrating Pokémon is on.' };
     if (def.name === 'bed') return { type: 'flavour', text: 'Neatly made. It looks very comfortable.' };
-    if (def.water) return { type: 'flavour', text: 'The water is clear and deep.' };
+    if (def.soil) return { type: 'soil', x: tx, y: ty };
+    // The water's edge. Whether this is a fishing spot or a nice view is up
+    // to the screen, which is the thing that knows what is in the bag.
+    if (def.water) return { type: 'water', x: tx, y: ty };
     return null;
   }
 

@@ -21,7 +21,7 @@ import { getItem } from '../data/items.js';
 import { getSpecies } from '../data/species.js';
 import { partnerLine } from '../game/monster.js';
 import { BANDIT } from '../data/story.js';
-import { addItem } from '../game/inventory.js';
+import { addItem, removeItem } from '../game/inventory.js';
 import { recordSeen, recordCaught } from '../game/pokedex.js';
 import { awardBadge, healParty, setStoryFlag, progress } from '../game/state.js';
 import { scriptFor } from '../game/overworld/scripts.js';
@@ -171,6 +171,14 @@ export class OverworldScreen extends Screen {
       return;
     }
     if (target.type === 'flavour') { this.say(target.text); return; }
+    if (target.type === 'soil') { this.runScript('berryPatch', { data: { tile: target } }); return; }
+    if (target.type === 'water') {
+      // A rod turns the water's edge into somewhere to stand for ten minutes.
+      // Without one it stays what it was: a nice view.
+      if ((this.game.state.inventory.items.oldrod || 0) > 0) { this.runScript('fish'); return; }
+      this.say('The water is clear and deep.');
+      return;
+    }
     if (target.type === 'partner') { this._talkToPartner(target.mon); return; }
     if (target.type === 'pc') { this.game.openPC(); return; }
     if (target.type === 'item') { this._pickUp(target.entity); return; }
@@ -458,6 +466,17 @@ export class OverworldScreen extends Screen {
 
       give: (itemId, qty) => addItem(st.inventory, itemId, qty),
 
+      take: (itemId, qty = 1) => removeItem(st.inventory, itemId, qty),
+
+      countItem: (itemId) => st.inventory.items[itemId] || 0,
+
+      // Where the player is standing, and what the water here holds. Berries
+      // and fishing both need to know which square of the world they are on;
+      // nothing else in a cutscene does.
+      here: () => ({ map: screen.world.mapId, x: screen.world.player.x, y: screen.world.player.y }),
+
+      fishTable: () => (screen.world.map.encounters && screen.world.map.encounters.fish) || null,
+
       hasItem: (itemId) => (st.inventory.items[itemId] || 0) > 0,
 
       cry: (speciesId) => audio.cry(speciesId),
@@ -544,7 +563,7 @@ export class OverworldScreen extends Screen {
       this.camera.x += shakeX;
       this.camera.y += shakeY;
     }
-    drawWorld(ctx, this.world, this.camera, W, H);
+    drawWorld(ctx, this.world, this.camera, W, H, { patches: this.game.state.patches });
     this.camera.x -= shakeX;
     this.camera.y -= shakeY;
 

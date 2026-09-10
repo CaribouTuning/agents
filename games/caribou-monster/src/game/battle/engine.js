@@ -946,6 +946,23 @@ function endOfTurn(battle, out) {
         out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp });
         out.push({ t: 'text', s: `${displayName(mon)} ate its ${held.name}!` });
       }
+      // A status berry goes the moment the status lands, which is the whole
+      // reason to carry one. Confusion is a volatile rather than a status,
+      // so it is checked separately or a Lum Berry would ignore it.
+      const cures = held && held.held && held.held.kind === 'pinch-cure' ? held.held.status : null;
+      if (cures && mon.hp > 0) {
+        const confused = battle.sides[i].volatile.confusion > 0 && cures.includes('CNF');
+        if (mon.status && cures.includes(mon.status)) {
+          mon.status = null; mon.statusCounter = 0;
+          mon.heldItem = null;
+          out.push({ t: 'status', side: i, uid: mon.uid, status: null });
+          out.push({ t: 'text', s: `${displayName(mon)} ate its ${held.name} and shook it off!` });
+        } else if (confused) {
+          battle.sides[i].volatile.confusion = 0;
+          mon.heldItem = null;
+          out.push({ t: 'text', s: `${displayName(mon)} ate its ${held.name} and cleared its head!` });
+        }
+      }
     }
   }
   weatherEndOfTurn(battle, out);

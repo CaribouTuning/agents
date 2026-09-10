@@ -13,6 +13,7 @@ import {
 import { createCircuit, serializeCircuit, reviveCircuit } from './circuit/circuit.js';
 import { createJournal, serializeJournal, reviveJournal } from './journal.js';
 import { createDaycare, serializeDaycare, reviveDaycare } from './daycare.js';
+import { createPatches, serializePatches, revivePatches } from './berries.js';
 
 export const MAX_PARTY = 6;
 export const BOX_COUNT = 8;
@@ -50,6 +51,8 @@ export function createGameState(opts = {}) {
     // What the player has worked out so far, and what they are doing next.
     journal: createJournal(),
     daycare: createDaycare(),
+    // Berries in the ground, keyed by where they are.
+    patches: createPatches(),
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
@@ -179,6 +182,7 @@ export function serializeState(st) {
     circuit: serializeCircuit(st.circuit),
     journal: serializeJournal(st.journal),
     daycare: serializeDaycare(st.daycare),
+    patches: serializePatches(st.patches),
   };
 }
 
@@ -209,6 +213,7 @@ export function deserializeState(raw) {
   st.circuit = reviveCircuit(raw.circuit);
   st.journal = reviveJournal(raw.journal);
   st.daycare = reviveDaycare(raw.daycare, reviveMonster);
+  st.patches = revivePatches(raw.patches);
   return st;
 }
 

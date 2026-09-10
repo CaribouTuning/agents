@@ -230,7 +230,7 @@ for (const map of Object.values(MAPS)) {
   // clock swaps in. A nocturnal roster nobody validates is a roster that
   // crashes the first time somebody plays after eight at night.
   const tables = [];
-  for (const slot of [map.encounters?.grass, map.encounters?.cave]) {
+  for (const slot of [map.encounters?.grass, map.encounters?.cave, map.encounters?.fish]) {
     if (!slot) continue;
     tables.push([slot, 'default']);
     for (const phase of ['morning', 'day', 'night']) {
@@ -252,6 +252,27 @@ for (const map of Object.values(MAPS)) {
   const hasTall = map.tiles.some((r) => r.includes('"'));
   if (hasTall && !map.encounters?.grass) err(`${tag} has tall grass but no grass encounters`);
   if (map.encounters?.grass && !hasTall) warn(`${tag} defines grass encounters but has no tall grass`);
+
+  // Water you can fish, and water you cannot. A rod that says "nothing lives
+  // in this water" on every coast in the game is a rod nobody uses twice.
+  const hasWater = map.tiles.some((r) => r.includes('~') || r.includes('-'));
+  if (map.encounters?.fish && !hasWater) err(`${tag} defines a fishing table but has no water`);
+  if (hasWater && map.kind !== 'indoor' && !map.encounters?.fish) {
+    warn(`${tag} has water but nothing to catch in it`);
+  }
+
+  // Soft soil has to be somewhere you can stand next to and face. A bed you
+  // can only stand *on* is a bed you can never plant in.
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      if (!tileDef(map.tiles[y][x]).soil) continue;
+      const spot = { x, y, id: `soil ${x},${y}` };
+      if (!adjacentOk(spot)) err(`${tag} soft soil at ${x},${y} cannot be reached to plant in`);
+      if (map.npcs.some((n) => n.x === x && n.y === y)) err(`${tag} soft soil at ${x},${y} has an NPC standing in it`);
+      if (map.objects.some((o) => o.x === x && o.y === y)) err(`${tag} soft soil at ${x},${y} has an item lying in it`);
+      if (map.warps.some((w) => w.x === x && w.y === y)) err(`${tag} soft soil at ${x},${y} is also a warp`);
+    }
+  }
 }
 
 // ---- data-level checks ----------------------------------------------------

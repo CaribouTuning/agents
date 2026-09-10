@@ -11,6 +11,11 @@ import { createMonster, displayName } from '../monster.js';
 import {
   deposit, withdraw, feeFor, hasEgg, collectEgg, compatibilityText, eggHint, hatch,
 } from '../daycare.js';
+import {
+  patchAt, plant, isRipe, harvest, tend, patchText, cropOf,
+} from '../berries.js';
+import { getItem, BERRY_IDS } from '../../data/items.js';
+import { weightedPick } from '../../core/rng.js';
 import { spend, formatMoney as money } from '../inventory.js';
 import { FLAGS } from '../storyflags.js';
 import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../../data/story.js';
@@ -638,6 +643,144 @@ SCRIPTS.circuitDesk = async (ctx) => {
   }
 
   await ctx.openCircuit();
+};
+
+// ---- soft soil: planting, tending, picking --------------------------------
+//
+// The whole loop is one square of ground: put something in, come back later,
+// take more out than you put in. It runs on the wall clock rather than on
+// steps, so it is the one system in the game that carries on while the game
+// is shut — which is what makes checking on it feel like checking on
+// something rather than like grinding.
+
+SCRIPTS.berryPatch = async (ctx, npc) => {
+  const tile = npc && npc.data && npc.data.tile;
+  if (!tile) return;
+  const st = ctx.state;
+  const map = ctx.here().map;
+  const patch = patchAt(st.patches, map, tile.x, tile.y);
+
+  if (!patch) {
+    const held = BERRY_IDS.filter((id) => ctx.countItem(id) > 0);
+    if (!held.length) {
+      await ctx.say('The soil here is soft and freshly turned.\fSomething would grow in it, if you had something to put in it.');
+      return;
+    }
+    const options = held.map((id) => getItem(id).name).concat('Cancel');
+    const pick = await ctx.ask('The soil is soft. Plant a Berry?', options);
+    if (pick < 0 || pick >= held.length) return;
+    const id = held[pick];
+    ctx.take(id, 1);
+    const witness = ctx.linked() ? ctx.partnerName() : null;
+    plant(st.patches, map, tile.x, tile.y, id, witness);
+    ctx.sfx('select');
+    await ctx.say(`You planted a ${getItem(id).name} in the soft soil.`);
+    if (witness) {
+      await ctx.say(`${witness} was standing right there when you did it.\fWhatever comes up, it is both of yours.`);
+    } else {
+      await ctx.say(`It will take about ${getItem(id).berry.hours} hours to come up.\fCome back later.`);
+    }
+    ctx.journal('planted');
+    return;
+  }
+
+  if (isRipe(patch)) {
+    const crop = harvest(st.patches, map, tile.x, tile.y);
+    const item = getItem(crop.berry);
+    ctx.give(crop.berry, crop.count);
+    ctx.sfx('buy');
+    await ctx.say(`You picked ${crop.count} ${item.name}${crop.count === 1 ? '' : 's'}!`);
+    if (crop.witness) {
+      await ctx.say(`This is the one you and ${crop.witness} planted.\fIt did rather well out of the arrangement.`);
+    }
+    ctx.journal('harvested');
+    return;
+  }
+
+  await ctx.say(patchText(patch));
+  const yes = await ctx.ask('Look after it?', ['Yes', 'Leave it']);
+  if (yes !== 0) return;
+  if (tend(patch)) {
+    ctx.sfx('heal');
+    await ctx.say('You cleared the weeds and worked the soil around it.\fIt looks happier for it.');
+    await ctx.say(`This one should give about ${cropOf(patch)} when it is ready.`);
+  } else {
+    await ctx.say('There is nothing more to do for it right now.\fIt just needs time.');
+  }
+};
+
+// ---- Nel, who runs the beds at the end of the lane -------------------------
+
+SCRIPTS.berryGift = async (ctx) => {
+  const st = ctx.state;
+  if (!st.flags.gotBerries) {
+    await ctx.say('Nel: These beds have been here longer than the houses have.\fEverybody in Twinleaf keeps one.');
+    await ctx.say('Nel: Here. Something to start you off.');
+    ctx.give('oranberry', 3);
+    ctx.give('cheriberry', 2);
+    ctx.sfx('buy');
+    await ctx.say('You received 3 ORAN BERRIES and 2 CHERI BERRIES!');
+    await ctx.say('Nel: Stand at a bed, press A, and put one in.\fThen go away and do something else. That is the trick.');
+    await ctx.say('Nel: Look in on it while it grows and it will thank you for it.\fThey know.');
+    ctx.setFlag('gotBerries', true);
+    return;
+  }
+  if (ctx.linked()) {
+    await ctx.say(`Nel: Oh, the two of you.\fPlant one together — go on. It is worth more when there are two names on it.`);
+    return;
+  }
+  await ctx.say('Nel: Cheri for the shakes, Pecha for the poison, Rawst for a burn.\fMy mother taught me that as a rhyme and I have never forgotten it.');
+  await ctx.say('Nel: The slow ones are the good ones. Lum takes a whole day and cures\nanything you like.');
+};
+
+// ---- Bram, and the rod he keeps saying he has not got ----------------------
+
+SCRIPTS.oldRod = async (ctx) => {
+  if (ctx.hasItem('oldrod')) {
+    if (ctx.linked()) {
+      await ctx.say('Bram: Two of you on the beach.\fGo on then. Whoever lands the bigger one buys tea.');
+    } else {
+      await ctx.say('Bram: Still Magikarp? It is always Magikarp.\fKeep at it. The sea gets bored before you do.');
+    }
+    return;
+  }
+  await ctx.say('Bram: The beach goes on for miles and the water is full of things I\ncannot name.');
+  await ctx.say('Bram: I have got a spare rod here. Old. Bent. Catches almost nothing.');
+  const yes = await ctx.ask('Bram: Do you want it?', ['Yes, please', 'No thanks']);
+  if (yes !== 0) { await ctx.say('Bram: Suit yourself. It will be here.'); return; }
+  ctx.give('oldrod', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received the OLD ROD!');
+  await ctx.say('Bram: Stand at the edge, face the water, and have a go.\fThat is the whole of it.');
+  await ctx.say('Bram: You will pull up a Magikarp. Then another one.\fThen, one day, something else.');
+  ctx.journal('fished');
+};
+
+// ---- the water's edge ------------------------------------------------------
+//
+// The Old Rod catches Magikarp, and everybody knows it catches Magikarp, and
+// people fish with it anyway. The bite is a real roll against a real table, so
+// a blank is a blank and the one time it is not Magikarp is worth something.
+
+SCRIPTS.fish = async (ctx) => {
+  const table = ctx.fishTable();
+  if (!table) { await ctx.say('You cast the line.\f...Nothing lives in this water.'); return; }
+
+  ctx.sfx('select');
+  await ctx.say('You cast the Old Rod into the water.');
+  await ctx.wait(1.1);
+
+  if (Math.random() > 0.55) {
+    await ctx.say('...Not even a nibble.');
+    return;
+  }
+  ctx.sfx('encounter');
+  await ctx.say('Oh! A bite!');
+  await ctx.wait(0.4);
+  const species = weightedPick(table.table.map(([id, w]) => [id, w]), Math.random);
+  const level = table.min + Math.floor(Math.random() * (table.max - table.min + 1));
+  ctx.journal('fished');
+  await ctx.wild(species, level);
 };
 
 export function scriptFor(name) { return SCRIPTS[name] || null; }

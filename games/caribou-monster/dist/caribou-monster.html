@@ -1011,6 +1011,32 @@ function path(c) {
   }
 }
 
+// Soft soil. A tilled square with a raised lip, so it reads as somewhere a
+// berry goes rather than as a patch of dirt somebody forgot to texture. The
+// plant that grows out of it is drawn by the overworld renderer, not here:
+// the tile is the bed, and what is in the bed lives in the save.
+function softSoil(c) {
+  const soil = '#6b4a2e';
+  c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    if (h(x, y, 12) > 0.9) { c.fillStyle = PAL.grassDark; px(c, x, y); }
+  }
+  // The bed is a rounded square of turned earth, not a crate: the corners are
+  // cut back to grass so it reads as ground rather than as a wooden box.
+  c.fillStyle = shade(soil, -0.3); px(c, 1, 2, 14, 12); px(c, 2, 1, 12, 14);
+  c.fillStyle = soil; px(c, 2, 3, 12, 10); px(c, 3, 2, 10, 12);
+  for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) {
+    const r = h(x, y, 63);
+    if (r > 0.9) { c.fillStyle = shade(soil, 0.14); px(c, x, y); }
+    else if (r < 0.14) { c.fillStyle = shade(soil, -0.16); px(c, x, y); }
+  }
+  // Two shallow furrows. Broken, so they look raked rather than planked.
+  c.fillStyle = shade(soil, -0.22);
+  px(c, 4, 6, 4, 1); px(c, 9, 6, 3, 1);
+  px(c, 4, 10, 3, 1); px(c, 8, 10, 4, 1);
+}
+
+
 function dirt(c) {
   c.fillStyle = PAL.pathDark; px(c, 0, 0, 16, 16);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -1569,6 +1595,7 @@ const TILES = {
   '*': { name: 'flowers', draw: flowers, anim: 2, ground: 'grass' },
   ':': { name: 'path', draw: path, ground: 'path' },
   ';': { name: 'dirt', draw: dirt, ground: 'dirt' },
+  'O': { name: 'soft soil', draw: softSoil, soil: true, ground: 'grass' },
   's': { name: 'sand', draw: sand, ground: 'sand' },
   'n': { name: 'snow', draw: snow, ground: 'snow' },
   '~': { name: 'water', draw: water, solid: true, water: true, anim: 4, ground: 'water' },
@@ -2111,10 +2138,42 @@ add('superrepel', 'Super Repel', 'Items', 500,
   { kind: 'repel', steps: 200 }, 'Keeps weak wild Pokémon away for 200 steps.');
 add('escaperope', 'Escape Rope', 'Items', 550,
   { kind: 'escape' }, 'Returns you to the last Pokémon Center you visited.');
-add('oranberry', 'Oran Berry', 'Items', 80,
-  { kind: 'heal', amount: 10 }, 'A berry that restores 10 HP.', { held: { kind: 'pinch-heal', amount: 10 } });
-add('sitrusberry', 'Sitrus Berry', 'Items', 200,
-  { kind: 'heal', amount: 30 }, 'A berry that restores 30 HP.', { held: { kind: 'pinch-heal', amount: 30 } });
+// ---- Berries -----------------------------------------------------------
+// A berry is an ordinary item that also knows how to be a plant: `berry`
+// carries the hours it takes to come up and how many it gives back, which is
+// all `game/berries.js` needs. Growth times are the series' own shape — the
+// dull, useful ones are quick, and the ones worth carrying make you wait.
+
+const berry = (id, name, price, use, desc, hours, crop, extra = null) =>
+  add(id, name, 'Items', price, use, desc, { berry: { hours, crop }, ...(extra || {}) });
+
+berry('cheriberry', 'Cheri Berry', 80, { kind: 'cure', status: ['PAR'] },
+  'A berry that cures paralysis. It can be planted in soft soil.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['PAR'] } });
+berry('chestoberry', 'Chesto Berry', 80, { kind: 'cure', status: ['SLP'] },
+  'A berry that wakes a sleeping Pokémon. It can be planted.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['SLP'] } });
+berry('pechaberry', 'Pecha Berry', 80, { kind: 'cure', status: ['PSN'] },
+  'A sweet berry that cures poison. It can be planted.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['PSN'] } });
+berry('rawstberry', 'Rawst Berry', 80, { kind: 'cure', status: ['BRN'] },
+  'A bitter berry that heals a burn. It can be planted.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['BRN'] } });
+berry('aspearberry', 'Aspear Berry', 80, { kind: 'cure', status: ['FRZ'] },
+  'A hard, sour berry that thaws a frozen Pokémon.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['FRZ'] } });
+berry('oranberry', 'Oran Berry', 80, { kind: 'heal', amount: 10 },
+  'A berry that restores 10 HP. It can be planted in soft soil.', 4, 4,
+  { held: { kind: 'pinch-heal', amount: 10 } });
+berry('leppaberry', 'Leppa Berry', 200, { kind: 'pp', amount: 10 },
+  'A berry that restores 10 PP to one move.', 8, 3);
+berry('sitrusberry', 'Sitrus Berry', 200, { kind: 'heal', amount: 30 },
+  'A large berry that restores 30 HP. It takes its time growing.', 12, 3,
+  { held: { kind: 'pinch-heal', amount: 30 } });
+berry('lumberry', 'Lum Berry', 400,
+  { kind: 'cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] },
+  'A berry that cures any status problem. It is slow to ripen.', 24, 2,
+  { held: { kind: 'pinch-cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] } });
 add('nugget', 'Nugget', 'Items', 0,
   null, 'A nugget of pure gold. It sells for a high price.', { sell: 5000 });
 add('stardust', 'Stardust', 'Items', 0,
@@ -2163,18 +2222,23 @@ add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
   'Proof of victory over the Oreburgh Gym.', { key: true, badge: 1 });
 
 function getItem(id) { return ITEMS[id]; }
+
+/** Every item that can go in the ground, in the order they ripen. */
+const BERRY_IDS = Object.keys(ITEMS).filter((id) => ITEMS[id].berry)
+  .sort((a, b) => ITEMS[a].berry.hours - ITEMS[b].berry.hours);
+function isBerry(id) { return !!(ITEMS[id] && ITEMS[id].berry); }
 const ITEM_IDS = Object.keys(ITEMS);
 
 // Shop stock unlocks with badge count, exactly like the DS games.
 function martStock(badges) {
-  const stock = ['pokeball', 'potion', 'antidote', 'parlyzheal', 'escaperope'];
-  if (badges >= 1) stock.push('greatball', 'superpotion', 'repel', 'burnheal', 'iceheal', 'awakening');
+  const stock = ['pokeball', 'potion', 'antidote', 'parlyzheal', 'escaperope', 'oranberry', 'cheriberry'];
+  if (badges >= 1) stock.push('greatball', 'superpotion', 'repel', 'burnheal', 'iceheal', 'awakening', 'pechaberry', 'rawstberry');
   if (badges >= 3) stock.push('ultraball', 'hyperpotion', 'revive', 'superrepel');
   if (badges >= 5) stock.push('maxpotion', 'fullheal');
   return stock;
 }
 
-__exports(__x, { POCKETS: () => POCKETS, ITEMS: () => ITEMS, getItem: () => getItem, ITEM_IDS: () => ITEM_IDS, martStock: () => martStock });
+__exports(__x, { POCKETS: () => POCKETS, ITEMS: () => ITEMS, getItem: () => getItem, BERRY_IDS: () => BERRY_IDS, isBerry: () => isBerry, ITEM_IDS: () => ITEM_IDS, martStock: () => martStock });
 
 };
 
@@ -7267,6 +7331,7 @@ const FLAGS = {
   HAS_BANDIT: 'hasBandit',
   PAIR_REGISTERED: 'pairRegistered',
   SCHOOL_GIFT: 'schoolGift',
+  GOT_BERRIES: 'gotBerries',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',
@@ -8922,6 +8987,30 @@ const ENTRIES = [
     ],
   },
   {
+    id: 'planted',
+    title: 'Something in the ground',
+    body: [
+      'There is soft soil beside half the roads in Sinnoh and nobody seems to\nown any of it. So I put a berry in some.',
+      'It will not do anything for hours. That is apparently the point. You\nleave, and it carries on without you.',
+    ],
+  },
+  {
+    id: 'harvested',
+    title: 'It came up',
+    body: [
+      'Went back to the soil I turned over days ago and there was a bush on it\nwith berries hanging off it.',
+      'I planted one. I picked five. I do not think I am ever going to buy a\nbottle of anything again.',
+    ],
+  },
+  {
+    id: 'fished',
+    title: 'The Old Rod',
+    body: [
+      'The man on the Sandgem beach gave me a rod that he described, out loud,\nas "not a good one".',
+      'Everything I have pulled out of the water with it so far has been a\nMagikarp. Everyone says that happens. I keep fishing.',
+    ],
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [
@@ -9411,6 +9500,284 @@ __exports(__x, { createDaycare: () => createDaycare, serializeDaycare: () => ser
 
 };
 
+__defs['game/clock.js'] = function (__x, __req) {
+
+// The world clock.
+//
+// Platinum reads the DS's own clock, so the game is morning when it is morning
+// where you are — which is the whole charm of it: play in the evening and the
+// world is lit like the evening, and two people playing together see the same
+// sky because they are in the same room.
+//
+// Phases are the series' own boundaries:
+//
+//   morning  04:00 - 09:59
+//   day      10:00 - 19:59
+//   night    20:00 - 03:59
+//
+// Nothing here is stored in a save. A clock you can save is a clock you can
+// desync, and the point of it is that it agrees with the world outside.
+
+const PHASES = ['morning', 'day', 'night'];
+
+/** Overridden by the debug menu and by the tests; null means "ask the device". */
+let forced = null;
+
+function forceHour(hour) {
+  forced = hour === null || hour === undefined ? null : ((hour % 24) + 24) % 24;
+}
+
+function currentHour() {
+  return forced === null ? new Date(now()).getHours() : forced;
+}
+
+function phaseAt(hour) {
+  if (hour >= 4 && hour < 10) return 'morning';
+  if (hour >= 10 && hour < 20) return 'day';
+  return 'night';
+}
+
+function currentPhase() { return phaseAt(currentHour()); }
+
+function isNight(hour = currentHour()) { return phaseAt(hour) === 'night'; }
+
+/** "Morning", "Day", "Night" — for the trainer card and the summary screen. */
+function phaseLabel(phase = currentPhase()) {
+  return phase.charAt(0).toUpperCase() + phase.slice(1);
+}
+
+/**
+ * The wash laid over the overworld for this phase. Outdoor maps only: a cave
+ * is dark whatever the hour, and being indoors is the one place the light
+ * does not change.
+ *
+ * `alpha` of 0 means day, which is drawn as nothing at all rather than as a
+ * transparent rectangle nobody can see.
+ */
+const TINTS = {
+  morning: { color: '#ffb463', alpha: 0.26 },
+  day: { color: '#ffffff', alpha: 0 },
+  night: { color: '#2a3c88', alpha: 0.62 },
+};
+
+function tintFor(phase = currentPhase()) { return TINTS[phase] || TINTS.day; }
+
+/**
+ * How many real minutes a phase still has to run. Used by anything that wants
+ * to say "come back tomorrow morning" and mean it.
+ */
+function minutesLeftInPhase(at = new Date(now())) {
+  const hour = forced === null ? at.getHours() : forced;
+  const phase = phaseAt(hour);
+  let endHour = phase === 'morning' ? 10 : phase === 'day' ? 20 : 4;
+  let hours = (endHour - hour + 24) % 24;
+  if (hours === 0) hours = 24;
+  return hours * 60 - (forced === null ? at.getMinutes() : 0);
+}
+
+/**
+ * Wall-clock milliseconds, offset by whatever the debug menu or a test has
+ * asked for.
+ *
+ * Berries grow in real hours, so something has to be able to say "and then it
+ * was tomorrow" without waiting until tomorrow. That belongs here, with the
+ * rest of the answers about what time it is, rather than in a berry patch —
+ * and like `forceHour` it is never saved, so a berry planted at four o'clock
+ * is ripe at four o'clock however the clock was nudged in between.
+ */
+let offsetMs = 0;
+
+function now() { return Date.now() + offsetMs; }
+
+/** Moves the world clock forward (or back) by whole hours. Debug and tests. */
+function shiftHours(hours) { offsetMs += hours * 3600 * 1000; }
+
+function resetClock() { offsetMs = 0; forced = null; }
+
+__exports(__x, { PHASES: () => PHASES, forceHour: () => forceHour, currentHour: () => currentHour, phaseAt: () => phaseAt, currentPhase: () => currentPhase, isNight: () => isNight, phaseLabel: () => phaseLabel, tintFor: () => tintFor, minutesLeftInPhase: () => minutesLeftInPhase, now: () => now, shiftHours: () => shiftHours, resetClock: () => resetClock });
+
+};
+
+__defs['game/berries.js'] = function (__x, __req) {
+const { getItem, isBerry } = __req('data/items.js');
+const { now } = __req('game/clock.js');
+// Berries, and the soft soil you put them in.
+//
+// The Day Care rewards you for walking. Berries reward you for leaving, which
+// is a different and stranger thing for a game to ask: you push a berry into
+// the ground, close the game, live your life, and the plant carries on without
+// you. Three hours later there is something there that was not there before.
+//
+// Growth is measured against the real clock, not against steps or play time,
+// for exactly that reason — and the clock lives in `game/clock.js`, so a test
+// (or the debug menu) can say "and then it was tomorrow" in one call.
+//
+// The co-op part is small and deliberate. If the two of you are linked when a
+// berry goes in, the patch remembers who was standing there, and says so when
+// you come back for it. You end up with a route full of small notes to each
+// other that happen to be edible.
+
+
+
+/** The four stages a plant goes through, evenly spaced across its growth. */
+const STAGES = ['planted', 'sprout', 'growing', 'ripe'];
+
+/** Tending a patch between stages is worth one extra berry, once per stage. */
+const TEND_BONUS = 1;
+/** And planting it together is worth one more, for the whole life of the plant. */
+const TOGETHER_BONUS = 1;
+
+function createPatches() { return {}; }
+
+/** Patches are keyed by where they are, which is the only identity they have. */
+function patchKey(map, x, y) { return `${map}:${x},${y}`; }
+
+function patchAt(patches, map, x, y) {
+  return (patches && patches[patchKey(map, x, y)]) || null;
+}
+
+/**
+ * Puts a berry in the ground.
+ *
+ * `witness` is the partner's name if you are linked right now, and null if you
+ * are not. It is written once, at planting, and never changes afterwards — a
+ * berry planted alone does not become a shared one because somebody logged on
+ * while it was growing.
+ */
+function plant(patches, map, x, y, berryId, witness = null) {
+  if (!isBerry(berryId)) return null;
+  const patch = {
+    berry: berryId,
+    planted: now(),
+    tended: 0,          // stages the player has tended, capped at one each
+    lastTend: -1,       // the stage index the last tending was done at
+    witness: witness || null,
+  };
+  patches[patchKey(map, x, y)] = patch;
+  return patch;
+}
+
+/** Milliseconds a plant has been in the ground. Never negative. */
+function ageMs(patch, at = now()) {
+  return Math.max(0, at - (patch.planted || 0));
+}
+
+/** 0 to 1 across the whole growth, clamped. */
+function progress(patch, at = now()) {
+  const spec = getItem(patch.berry).berry;
+  const total = spec.hours * 3600 * 1000;
+  return Math.max(0, Math.min(1, ageMs(patch, at) / total));
+}
+
+/** 0..3 — planted, sprout, growing, ripe. */
+function stageIndex(patch, at = now()) {
+  const p = progress(patch, at);
+  if (p >= 1) return 3;
+  return Math.min(2, Math.floor(p * 3));
+}
+
+function stageOf(patch, at = now()) { return STAGES[stageIndex(patch, at)]; }
+
+function isRipe(patch, at = now()) { return stageIndex(patch, at) === 3; }
+
+/**
+ * How many berries this patch will give back.
+ *
+ * The base crop is the berry's own; tending it as it grows is worth one each
+ * time, and having planted it with somebody is worth one for good. A Lum Berry
+ * left alone gives two and takes a day; a Lum Berry the two of you planted and
+ * looked in on gives five.
+ */
+function cropOf(patch, at = now()) {
+  const spec = getItem(patch.berry).berry;
+  return spec.crop + patch.tended * TEND_BONUS + (patch.witness ? TOGETHER_BONUS : 0);
+}
+
+/**
+ * Looking after a plant that is still growing. Worth something once per stage,
+ * so standing on it pressing A is not a strategy.
+ * Returns true if this actually counted.
+ */
+function tend(patch, at = now()) {
+  const stage = stageIndex(patch, at);
+  if (stage >= 3) return false;
+  if (patch.lastTend === stage) return false;
+  patch.lastTend = stage;
+  patch.tended++;
+  return true;
+}
+
+/** Takes the crop and clears the soil. Returns { berry, count } or null. */
+function harvest(patches, map, x, y, at = now()) {
+  const key = patchKey(map, x, y);
+  const patch = patches[key];
+  if (!patch || !isRipe(patch, at)) return null;
+  const out = { berry: patch.berry, count: cropOf(patch, at), witness: patch.witness };
+  delete patches[key];
+  return out;
+}
+
+function clearPatch(patches, map, x, y) { delete patches[patchKey(map, x, y)]; }
+
+/**
+ * What the patch has to say for itself, in the words the game uses out loud.
+ * Kept here rather than in the script so the test can read it too.
+ */
+function patchText(patch, at = now()) {
+  const item = getItem(patch.berry);
+  const stage = stageIndex(patch, at);
+  if (stage === 3) return `${item.name}. It is ripe.`;
+  const left = hoursLeft(patch, at);
+  const when = left < 1 ? 'It will not be long now.' : `Another ${Math.ceil(left)} hour${Math.ceil(left) === 1 ? '' : 's'}, at a guess.`;
+  const what = ['A ' + item.name + ' is planted here.', 'A sprout is up.', 'It is nearly a plant.'][stage];
+  return `${what} ${when}`;
+}
+
+function hoursLeft(patch, at = now()) {
+  const spec = getItem(patch.berry).berry;
+  const total = spec.hours * 3600 * 1000;
+  return Math.max(0, (total - ageMs(patch, at)) / 3600000);
+}
+
+// ---- saving ---------------------------------------------------------------
+//
+// Patches are the one thing in this game that keeps a wall-clock timestamp in
+// the save, which is the whole point of them: the plant grows while the game
+// is closed. A patch whose berry no longer exists is dropped rather than
+// crashing, the same as everything else that comes back off disk.
+
+function serializePatches(patches) {
+  const out = {};
+  for (const [key, p] of Object.entries(patches || {})) {
+    out[key] = {
+      berry: p.berry, planted: p.planted, tended: p.tended || 0,
+      lastTend: p.lastTend ?? -1, witness: p.witness || null,
+    };
+  }
+  return out;
+}
+
+function revivePatches(raw) {
+  const out = createPatches();
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [key, p] of Object.entries(raw)) {
+    if (!p || !isBerry(p.berry)) continue;
+    if (!/^[^:]+:\d+,\d+$/.test(key)) continue;
+    out[key] = {
+      berry: p.berry,
+      planted: Number(p.planted) || 0,
+      tended: Math.max(0, Math.min(3, Number(p.tended) || 0)),
+      lastTend: Number.isInteger(p.lastTend) ? p.lastTend : -1,
+      witness: typeof p.witness === 'string' ? p.witness : null,
+    };
+  }
+  return out;
+}
+
+__exports(__x, { STAGES: () => STAGES, createPatches: () => createPatches, patchKey: () => patchKey, patchAt: () => patchAt, plant: () => plant, ageMs: () => ageMs, progress: () => progress, stageIndex: () => stageIndex, stageOf: () => stageOf, isRipe: () => isRipe, cropOf: () => cropOf, tend: () => tend, harvest: () => harvest, clearPatch: () => clearPatch, patchText: () => patchText, hoursLeft: () => hoursLeft, serializePatches: () => serializePatches, revivePatches: () => revivePatches });
+
+};
+
 __defs['game/state.js'] = function (__x, __req) {
 const { createInventory, addItem } = __req('game/inventory.js');
 const { createDex, recordSeen, recordCaught } = __req('game/pokedex.js');
@@ -9419,12 +9786,14 @@ const { createMonster, healFully, isFainted, reviveMonster, serializeMonster, di
 const { createCircuit, serializeCircuit, reviveCircuit } = __req('game/circuit/circuit.js');
 const { createJournal, serializeJournal, reviveJournal } = __req('game/journal.js');
 const { createDaycare, serializeDaycare, reviveDaycare } = __req('game/daycare.js');
+const { createPatches, serializePatches, revivePatches } = __req('game/berries.js');
 // The player's entire game state.
 //
 // Deliberately one plain object graph: it is what the save layer writes, what
 // the debug menu inspects, and what a future cloud backend would sync. Two
 // co-op players each own a completely separate GameState — only the room and
 // the shared story milestones are common.
+
 
 
 
@@ -9469,6 +9838,8 @@ function createGameState(opts = {}) {
     // What the player has worked out so far, and what they are doing next.
     journal: createJournal(),
     daycare: createDaycare(),
+    // Berries in the ground, keyed by where they are.
+    patches: createPatches(),
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
@@ -9598,6 +9969,7 @@ function serializeState(st) {
     circuit: serializeCircuit(st.circuit),
     journal: serializeJournal(st.journal),
     daycare: serializeDaycare(st.daycare),
+    patches: serializePatches(st.patches),
   };
 }
 
@@ -9628,6 +10000,7 @@ function deserializeState(raw) {
   st.circuit = reviveCircuit(raw.circuit);
   st.journal = reviveJournal(raw.journal);
   st.daycare = reviveDaycare(raw.daycare, reviveMonster);
+  st.patches = revivePatches(raw.patches);
   return st;
 }
 
@@ -10430,7 +10803,7 @@ const TWINLEAF = defineMap('twinleaf', {
     'T..#WDW#......::....#WDW#....T',
     'T....:........::......:......T',
     'T....:::::::::::::::::.......T',
-    'T.............::.............T',
+    'T...OOO.......::.............T',
     'T..S..........::..........S..T',
     'T.,...........::...........,.T',
     'T.............::.............T',
@@ -10522,6 +10895,15 @@ const TWINLEAF = defineMap('twinleaf', {
           lines: ['Professor Rowan is handing out Pokémon today. Actual ones.',
             'I am too young. I asked. Twice.'],
         },
+      ],
+    },
+    {
+      // She keeps the beds at the end of the lane, and she has decided the two
+      // of you are going to keep one too.
+      id: 'bv_gardener', x: 7, y: 16, look: 'mom', name: 'Nel', movement: 'still', facing: 'left',
+      script: 'berryGift',
+      dialogue: [
+        { lines: ['Soft soil, that. Anything goes in it.'] },
       ],
     },
     {
@@ -10857,7 +11239,7 @@ const SANDGEM = defineMap('sandgem', {
     'T.....:::::::::::::~~~~~~T',
     'T...........::.....~~~~~~T',
     'T...........::.....~~~~~~T',
-    'T...........::...........T',
+    'T...........::.......OOO.T',
     'T..S........::..........ST',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
@@ -10880,7 +11262,12 @@ const SANDGEM = defineMap('sandgem', {
     { x: 3, y: 16, text: 'ROUTE 201 — SOUTH\nTwinleaf Town is back that way.' },
     { x: 24, y: 16, text: 'The beach is closed to trainers\nwithout a fishing licence.\nThe sea does not check.' },
   ],
-  encounters: null,
+  // Nothing lives in the grass in a town, but there is a sea at the bottom
+  // of it, and the man on the beach will give you a rod if you ask nicely.
+  encounters: {
+    grass: null,
+    fish: { min: 3, max: 7, table: [[129, 55], [72, 20], [456, 15], [458, 6], [349, 4]] },
+  },
   npcs: [
     {
       // The catching lesson. In the DS games somebody demonstrates this at you
@@ -10906,15 +11293,10 @@ const SANDGEM = defineMap('sandgem', {
     },
     {
       id: 'sg_fisher', x: 20, y: 15, look: 'sailor', name: 'Bram', movement: 'still', facing: 'down',
+      script: 'oldRod',
       dialogue: [
         {
-          when: { badges: 1 },
-          lines: ['Coal Badge, is it? Roark does not hand those out for turning up.',
-            'The sea is that way and it is not going anywhere.\fGo and be famous first.'],
-        },
-        {
-          lines: ['The beach goes on for miles and the water is full of things I cannot name.',
-            'You will need a rod, and I have not got a spare. Sorry, friend.'],
+          lines: ['The beach goes on for miles and the water is full of things I cannot name.'],
         },
       ],
     },
@@ -11083,7 +11465,7 @@ const ROUTE201 = defineMap('route201', {
     'T...........::.TTTTT.....T',
     'T...*...*...::..TTT......T',
     'T.........S.::...........T',
-    'T...........::...........T',
+    'T..OOO......::...........T',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
@@ -11131,6 +11513,10 @@ const ROUTE201 = defineMap('route201', {
       morning: { min: 2, max: 5, table: [[396, 34], [399, 26], [401, 16], [403, 14], [265, 10]] },
       night: { min: 2, max: 5, table: [[163, 30], [401, 24], [399, 18], [41, 16], [198, 12]] },
     },
+    // The Old Rod pulls up Magikarp and very little else, which is the joke
+    // the series has been telling since 1996. Keeping it means the first
+    // decent thing you land actually feels like something.
+    fish: { min: 3, max: 6, table: [[129, 70], [118, 18], [339, 12]] },
   },
 });
 
@@ -11212,6 +11598,7 @@ const ROUTE207 = defineMap('route207', {
       table: [[403, 22], [399, 16], [77, 12], [54, 10], [427, 12], [396, 12], [438, 8], [422, 5], [129, 3]],
       night: { min: 10, max: 14, table: [[41, 26], [163, 20], [200, 14], [434, 12], [427, 12], [399, 10], [438, 6]] },
     },
+    fish: { min: 6, max: 11, table: [[129, 60], [339, 22], [118, 12], [422, 6]] },
   },
 });
 
@@ -11227,7 +11614,7 @@ const ROUTE203 = defineMap('route203', {
     'T...........::...........T',
     'T....""""...::......RR....',
     'T....""""...::...........T',
-    'T...........::...........T',
+    'T..OOO......::...........T',
     'T..TTT......::....""""...T',
     'T.TTTTT.....::....""""...T',
     'T..TTT......::...........T',
@@ -12783,85 +13170,6 @@ __exports(__x, { TRAINERS: () => TRAINERS, getTrainer: () => getTrainer, STARTER
 
 };
 
-__defs['game/clock.js'] = function (__x, __req) {
-
-// The world clock.
-//
-// Platinum reads the DS's own clock, so the game is morning when it is morning
-// where you are — which is the whole charm of it: play in the evening and the
-// world is lit like the evening, and two people playing together see the same
-// sky because they are in the same room.
-//
-// Phases are the series' own boundaries:
-//
-//   morning  04:00 - 09:59
-//   day      10:00 - 19:59
-//   night    20:00 - 03:59
-//
-// Nothing here is stored in a save. A clock you can save is a clock you can
-// desync, and the point of it is that it agrees with the world outside.
-
-const PHASES = ['morning', 'day', 'night'];
-
-/** Overridden by the debug menu and by the tests; null means "ask the device". */
-let forced = null;
-
-function forceHour(hour) {
-  forced = hour === null || hour === undefined ? null : ((hour % 24) + 24) % 24;
-}
-
-function currentHour() {
-  return forced === null ? new Date().getHours() : forced;
-}
-
-function phaseAt(hour) {
-  if (hour >= 4 && hour < 10) return 'morning';
-  if (hour >= 10 && hour < 20) return 'day';
-  return 'night';
-}
-
-function currentPhase() { return phaseAt(currentHour()); }
-
-function isNight(hour = currentHour()) { return phaseAt(hour) === 'night'; }
-
-/** "Morning", "Day", "Night" — for the trainer card and the summary screen. */
-function phaseLabel(phase = currentPhase()) {
-  return phase.charAt(0).toUpperCase() + phase.slice(1);
-}
-
-/**
- * The wash laid over the overworld for this phase. Outdoor maps only: a cave
- * is dark whatever the hour, and being indoors is the one place the light
- * does not change.
- *
- * `alpha` of 0 means day, which is drawn as nothing at all rather than as a
- * transparent rectangle nobody can see.
- */
-const TINTS = {
-  morning: { color: '#ffb463', alpha: 0.26 },
-  day: { color: '#ffffff', alpha: 0 },
-  night: { color: '#2a3c88', alpha: 0.62 },
-};
-
-function tintFor(phase = currentPhase()) { return TINTS[phase] || TINTS.day; }
-
-/**
- * How many real minutes a phase still has to run. Used by anything that wants
- * to say "come back tomorrow morning" and mean it.
- */
-function minutesLeftInPhase(now = new Date()) {
-  const hour = forced === null ? now.getHours() : forced;
-  const phase = phaseAt(hour);
-  let endHour = phase === 'morning' ? 10 : phase === 'day' ? 20 : 4;
-  let hours = (endHour - hour + 24) % 24;
-  if (hours === 0) hours = 24;
-  return hours * 60 - (forced === null ? now.getMinutes() : 0);
-}
-
-__exports(__x, { PHASES: () => PHASES, forceHour: () => forceHour, currentHour: () => currentHour, phaseAt: () => phaseAt, currentPhase: () => currentPhase, isNight: () => isNight, phaseLabel: () => phaseLabel, tintFor: () => tintFor, minutesLeftInPhase: () => minutesLeftInPhase });
-
-};
-
 __defs['game/overworld/world.js'] = function (__x, __req) {
 const { getMap } = __req('data/maps/index.js');
 const { onWalked } = __req('game/friendship.js');
@@ -13314,7 +13622,10 @@ class World {
     if (def.name === 'bookshelf') return { type: 'flavour', text: 'Shelves of well-thumbed books about Pokémon.' };
     if (def.name === 'TV') return { type: 'flavour', text: 'A documentary about migrating Pokémon is on.' };
     if (def.name === 'bed') return { type: 'flavour', text: 'Neatly made. It looks very comfortable.' };
-    if (def.water) return { type: 'flavour', text: 'The water is clear and deep.' };
+    if (def.soil) return { type: 'soil', x: tx, y: ty };
+    // The water's edge. Whether this is a fishing spot or a nice view is up
+    // to the screen, which is the thing that knows what is in the bag.
+    if (def.water) return { type: 'water', x: tx, y: ty };
     return null;
   }
 
@@ -13403,6 +13714,8 @@ const { renderMonster } = __req('render/monsterart.js');
 const { getSpecies } = __req('data/species.js');
 const { PAL, shade } = __req('render/palette.js');
 const { tintFor } = __req('game/clock.js');
+const { patchAt, stageIndex } = __req('game/berries.js');
+const { getItem } = __req('data/items.js');
 const { drawTextCentered, drawText } = __req('render/font.js');
 // Overworld renderer.
 //
@@ -13410,6 +13723,8 @@ const { drawTextCentered, drawText } = __req('render/font.js');
 // characters walk behind things correctly, and re-draws the top half of tall
 // grass over anyone standing in it — the small detail that sells the
 // perspective in the games this is modelled on.
+
+
 
 
 
@@ -13497,6 +13812,22 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
       const def = ch && tileDef(ch);
       if (!def || !def.over) continue;
       drawTile(ctx, def.over, x * TILE - camera.x, y * TILE - camera.y - TILE, frame);
+    }
+  }
+
+  // --- berry plants ---
+  // Drawn between the crowns and the entities, so you stand in front of your
+  // own garden. The soil is a tile; what is growing out of it is save data,
+  // which is why it cannot be part of the atlas.
+  const patches = opts.patches;
+  if (patches) {
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (!tileDef(map.tiles[y][x]).soil) continue;
+        const patch = patchAt(patches, world.mapId, x, y);
+        if (!patch) continue;
+        drawBerryPlant(ctx, patch, x * TILE - camera.x, y * TILE - camera.y, frame);
+      }
     }
   }
 
@@ -13610,6 +13941,69 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
  * `w` is in tiles; the text is drawn at half scale if it would not fit, so a
  * long name never spills onto the roof.
  */
+/**
+ * A berry plant, in four stages: a mound of turned earth, a shoot, a bush,
+ * and a bush with fruit on it. The fruit takes the berry's own colour, so a
+ * row of them reads at a glance without a single label.
+ */
+const BERRY_COLORS = {
+  cheriberry: '#e0413e', chestoberry: '#8b5bd6', pechaberry: '#f08cc0',
+  rawstberry: '#4aa7e0', aspearberry: '#f0a026', oranberry: '#4f7fe0',
+  leppaberry: '#e06a3c', sitrusberry: '#f2d03c', lumberry: '#f0eec4',
+};
+
+function drawBerryPlant(ctx, patch, sx, sy, frame) {
+  const stage = stageIndex(patch);
+  const sway = frame === 1 || frame === 2 ? 1 : 0;
+  const leaf = '#3f8a3a';
+  const leafDark = '#24521f';
+
+  if (stage === 0) return;                 // just turned earth; the tile says it
+
+  ctx.fillStyle = leafDark;
+  ctx.fillRect(sx + 7, sy + 11 - stage * 2, 2, 3 + stage * 2);
+
+  if (stage === 1) {
+    ctx.fillStyle = leaf;
+    ctx.fillRect(sx + 4 + sway, sy + 8, 3, 2);
+    ctx.fillRect(sx + 9 - sway, sy + 8, 3, 2);
+    ctx.fillStyle = leafDark;
+    ctx.fillRect(sx + 4 + sway, sy + 10, 3, 1);
+    ctx.fillRect(sx + 9 - sway, sy + 10, 3, 1);
+    return;
+  }
+
+  // A bush, built row by row so it is a round-ish shape rather than a green
+  // rectangle sitting on the soil.
+  //            [x offset, width] per row, from the top of the plant down
+  const ROWS = [[5, 6], [3, 10], [2, 12], [2, 12], [2, 12], [3, 10], [4, 8]];
+  ctx.fillStyle = leafDark;
+  ROWS.forEach(([ox, w], i) => ctx.fillRect(sx + ox + sway, sy + 3 + i, w, 1));
+  ctx.fillStyle = leaf;
+  ROWS.forEach(([ox, w], i) => {
+    if (i === 0 || i === ROWS.length - 1) return;
+    ctx.fillRect(sx + ox + 1 + sway, sy + 3 + i, w - 2, 1);
+  });
+  ctx.fillStyle = shade(leaf, 0.22);
+  ctx.fillRect(sx + 5 + sway, sy + 4, 4, 1);
+
+  if (stage < 3) return;
+
+  // Fruit. Outlined, because a berry the colour of a leaf is a highlight.
+  const c = BERRY_COLORS[patch.berry] || '#e0413e';
+  const berry = (bx, by) => {
+    ctx.fillStyle = leafDark;
+    ctx.fillRect(sx + bx - 1, sy + by - 1, 5, 5);
+    ctx.fillStyle = c;
+    ctx.fillRect(sx + bx, sy + by, 3, 3);
+    ctx.fillStyle = shade(c, 0.4);
+    ctx.fillRect(sx + bx, sy + by, 1, 1);
+  };
+  berry(4 + sway, 7);
+  berry(9 + sway, 5);
+}
+
+
 function drawBoardText(ctx, lb, sx, sy) {
   const w = (lb.w || 2) * TILE;
   const cx = sx + w / 2;
@@ -14159,6 +14553,9 @@ const { getTournament } = __req('data/circuit.js');
 const { getSpecies } = __req('data/species.js');
 const { createMonster, displayName } = __req('game/monster.js');
 const { deposit, withdraw, feeFor, hasEgg, collectEgg, compatibilityText, eggHint, hatch } = __req('game/daycare.js');
+const { patchAt, plant, isRipe, harvest, tend, patchText, cropOf } = __req('game/berries.js');
+const { getItem, BERRY_IDS } = __req('data/items.js');
+const { weightedPick } = __req('core/rng.js');
 const { spend, formatMoney: money } = __req('game/inventory.js');
 const { FLAGS } = __req('game/storyflags.js');
 const { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } = __req('data/story.js');
@@ -14169,6 +14566,9 @@ const { playerByLook } = __req('game/players.js');
 // say, ask, battle, give, wait, move — and awaits them. Writing cutscenes as
 // straight-line async code keeps them readable, and keeps the sequencing out
 // of the render loop entirely.
+
+
+
 
 
 
@@ -14801,6 +15201,144 @@ SCRIPTS.circuitDesk = async (ctx) => {
   }
 
   await ctx.openCircuit();
+};
+
+// ---- soft soil: planting, tending, picking --------------------------------
+//
+// The whole loop is one square of ground: put something in, come back later,
+// take more out than you put in. It runs on the wall clock rather than on
+// steps, so it is the one system in the game that carries on while the game
+// is shut — which is what makes checking on it feel like checking on
+// something rather than like grinding.
+
+SCRIPTS.berryPatch = async (ctx, npc) => {
+  const tile = npc && npc.data && npc.data.tile;
+  if (!tile) return;
+  const st = ctx.state;
+  const map = ctx.here().map;
+  const patch = patchAt(st.patches, map, tile.x, tile.y);
+
+  if (!patch) {
+    const held = BERRY_IDS.filter((id) => ctx.countItem(id) > 0);
+    if (!held.length) {
+      await ctx.say('The soil here is soft and freshly turned.\fSomething would grow in it, if you had something to put in it.');
+      return;
+    }
+    const options = held.map((id) => getItem(id).name).concat('Cancel');
+    const pick = await ctx.ask('The soil is soft. Plant a Berry?', options);
+    if (pick < 0 || pick >= held.length) return;
+    const id = held[pick];
+    ctx.take(id, 1);
+    const witness = ctx.linked() ? ctx.partnerName() : null;
+    plant(st.patches, map, tile.x, tile.y, id, witness);
+    ctx.sfx('select');
+    await ctx.say(`You planted a ${getItem(id).name} in the soft soil.`);
+    if (witness) {
+      await ctx.say(`${witness} was standing right there when you did it.\fWhatever comes up, it is both of yours.`);
+    } else {
+      await ctx.say(`It will take about ${getItem(id).berry.hours} hours to come up.\fCome back later.`);
+    }
+    ctx.journal('planted');
+    return;
+  }
+
+  if (isRipe(patch)) {
+    const crop = harvest(st.patches, map, tile.x, tile.y);
+    const item = getItem(crop.berry);
+    ctx.give(crop.berry, crop.count);
+    ctx.sfx('buy');
+    await ctx.say(`You picked ${crop.count} ${item.name}${crop.count === 1 ? '' : 's'}!`);
+    if (crop.witness) {
+      await ctx.say(`This is the one you and ${crop.witness} planted.\fIt did rather well out of the arrangement.`);
+    }
+    ctx.journal('harvested');
+    return;
+  }
+
+  await ctx.say(patchText(patch));
+  const yes = await ctx.ask('Look after it?', ['Yes', 'Leave it']);
+  if (yes !== 0) return;
+  if (tend(patch)) {
+    ctx.sfx('heal');
+    await ctx.say('You cleared the weeds and worked the soil around it.\fIt looks happier for it.');
+    await ctx.say(`This one should give about ${cropOf(patch)} when it is ready.`);
+  } else {
+    await ctx.say('There is nothing more to do for it right now.\fIt just needs time.');
+  }
+};
+
+// ---- Nel, who runs the beds at the end of the lane -------------------------
+
+SCRIPTS.berryGift = async (ctx) => {
+  const st = ctx.state;
+  if (!st.flags.gotBerries) {
+    await ctx.say('Nel: These beds have been here longer than the houses have.\fEverybody in Twinleaf keeps one.');
+    await ctx.say('Nel: Here. Something to start you off.');
+    ctx.give('oranberry', 3);
+    ctx.give('cheriberry', 2);
+    ctx.sfx('buy');
+    await ctx.say('You received 3 ORAN BERRIES and 2 CHERI BERRIES!');
+    await ctx.say('Nel: Stand at a bed, press A, and put one in.\fThen go away and do something else. That is the trick.');
+    await ctx.say('Nel: Look in on it while it grows and it will thank you for it.\fThey know.');
+    ctx.setFlag('gotBerries', true);
+    return;
+  }
+  if (ctx.linked()) {
+    await ctx.say(`Nel: Oh, the two of you.\fPlant one together — go on. It is worth more when there are two names on it.`);
+    return;
+  }
+  await ctx.say('Nel: Cheri for the shakes, Pecha for the poison, Rawst for a burn.\fMy mother taught me that as a rhyme and I have never forgotten it.');
+  await ctx.say('Nel: The slow ones are the good ones. Lum takes a whole day and cures\nanything you like.');
+};
+
+// ---- Bram, and the rod he keeps saying he has not got ----------------------
+
+SCRIPTS.oldRod = async (ctx) => {
+  if (ctx.hasItem('oldrod')) {
+    if (ctx.linked()) {
+      await ctx.say('Bram: Two of you on the beach.\fGo on then. Whoever lands the bigger one buys tea.');
+    } else {
+      await ctx.say('Bram: Still Magikarp? It is always Magikarp.\fKeep at it. The sea gets bored before you do.');
+    }
+    return;
+  }
+  await ctx.say('Bram: The beach goes on for miles and the water is full of things I\ncannot name.');
+  await ctx.say('Bram: I have got a spare rod here. Old. Bent. Catches almost nothing.');
+  const yes = await ctx.ask('Bram: Do you want it?', ['Yes, please', 'No thanks']);
+  if (yes !== 0) { await ctx.say('Bram: Suit yourself. It will be here.'); return; }
+  ctx.give('oldrod', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received the OLD ROD!');
+  await ctx.say('Bram: Stand at the edge, face the water, and have a go.\fThat is the whole of it.');
+  await ctx.say('Bram: You will pull up a Magikarp. Then another one.\fThen, one day, something else.');
+  ctx.journal('fished');
+};
+
+// ---- the water's edge ------------------------------------------------------
+//
+// The Old Rod catches Magikarp, and everybody knows it catches Magikarp, and
+// people fish with it anyway. The bite is a real roll against a real table, so
+// a blank is a blank and the one time it is not Magikarp is worth something.
+
+SCRIPTS.fish = async (ctx) => {
+  const table = ctx.fishTable();
+  if (!table) { await ctx.say('You cast the line.\f...Nothing lives in this water.'); return; }
+
+  ctx.sfx('select');
+  await ctx.say('You cast the Old Rod into the water.');
+  await ctx.wait(1.1);
+
+  if (Math.random() > 0.55) {
+    await ctx.say('...Not even a nibble.');
+    return;
+  }
+  ctx.sfx('encounter');
+  await ctx.say('Oh! A bite!');
+  await ctx.wait(0.4);
+  const species = weightedPick(table.table.map(([id, w]) => [id, w]), Math.random);
+  const level = table.min + Math.floor(Math.random() * (table.max - table.min + 1));
+  ctx.journal('fished');
+  await ctx.wild(species, level);
 };
 
 function scriptFor(name) { return SCRIPTS[name] || null; }
@@ -15878,7 +16416,7 @@ const { getItem } = __req('data/items.js');
 const { getSpecies } = __req('data/species.js');
 const { partnerLine } = __req('game/monster.js');
 const { BANDIT } = __req('data/story.js');
-const { addItem } = __req('game/inventory.js');
+const { addItem, removeItem } = __req('game/inventory.js');
 const { recordSeen, recordCaught } = __req('game/pokedex.js');
 const { awardBadge, healParty, setStoryFlag, progress } = __req('game/state.js');
 const { scriptFor } = __req('game/overworld/scripts.js');
@@ -16060,6 +16598,14 @@ class OverworldScreen extends Screen {
       return;
     }
     if (target.type === 'flavour') { this.say(target.text); return; }
+    if (target.type === 'soil') { this.runScript('berryPatch', { data: { tile: target } }); return; }
+    if (target.type === 'water') {
+      // A rod turns the water's edge into somewhere to stand for ten minutes.
+      // Without one it stays what it was: a nice view.
+      if ((this.game.state.inventory.items.oldrod || 0) > 0) { this.runScript('fish'); return; }
+      this.say('The water is clear and deep.');
+      return;
+    }
     if (target.type === 'partner') { this._talkToPartner(target.mon); return; }
     if (target.type === 'pc') { this.game.openPC(); return; }
     if (target.type === 'item') { this._pickUp(target.entity); return; }
@@ -16347,6 +16893,17 @@ class OverworldScreen extends Screen {
 
       give: (itemId, qty) => addItem(st.inventory, itemId, qty),
 
+      take: (itemId, qty = 1) => removeItem(st.inventory, itemId, qty),
+
+      countItem: (itemId) => st.inventory.items[itemId] || 0,
+
+      // Where the player is standing, and what the water here holds. Berries
+      // and fishing both need to know which square of the world they are on;
+      // nothing else in a cutscene does.
+      here: () => ({ map: screen.world.mapId, x: screen.world.player.x, y: screen.world.player.y }),
+
+      fishTable: () => (screen.world.map.encounters && screen.world.map.encounters.fish) || null,
+
       hasItem: (itemId) => (st.inventory.items[itemId] || 0) > 0,
 
       cry: (speciesId) => audio.cry(speciesId),
@@ -16433,7 +16990,7 @@ class OverworldScreen extends Screen {
       this.camera.x += shakeX;
       this.camera.y += shakeY;
     }
-    drawWorld(ctx, this.world, this.camera, W, H);
+    drawWorld(ctx, this.world, this.camera, W, H, { patches: this.game.state.patches });
     this.camera.x -= shakeX;
     this.camera.y -= shakeY;
 
@@ -18412,6 +18969,23 @@ function endOfTurn(battle, out) {
         mon.heldItem = null;
         out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp });
         out.push({ t: 'text', s: `${displayName(mon)} ate its ${held.name}!` });
+      }
+      // A status berry goes the moment the status lands, which is the whole
+      // reason to carry one. Confusion is a volatile rather than a status,
+      // so it is checked separately or a Lum Berry would ignore it.
+      const cures = held && held.held && held.held.kind === 'pinch-cure' ? held.held.status : null;
+      if (cures && mon.hp > 0) {
+        const confused = battle.sides[i].volatile.confusion > 0 && cures.includes('CNF');
+        if (mon.status && cures.includes(mon.status)) {
+          mon.status = null; mon.statusCounter = 0;
+          mon.heldItem = null;
+          out.push({ t: 'status', side: i, uid: mon.uid, status: null });
+          out.push({ t: 'text', s: `${displayName(mon)} ate its ${held.name} and shook it off!` });
+        } else if (confused) {
+          battle.sides[i].volatile.confusion = 0;
+          mon.heldItem = null;
+          out.push({ t: 'text', s: `${displayName(mon)} ate its ${held.name} and cleared its head!` });
+        }
       }
     }
   }
@@ -23229,7 +23803,7 @@ const { FLAGS } = __req('game/storyflags.js');
 const { debugGive, debugGiveItem, healParty, awardBadge, setStoryFlag, formatPlayTime } = __req('game/state.js');
 const { createMonster, healFully } = __req('game/monster.js');
 const { net } = __req('net/NetworkManager.js');
-const { currentHour, currentPhase, phaseLabel, forceHour } = __req('game/clock.js');
+const { currentHour, currentPhase, phaseLabel, forceHour, shiftHours } = __req('game/clock.js');
 const { simulateSeasonWeek } = __req('game/circuit/circuit.js');
 const { reportSeasonWeek, reportPowerRankings } = __req('game/circuit/news.js');
 // Developer menu.
@@ -23293,6 +23867,10 @@ class DebugScreen extends Screen {
         { t: `Level +5 (party)`, a: () => { for (const m of st.party) { m.level = Math.min(100, m.level + 5); healFully(m); } this._msg('Party levelled.'); } },
         { t: `Time of day: ${phaseLabel()}`, right: `${String(currentHour()).padStart(2, '0')}:00`,
           a: () => { forceHour(NEXT_HOUR[currentPhase()]); this._msg(`It is now ${phaseLabel()}.`); } },
+        // Berries take hours on the real clock, so the only way to look at
+        // one growing is to move the clock the berries read.
+        { t: 'Skip 6 hours (berries)',
+          a: () => { shiftHours(6); this._msg('Six hours later. Go and look at the soil.'); } },
         { t: 'Circuit...', a: () => { this.page = 'circuit'; this.index = 0; this.scroll = 0; } },
         { t: 'Network state...', a: () => { this.page = 'net'; this.index = 0; } },
         { t: 'Reset save', a: () => { this.page = 'reset'; this.index = 1; } },
@@ -25255,7 +25833,8 @@ const { createBattle } = __req('game/battle/engine.js');
 const { getSpecies } = __req('data/species.js');
 const { getMap, MAPS } = __req('data/maps/index.js');
 const { SCRIPTS } = __req('game/overworld/scripts.js');
-const { forceHour, currentPhase } = __req('game/clock.js');
+const { forceHour, currentPhase, shiftHours } = __req('game/clock.js');
+const { addItem } = __req('game/inventory.js');
 const { randomSeed } = __req('core/rng.js');
 const { saveManager } = __req('save/SaveManager.js');
 const { net } = __req('net/NetworkManager.js');
@@ -25270,6 +25849,7 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
 
 
 
@@ -25329,7 +25909,7 @@ class Game {
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
     this.gossipForTest = { resolveDialogue, worldSnapshot };
-    this.clockForTest = { forceHour, currentPhase };
+    this.clockForTest = { forceHour, currentPhase, shiftHours };
     this.scriptsForTest = SCRIPTS;
     this.journalForTest = journalApi;
     // The World Circuit career. It reads and writes state.circuit, so it is
@@ -25509,6 +26089,10 @@ class Game {
   }
   openShop(onClose) { this.screens.push(new ShopScreen(this, onClose)); }
   openDebug() { this.screens.push(new DebugScreen(this)); }
+
+  // Puts an item in the bag. Same purpose as debugGive: the debug menu and
+  // the integration tests both need a way to hand the player something.
+  debugGiveItem(id, qty = 1) { return addItem(this.state.inventory, id, qty); }
 
   // Adds a monster to the party — used by the debug menu and by tools/coop.mjs.
   debugGive(speciesId, level = 5) {

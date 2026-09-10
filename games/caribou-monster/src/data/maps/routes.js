@@ -29,7 +29,7 @@ export const ROUTE201 = defineMap('route201', {
     'T...........::.TTTTT.....T',
     'T...*...*...::..TTT......T',
     'T.........S.::...........T',
-    'T...........::...........T',
+    'T..OOO......::...........T',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
@@ -77,6 +77,10 @@ export const ROUTE201 = defineMap('route201', {
       morning: { min: 2, max: 5, table: [[396, 34], [399, 26], [401, 16], [403, 14], [265, 10]] },
       night: { min: 2, max: 5, table: [[163, 30], [401, 24], [399, 18], [41, 16], [198, 12]] },
     },
+    // The Old Rod pulls up Magikarp and very little else, which is the joke
+    // the series has been telling since 1996. Keeping it means the first
+    // decent thing you land actually feels like something.
+    fish: { min: 3, max: 6, table: [[129, 70], [118, 18], [339, 12]] },
   },
 });
 
@@ -158,6 +162,7 @@ export const ROUTE207 = defineMap('route207', {
       table: [[403, 22], [399, 16], [77, 12], [54, 10], [427, 12], [396, 12], [438, 8], [422, 5], [129, 3]],
       night: { min: 10, max: 14, table: [[41, 26], [163, 20], [200, 14], [434, 12], [427, 12], [399, 10], [438, 6]] },
     },
+    fish: { min: 6, max: 11, table: [[129, 60], [339, 22], [118, 12], [422, 6]] },
   },
 });
 
@@ -173,7 +178,7 @@ export const ROUTE203 = defineMap('route203', {
     'T...........::...........T',
     'T....""""...::......RR....',
     'T....""""...::...........T',
-    'T...........::...........T',
+    'T..OOO......::...........T',
     'T..TTT......::....""""...T',
     'T.TTTTT.....::....""""...T',
     'T..TTT......::...........T',

@@ -11,6 +11,8 @@ import { renderMonster } from './monsterart.js';
 import { getSpecies } from '../data/species.js';
 import { PAL, shade } from './palette.js';
 import { tintFor } from '../game/clock.js';
+import { patchAt, stageIndex } from '../game/berries.js';
+import { getItem } from '../data/items.js';
 import { drawTextCentered, drawText } from './font.js';
 
 export class Camera {
@@ -91,6 +93,22 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
       const def = ch && tileDef(ch);
       if (!def || !def.over) continue;
       drawTile(ctx, def.over, x * TILE - camera.x, y * TILE - camera.y - TILE, frame);
+    }
+  }
+
+  // --- berry plants ---
+  // Drawn between the crowns and the entities, so you stand in front of your
+  // own garden. The soil is a tile; what is growing out of it is save data,
+  // which is why it cannot be part of the atlas.
+  const patches = opts.patches;
+  if (patches) {
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (!tileDef(map.tiles[y][x]).soil) continue;
+        const patch = patchAt(patches, world.mapId, x, y);
+        if (!patch) continue;
+        drawBerryPlant(ctx, patch, x * TILE - camera.x, y * TILE - camera.y, frame);
+      }
     }
   }
 
@@ -204,6 +222,69 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
  * `w` is in tiles; the text is drawn at half scale if it would not fit, so a
  * long name never spills onto the roof.
  */
+/**
+ * A berry plant, in four stages: a mound of turned earth, a shoot, a bush,
+ * and a bush with fruit on it. The fruit takes the berry's own colour, so a
+ * row of them reads at a glance without a single label.
+ */
+const BERRY_COLORS = {
+  cheriberry: '#e0413e', chestoberry: '#8b5bd6', pechaberry: '#f08cc0',
+  rawstberry: '#4aa7e0', aspearberry: '#f0a026', oranberry: '#4f7fe0',
+  leppaberry: '#e06a3c', sitrusberry: '#f2d03c', lumberry: '#f0eec4',
+};
+
+function drawBerryPlant(ctx, patch, sx, sy, frame) {
+  const stage = stageIndex(patch);
+  const sway = frame === 1 || frame === 2 ? 1 : 0;
+  const leaf = '#3f8a3a';
+  const leafDark = '#24521f';
+
+  if (stage === 0) return;                 // just turned earth; the tile says it
+
+  ctx.fillStyle = leafDark;
+  ctx.fillRect(sx + 7, sy + 11 - stage * 2, 2, 3 + stage * 2);
+
+  if (stage === 1) {
+    ctx.fillStyle = leaf;
+    ctx.fillRect(sx + 4 + sway, sy + 8, 3, 2);
+    ctx.fillRect(sx + 9 - sway, sy + 8, 3, 2);
+    ctx.fillStyle = leafDark;
+    ctx.fillRect(sx + 4 + sway, sy + 10, 3, 1);
+    ctx.fillRect(sx + 9 - sway, sy + 10, 3, 1);
+    return;
+  }
+
+  // A bush, built row by row so it is a round-ish shape rather than a green
+  // rectangle sitting on the soil.
+  //            [x offset, width] per row, from the top of the plant down
+  const ROWS = [[5, 6], [3, 10], [2, 12], [2, 12], [2, 12], [3, 10], [4, 8]];
+  ctx.fillStyle = leafDark;
+  ROWS.forEach(([ox, w], i) => ctx.fillRect(sx + ox + sway, sy + 3 + i, w, 1));
+  ctx.fillStyle = leaf;
+  ROWS.forEach(([ox, w], i) => {
+    if (i === 0 || i === ROWS.length - 1) return;
+    ctx.fillRect(sx + ox + 1 + sway, sy + 3 + i, w - 2, 1);
+  });
+  ctx.fillStyle = shade(leaf, 0.22);
+  ctx.fillRect(sx + 5 + sway, sy + 4, 4, 1);
+
+  if (stage < 3) return;
+
+  // Fruit. Outlined, because a berry the colour of a leaf is a highlight.
+  const c = BERRY_COLORS[patch.berry] || '#e0413e';
+  const berry = (bx, by) => {
+    ctx.fillStyle = leafDark;
+    ctx.fillRect(sx + bx - 1, sy + by - 1, 5, 5);
+    ctx.fillStyle = c;
+    ctx.fillRect(sx + bx, sy + by, 3, 3);
+    ctx.fillStyle = shade(c, 0.4);
+    ctx.fillRect(sx + bx, sy + by, 1, 1);
+  };
+  berry(4 + sway, 7);
+  berry(9 + sway, 5);
+}
+
+
 function drawBoardText(ctx, lb, sx, sy) {
   const w = (lb.w || 2) * TILE;
   const cx = sx + w / 2;

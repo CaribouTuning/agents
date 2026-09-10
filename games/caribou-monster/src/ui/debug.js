@@ -21,7 +21,7 @@ import {
 } from '../game/state.js';
 import { createMonster, healFully } from '../game/monster.js';
 import { net } from '../net/NetworkManager.js';
-import { currentHour, currentPhase, phaseLabel, forceHour } from '../game/clock.js';
+import { currentHour, currentPhase, phaseLabel, forceHour, shiftHours } from '../game/clock.js';
 import { simulateSeasonWeek } from '../game/circuit/circuit.js';
 import { reportSeasonWeek, reportPowerRankings } from '../game/circuit/news.js';
 
@@ -63,6 +63,10 @@ export class DebugScreen extends Screen {
         { t: `Level +5 (party)`, a: () => { for (const m of st.party) { m.level = Math.min(100, m.level + 5); healFully(m); } this._msg('Party levelled.'); } },
         { t: `Time of day: ${phaseLabel()}`, right: `${String(currentHour()).padStart(2, '0')}:00`,
           a: () => { forceHour(NEXT_HOUR[currentPhase()]); this._msg(`It is now ${phaseLabel()}.`); } },
+        // Berries take hours on the real clock, so the only way to look at
+        // one growing is to move the clock the berries read.
+        { t: 'Skip 6 hours (berries)',
+          a: () => { shiftHours(6); this._msg('Six hours later. Go and look at the soil.'); } },
         { t: 'Circuit...', a: () => { this.page = 'circuit'; this.index = 0; this.scroll = 0; } },
         { t: 'Network state...', a: () => { this.page = 'net'; this.index = 0; } },
         { t: 'Reset save', a: () => { this.page = 'reset'; this.index = 1; } },

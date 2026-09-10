@@ -140,6 +140,43 @@ const walkTo = async (tx, ty, limit = 16) => {
   return false;
 };
 
+// Advances text until a choice list is up, then picks the option whose label
+// contains `label`. The dialogue box exposes its own cursor, so this steers
+// the real menu rather than guessing at keypress counts.
+const choose = async (label, limit = 24) => {
+  for (let i = 0; i < limit; i++) {
+    const c = await page.evaluate(() => {
+      const d = window.CARIBOU.dialogueForTest;
+      return d.choice ? { options: d.choice.options.map(String), index: d.choice.index } : null;
+    });
+    if (c) {
+      const target = c.options.findIndex((o) => o.includes(label));
+      if (target < 0) return false;
+      let idx = c.index;
+      while (idx !== target) {
+        await hold('ArrowDown', 60);
+        idx = (idx + 1) % c.options.length;
+      }
+      await tap('KeyZ', 1, 260);
+      return true;
+    }
+    await tap('KeyZ', 1, 150);
+  }
+  return false;
+};
+
+// Picks the nth party slot out of the party screen the script pops open.
+const pickParty = async (slot) => {
+  for (let i = 0; i < 20; i++) {
+    const open = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name === 'PartyScreen');
+    if (open) break;
+    await tap('KeyZ', 1, 150);
+  }
+  for (let i = 0; i < slot; i++) await hold('ArrowDown', 60);
+  await tap('KeyZ', 1, 300);
+};
+
+
 // Out the front door.
 await hold('ArrowDown', 1400);
 await wait(900);
@@ -221,47 +258,102 @@ for (const id of interiors) {
     `at ${res.entry.x},${res.entry.y} moves: ${res.legal.join(',') || 'NONE'}`);
 }
 
+// --- berries and the water's edge ---
+// Planting is the one system that runs on the wall clock rather than on
+// steps, so this drives it the way the debug menu does: plant, move the
+// world clock, come back and pick it. Then it stands at the sea with the rod.
+console.log('\n--- berries and fishing ---');
+
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.repelSteps = 9999;
+  g.debugGiveItem('oranberry', 3);
+  g.overworld.world.load('route201', 3, 25, 'down');
+});
+await wait(500);
+await waitIdle();
+// Loaded facing the bed at 3,26 — the soil is walkable, so walking at it
+// would put the player on top of it rather than in front of it.
+await tap('KeyZ', 1, 320);
+check('soft soil offers to be planted in', await choose('Oran Berry'));
+await waitIdle();
+const planted = await page.evaluate(() => {
+  const p = window.CARIBOU.state.patches['route201:3,26'];
+  return p ? { berry: p.berry, stage: p.tended } : null;
+});
+check('a berry goes in the ground', !!planted, planted ? planted.berry : 'nothing');
+
+// Look in on it while it is still small: worth an extra berry.
+await tap('KeyZ', 1, 320);
+check('and it can be looked after while it grows', await choose('Yes'));
+await waitIdle();
+
+// Six hours later.
+await page.evaluate(() => window.CARIBOU.clockForTest.shiftHours(6));
+await tap('KeyZ', 1, 320);
+await waitIdle();
+const picked = await page.evaluate(() => ({
+  held: window.CARIBOU.state.inventory.items.oranberry || 0,
+  patch: !!window.CARIBOU.state.patches['route201:3,26'],
+}));
+// Two went in the ground (one planted, one tended into the crop) and a whole
+// bush came back, so the bag has to be fuller than it started.
+check('and six hours later it is ripe and picked', picked.held > 3 && !picked.patch,
+  `${picked.held} in the bag, soil ${picked.patch ? 'still planted' : 'empty'}`);
+
+// The rod.
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.debugGiveItem('oldrod', 1);
+  g.overworld.world.load('route201', 1, 18, 'right');
+});
+await wait(500);
+await waitIdle();
+const dry = await where();
+check('the player can stand at the water', dry.map === 'route201', `${dry.x},${dry.y}`);
+let fishing = null;
+for (let i = 0; i < 8; i++) {
+  await hold('ArrowRight', 200);
+  await tap('KeyZ', 1, 320);
+  for (let j = 0; j < 10; j++) {
+    const s2 = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
+    if (s2 === 'BattleScreen') break;
+    await tap('KeyZ', 1, 200);
+  }
+  fishing = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    const scr = g.screens.top;
+    return scr.constructor.name === 'BattleScreen'
+      ? { species: scr.battle.sides[1].party[0].species, level: scr.battle.sides[1].party[0].level } : null;
+  });
+  if (fishing) break;
+  await waitIdle();
+}
+check('the Old Rod lands something out of the water', !!fishing,
+  fishing ? `#${fishing.species} Lv${fishing.level}` : 'never bit');
+if (fishing) {
+  check('and it is something that lives in that water',
+    await page.evaluate((sp) => {
+      const t = window.CARIBOU.overworld.world.map.encounters.fish;
+      return t.table.some(([id]) => id === sp);
+    }, fishing.species));
+  // Run away and get back to the overworld.
+  for (let i = 0; i < 25; i++) {
+    const top = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
+    if (top === 'OverworldScreen') break;
+    await page.keyboard.press('ArrowDown'); await wait(80);
+    await page.keyboard.press('ArrowRight'); await wait(80);
+    await tap('KeyZ', 1, 220);
+  }
+}
+await waitIdle();
+await page.screenshot({ path: path.join(OUT, '08a-berries.png') });
+
 // --- the Day Care ---
 // The slowest system in the game, driven end to end: walk in, hand two
 // Pokemon over, get an Egg out of it, and hatch it by walking. Everything
 // here is the real script and the real UI; only the dice are held still.
 console.log('\n--- the day care ---');
-
-// Advances text until a choice list is up, then picks the option whose label
-// contains `label`. The dialogue box exposes its own cursor, so this steers
-// the real menu rather than guessing at keypress counts.
-const choose = async (label, limit = 24) => {
-  for (let i = 0; i < limit; i++) {
-    const c = await page.evaluate(() => {
-      const d = window.CARIBOU.dialogueForTest;
-      return d.choice ? { options: d.choice.options.map(String), index: d.choice.index } : null;
-    });
-    if (c) {
-      const target = c.options.findIndex((o) => o.includes(label));
-      if (target < 0) return false;
-      let idx = c.index;
-      while (idx !== target) {
-        await hold('ArrowDown', 60);
-        idx = (idx + 1) % c.options.length;
-      }
-      await tap('KeyZ', 1, 260);
-      return true;
-    }
-    await tap('KeyZ', 1, 150);
-  }
-  return false;
-};
-
-// Picks the nth party slot out of the party screen the script pops open.
-const pickParty = async (slot) => {
-  for (let i = 0; i < 20; i++) {
-    const open = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name === 'PartyScreen');
-    if (open) break;
-    await tap('KeyZ', 1, 150);
-  }
-  for (let i = 0; i < slot; i++) await hold('ArrowDown', 60);
-  await tap('KeyZ', 1, 300);
-};
 
 await page.evaluate(() => {
   const g = window.CARIBOU;

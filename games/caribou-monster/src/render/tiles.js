@@ -127,6 +127,32 @@ function path(c) {
   }
 }
 
+// Soft soil. A tilled square with a raised lip, so it reads as somewhere a
+// berry goes rather than as a patch of dirt somebody forgot to texture. The
+// plant that grows out of it is drawn by the overworld renderer, not here:
+// the tile is the bed, and what is in the bed lives in the save.
+function softSoil(c) {
+  const soil = '#6b4a2e';
+  c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    if (h(x, y, 12) > 0.9) { c.fillStyle = PAL.grassDark; px(c, x, y); }
+  }
+  // The bed is a rounded square of turned earth, not a crate: the corners are
+  // cut back to grass so it reads as ground rather than as a wooden box.
+  c.fillStyle = shade(soil, -0.3); px(c, 1, 2, 14, 12); px(c, 2, 1, 12, 14);
+  c.fillStyle = soil; px(c, 2, 3, 12, 10); px(c, 3, 2, 10, 12);
+  for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) {
+    const r = h(x, y, 63);
+    if (r > 0.9) { c.fillStyle = shade(soil, 0.14); px(c, x, y); }
+    else if (r < 0.14) { c.fillStyle = shade(soil, -0.16); px(c, x, y); }
+  }
+  // Two shallow furrows. Broken, so they look raked rather than planked.
+  c.fillStyle = shade(soil, -0.22);
+  px(c, 4, 6, 4, 1); px(c, 9, 6, 3, 1);
+  px(c, 4, 10, 3, 1); px(c, 8, 10, 4, 1);
+}
+
+
 function dirt(c) {
   c.fillStyle = PAL.pathDark; px(c, 0, 0, 16, 16);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -685,6 +711,7 @@ export const TILES = {
   '*': { name: 'flowers', draw: flowers, anim: 2, ground: 'grass' },
   ':': { name: 'path', draw: path, ground: 'path' },
   ';': { name: 'dirt', draw: dirt, ground: 'dirt' },
+  'O': { name: 'soft soil', draw: softSoil, soil: true, ground: 'grass' },
   's': { name: 'sand', draw: sand, ground: 'sand' },
   'n': { name: 'snow', draw: snow, ground: 'snow' },
   '~': { name: 'water', draw: water, solid: true, water: true, anim: 4, ground: 'water' },

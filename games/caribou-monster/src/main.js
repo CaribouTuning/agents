@@ -33,7 +33,8 @@ import { createBattle } from './game/battle/engine.js';
 import { getSpecies } from './data/species.js';
 import { getMap, MAPS } from './data/maps/index.js';
 import { SCRIPTS } from './game/overworld/scripts.js';
-import { forceHour, currentPhase } from './game/clock.js';
+import { forceHour, currentPhase, shiftHours } from './game/clock.js';
+import { addItem } from './game/inventory.js';
 import { randomSeed } from './core/rng.js';
 import { saveManager } from './save/SaveManager.js';
 import { net } from './net/NetworkManager.js';
@@ -62,7 +63,7 @@ class Game {
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
     this.gossipForTest = { resolveDialogue, worldSnapshot };
-    this.clockForTest = { forceHour, currentPhase };
+    this.clockForTest = { forceHour, currentPhase, shiftHours };
     this.scriptsForTest = SCRIPTS;
     this.journalForTest = journalApi;
     // The World Circuit career. It reads and writes state.circuit, so it is
@@ -242,6 +243,10 @@ class Game {
   }
   openShop(onClose) { this.screens.push(new ShopScreen(this, onClose)); }
   openDebug() { this.screens.push(new DebugScreen(this)); }
+
+  // Puts an item in the bag. Same purpose as debugGive: the debug menu and
+  // the integration tests both need a way to hand the player something.
+  debugGiveItem(id, qty = 1) { return addItem(this.state.inventory, id, qty); }
 
   // Adds a monster to the party — used by the debug menu and by tools/coop.mjs.
   debugGive(speciesId, level = 5) {

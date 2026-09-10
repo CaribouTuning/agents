@@ -24,7 +24,7 @@ export function forceHour(hour) {
 }
 
 export function currentHour() {
-  return forced === null ? new Date().getHours() : forced;
+  return forced === null ? new Date(now()).getHours() : forced;
 }
 
 export function phaseAt(hour) {
@@ -62,11 +62,30 @@ export function tintFor(phase = currentPhase()) { return TINTS[phase] || TINTS.d
  * How many real minutes a phase still has to run. Used by anything that wants
  * to say "come back tomorrow morning" and mean it.
  */
-export function minutesLeftInPhase(now = new Date()) {
-  const hour = forced === null ? now.getHours() : forced;
+export function minutesLeftInPhase(at = new Date(now())) {
+  const hour = forced === null ? at.getHours() : forced;
   const phase = phaseAt(hour);
   let endHour = phase === 'morning' ? 10 : phase === 'day' ? 20 : 4;
   let hours = (endHour - hour + 24) % 24;
   if (hours === 0) hours = 24;
-  return hours * 60 - (forced === null ? now.getMinutes() : 0);
+  return hours * 60 - (forced === null ? at.getMinutes() : 0);
 }
+
+/**
+ * Wall-clock milliseconds, offset by whatever the debug menu or a test has
+ * asked for.
+ *
+ * Berries grow in real hours, so something has to be able to say "and then it
+ * was tomorrow" without waiting until tomorrow. That belongs here, with the
+ * rest of the answers about what time it is, rather than in a berry patch —
+ * and like `forceHour` it is never saved, so a berry planted at four o'clock
+ * is ripe at four o'clock however the clock was nudged in between.
+ */
+let offsetMs = 0;
+
+export function now() { return Date.now() + offsetMs; }
+
+/** Moves the world clock forward (or back) by whole hours. Debug and tests. */
+export function shiftHours(hours) { offsetMs += hours * 3600 * 1000; }
+
+export function resetClock() { offsetMs = 0; forced = null; }

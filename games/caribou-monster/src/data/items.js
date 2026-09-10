@@ -56,10 +56,42 @@ add('superrepel', 'Super Repel', 'Items', 500,
   { kind: 'repel', steps: 200 }, 'Keeps weak wild Pokémon away for 200 steps.');
 add('escaperope', 'Escape Rope', 'Items', 550,
   { kind: 'escape' }, 'Returns you to the last Pokémon Center you visited.');
-add('oranberry', 'Oran Berry', 'Items', 80,
-  { kind: 'heal', amount: 10 }, 'A berry that restores 10 HP.', { held: { kind: 'pinch-heal', amount: 10 } });
-add('sitrusberry', 'Sitrus Berry', 'Items', 200,
-  { kind: 'heal', amount: 30 }, 'A berry that restores 30 HP.', { held: { kind: 'pinch-heal', amount: 30 } });
+// ---- Berries -----------------------------------------------------------
+// A berry is an ordinary item that also knows how to be a plant: `berry`
+// carries the hours it takes to come up and how many it gives back, which is
+// all `game/berries.js` needs. Growth times are the series' own shape — the
+// dull, useful ones are quick, and the ones worth carrying make you wait.
+
+const berry = (id, name, price, use, desc, hours, crop, extra = null) =>
+  add(id, name, 'Items', price, use, desc, { berry: { hours, crop }, ...(extra || {}) });
+
+berry('cheriberry', 'Cheri Berry', 80, { kind: 'cure', status: ['PAR'] },
+  'A berry that cures paralysis. It can be planted in soft soil.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['PAR'] } });
+berry('chestoberry', 'Chesto Berry', 80, { kind: 'cure', status: ['SLP'] },
+  'A berry that wakes a sleeping Pokémon. It can be planted.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['SLP'] } });
+berry('pechaberry', 'Pecha Berry', 80, { kind: 'cure', status: ['PSN'] },
+  'A sweet berry that cures poison. It can be planted.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['PSN'] } });
+berry('rawstberry', 'Rawst Berry', 80, { kind: 'cure', status: ['BRN'] },
+  'A bitter berry that heals a burn. It can be planted.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['BRN'] } });
+berry('aspearberry', 'Aspear Berry', 80, { kind: 'cure', status: ['FRZ'] },
+  'A hard, sour berry that thaws a frozen Pokémon.', 3, 3,
+  { held: { kind: 'pinch-cure', status: ['FRZ'] } });
+berry('oranberry', 'Oran Berry', 80, { kind: 'heal', amount: 10 },
+  'A berry that restores 10 HP. It can be planted in soft soil.', 4, 4,
+  { held: { kind: 'pinch-heal', amount: 10 } });
+berry('leppaberry', 'Leppa Berry', 200, { kind: 'pp', amount: 10 },
+  'A berry that restores 10 PP to one move.', 8, 3);
+berry('sitrusberry', 'Sitrus Berry', 200, { kind: 'heal', amount: 30 },
+  'A large berry that restores 30 HP. It takes its time growing.', 12, 3,
+  { held: { kind: 'pinch-heal', amount: 30 } });
+berry('lumberry', 'Lum Berry', 400,
+  { kind: 'cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] },
+  'A berry that cures any status problem. It is slow to ripen.', 24, 2,
+  { held: { kind: 'pinch-cure', status: ['PSN', 'PAR', 'BRN', 'FRZ', 'SLP', 'CNF'] } });
 add('nugget', 'Nugget', 'Items', 0,
   null, 'A nugget of pure gold. It sells for a high price.', { sell: 5000 });
 add('stardust', 'Stardust', 'Items', 0,
@@ -108,12 +140,17 @@ add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
   'Proof of victory over the Oreburgh Gym.', { key: true, badge: 1 });
 
 export function getItem(id) { return ITEMS[id]; }
+
+/** Every item that can go in the ground, in the order they ripen. */
+export const BERRY_IDS = Object.keys(ITEMS).filter((id) => ITEMS[id].berry)
+  .sort((a, b) => ITEMS[a].berry.hours - ITEMS[b].berry.hours);
+export function isBerry(id) { return !!(ITEMS[id] && ITEMS[id].berry); }
 export const ITEM_IDS = Object.keys(ITEMS);
 
 // Shop stock unlocks with badge count, exactly like the DS games.
 export function martStock(badges) {
-  const stock = ['pokeball', 'potion', 'antidote', 'parlyzheal', 'escaperope'];
-  if (badges >= 1) stock.push('greatball', 'superpotion', 'repel', 'burnheal', 'iceheal', 'awakening');
+  const stock = ['pokeball', 'potion', 'antidote', 'parlyzheal', 'escaperope', 'oranberry', 'cheriberry'];
+  if (badges >= 1) stock.push('greatball', 'superpotion', 'repel', 'burnheal', 'iceheal', 'awakening', 'pechaberry', 'rawstberry');
   if (badges >= 3) stock.push('ultraball', 'hyperpotion', 'revive', 'superrepel');
   if (badges >= 5) stock.push('maxpotion', 'fullheal');
   return stock;

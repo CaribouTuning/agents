@@ -51,6 +51,30 @@ export const ENTRIES = [
     ],
   },
   {
+    id: 'planted',
+    title: 'Something in the ground',
+    body: [
+      'There is soft soil beside half the roads in Sinnoh and nobody seems to\nown any of it. So I put a berry in some.',
+      'It will not do anything for hours. That is apparently the point. You\nleave, and it carries on without you.',
+    ],
+  },
+  {
+    id: 'harvested',
+    title: 'It came up',
+    body: [
+      'Went back to the soil I turned over days ago and there was a bush on it\nwith berries hanging off it.',
+      'I planted one. I picked five. I do not think I am ever going to buy a\nbottle of anything again.',
+    ],
+  },
+  {
+    id: 'fished',
+    title: 'The Old Rod',
+    body: [
+      'The man on the Sandgem beach gave me a rod that he described, out loud,\nas "not a good one".',
+      'Everything I have pulled out of the water with it so far has been a\nMagikarp. Everyone says that happens. I keep fishing.',
+    ],
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [
