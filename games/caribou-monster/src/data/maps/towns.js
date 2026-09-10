@@ -89,8 +89,16 @@ export const TWINLEAF = defineMap('twinleaf', {
         },
         {
           when: { flag: 'gotStarter' },
-          lines: ['Professor Rowan gave you a {starter}?! Lucky!',
-            'Mum says the grass past the town is full of Starly. I am not allowed up there yet.'],
+          pool: [
+            ['Professor Rowan gave you a {starter}?! Lucky!',
+              'Mum says the grass past the town is full of Starly. I am not allowed up there yet.'],
+            ['Is it true there are two of you? You and {buddy}?',
+              'Somebody said you both got a Pokémon off Rowan on the same morning.',
+              'That is a RIVALRY. That is what that is. I am writing it down.'],
+            ['When {buddy} links up with you, come and find me first.',
+              'I want to see it. A real link-up. Two trainers, one world.',
+              'I will not get in the way. I will stand exactly here.'],
+          ],
         },
         {
           lines: ['Professor Rowan is handing out Pokémon today. Actual ones.',
@@ -317,6 +325,22 @@ export const OREBURGH = defineMap('oreburgh', {
     {
       // Kip is the Hall's doorstep explainer. Everything he quotes is read
       // live off the standings, so he is never wrong about who is on top.
+      id: 'al_link_watch', x: 27, y: 9, look: 'scientist', name: 'Technician', movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Two signals on the local link, and one of them is {partner}.',
+            'That is a live session. Trade, battle, or just walk together — one link does all three.',
+            'It stays up as long as you both stay in the room.'],
+        },
+        {
+          lines: ['One signal on the local link today. Just you.',
+            'When {buddy} opens LINK and joins the same room code, you both show up in one world.',
+            'Same code, both phones. That is the whole trick.'],
+        },
+      ],
+    },
+    {
       id: 'al_fan', x: 18, y: 13, look: 'youngster', name: 'Kip', movement: 'still', facing: 'up',
       dialogue: [
         {

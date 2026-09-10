@@ -11,6 +11,7 @@ import {
 import { renderMonster } from '../render/monsterart.js';
 import { drawChar, lookFor } from '../render/sprites.js';
 import { getSpecies } from '../data/species.js';
+import { PLAYERS } from '../game/players.js';
 
 // The Everlight itself, on the ridge behind the logo.
 const DIALGA = 483;
@@ -240,19 +241,15 @@ export class CharacterScreen extends Screen {
   constructor(game) {
     super(game);
     this.step = 0;         // 0 look, 1 name, 2 difficulty, 3 confirm
-    this.look = 'boy';
+    this.look = PLAYERS[0].look;
     this.name = '';
     this.difficulty = 'easy';
     this.kx = 0; this.ky = 0;
     this.lookIndex = 0;
     this.diffIndex = 0;
     this.t = 0;
-    this.looks = [
-      { key: 'boy', label: 'MATTHEW', defaultName: 'Matthew' },
-      { key: 'girl', label: 'PARTNER', defaultName: 'Robin' },
-      { key: 'rivalBoy', label: 'TRAINER', defaultName: 'Alex' },
-      { key: 'rivalGirl', label: 'TRAINER', defaultName: 'Sam' },
-    ];
+    // Two players, because that is how many people this game is for.
+    this.looks = PLAYERS.map((p) => ({ key: p.look, label: p.label, defaultName: p.name, blurb: p.blurb }));
   }
 
   update(dt, isTop) {
@@ -264,14 +261,26 @@ export class CharacterScreen extends Screen {
     else this._updateConfirm();
   }
 
+  // One layout for the two cards, used by both the hit test and the render
+  // so a tap always lands exactly where the card is drawn.
+  _lookCards() {
+    const { width: W, height: H } = this.game.display;
+    const n = this.looks.length;
+    const cw = 58; const ch = 58; const gap = 10;
+    const total = n * cw + (n - 1) * gap;
+    return this.looks.map((l, i) => ({
+      l, i, x: Math.round(W / 2 - total / 2 + i * (cw + gap)), y: Math.round(H / 2 - 32), w: cw, h: ch,
+    }));
+  }
+
   _updateLook() {
     const n = this.looks.length;
-    const { width: W, height: H } = this.game.display;
     const tap = input.consumeTap();
     if (tap) {
-      for (let i = 0; i < n; i++) {
-        const x = W / 2 - (n * 34) / 2 + i * 34;
-        if (hit(tap, x, H / 2 - 26, 30, 44)) { this.lookIndex = i; audio.sfx('select'); this._confirmLook(); return; }
+      for (const card of this._lookCards()) {
+        if (hit(tap, card.x, card.y, card.w, card.h)) {
+          this.lookIndex = card.i; audio.sfx('select'); this._confirmLook(); return;
+        }
       }
     }
     if (input.repeated('left')) { this.lookIndex = (this.lookIndex - 1 + n) % n; audio.sfx('cursor'); }
@@ -361,16 +370,20 @@ export class CharacterScreen extends Screen {
     for (let y = 0; y < H; y += 8) rect(ctx, 0, y, W, 4, shade(PAL.uiSelect, -0.5));
 
     if (this.step === 0) {
-      drawTextCentered(ctx, 'Who are you?', W / 2, 18, { color: PAL.uiTextLight, shadow: PAL.black });
-      const n = this.looks.length;
-      this.looks.forEach((l, i) => {
-        const x = W / 2 - (n * 34) / 2 + i * 34;
-        const sel = i === this.lookIndex;
-        window9(ctx, x, H / 2 - 26, 30, 44, { bg: sel ? PAL.uiBg : PAL.uiBgAlt, frame: sel ? PAL.uiHighlight : PAL.uiFrame });
-        drawChar(ctx, `cc:${l.key}`, lookFor(l.key), 'down', sel ? (Math.floor(this.t * 5) % 3) : 0, x + 7, H / 2 - 14);
-        drawTextCentered(ctx, l.label, x + 15, H / 2 + 8, { color: sel ? PAL.uiText : PAL.uiTextDim });
-      });
-      drawTextCentered(ctx, 'Both players pick separately.', W / 2, H - 20, { color: '#9ab8ff' });
+      drawTextCentered(ctx, 'Who are you?', W / 2, 14, { color: PAL.uiTextLight, shadow: PAL.black });
+      const cards = this._lookCards();
+      for (const card of cards) {
+        const sel = card.i === this.lookIndex;
+        window9(ctx, card.x, card.y, card.w, card.h,
+          { bg: sel ? PAL.uiBg : PAL.uiBgAlt, frame: sel ? PAL.uiHighlight : PAL.uiFrame });
+        drawChar(ctx, `cc:${card.l.key}`, lookFor(card.l.key), 'down',
+          sel ? (Math.floor(this.t * 5) % 3) : 0, card.x + card.w / 2 - 8, card.y + 10);
+        drawTextCentered(ctx, card.l.label, card.x + card.w / 2, card.y + card.h - 12,
+          { color: sel ? PAL.uiText : PAL.uiTextDim });
+      }
+      const chosen = this.looks[this.lookIndex];
+      drawTextCentered(ctx, chosen.blurb || '', W / 2, H - 30, { color: PAL.uiTextLight });
+      drawTextCentered(ctx, 'The other one is who you link with.', W / 2, H - 18, { color: '#9ab8ff' });
     } else if (this.step === 1) {
       drawTextCentered(ctx, 'What is your name?', W / 2, 8, { color: PAL.uiTextLight, shadow: PAL.black });
       window9(ctx, W / 2 - 60, 20, 120, 16);

@@ -205,8 +205,11 @@ export function drawChar(ctx, key, look, dir, frame, x, y, opts = {}) {
 
 // The stock cast. NPC data refers to these by name.
 export const LOOKS = {
-  boy: makeLook({ hair: '#3a2418', shirt: '#3f6fd4', pants: '#2b3450', hat: '#d84838', boots: '#3a2a20' }),
-  girl: makeLook({ hair: '#8a4a20', shirt: '#e0609a', pants: '#f0f0f8', longHair: true, boots: '#c04868' }),
+  // The two players. `boy` and `girl` stay as aliases so a save written
+  // before they had names still loads, and so NPC looks that borrowed them
+  // keep working.
+  matthew: makeLook({ hair: '#3a2418', shirt: '#3f6fd4', pants: '#2b3450', hat: '#d84838', boots: '#3a2a20' }),
+  sammy: makeLook({ hair: '#c8763a', shirt: '#e0609a', pants: '#f0f0f8', longHair: true, boots: '#c04868' }),
   rivalBoy: makeLook({ hair: '#e0a030', shirt: '#f0f0f4', pants: '#4a5060', boots: '#804830' }),
   rivalGirl: makeLook({ hair: '#20304a', shirt: '#f0e070', pants: '#4a5060', longHair: true, boots: '#804830' }),
   professor: makeLook({ hair: '#c8c8d0', shirt: '#f4f4f8', pants: '#5a6070', boots: '#404850' }),
@@ -227,5 +230,8 @@ export const LOOKS = {
   scientist: makeLook({ hair: '#3a3a48', shirt: '#f4f4f8', pants: '#8a9aa8', boots: '#4a4a52' }),
   boss: makeLook({ hair: '#c8b088', shirt: '#20283a', pants: '#101828', longHair: true, boots: '#0a0e18', outlineColor: '#05070d' }),
 };
+
+LOOKS.boy = LOOKS.matthew;
+LOOKS.girl = LOOKS.sammy;
 
 export function lookFor(name) { return LOOKS[name] || LOOKS.youngster; }

@@ -14,6 +14,7 @@ import { RANKS, getPro, RIVAL_PRO, getTournament } from '../../data/circuit.js';
 import { standings, currentRank, headToHead } from '../circuit/circuit.js';
 import { displayName } from '../monster.js';
 import { getSpecies } from '../../data/species.js';
+import { buddyOf } from '../players.js';
 import { caughtCount, seenCount } from '../pokedex.js';
 
 /**
@@ -85,7 +86,12 @@ export function worldSnapshot(state, link = null) {
 
     // Whether somebody else is out there in the same world right now, and who.
     linked: !!(link && link.connected && link.partner),
-    partner: (link && link.partner && link.partner.name) || 'your partner',
+    partner: (link && link.partner && link.partner.name) || buddyOf(state),
+    // The other one of the two, whether or not they are online. This is what
+    // lets the world talk about Sammy while Matthew plays alone, and then
+    // notice when both of them are actually here.
+    buddy: buddyOf(state),
+    alone: !(link && link.connected && link.partner),
   };
 }
 
@@ -105,7 +111,7 @@ export const CLAUSES = Object.freeze([
   'flag', 'notFlag',
   'badges', 'maxBadges', 'caught', 'party', 'leadLevel', 'starter',
   'joined', 'rank', 'titles', 'streak', 'hype', 'respect',
-  'champion', 'beatRival', 'inEvent', 'topTen', 'linked',
+  'champion', 'beatRival', 'inEvent', 'topTen', 'linked', 'alone',
 ]);
 const CLAUSE_SET = new Set(CLAUSES);
 export function isKnownClause(k) { return CLAUSE_SET.has(k); }
@@ -151,6 +157,7 @@ export function matches(when, s) {
       case 'inEvent': if (!!s.activeEvent !== v) return false; break;
       case 'topTen': if ((s.place == null || s.place > 10) === v) return false; break;
       case 'linked': if (s.linked !== v) return false; break;
+      case 'alone': if (s.alone !== v) return false; break;
 
       default: return false;   // an unknown clause never silently passes
     }
@@ -164,7 +171,7 @@ const SLOTS = new Set([
   'player', 'starter', 'lead', 'leadLevel', 'badges', 'caught', 'seen',
   'champion', 'championTag', 'topPro', 'topProTag', 'rank', 'cp', 'rating', 'place', 'titles',
   'lastTitle', 'streak', 'rival', 'rivalRating', 'rivalLead', 'event', 'headline',
-  'hype', 'respect', 'partner',
+  'hype', 'respect', 'partner', 'buddy',
 ]);
 
 export function isKnownSlot(name) { return SLOTS.has(name); }
@@ -193,6 +200,7 @@ export function fill(line, s) {
       case 'hype': return String(s.hype);
       case 'respect': return String(s.respect);
       case 'partner': return s.partner;
+      case 'buddy': return s.buddy;
       case 'rival': return s.rival;
       case 'rivalRating': return String(s.rivalRating);
       case 'rivalLead': return s.rivalLead;

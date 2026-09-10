@@ -116,7 +116,7 @@ if (code) {
     const s = window.CARIBOU.netForTest.snapshot();
     return s.partner ? s.partner.name : null;
   });
-  check('host sees the guest', seesA === 'Robin', `saw ${seesA}`);
+  check('host sees the guest', seesA === 'Sammy', `saw ${seesA}`);
   check('guest sees the host', seesB === 'Matthew', `saw ${seesB}`);
 
   // --- position sync -----------------------------------------------------
@@ -253,8 +253,10 @@ if (code) {
       together !== alone, together.slice(0, 90));
     check('and names the partner', !!partnerName && together.includes(partnerName),
       together.slice(0, 90));
-    check('and does not name them when playing alone',
-      !!partnerName && !alone.includes(partnerName), alone.slice(0, 90));
+    // The solo line is allowed to name the other player — the world knows
+    // both of them exist. What it must never do is claim they are here.
+    check('and does not claim the partner is here when playing alone',
+      !/with you\b|out there|right now/i.test(alone), alone.slice(0, 90));
   }
 
   // --- ranked link play ----------------------------------------------------

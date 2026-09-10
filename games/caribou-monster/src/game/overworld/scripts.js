@@ -11,6 +11,9 @@ import { createMonster } from '../monster.js';
 import { FLAGS } from '../storyflags.js';
 import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS } from '../../data/story.js';
 
+// The thing in the chamber: Dialga, by national dex number.
+const EVERLIGHT_SPECIES = 483;
+
 // A whole block of lines from the story bible, said one page at a time.
 async function speak(ctx, lines, opts) {
   for (const line of lines) await ctx.say(line, opts);
@@ -316,14 +319,14 @@ SCRIPTS.everlightDialga = async (ctx) => {
 
   await speak(ctx, st.flags[FLAGS.EVERLIGHT_RESOLVED] ? EVERLIGHT.again : EVERLIGHT.firstSight);
 
-  ctx.dex.seen(483);
-  await ctx.showMonster(483);
-  ctx.cry(483);
+  ctx.dex.seen(EVERLIGHT_SPECIES);
+  await ctx.showMonster(EVERLIGHT_SPECIES);
+  ctx.cry(EVERLIGHT_SPECIES);
   await ctx.wait(0.5);
   ctx.hideMonster();
 
   const level = Math.max(30, Math.min(55, (st.party[0] ? st.party[0].level : 30) + 6));
-  const result = await ctx.wild(37, level, {
+  const result = await ctx.wild(EVERLIGHT_SPECIES, level, {
     name: 'The Everlight', canRun: true, monster: { friendship: 0 },
   });
 

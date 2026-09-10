@@ -48,14 +48,23 @@ const PLAYER_HOUSE = defineMap('player_house', {
             'If your team gets tired, come home any time — or use a Pokémon Center.'],
         },
         {
-          when: { flag: 'gotStarter' },
-          lines: ['Look at you, a real trainer.',
-            'Look after {lead} and it will look after you. That is the whole arrangement.',
-            'If your team gets tired, come home any time — or use a Pokémon Center.'],
+          // Alone, but the other one is still a real person in this world.
+          when: { all: [{ alone: true }, { flag: 'gotStarter' }] },
+          pool: [
+            ['{buddy} rang the house phone looking for you. I said you were out.',
+              'They said "of course they are" in a tone I did not care for.',
+              'Link up with them when you can. Two of you is better than one of you.'],
+            ['No {buddy} today?',
+              'You two used to be impossible to separate. Now I get one at a time.',
+              'Go on. I will keep the light on.'],
+            ['Look at you, a real trainer.',
+              'Look after {lead} and it will look after you. That is the whole arrangement.',
+              'If your team gets tired, come home any time — or use a Pokémon Center.'],
+          ],
         },
         {
           lines: ['Professor Rowan came by looking for you. Something about a Pokémon she wants you to have.',
-            'Go on. I already packed your bag.'],
+            '{buddy} was called down as well, so do not dawdle. Go on. I already packed your bag.'],
         },
       ],
       heals: true,
@@ -91,6 +100,12 @@ const RIVAL_HOUSE = defineMap('rival_house', {
           when: { flag: 'beatRival1' },
           lines: ['Heard you two had it out on Route 201. Heard who won, as well.',
             'Do not expect that to be the end of it. It never is.'],
+        },
+        {
+          when: { linked: true },
+          lines: ['Both of you out there at once. That is the whole street empty, then.',
+            '{partner} came past earlier with the same look on their face you have got now.',
+            'Whatever the two of you are up to, do it somewhere with a Center nearby.'],
         },
         {
           lines: ['Ran out of here at dawn shouting about the lab. You know how it is.',
@@ -164,7 +179,16 @@ const OREBURGH_CENTER = defineMap('oreburgh_center', {
     {
       id: 'ac_nurse', x: 4, y: 1, look: 'nurse', name: 'Nurse', movement: 'still', facing: 'down',
       script: 'heal', overCounter: true,
-      dialogue: ['Welcome to the Oreburgh Pokémon Center. Shall I heal your team to full health?'],
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Welcome back. {partner} is showing as connected on the link network too.',
+            'Shall I heal your team to full health?'],
+        },
+        {
+          lines: ['Welcome to the Oreburgh Pokémon Center. Shall I heal your team to full health?'],
+        },
+      ],
     },
     {
       id: 'ac_pc', x: 10, y: 1, look: 'clerk', name: 'Attendant', movement: 'still', facing: 'down',

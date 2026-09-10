@@ -40,8 +40,8 @@ export function createMonster(speciesId, level, opts = {}) {
   };
   const evs = opts.evs || { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
 
-  let gender = 'N';
-  if (sp.genderRatio >= 0) gender = r() < sp.genderRatio ? 'M' : 'F';
+  let gender = opts.gender || 'N';
+  if (!opts.gender && sp.genderRatio >= 0) gender = r() < sp.genderRatio ? 'M' : 'F';
 
   const moveIds = opts.moves && opts.moves.length ? opts.moves.slice(0, 4) : movesAtLevel(speciesId, level);
 
@@ -54,7 +54,10 @@ export function createMonster(speciesId, level, opts = {}) {
     nature: opts.nature != null ? opts.nature : r.int(NATURES.length),
     gender,
     shiny: opts.shiny != null ? opts.shiny : r.int(1024) === 0,
-    ability: sp.abilities[0],
+    // A species with two abilities really does get one or the other. Rolled
+    // here once and stored on the monster, so it survives a save, a trade and
+    // the wire — a link battle must never disagree about what a Pokémon is.
+    ability: opts.ability || sp.abilities[r.int(sp.abilities.length)] || sp.abilities[0],
     ivs,
     evs,
     moves: moveIds.map(makeMoveSlot),
@@ -206,6 +209,8 @@ export function reviveMonster(raw) {
   mon.evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, ...(raw.evs || {}) };
   mon.moves = (raw.moves || []).filter((m) => m && m.id).map((m) => ({ id: m.id, pp: m.pp ?? 0, ppMax: m.ppMax ?? getMove(m.id).pp }));
   if (!mon.moves.length) mon.moves = movesAtLevel(mon.species, mon.level).map(makeMoveSlot);
+  // An old save, or a peer running an older build, may not have sent one.
+  if (!mon.ability) mon.ability = getSpecies(raw.species).abilities[0];
   mon.hp = Math.max(0, Math.min(maxHp(mon), raw.hp ?? maxHp(mon)));
   return mon;
 }

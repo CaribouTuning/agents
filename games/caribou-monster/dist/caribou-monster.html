@@ -6052,8 +6052,11 @@ function drawChar(ctx, key, look, dir, frame, x, y, opts = {}) {
 
 // The stock cast. NPC data refers to these by name.
 const LOOKS = {
-  boy: makeLook({ hair: '#3a2418', shirt: '#3f6fd4', pants: '#2b3450', hat: '#d84838', boots: '#3a2a20' }),
-  girl: makeLook({ hair: '#8a4a20', shirt: '#e0609a', pants: '#f0f0f8', longHair: true, boots: '#c04868' }),
+  // The two players. `boy` and `girl` stay as aliases so a save written
+  // before they had names still loads, and so NPC looks that borrowed them
+  // keep working.
+  matthew: makeLook({ hair: '#3a2418', shirt: '#3f6fd4', pants: '#2b3450', hat: '#d84838', boots: '#3a2a20' }),
+  sammy: makeLook({ hair: '#c8763a', shirt: '#e0609a', pants: '#f0f0f8', longHair: true, boots: '#c04868' }),
   rivalBoy: makeLook({ hair: '#e0a030', shirt: '#f0f0f4', pants: '#4a5060', boots: '#804830' }),
   rivalGirl: makeLook({ hair: '#20304a', shirt: '#f0e070', pants: '#4a5060', longHair: true, boots: '#804830' }),
   professor: makeLook({ hair: '#c8c8d0', shirt: '#f4f4f8', pants: '#5a6070', boots: '#404850' }),
@@ -6075,9 +6078,75 @@ const LOOKS = {
   boss: makeLook({ hair: '#c8b088', shirt: '#20283a', pants: '#101828', longHair: true, boots: '#0a0e18', outlineColor: '#05070d' }),
 };
 
+LOOKS.boy = LOOKS.matthew;
+LOOKS.girl = LOOKS.sammy;
+
 function lookFor(name) { return LOOKS[name] || LOOKS.youngster; }
 
 __exports(__x, { SPR_W: () => SPR_W, SPR_H: () => SPR_H, FOOT_OFFSET: () => FOOT_OFFSET, makeLook: () => makeLook, buildCharSheet: () => buildCharSheet, drawChar: () => drawChar, LOOKS: () => LOOKS, lookFor: () => lookFor });
+
+};
+
+__defs['game/players.js'] = function (__x, __req) {
+
+// The two people this game is for.
+//
+// This is not a character creator. Caribou Monster is a two-player game built
+// for Matthew and Sammy, so the roster is exactly two, and the world always
+// knows which of them is holding the phone — and therefore which of them is
+// the one who is *not* here yet.
+//
+// `buddy` is the other one's name. Every NPC that talks about "your friend"
+// reads it from here, so the world is populated by the right person whether
+// or not the link is up.
+
+const PLAYERS = [
+  {
+    key: 'matthew',
+    name: 'Matthew',
+    look: 'matthew',
+    label: 'MATTHEW',
+    buddy: 'Sammy',
+    blurb: 'Twinleaf. Never sits still.',
+  },
+  {
+    key: 'sammy',
+    name: 'Sammy',
+    look: 'sammy',
+    label: 'SAMMY',
+    buddy: 'Matthew',
+    blurb: 'Twinleaf. Reddish-blonde. Reads the room.',
+  },
+];
+
+function playerByLook(look) {
+  return PLAYERS.find((p) => p.look === look) || null;
+}
+
+function playerByName(name) {
+  const key = String(name || '').trim().toLowerCase();
+  return PLAYERS.find((p) => p.name.toLowerCase() === key) || null;
+}
+
+/**
+ * The name of the other one. A save from before this existed, or a name
+ * neither of them uses, still gets a sensible answer rather than undefined.
+ */
+function buddyOf(state) {
+  const byLook = playerByLook(state && state.player && state.player.look);
+  if (byLook) return byLook.buddy;
+  const byName = playerByName(state && state.player && state.player.name);
+  if (byName) return byName.buddy;
+  return PLAYERS[0].buddy;
+}
+
+/** True when this save belongs to one of the two, rather than a stray name. */
+function isKnownPlayer(state) {
+  return !!(playerByLook(state && state.player && state.player.look)
+    || playerByName(state && state.player && state.player.name));
+}
+
+__exports(__x, { PLAYERS: () => PLAYERS, playerByLook: () => playerByLook, playerByName: () => playerByName, buddyOf: () => buddyOf, isKnownPlayer: () => isKnownPlayer });
 
 };
 
@@ -6930,8 +6999,8 @@ function createMonster(speciesId, level, opts = {}) {
   };
   const evs = opts.evs || { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
 
-  let gender = 'N';
-  if (sp.genderRatio >= 0) gender = r() < sp.genderRatio ? 'M' : 'F';
+  let gender = opts.gender || 'N';
+  if (!opts.gender && sp.genderRatio >= 0) gender = r() < sp.genderRatio ? 'M' : 'F';
 
   const moveIds = opts.moves && opts.moves.length ? opts.moves.slice(0, 4) : movesAtLevel(speciesId, level);
 
@@ -6944,7 +7013,10 @@ function createMonster(speciesId, level, opts = {}) {
     nature: opts.nature != null ? opts.nature : r.int(NATURES.length),
     gender,
     shiny: opts.shiny != null ? opts.shiny : r.int(1024) === 0,
-    ability: sp.abilities[0],
+    // A species with two abilities really does get one or the other. Rolled
+    // here once and stored on the monster, so it survives a save, a trade and
+    // the wire — a link battle must never disagree about what a Pokémon is.
+    ability: opts.ability || sp.abilities[r.int(sp.abilities.length)] || sp.abilities[0],
     ivs,
     evs,
     moves: moveIds.map(makeMoveSlot),
@@ -7096,6 +7168,8 @@ function reviveMonster(raw) {
   mon.evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, ...(raw.evs || {}) };
   mon.moves = (raw.moves || []).filter((m) => m && m.id).map((m) => ({ id: m.id, pp: m.pp ?? 0, ppMax: m.ppMax ?? getMove(m.id).pp }));
   if (!mon.moves.length) mon.moves = movesAtLevel(mon.species, mon.level).map(makeMoveSlot);
+  // An old save, or a peer running an older build, may not have sent one.
+  if (!mon.ability) mon.ability = getSpecies(raw.species).abilities[0];
   mon.hp = Math.max(0, Math.min(maxHp(mon), raw.hp ?? maxHp(mon)));
   return mon;
 }
@@ -8277,9 +8351,11 @@ const { window9, rect, label, labelDim, cursor, drawTextCentered, drawTextRight,
 const { renderMonster } = __req('render/monsterart.js');
 const { drawChar, lookFor } = __req('render/sprites.js');
 const { getSpecies } = __req('data/species.js');
+const { PLAYERS } = __req('game/players.js');
 const { MUSIC } = __req('data/music.js');
 const { formatPlayTime } = __req('game/state.js');
 // Title, new game and character creation.
+
 
 
 
@@ -8518,19 +8594,15 @@ class CharacterScreen extends Screen {
   constructor(game) {
     super(game);
     this.step = 0;         // 0 look, 1 name, 2 difficulty, 3 confirm
-    this.look = 'boy';
+    this.look = PLAYERS[0].look;
     this.name = '';
     this.difficulty = 'easy';
     this.kx = 0; this.ky = 0;
     this.lookIndex = 0;
     this.diffIndex = 0;
     this.t = 0;
-    this.looks = [
-      { key: 'boy', label: 'MATTHEW', defaultName: 'Matthew' },
-      { key: 'girl', label: 'PARTNER', defaultName: 'Robin' },
-      { key: 'rivalBoy', label: 'TRAINER', defaultName: 'Alex' },
-      { key: 'rivalGirl', label: 'TRAINER', defaultName: 'Sam' },
-    ];
+    // Two players, because that is how many people this game is for.
+    this.looks = PLAYERS.map((p) => ({ key: p.look, label: p.label, defaultName: p.name, blurb: p.blurb }));
   }
 
   update(dt, isTop) {
@@ -8542,14 +8614,26 @@ class CharacterScreen extends Screen {
     else this._updateConfirm();
   }
 
+  // One layout for the two cards, used by both the hit test and the render
+  // so a tap always lands exactly where the card is drawn.
+  _lookCards() {
+    const { width: W, height: H } = this.game.display;
+    const n = this.looks.length;
+    const cw = 58; const ch = 58; const gap = 10;
+    const total = n * cw + (n - 1) * gap;
+    return this.looks.map((l, i) => ({
+      l, i, x: Math.round(W / 2 - total / 2 + i * (cw + gap)), y: Math.round(H / 2 - 32), w: cw, h: ch,
+    }));
+  }
+
   _updateLook() {
     const n = this.looks.length;
-    const { width: W, height: H } = this.game.display;
     const tap = input.consumeTap();
     if (tap) {
-      for (let i = 0; i < n; i++) {
-        const x = W / 2 - (n * 34) / 2 + i * 34;
-        if (hit(tap, x, H / 2 - 26, 30, 44)) { this.lookIndex = i; audio.sfx('select'); this._confirmLook(); return; }
+      for (const card of this._lookCards()) {
+        if (hit(tap, card.x, card.y, card.w, card.h)) {
+          this.lookIndex = card.i; audio.sfx('select'); this._confirmLook(); return;
+        }
       }
     }
     if (input.repeated('left')) { this.lookIndex = (this.lookIndex - 1 + n) % n; audio.sfx('cursor'); }
@@ -8639,16 +8723,20 @@ class CharacterScreen extends Screen {
     for (let y = 0; y < H; y += 8) rect(ctx, 0, y, W, 4, shade(PAL.uiSelect, -0.5));
 
     if (this.step === 0) {
-      drawTextCentered(ctx, 'Who are you?', W / 2, 18, { color: PAL.uiTextLight, shadow: PAL.black });
-      const n = this.looks.length;
-      this.looks.forEach((l, i) => {
-        const x = W / 2 - (n * 34) / 2 + i * 34;
-        const sel = i === this.lookIndex;
-        window9(ctx, x, H / 2 - 26, 30, 44, { bg: sel ? PAL.uiBg : PAL.uiBgAlt, frame: sel ? PAL.uiHighlight : PAL.uiFrame });
-        drawChar(ctx, `cc:${l.key}`, lookFor(l.key), 'down', sel ? (Math.floor(this.t * 5) % 3) : 0, x + 7, H / 2 - 14);
-        drawTextCentered(ctx, l.label, x + 15, H / 2 + 8, { color: sel ? PAL.uiText : PAL.uiTextDim });
-      });
-      drawTextCentered(ctx, 'Both players pick separately.', W / 2, H - 20, { color: '#9ab8ff' });
+      drawTextCentered(ctx, 'Who are you?', W / 2, 14, { color: PAL.uiTextLight, shadow: PAL.black });
+      const cards = this._lookCards();
+      for (const card of cards) {
+        const sel = card.i === this.lookIndex;
+        window9(ctx, card.x, card.y, card.w, card.h,
+          { bg: sel ? PAL.uiBg : PAL.uiBgAlt, frame: sel ? PAL.uiHighlight : PAL.uiFrame });
+        drawChar(ctx, `cc:${card.l.key}`, lookFor(card.l.key), 'down',
+          sel ? (Math.floor(this.t * 5) % 3) : 0, card.x + card.w / 2 - 8, card.y + 10);
+        drawTextCentered(ctx, card.l.label, card.x + card.w / 2, card.y + card.h - 12,
+          { color: sel ? PAL.uiText : PAL.uiTextDim });
+      }
+      const chosen = this.looks[this.lookIndex];
+      drawTextCentered(ctx, chosen.blurb || '', W / 2, H - 30, { color: PAL.uiTextLight });
+      drawTextCentered(ctx, 'The other one is who you link with.', W / 2, H - 18, { color: '#9ab8ff' });
     } else if (this.step === 1) {
       drawTextCentered(ctx, 'What is your name?', W / 2, 8, { color: PAL.uiTextLight, shadow: PAL.black });
       window9(ctx, W / 2 - 60, 20, 120, 16);
@@ -9048,8 +9136,16 @@ const TWINLEAF = defineMap('twinleaf', {
         },
         {
           when: { flag: 'gotStarter' },
-          lines: ['Professor Rowan gave you a {starter}?! Lucky!',
-            'Mum says the grass past the town is full of Starly. I am not allowed up there yet.'],
+          pool: [
+            ['Professor Rowan gave you a {starter}?! Lucky!',
+              'Mum says the grass past the town is full of Starly. I am not allowed up there yet.'],
+            ['Is it true there are two of you? You and {buddy}?',
+              'Somebody said you both got a Pokémon off Rowan on the same morning.',
+              'That is a RIVALRY. That is what that is. I am writing it down.'],
+            ['When {buddy} links up with you, come and find me first.',
+              'I want to see it. A real link-up. Two trainers, one world.',
+              'I will not get in the way. I will stand exactly here.'],
+          ],
         },
         {
           lines: ['Professor Rowan is handing out Pokémon today. Actual ones.',
@@ -9276,6 +9372,22 @@ const OREBURGH = defineMap('oreburgh', {
     {
       // Kip is the Hall's doorstep explainer. Everything he quotes is read
       // live off the standings, so he is never wrong about who is on top.
+      id: 'al_link_watch', x: 27, y: 9, look: 'scientist', name: 'Technician', movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Two signals on the local link, and one of them is {partner}.',
+            'That is a live session. Trade, battle, or just walk together — one link does all three.',
+            'It stays up as long as you both stay in the room.'],
+        },
+        {
+          lines: ['One signal on the local link today. Just you.',
+            'When {buddy} opens LINK and joins the same room code, you both show up in one world.',
+            'Same code, both phones. That is the whole trick.'],
+        },
+      ],
+    },
+    {
       id: 'al_fan', x: 18, y: 13, look: 'youngster', name: 'Kip', movement: 'still', facing: 'up',
       dialogue: [
         {
@@ -9737,14 +9849,23 @@ const PLAYER_HOUSE = defineMap('player_house', {
             'If your team gets tired, come home any time — or use a Pokémon Center.'],
         },
         {
-          when: { flag: 'gotStarter' },
-          lines: ['Look at you, a real trainer.',
-            'Look after {lead} and it will look after you. That is the whole arrangement.',
-            'If your team gets tired, come home any time — or use a Pokémon Center.'],
+          // Alone, but the other one is still a real person in this world.
+          when: { all: [{ alone: true }, { flag: 'gotStarter' }] },
+          pool: [
+            ['{buddy} rang the house phone looking for you. I said you were out.',
+              'They said "of course they are" in a tone I did not care for.',
+              'Link up with them when you can. Two of you is better than one of you.'],
+            ['No {buddy} today?',
+              'You two used to be impossible to separate. Now I get one at a time.',
+              'Go on. I will keep the light on.'],
+            ['Look at you, a real trainer.',
+              'Look after {lead} and it will look after you. That is the whole arrangement.',
+              'If your team gets tired, come home any time — or use a Pokémon Center.'],
+          ],
         },
         {
           lines: ['Professor Rowan came by looking for you. Something about a Pokémon she wants you to have.',
-            'Go on. I already packed your bag.'],
+            '{buddy} was called down as well, so do not dawdle. Go on. I already packed your bag.'],
         },
       ],
       heals: true,
@@ -9780,6 +9901,12 @@ const RIVAL_HOUSE = defineMap('rival_house', {
           when: { flag: 'beatRival1' },
           lines: ['Heard you two had it out on Route 201. Heard who won, as well.',
             'Do not expect that to be the end of it. It never is.'],
+        },
+        {
+          when: { linked: true },
+          lines: ['Both of you out there at once. That is the whole street empty, then.',
+            '{partner} came past earlier with the same look on their face you have got now.',
+            'Whatever the two of you are up to, do it somewhere with a Center nearby.'],
         },
         {
           lines: ['Ran out of here at dawn shouting about the lab. You know how it is.',
@@ -9853,7 +9980,16 @@ const OREBURGH_CENTER = defineMap('oreburgh_center', {
     {
       id: 'ac_nurse', x: 4, y: 1, look: 'nurse', name: 'Nurse', movement: 'still', facing: 'down',
       script: 'heal', overCounter: true,
-      dialogue: ['Welcome to the Oreburgh Pokémon Center. Shall I heal your team to full health?'],
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Welcome back. {partner} is showing as connected on the link network too.',
+            'Shall I heal your team to full health?'],
+        },
+        {
+          lines: ['Welcome to the Oreburgh Pokémon Center. Shall I heal your team to full health?'],
+        },
+      ],
     },
     {
       id: 'ac_pc', x: 10, y: 1, look: 'clerk', name: 'Attendant', movement: 'still', facing: 'down',
@@ -11557,6 +11693,9 @@ const { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS } = __req('data/story.js');
 
 
 
+// The thing in the chamber: Dialga, by national dex number.
+const EVERLIGHT_SPECIES = 483;
+
 // A whole block of lines from the story bible, said one page at a time.
 async function speak(ctx, lines, opts) {
   for (const line of lines) await ctx.say(line, opts);
@@ -11862,14 +12001,14 @@ SCRIPTS.everlightDialga = async (ctx) => {
 
   await speak(ctx, st.flags[FLAGS.EVERLIGHT_RESOLVED] ? EVERLIGHT.again : EVERLIGHT.firstSight);
 
-  ctx.dex.seen(483);
-  await ctx.showMonster(483);
-  ctx.cry(483);
+  ctx.dex.seen(EVERLIGHT_SPECIES);
+  await ctx.showMonster(EVERLIGHT_SPECIES);
+  ctx.cry(EVERLIGHT_SPECIES);
   await ctx.wait(0.5);
   ctx.hideMonster();
 
   const level = Math.max(30, Math.min(55, (st.party[0] ? st.party[0].level : 30) + 6));
-  const result = await ctx.wild(37, level, {
+  const result = await ctx.wild(EVERLIGHT_SPECIES, level, {
     name: 'The Everlight', canRun: true, monster: { friendship: 0 },
   });
 
@@ -11978,6 +12117,7 @@ const { RANKS, getPro, RIVAL_PRO, getTournament } = __req('data/circuit.js');
 const { standings, currentRank, headToHead } = __req('game/circuit/circuit.js');
 const { displayName } = __req('game/monster.js');
 const { getSpecies } = __req('data/species.js');
+const { buddyOf } = __req('game/players.js');
 const { caughtCount, seenCount } = __req('game/pokedex.js');
 // What the world is saying right now.
 //
@@ -11991,6 +12131,7 @@ const { caughtCount, seenCount } = __req('game/pokedex.js');
 // The point is that none of this is scenery. Every fact an NPC states is read
 // out of the same state the systems run on, so the world cannot drift out of
 // step with itself.
+
 
 
 
@@ -12066,7 +12207,12 @@ function worldSnapshot(state, link = null) {
 
     // Whether somebody else is out there in the same world right now, and who.
     linked: !!(link && link.connected && link.partner),
-    partner: (link && link.partner && link.partner.name) || 'your partner',
+    partner: (link && link.partner && link.partner.name) || buddyOf(state),
+    // The other one of the two, whether or not they are online. This is what
+    // lets the world talk about Sammy while Matthew plays alone, and then
+    // notice when both of them are actually here.
+    buddy: buddyOf(state),
+    alone: !(link && link.connected && link.partner),
   };
 }
 
@@ -12086,7 +12232,7 @@ const CLAUSES = Object.freeze([
   'flag', 'notFlag',
   'badges', 'maxBadges', 'caught', 'party', 'leadLevel', 'starter',
   'joined', 'rank', 'titles', 'streak', 'hype', 'respect',
-  'champion', 'beatRival', 'inEvent', 'topTen', 'linked',
+  'champion', 'beatRival', 'inEvent', 'topTen', 'linked', 'alone',
 ]);
 const CLAUSE_SET = new Set(CLAUSES);
 function isKnownClause(k) { return CLAUSE_SET.has(k); }
@@ -12132,6 +12278,7 @@ function matches(when, s) {
       case 'inEvent': if (!!s.activeEvent !== v) return false; break;
       case 'topTen': if ((s.place == null || s.place > 10) === v) return false; break;
       case 'linked': if (s.linked !== v) return false; break;
+      case 'alone': if (s.alone !== v) return false; break;
 
       default: return false;   // an unknown clause never silently passes
     }
@@ -12145,7 +12292,7 @@ const SLOTS = new Set([
   'player', 'starter', 'lead', 'leadLevel', 'badges', 'caught', 'seen',
   'champion', 'championTag', 'topPro', 'topProTag', 'rank', 'cp', 'rating', 'place', 'titles',
   'lastTitle', 'streak', 'rival', 'rivalRating', 'rivalLead', 'event', 'headline',
-  'hype', 'respect', 'partner',
+  'hype', 'respect', 'partner', 'buddy',
 ]);
 
 function isKnownSlot(name) { return SLOTS.has(name); }
@@ -12174,6 +12321,7 @@ function fill(line, s) {
       case 'hype': return String(s.hype);
       case 'respect': return String(s.respect);
       case 'partner': return s.partner;
+      case 'buddy': return s.buddy;
       case 'rival': return s.rival;
       case 'rivalRating': return String(s.rivalRating);
       case 'rivalLead': return s.rivalLead;

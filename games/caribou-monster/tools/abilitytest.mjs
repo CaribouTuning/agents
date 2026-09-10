@@ -16,8 +16,12 @@ const check = (ok, msg) => { if (!ok) { console.log(`  FAIL  ${msg}`); fails++; 
 
 // A fixed, boring battle so an ability is the only thing that varies.
 function duel(aSpec, bSpec, opts = {}) {
-  const a = createMonster(aSpec, opts.aLevel || 30, { ivs: flat(20), evs: flat(0), nature: 0 });
-  const b = createMonster(bSpec, opts.bLevel || 30, { ivs: flat(20), evs: flat(0), nature: 0 });
+  // Gender and ability are rolled per monster in the real game, and both now
+  // change damage (Rivalry, and every ability in this file). Pin them, or an
+  // A/B that is supposed to isolate one ability silently varies two things.
+  const fixed = { ivs: flat(20), evs: flat(0), nature: 0, gender: 'M', shiny: false };
+  const a = createMonster(aSpec, opts.aLevel || 30, { ...fixed, ability: opts.aAbility });
+  const b = createMonster(bSpec, opts.bLevel || 30, { ...fixed, ability: opts.bAbility });
   if (opts.aAbility !== undefined) a.ability = opts.aAbility;
   if (opts.bAbility !== undefined) b.ability = opts.bAbility;
   if (opts.aMoves) a.moves = opts.aMoves.map((id) => ({ id, pp: getMove(id).pp, ppMax: getMove(id).pp }));
