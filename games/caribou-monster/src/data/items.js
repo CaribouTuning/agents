@@ -83,7 +83,7 @@ tm(3, 'brickbreak', 'Brick Break', 3000);
 tm(4, 'thunderwave', 'Thunder Wave', 2000);
 tm(5, 'shadowball', 'Shadow Ball', 4000);
 tm(6, 'icywind', 'Icy Wind', 3000);
-tm(7, 'bulldoze', 'Bulldoze', 3000);
+tm(7, 'magnitude', 'Magnitude', 3000);
 tm(8, 'doubleteam', 'Double Team', 2000);
 
 // ---- Key items ---------------------------------------------------------

@@ -84,10 +84,10 @@ const seedBundled = async (p, name, look, species) => p.evaluate(([n, l, sp]) =>
   return g.state.party.length;
 }, [name, look, species]);
 
-let na = await seed(A, 'Matthew', 'boy', [4, 10]);
-let nb = await seed(B, 'Robin', 'girl', [7, 15]);
-if (!na) na = await seedBundled(A, 'Matthew', 'boy', [4, 10]);
-if (!nb) nb = await seedBundled(B, 'Robin', 'girl', [7, 15]);
+let na = await seed(A, 'Matthew', 'boy', [390, 396]);
+let nb = await seed(B, 'Sammy', 'girl', [393, 403]);
+if (!na) na = await seedBundled(A, 'Matthew', 'boy', [390, 396]);
+if (!nb) nb = await seedBundled(B, 'Sammy', 'girl', [393, 403]);
 check('both players have a party', na > 0 && nb > 0, `A=${na} B=${nb}`);
 
 await wait(600);

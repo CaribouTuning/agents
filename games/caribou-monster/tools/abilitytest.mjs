@@ -50,22 +50,22 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
 // ---- 2. pinch abilities ------------------------------------------------------
 {
   // Turtwig (Grass) using a Grass move below a third HP.
-  const withIt = duel(1, 16, { aMoves: ['razorleaf'], aHp: 0.2, aAbility: 'Overgrow' });
-  const without = duel(1, 16, { aMoves: ['razorleaf'], aHp: 0.2, aAbility: 'Keen Eye' });
+  const withIt = duel(387, 404, { aMoves: ['razorleaf'], aHp: 0.2, aAbility: 'Overgrow' });
+  const without = duel(387, 404, { aMoves: ['razorleaf'], aHp: 0.2, aAbility: 'Keen Eye' });
   const d1 = computeDamage(withIt.battle, 0, getMove('razorleaf'), { peek: true }).dmg;
   const d2 = computeDamage(without.battle, 0, getMove('razorleaf'), { peek: true }).dmg;
   check(d1 > d2, `Overgrow should raise damage in a pinch: ${d1} vs ${d2}`);
 
   // Above a third HP it must do nothing at all.
-  const healthy = duel(1, 16, { aMoves: ['razorleaf'], aHp: 1, aAbility: 'Overgrow' });
-  const healthyOff = duel(1, 16, { aMoves: ['razorleaf'], aHp: 1, aAbility: 'Keen Eye' });
+  const healthy = duel(387, 404, { aMoves: ['razorleaf'], aHp: 1, aAbility: 'Overgrow' });
+  const healthyOff = duel(387, 404, { aMoves: ['razorleaf'], aHp: 1, aAbility: 'Keen Eye' });
   check(computeDamage(healthy.battle, 0, getMove('razorleaf'), { peek: true }).dmg
     === computeDamage(healthyOff.battle, 0, getMove('razorleaf'), { peek: true }).dmg,
   'Overgrow should do nothing above a third HP');
 
   // And only for its own type.
-  const wrongType = duel(1, 16, { aMoves: ['tackle'], aHp: 0.2, aAbility: 'Overgrow' });
-  const wrongTypeOff = duel(1, 16, { aMoves: ['tackle'], aHp: 0.2, aAbility: 'Keen Eye' });
+  const wrongType = duel(387, 404, { aMoves: ['tackle'], aHp: 0.2, aAbility: 'Overgrow' });
+  const wrongTypeOff = duel(387, 404, { aMoves: ['tackle'], aHp: 0.2, aAbility: 'Keen Eye' });
   check(computeDamage(wrongType.battle, 0, getMove('tackle'), { peek: true }).dmg
     === computeDamage(wrongTypeOff.battle, 0, getMove('tackle'), { peek: true }).dmg,
   'Overgrow should not boost a Normal move');
@@ -73,8 +73,8 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
 
 // ---- 3. Guts -----------------------------------------------------------------
 {
-  const guts = duel(1, 16, { aMoves: ['tackle'], aAbility: 'Guts', aStatus: 'BRN' });
-  const plain = duel(1, 16, { aMoves: ['tackle'], aAbility: 'Keen Eye', aStatus: 'BRN' });
+  const guts = duel(387, 404, { aMoves: ['tackle'], aAbility: 'Guts', aStatus: 'BRN' });
+  const plain = duel(387, 404, { aMoves: ['tackle'], aAbility: 'Keen Eye', aStatus: 'BRN' });
   const g = computeDamage(guts.battle, 0, getMove('tackle'), { peek: true }).dmg;
   const p = computeDamage(plain.battle, 0, getMove('tackle'), { peek: true }).dmg;
   check(g > p, `Guts should beat a burned attacker without it: ${g} vs ${p}`);
@@ -85,7 +85,7 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
   const ground = SPECIES_LIST.find((sp) => sp.learnset.some(([, m]) => getMove(m) && getMove(m).type === 'Ground'));
   const move = getMove('magnitude') || getMove('earthquake') || getMove('mudslap');
   if (move) {
-    const { battle } = duel(1, 16, { aMoves: [move.id], bAbility: 'Levitate' });
+    const { battle } = duel(387, 404, { aMoves: [move.id], bAbility: 'Levitate' });
     const events = resolveTurn(battle, [{ type: 'move', index: 0 }, { type: 'move', index: 0 }]);
     check(/immune/i.test(text(events)),
       `Levitate should refuse a ${move.type} move: ${text(events).slice(0, 120)}`);
@@ -97,8 +97,8 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
 
 // ---- 5. Intimidate on entry --------------------------------------------------
 {
-  const a = createMonster(1, 30); const spare = createMonster(4, 30);
-  const b = createMonster(16, 30);
+  const a = createMonster(387, 30); const spare = createMonster(390, 30);
+  const b = createMonster(404, 30);
   a.ability = 'Intimidate'; spare.ability = 'Intimidate';
   const battle = createBattle({
     seed: 99, kind: 'trainer', difficulty: 'normal',
@@ -115,7 +115,7 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
   const drop = Object.values(await import('../src/data/moves.js').then((m) => m.MOVES))
     .find((m) => m.effect && m.effect.kind === 'stat' && m.effect.stat === 'acc' && m.effect.stages < 0);
   if (drop) {
-    const { battle } = duel(1, 16, { aMoves: [drop.id], bAbility: 'Keen Eye' });
+    const { battle } = duel(387, 404, { aMoves: [drop.id], bAbility: 'Keen Eye' });
     const events = resolveTurn(battle, [{ type: 'move', index: 0 }, { type: 'move', index: 0 }]);
     check(battle.sides[1].boosts.acc === 0,
       `Keen Eye should hold accuracy at 0, got ${battle.sides[1].boosts.acc}: ${text(events).slice(0, 120)}`);
@@ -127,8 +127,8 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
   const recoilMove = Object.values(await import('../src/data/moves.js').then((m) => m.MOVES))
     .find((m) => m.effect && m.effect.kind === 'recoil');
   if (recoilMove) {
-    const hard = duel(1, 16, { aMoves: [recoilMove.id], aAbility: 'Rock Head', seed: 7 });
-    const soft = duel(1, 16, { aMoves: [recoilMove.id], aAbility: 'Keen Eye', seed: 7 });
+    const hard = duel(387, 404, { aMoves: [recoilMove.id], aAbility: 'Rock Head', seed: 7 });
+    const soft = duel(387, 404, { aMoves: [recoilMove.id], aAbility: 'Keen Eye', seed: 7 });
     resolveTurn(hard.battle, [{ type: 'move', index: 0 }, { type: 'move', index: 0 }]);
     resolveTurn(soft.battle, [{ type: 'move', index: 0 }, { type: 'move', index: 0 }]);
     check(hard.a.hp >= soft.a.hp,
@@ -140,25 +140,25 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
 
 // ---- 8. Inner Focus never flinches --------------------------------------------
 {
-  const { battle } = duel(1, 16, { bAbility: 'Inner Focus' });
+  const { battle } = duel(387, 404, { bAbility: 'Inner Focus' });
   // Force the situation rather than fishing for a flinch move.
   const { applyStatus } = await import('../src/game/battle/engine.js');
   const out = [];
   applyStatus(battle, 1, { status: 'flinch' }, out);
   check(!battle.sides[1].volatile.flinch, 'Inner Focus should refuse a flinch');
-  const other = duel(1, 16, { bAbility: 'Keen Eye' });
+  const other = duel(387, 404, { bAbility: 'Keen Eye' });
   applyStatus(other.battle, 1, { status: 'flinch' }, []);
   check(other.battle.sides[1].volatile.flinch, 'without Inner Focus a flinch should land');
 }
 
 // ---- 9. Natural Cure on switching out -----------------------------------------
 {
-  const a = createMonster(1, 30); const spare = createMonster(4, 30);
+  const a = createMonster(387, 30); const spare = createMonster(390, 30);
   a.ability = 'Natural Cure'; a.status = 'PSN';
   const battle = createBattle({
     seed: 5, kind: 'trainer', difficulty: 'normal',
     a: { id: 'p', name: 'A', isPlayer: true, party: [a, spare], trainer: { ai: 1 } },
-    b: { id: 'e', name: 'B', party: [createMonster(16, 30)], trainer: { name: 'B', ai: 1 } },
+    b: { id: 'e', name: 'B', party: [createMonster(404, 30)], trainer: { name: 'B', ai: 1 } },
   });
   resolveTurn(battle, [{ type: 'switch', index: 1 }, { type: 'move', index: 0 }]);
   check(a.status === null, `Natural Cure should clear status on switch out, got ${a.status}`);
@@ -166,8 +166,8 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
 
 // ---- 10. Pressure taxes PP ----------------------------------------------------
 {
-  const pressured = duel(1, 16, { aMoves: ['tackle'], bAbility: 'Pressure', seed: 3 });
-  const normal = duel(1, 16, { aMoves: ['tackle'], bAbility: 'Keen Eye', seed: 3 });
+  const pressured = duel(387, 404, { aMoves: ['tackle'], bAbility: 'Pressure', seed: 3 });
+  const normal = duel(387, 404, { aMoves: ['tackle'], bAbility: 'Keen Eye', seed: 3 });
   resolveTurn(pressured.battle, [{ type: 'move', index: 0 }, { type: 'move', index: 0 }]);
   resolveTurn(normal.battle, [{ type: 'move', index: 0 }, { type: 'move', index: 0 }]);
   check(pressured.a.moves[0].pp < normal.a.moves[0].pp,
@@ -179,8 +179,8 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
 // its own dice, or that skipped one, would desync them on its first proc.
 {
   const run = (seed) => {
-    const a = createMonster(1, 30, { ivs: flat(15), evs: flat(0), nature: 3 });
-    const b = createMonster(16, 30, { ivs: flat(15), evs: flat(0), nature: 3 });
+    const a = createMonster(387, 30, { ivs: flat(15), evs: flat(0), nature: 3 });
+    const b = createMonster(404, 30, { ivs: flat(15), evs: flat(0), nature: 3 });
     a.ability = 'Shed Skin'; b.ability = 'Synchronize';
     a.status = 'PAR';
     const battle = createBattle({
@@ -205,12 +205,22 @@ const text = (events) => events.filter((e) => e.t === 'text').map((e) => e.s).jo
   let crashes = 0;
   for (let i = 0; i < names.length; i++) {
     try {
-      const { battle } = duel(1 + (i % 40), 16, { aAbility: names[i], bAbility: names[(i + 3) % names.length], seed: 1000 + i });
+      // Both sides get a damaging move: the point of this test is that no
+      // ability crashes or hangs, not that a pair of status-only movesets
+      // can grind each other down.
+      const { battle } = duel(
+        SPECIES_LIST[i % SPECIES_LIST.length].id,
+        SPECIES_LIST[(i * 7 + 3) % SPECIES_LIST.length].id,
+        {
+          aAbility: names[i], bAbility: names[(i + 3) % names.length], seed: 1000 + i,
+          aMoves: ['tackle'], bMoves: ['tackle'],
+        },
+      );
       let guard = 0;
-      while (!battle.over && guard++ < 60) {
+      while (!battle.over && guard++ < 400) {
         resolveTurn(battle, [{ type: 'move', index: 0 }, { type: 'move', index: 0 }]);
       }
-      check(guard < 60, `${names[i]} stalled a battle`);
+      check(guard < 400, `${names[i]} stalled a battle`);
     } catch (e) {
       console.log(`  CRASH ${names[i]}: ${e.message}`);
       crashes++;

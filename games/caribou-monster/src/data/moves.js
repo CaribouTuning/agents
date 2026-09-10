@@ -1,179 +1,490 @@
-// Move data. The battle engine reads only these fields — adding a move is
-// data, never code.
+// Move data — generated, do not hand-edit.
+//
+//   tools/gendex.py   veekun CSV dump ->  _gen_moves.json
+//   tools/emitdex.py  _gen_moves.json ->  this file
+//
+// Every move obtainable in Platinum, with that game's power, accuracy, PP,
+// damage class, priority and crit rate. Secondary effects are mapped onto
+// the kinds battle/effects.js actually implements; a move whose effect this
+// engine cannot model is emitted as a plain move rather than a fake one, so
+// nothing ever claims to do something it does not do.
 //
 //  power    0 for status moves
 //  acc      0 = never misses
-//  pp       base PP
-//  cls      'physical' | 'special' | 'status' (defaults from the type)
+//  cls      'physical' | 'special' | 'status'
 //  effect   { kind, ... } handled by battle/effects.js
-//  priority default 0
-//  flags    ['contact', 'sound', 'punch', ...]
-
-import { damageClassOf } from './types.js';
-
-const M = (id, name, type, power, acc, pp, extra = {}) => ({
-  id, name, type, power, acc, pp,
-  cls: extra.cls || (power === 0 ? 'status' : damageClassOf(type)),
-  priority: extra.priority || 0,
-  crit: extra.crit || 0,
-  effect: extra.effect || null,
-  flags: extra.flags || [],
-  desc: extra.desc || '',
-});
+//  tm       Platinum TM/HM number, or -1
+//  variable a move whose power is computed at use time; the name of the rule
+//           battle/engine.js applies. No move ever ships with power 0 and a
+//           damage class but no rule — tools/gendex.py refuses to emit one.
 
 export const MOVES = {};
-const add = (...args) => { const m = M(...args); MOVES[m.id] = m; return m; };
+const add = (m) => { MOVES[m.id] = m; return m; };
 
-// ---- Normal ----------------------------------------------------------
-add('tackle', 'Tackle', 'Normal', 40, 100, 35, { flags: ['contact'], desc: 'A full-body charge.' });
-add('scratch', 'Scratch', 'Normal', 40, 100, 35, { flags: ['contact'], desc: 'Rakes the foe with claws.' });
-add('pound', 'Pound', 'Normal', 40, 100, 35, { flags: ['contact'], desc: 'A blow with forelegs or tail.' });
-add('quickattack', 'Quick Attack', 'Normal', 40, 100, 30, { priority: 1, flags: ['contact'], desc: 'Always strikes first.' });
-add('headbutt', 'Headbutt', 'Normal', 70, 100, 15, { flags: ['contact'], effect: { kind: 'status', status: 'flinch', chance: 0.3 }, desc: 'May make the foe flinch.' });
-add('bodyslam', 'Body Slam', 'Normal', 85, 100, 15, { flags: ['contact'], effect: { kind: 'status', status: 'PAR', chance: 0.3 }, desc: 'May paralyse the foe.' });
-add('slam', 'Slam', 'Normal', 80, 75, 20, { flags: ['contact'], desc: 'A heavy tail slam.' });
-add('takedown', 'Take Down', 'Normal', 90, 85, 20, { flags: ['contact'], effect: { kind: 'recoil', fraction: 0.25 }, desc: 'A reckless charge that also hurts the user.' });
-add('doubleedge', 'Double-Edge', 'Normal', 120, 100, 15, { flags: ['contact'], effect: { kind: 'recoil', fraction: 0.33 }, desc: 'A life-risking tackle.' });
-add('hyperfang', 'Hyper Fang', 'Normal', 80, 90, 15, { flags: ['contact'], crit: 1, desc: 'Sharp fangs. High critical-hit ratio.' });
-add('furyswipes', 'Fury Swipes', 'Normal', 18, 80, 15, { flags: ['contact'], effect: { kind: 'multihit', min: 2, max: 5 }, desc: 'Strikes 2 to 5 times.' });
-add('growl', 'Growl', 'Normal', 0, 100, 40, { effect: { kind: 'stat', target: 'foe', stat: 'atk', stages: -1 }, flags: ['sound'], desc: 'Lowers the foe’s Attack.' });
-add('tailwhip', 'Tail Whip', 'Normal', 0, 100, 30, { effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1 }, desc: 'Lowers the foe’s Defense.' });
-add('leer', 'Leer', 'Normal', 0, 100, 30, { effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1 }, desc: 'A frightening glare that lowers Defense.' });
-add('harden', 'Harden', 'Normal', 0, 0, 30, { effect: { kind: 'stat', target: 'self', stat: 'def', stages: 1 }, desc: 'Stiffens the body to raise Defense.' });
-add('defensecurl', 'Defense Curl', 'Normal', 0, 0, 40, { effect: { kind: 'stat', target: 'self', stat: 'def', stages: 1 }, desc: 'Curls up to raise Defense.' });
-add('growth', 'Growth', 'Normal', 0, 0, 20, { effect: { kind: 'stat', target: 'self', stat: 'spa', stages: 1 }, desc: 'Forces the body to grow, raising Sp. Atk.' });
-add('swordsdance', 'Swords Dance', 'Normal', 0, 0, 20, { effect: { kind: 'stat', target: 'self', stat: 'atk', stages: 2 }, desc: 'A frenetic dance. Sharply raises Attack.' });
-add('screech', 'Screech', 'Normal', 0, 85, 40, { effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -2 }, flags: ['sound'], desc: 'Sharply lowers the foe’s Defense.' });
-add('doubleteam', 'Double Team', 'Normal', 0, 0, 15, { effect: { kind: 'stat', target: 'self', stat: 'eva', stages: 1 }, desc: 'Creates illusory copies to raise evasiveness.' });
-add('sandattack', 'Sand Attack', 'Ground', 0, 100, 15, { effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1 }, desc: 'Hurls sand to lower accuracy.' });
-add('supersonic', 'Supersonic', 'Normal', 0, 55, 20, { effect: { kind: 'status', status: 'CNF', chance: 1 }, flags: ['sound'], desc: 'Odd sound waves that confuse the foe.' });
-add('recover', 'Recover', 'Normal', 0, 0, 10, { effect: { kind: 'heal', fraction: 0.5 }, desc: 'Restores up to half of max HP.' });
-add('rest', 'Rest', 'Psychic', 0, 0, 10, { effect: { kind: 'rest' }, desc: 'Sleeps to fully restore HP and status.' });
-add('helpinghand', 'Helping Hand', 'Normal', 0, 0, 20, { priority: 5, effect: { kind: 'stat', target: 'self', stat: 'spa', stages: 1 }, desc: 'Boosts the user’s spirit.' });
+add({ id: 'pound', name: 'Pound', type: 'Normal', power: 40, acc: 100, pp: 35, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'karatechop', name: 'Karate Chop', type: 'Fighting', power: 50, acc: 100, pp: 25, cls: 'physical', priority: 0, crit: 1, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'doubleslap', name: 'Double Slap', type: 'Normal', power: 15, acc: 85, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: ['contact'], tm: -1 });
+add({ id: 'cometpunch', name: 'Comet Punch', type: 'Normal', power: 18, acc: 85, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'megapunch', name: 'Mega Punch', type: 'Normal', power: 80, acc: 85, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'payday', name: 'Pay Day', type: 'Normal', power: 40, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'firepunch', name: 'Fire Punch', type: 'Fire', power: 75, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'icepunch', name: 'Ice Punch', type: 'Ice', power: 75, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'FRZ', chance: 0.1 }, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'thunderpunch', name: 'Thunder Punch', type: 'Electric', power: 75, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.1 }, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'scratch', name: 'Scratch', type: 'Normal', power: 40, acc: 100, pp: 35, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'visegrip', name: 'Vise Grip', type: 'Normal', power: 55, acc: 100, pp: 30, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'guillotine', name: 'Guillotine', type: 'Normal', power: 0, acc: 30, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'ohko' });
+add({ id: 'razorwind', name: 'Razor Wind', type: 'Normal', power: 80, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 1, effect: null, flags: [], tm: -1 });
+add({ id: 'swordsdance', name: 'Swords Dance', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'atk', stages: 2 }, flags: [], tm: 75 });
+add({ id: 'cut', name: 'Cut', type: 'Normal', power: 50, acc: 95, pp: 30, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 101 });
+add({ id: 'gust', name: 'Gust', type: 'Flying', power: 40, acc: 100, pp: 35, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'wingattack', name: 'Wing Attack', type: 'Flying', power: 60, acc: 100, pp: 35, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'whirlwind', name: 'Whirlwind', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: -6, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'fly', name: 'Fly', type: 'Flying', power: 90, acc: 95, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 102 });
+add({ id: 'bind', name: 'Bind', type: 'Normal', power: 15, acc: 85, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'slam', name: 'Slam', type: 'Normal', power: 80, acc: 75, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'vinewhip', name: 'Vine Whip', type: 'Grass', power: 45, acc: 100, pp: 25, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'stomp', name: 'Stomp', type: 'Normal', power: 65, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'doublekick', name: 'Double Kick', type: 'Fighting', power: 30, acc: 100, pp: 30, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 2 }, flags: ['contact'], tm: -1 });
+add({ id: 'megakick', name: 'Mega Kick', type: 'Normal', power: 120, acc: 75, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'jumpkick', name: 'Jump Kick', type: 'Fighting', power: 100, acc: 95, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'rollingkick', name: 'Rolling Kick', type: 'Fighting', power: 60, acc: 85, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'sandattack', name: 'Sand Attack', type: 'Ground', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1 }, flags: [], tm: -1 });
+add({ id: 'headbutt', name: 'Headbutt', type: 'Normal', power: 70, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'hornattack', name: 'Horn Attack', type: 'Normal', power: 65, acc: 100, pp: 25, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'furyattack', name: 'Fury Attack', type: 'Normal', power: 15, acc: 85, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: ['contact'], tm: -1 });
+add({ id: 'horndrill', name: 'Horn Drill', type: 'Normal', power: 0, acc: 30, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'ohko' });
+add({ id: 'tackle', name: 'Tackle', type: 'Normal', power: 40, acc: 100, pp: 35, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'bodyslam', name: 'Body Slam', type: 'Normal', power: 85, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'wrap', name: 'Wrap', type: 'Normal', power: 15, acc: 90, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'takedown', name: 'Take Down', type: 'Normal', power: 90, acc: 85, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'recoil', fraction: 0.25 }, flags: ['contact'], tm: -1 });
+add({ id: 'thrash', name: 'Thrash', type: 'Normal', power: 120, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'doubleedge', name: 'Double-Edge', type: 'Normal', power: 120, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'recoil', fraction: 0.33 }, flags: ['contact'], tm: -1 });
+add({ id: 'tailwhip', name: 'Tail Whip', type: 'Normal', power: 0, acc: 100, pp: 30, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1 }, flags: [], tm: -1 });
+add({ id: 'poisonsting', name: 'Poison Sting', type: 'Poison', power: 15, acc: 100, pp: 35, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN', chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'twineedle', name: 'Twineedle', type: 'Bug', power: 25, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 2 }, flags: [], tm: -1 });
+add({ id: 'pinmissile', name: 'Pin Missile', type: 'Bug', power: 25, acc: 95, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: [], tm: -1 });
+add({ id: 'leer', name: 'Leer', type: 'Normal', power: 0, acc: 100, pp: 30, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1, chance: 1.0 }, flags: [], tm: -1 });
+add({ id: 'bite', name: 'Bite', type: 'Dark', power: 60, acc: 100, pp: 25, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: ['bite', 'contact'], tm: -1 });
+add({ id: 'growl', name: 'Growl', type: 'Normal', power: 0, acc: 100, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'atk', stages: -1 }, flags: ['sound'], tm: -1 });
+add({ id: 'roar', name: 'Roar', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: -6, crit: 0, effect: null, flags: ['sound'], tm: 5 });
+add({ id: 'sing', name: 'Sing', type: 'Normal', power: 0, acc: 55, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'SLP' }, flags: ['sound'], tm: -1 });
+add({ id: 'supersonic', name: 'Supersonic', type: 'Normal', power: 0, acc: 55, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF' }, flags: ['sound'], tm: -1 });
+add({ id: 'sonicboom', name: 'Sonic Boom', type: 'Normal', power: 0, acc: 90, pp: 20, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1, variable: 'fixed20' });
+add({ id: 'disable', name: 'Disable', type: 'Normal', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'acid', name: 'Acid', type: 'Poison', power: 40, acc: 100, pp: 30, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'ember', name: 'Ember', type: 'Fire', power: 40, acc: 100, pp: 25, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'flamethrower', name: 'Flamethrower', type: 'Fire', power: 90, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: [], tm: 35 });
+add({ id: 'mist', name: 'Mist', type: 'Ice', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'watergun', name: 'Water Gun', type: 'Water', power: 40, acc: 100, pp: 25, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'hydropump', name: 'Hydro Pump', type: 'Water', power: 110, acc: 80, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'surf', name: 'Surf', type: 'Water', power: 90, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: 103 });
+add({ id: 'icebeam', name: 'Ice Beam', type: 'Ice', power: 90, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'FRZ', chance: 0.1 }, flags: [], tm: 13 });
+add({ id: 'blizzard', name: 'Blizzard', type: 'Ice', power: 110, acc: 70, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'FRZ', chance: 0.1 }, flags: [], tm: 14 });
+add({ id: 'psybeam', name: 'Psybeam', type: 'Psychic', power: 65, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF', chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'bubblebeam', name: 'Bubble Beam', type: 'Water', power: 65, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'aurorabeam', name: 'Aurora Beam', type: 'Ice', power: 65, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'atk', stages: -1, chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'hyperbeam', name: 'Hyper Beam', type: 'Normal', power: 150, acc: 90, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: 15 });
+add({ id: 'peck', name: 'Peck', type: 'Flying', power: 35, acc: 100, pp: 35, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'drillpeck', name: 'Drill Peck', type: 'Flying', power: 80, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'submission', name: 'Submission', type: 'Fighting', power: 80, acc: 80, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'recoil', fraction: 0.25 }, flags: ['contact'], tm: -1 });
+add({ id: 'lowkick', name: 'Low Kick', type: 'Fighting', power: 0, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'weight' });
+add({ id: 'counter', name: 'Counter', type: 'Fighting', power: 0, acc: 100, pp: 20, cls: 'physical', priority: -5, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'counter' });
+add({ id: 'seismictoss', name: 'Seismic Toss', type: 'Fighting', power: 0, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'level' });
+add({ id: 'strength', name: 'Strength', type: 'Normal', power: 80, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 104 });
+add({ id: 'absorb', name: 'Absorb', type: 'Grass', power: 20, acc: 100, pp: 25, cls: 'special', priority: 0, crit: 0, effect: { kind: 'drain', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'megadrain', name: 'Mega Drain', type: 'Grass', power: 40, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'drain', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'leechseed', name: 'Leech Seed', type: 'Grass', power: 0, acc: 90, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'growth', name: 'Growth', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'self', stats: ['atk', 'spa'], stages: 1 }, flags: [], tm: -1 });
+add({ id: 'razorleaf', name: 'Razor Leaf', type: 'Grass', power: 55, acc: 95, pp: 25, cls: 'physical', priority: 0, crit: 1, effect: null, flags: [], tm: -1 });
+add({ id: 'solarbeam', name: 'Solar Beam', type: 'Grass', power: 120, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: 22 });
+add({ id: 'poisonpowder', name: 'Poison Powder', type: 'Poison', power: 0, acc: 75, pp: 35, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN' }, flags: ['powder'], tm: -1 });
+add({ id: 'stunspore', name: 'Stun Spore', type: 'Grass', power: 0, acc: 75, pp: 30, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR' }, flags: ['powder'], tm: -1 });
+add({ id: 'sleeppowder', name: 'Sleep Powder', type: 'Grass', power: 0, acc: 75, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'SLP' }, flags: ['powder'], tm: -1 });
+add({ id: 'petaldance', name: 'Petal Dance', type: 'Grass', power: 120, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'stringshot', name: 'String Shot', type: 'Bug', power: 0, acc: 95, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -2 }, flags: [], tm: -1 });
+add({ id: 'dragonrage', name: 'Dragon Rage', type: 'Dragon', power: 0, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1, variable: 'fixed40' });
+add({ id: 'firespin', name: 'Fire Spin', type: 'Fire', power: 35, acc: 85, pp: 15, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'thundershock', name: 'Thunder Shock', type: 'Electric', power: 40, acc: 100, pp: 30, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'thunderbolt', name: 'Thunderbolt', type: 'Electric', power: 90, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.1 }, flags: [], tm: 24 });
+add({ id: 'thunderwave', name: 'Thunder Wave', type: 'Electric', power: 0, acc: 90, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR' }, flags: [], tm: 73 });
+add({ id: 'thunder', name: 'Thunder', type: 'Electric', power: 110, acc: 70, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.3 }, flags: [], tm: 25 });
+add({ id: 'rockthrow', name: 'Rock Throw', type: 'Rock', power: 50, acc: 90, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'earthquake', name: 'Earthquake', type: 'Ground', power: 100, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: 26 });
+add({ id: 'fissure', name: 'Fissure', type: 'Ground', power: 0, acc: 30, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1, variable: 'ohko' });
+add({ id: 'dig', name: 'Dig', type: 'Ground', power: 80, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 28 });
+add({ id: 'toxic', name: 'Toxic', type: 'Poison', power: 0, acc: 90, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN' }, flags: [], tm: 6 });
+add({ id: 'confusion', name: 'Confusion', type: 'Psychic', power: 50, acc: 100, pp: 25, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF', chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'psychic', name: 'Psychic', type: 'Psychic', power: 90, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, flags: [], tm: 29 });
+add({ id: 'hypnosis', name: 'Hypnosis', type: 'Psychic', power: 0, acc: 60, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'SLP' }, flags: [], tm: -1 });
+add({ id: 'meditate', name: 'Meditate', type: 'Psychic', power: 0, acc: 0, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'atk', stages: 1 }, flags: [], tm: -1 });
+add({ id: 'agility', name: 'Agility', type: 'Psychic', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'spe', stages: 2 }, flags: [], tm: -1 });
+add({ id: 'quickattack', name: 'Quick Attack', type: 'Normal', power: 40, acc: 100, pp: 30, cls: 'physical', priority: 1, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'rage', name: 'Rage', type: 'Normal', power: 20, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'teleport', name: 'Teleport', type: 'Psychic', power: 0, acc: 0, pp: 20, cls: 'status', priority: -6, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'nightshade', name: 'Night Shade', type: 'Ghost', power: 0, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1, variable: 'level' });
+add({ id: 'mimic', name: 'Mimic', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'screech', name: 'Screech', type: 'Normal', power: 0, acc: 85, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -2 }, flags: ['sound'], tm: -1 });
+add({ id: 'doubleteam', name: 'Double Team', type: 'Normal', power: 0, acc: 0, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'eva', stages: 1 }, flags: [], tm: 32 });
+add({ id: 'recover', name: 'Recover', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'harden', name: 'Harden', type: 'Normal', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'def', stages: 1 }, flags: [], tm: -1 });
+add({ id: 'minimize', name: 'Minimize', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'eva', stages: 2 }, flags: [], tm: -1 });
+add({ id: 'smokescreen', name: 'Smokescreen', type: 'Normal', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1 }, flags: [], tm: -1 });
+add({ id: 'confuseray', name: 'Confuse Ray', type: 'Ghost', power: 0, acc: 100, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF' }, flags: [], tm: -1 });
+add({ id: 'withdraw', name: 'Withdraw', type: 'Water', power: 0, acc: 0, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'def', stages: 1 }, flags: [], tm: -1 });
+add({ id: 'defensecurl', name: 'Defense Curl', type: 'Normal', power: 0, acc: 0, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'def', stages: 1 }, flags: [], tm: -1 });
+add({ id: 'barrier', name: 'Barrier', type: 'Psychic', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'def', stages: 2 }, flags: [], tm: -1 });
+add({ id: 'lightscreen', name: 'Light Screen', type: 'Psychic', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 16 });
+add({ id: 'haze', name: 'Haze', type: 'Ice', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'reflect', name: 'Reflect', type: 'Psychic', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 33 });
+add({ id: 'focusenergy', name: 'Focus Energy', type: 'Normal', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'metronome', name: 'Metronome', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'mirrormove', name: 'Mirror Move', type: 'Flying', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'selfdestruct', name: 'Self-Destruct', type: 'Normal', power: 200, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'eggbomb', name: 'Egg Bomb', type: 'Normal', power: 100, acc: 75, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'lick', name: 'Lick', type: 'Ghost', power: 30, acc: 100, pp: 30, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'smog', name: 'Smog', type: 'Poison', power: 30, acc: 70, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN', chance: 0.4 }, flags: [], tm: -1 });
+add({ id: 'sludge', name: 'Sludge', type: 'Poison', power: 65, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN', chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'boneclub', name: 'Bone Club', type: 'Ground', power: 65, acc: 85, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'fireblast', name: 'Fire Blast', type: 'Fire', power: 110, acc: 85, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: [], tm: 38 });
+add({ id: 'waterfall', name: 'Waterfall', type: 'Water', power: 80, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.2 }, flags: ['contact'], tm: 107 });
+add({ id: 'clamp', name: 'Clamp', type: 'Water', power: 35, acc: 85, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'swift', name: 'Swift', type: 'Normal', power: 60, acc: 0, pp: 20, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'skullbash', name: 'Skull Bash', type: 'Normal', power: 130, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'spikecannon', name: 'Spike Cannon', type: 'Normal', power: 20, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: [], tm: -1 });
+add({ id: 'constrict', name: 'Constrict', type: 'Normal', power: 10, acc: 100, pp: 35, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 0.1 }, flags: ['contact'], tm: -1 });
+add({ id: 'amnesia', name: 'Amnesia', type: 'Psychic', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'spd', stages: 2 }, flags: [], tm: -1 });
+add({ id: 'kinesis', name: 'Kinesis', type: 'Psychic', power: 0, acc: 80, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1 }, flags: [], tm: -1 });
+add({ id: 'softboiled', name: 'Soft-Boiled', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'highjumpkick', name: 'High Jump Kick', type: 'Fighting', power: 130, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'glare', name: 'Glare', type: 'Normal', power: 0, acc: 100, pp: 30, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR' }, flags: [], tm: -1 });
+add({ id: 'dreameater', name: 'Dream Eater', type: 'Psychic', power: 100, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'drain', fraction: 0.5 }, flags: [], tm: 85 });
+add({ id: 'poisongas', name: 'Poison Gas', type: 'Poison', power: 0, acc: 90, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN' }, flags: [], tm: -1 });
+add({ id: 'barrage', name: 'Barrage', type: 'Normal', power: 15, acc: 85, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: [], tm: -1 });
+add({ id: 'leechlife', name: 'Leech Life', type: 'Bug', power: 80, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'drain', fraction: 0.5 }, flags: ['contact'], tm: -1 });
+add({ id: 'lovelykiss', name: 'Lovely Kiss', type: 'Normal', power: 0, acc: 75, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'SLP' }, flags: [], tm: -1 });
+add({ id: 'skyattack', name: 'Sky Attack', type: 'Flying', power: 140, acc: 90, pp: 5, cls: 'physical', priority: 0, crit: 1, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'transform', name: 'Transform', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'bubble', name: 'Bubble', type: 'Water', power: 40, acc: 100, pp: 30, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'dizzypunch', name: 'Dizzy Punch', type: 'Normal', power: 70, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF', chance: 0.2 }, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'spore', name: 'Spore', type: 'Grass', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'SLP' }, flags: ['powder'], tm: -1 });
+add({ id: 'flash', name: 'Flash', type: 'Normal', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1 }, flags: [], tm: 70 });
+add({ id: 'psywave', name: 'Psywave', type: 'Psychic', power: 0, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1, variable: 'psywave' });
+add({ id: 'splash', name: 'Splash', type: 'Normal', power: 0, acc: 0, pp: 40, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'acidarmor', name: 'Acid Armor', type: 'Poison', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'def', stages: 2 }, flags: [], tm: -1 });
+add({ id: 'crabhammer', name: 'Crabhammer', type: 'Water', power: 100, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 1, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'explosion', name: 'Explosion', type: 'Normal', power: 250, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: 64 });
+add({ id: 'furyswipes', name: 'Fury Swipes', type: 'Normal', power: 18, acc: 80, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: ['contact'], tm: -1 });
+add({ id: 'bonemerang', name: 'Bonemerang', type: 'Ground', power: 50, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 2 }, flags: [], tm: -1 });
+add({ id: 'rest', name: 'Rest', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 44 });
+add({ id: 'rockslide', name: 'Rock Slide', type: 'Rock', power: 75, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: [], tm: 80 });
+add({ id: 'hyperfang', name: 'Hyper Fang', type: 'Normal', power: 80, acc: 90, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.1 }, flags: ['bite', 'contact'], tm: -1 });
+add({ id: 'sharpen', name: 'Sharpen', type: 'Normal', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'atk', stages: 1 }, flags: [], tm: -1 });
+add({ id: 'conversion', name: 'Conversion', type: 'Normal', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'triattack', name: 'Tri Attack', type: 'Normal', power: 80, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'superfang', name: 'Super Fang', type: 'Normal', power: 0, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'halfHp' });
+add({ id: 'slash', name: 'Slash', type: 'Normal', power: 70, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 1, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'substitute', name: 'Substitute', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 90 });
+add({ id: 'sketch', name: 'Sketch', type: 'Normal', power: 0, acc: 0, pp: 1, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'triplekick', name: 'Triple Kick', type: 'Fighting', power: 10, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 3, max: 3 }, flags: ['contact'], tm: -1 });
+add({ id: 'thief', name: 'Thief', type: 'Dark', power: 60, acc: 100, pp: 25, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 46 });
+add({ id: 'spiderweb', name: 'Spider Web', type: 'Bug', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'mindreader', name: 'Mind Reader', type: 'Normal', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'nightmare', name: 'Nightmare', type: 'Ghost', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'flamewheel', name: 'Flame Wheel', type: 'Fire', power: 60, acc: 100, pp: 25, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: ['contact'], tm: -1 });
+add({ id: 'snore', name: 'Snore', type: 'Normal', power: 50, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: ['sound'], tm: -1 });
+add({ id: 'curse', name: 'Curse', type: 'Ghost', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'flail', name: 'Flail', type: 'Normal', power: 0, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'lowHp' });
+add({ id: 'conversion2', name: 'Conversion 2', type: 'Normal', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'aeroblast', name: 'Aeroblast', type: 'Flying', power: 100, acc: 95, pp: 5, cls: 'special', priority: 0, crit: 1, effect: null, flags: [], tm: -1 });
+add({ id: 'cottonspore', name: 'Cotton Spore', type: 'Grass', power: 0, acc: 100, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -2 }, flags: ['powder'], tm: -1 });
+add({ id: 'reversal', name: 'Reversal', type: 'Fighting', power: 0, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'lowHp' });
+add({ id: 'spite', name: 'Spite', type: 'Ghost', power: 0, acc: 100, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'powdersnow', name: 'Powder Snow', type: 'Ice', power: 40, acc: 100, pp: 25, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'FRZ', chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'protect', name: 'Protect', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 4, crit: 0, effect: null, flags: [], tm: 17 });
+add({ id: 'machpunch', name: 'Mach Punch', type: 'Fighting', power: 40, acc: 100, pp: 30, cls: 'physical', priority: 1, crit: 0, effect: null, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'scaryface', name: 'Scary Face', type: 'Normal', power: 0, acc: 100, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -2 }, flags: [], tm: -1 });
+add({ id: 'feintattack', name: 'Feint Attack', type: 'Dark', power: 60, acc: 0, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'sweetkiss', name: 'Sweet Kiss', type: 'Fairy', power: 0, acc: 75, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF' }, flags: [], tm: -1 });
+add({ id: 'bellydrum', name: 'Belly Drum', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'sludgebomb', name: 'Sludge Bomb', type: 'Poison', power: 90, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN', chance: 0.3 }, flags: [], tm: 36 });
+add({ id: 'mudslap', name: 'Mud-Slap', type: 'Ground', power: 20, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1, chance: 1.0 }, flags: [], tm: -1 });
+add({ id: 'octazooka', name: 'Octazooka', type: 'Water', power: 65, acc: 85, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1, chance: 0.5 }, flags: [], tm: -1 });
+add({ id: 'spikes', name: 'Spikes', type: 'Ground', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'zapcannon', name: 'Zap Cannon', type: 'Electric', power: 120, acc: 50, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 1.0 }, flags: [], tm: -1 });
+add({ id: 'foresight', name: 'Foresight', type: 'Normal', power: 0, acc: 0, pp: 40, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'destinybond', name: 'Destiny Bond', type: 'Ghost', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'perishsong', name: 'Perish Song', type: 'Normal', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: ['sound'], tm: -1 });
+add({ id: 'icywind', name: 'Icy Wind', type: 'Ice', power: 55, acc: 95, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 1.0 }, flags: [], tm: -1 });
+add({ id: 'detect', name: 'Detect', type: 'Fighting', power: 0, acc: 0, pp: 5, cls: 'status', priority: 4, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'bonerush', name: 'Bone Rush', type: 'Ground', power: 25, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: [], tm: -1 });
+add({ id: 'lockon', name: 'Lock-On', type: 'Normal', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'outrage', name: 'Outrage', type: 'Dragon', power: 120, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'sandstorm', name: 'Sandstorm', type: 'Rock', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 37 });
+add({ id: 'gigadrain', name: 'Giga Drain', type: 'Grass', power: 75, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'drain', fraction: 0.5 }, flags: [], tm: 19 });
+add({ id: 'endure', name: 'Endure', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 4, crit: 0, effect: null, flags: [], tm: 58 });
+add({ id: 'charm', name: 'Charm', type: 'Fairy', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'atk', stages: -2 }, flags: [], tm: -1 });
+add({ id: 'rollout', name: 'Rollout', type: 'Rock', power: 30, acc: 90, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'falseswipe', name: 'False Swipe', type: 'Normal', power: 40, acc: 100, pp: 40, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 54 });
+add({ id: 'swagger', name: 'Swagger', type: 'Normal', power: 0, acc: 85, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF' }, flags: [], tm: 87 });
+add({ id: 'milkdrink', name: 'Milk Drink', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'spark', name: 'Spark', type: 'Electric', power: 65, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'furycutter', name: 'Fury Cutter', type: 'Bug', power: 40, acc: 95, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'steelwing', name: 'Steel Wing', type: 'Steel', power: 70, acc: 90, pp: 25, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'def', stages: 1, chance: 0.1 }, flags: ['contact'], tm: 47 });
+add({ id: 'meanlook', name: 'Mean Look', type: 'Normal', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'attract', name: 'Attract', type: 'Normal', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 45 });
+add({ id: 'sleeptalk', name: 'Sleep Talk', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 82 });
+add({ id: 'healbell', name: 'Heal Bell', type: 'Normal', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: ['sound'], tm: -1 });
+add({ id: 'return', name: 'Return', type: 'Normal', power: 0, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 27, variable: 'friendship' });
+add({ id: 'frustration', name: 'Frustration', type: 'Normal', power: 0, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 21, variable: 'frustrationRev' });
+add({ id: 'safeguard', name: 'Safeguard', type: 'Normal', power: 0, acc: 0, pp: 25, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 20 });
+add({ id: 'painsplit', name: 'Pain Split', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'sacredfire', name: 'Sacred Fire', type: 'Fire', power: 100, acc: 95, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.5 }, flags: [], tm: -1 });
+add({ id: 'magnitude', name: 'Magnitude', type: 'Ground', power: 0, acc: 100, pp: 30, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1, variable: 'magnitude' });
+add({ id: 'dynamicpunch', name: 'Dynamic Punch', type: 'Fighting', power: 100, acc: 50, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF', chance: 1.0 }, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'megahorn', name: 'Megahorn', type: 'Bug', power: 120, acc: 85, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'dragonbreath', name: 'Dragon Breath', type: 'Dragon', power: 60, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'batonpass', name: 'Baton Pass', type: 'Normal', power: 0, acc: 0, pp: 40, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'encore', name: 'Encore', type: 'Normal', power: 0, acc: 100, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'pursuit', name: 'Pursuit', type: 'Dark', power: 40, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'rapidspin', name: 'Rapid Spin', type: 'Normal', power: 50, acc: 100, pp: 40, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'spe', stages: 1, chance: 1.0 }, flags: ['contact'], tm: -1 });
+add({ id: 'sweetscent', name: 'Sweet Scent', type: 'Normal', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'eva', stages: -2 }, flags: [], tm: -1 });
+add({ id: 'irontail', name: 'Iron Tail', type: 'Steel', power: 100, acc: 75, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1, chance: 0.3 }, flags: ['contact'], tm: 23 });
+add({ id: 'metalclaw', name: 'Metal Claw', type: 'Steel', power: 50, acc: 95, pp: 35, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'atk', stages: 1, chance: 0.1 }, flags: ['contact'], tm: -1 });
+add({ id: 'vitalthrow', name: 'Vital Throw', type: 'Fighting', power: 70, acc: 0, pp: 10, cls: 'physical', priority: -1, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'morningsun', name: 'Morning Sun', type: 'Normal', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'synthesis', name: 'Synthesis', type: 'Grass', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'moonlight', name: 'Moonlight', type: 'Fairy', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'hiddenpower', name: 'Hidden Power', type: 'Normal', power: 60, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: 10 });
+add({ id: 'crosschop', name: 'Cross Chop', type: 'Fighting', power: 100, acc: 80, pp: 5, cls: 'physical', priority: 0, crit: 1, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'twister', name: 'Twister', type: 'Dragon', power: 40, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.2 }, flags: [], tm: -1 });
+add({ id: 'raindance', name: 'Rain Dance', type: 'Water', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 18 });
+add({ id: 'sunnyday', name: 'Sunny Day', type: 'Fire', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 11 });
+add({ id: 'crunch', name: 'Crunch', type: 'Dark', power: 80, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1, chance: 0.2 }, flags: ['bite', 'contact'], tm: -1 });
+add({ id: 'mirrorcoat', name: 'Mirror Coat', type: 'Psychic', power: 0, acc: 100, pp: 20, cls: 'special', priority: -5, crit: 0, effect: null, flags: [], tm: -1, variable: 'mirrorcoat' });
+add({ id: 'psychup', name: 'Psych Up', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 77 });
+add({ id: 'extremespeed', name: 'Extreme Speed', type: 'Normal', power: 80, acc: 100, pp: 5, cls: 'physical', priority: 2, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'ancientpower', name: 'Ancient Power', type: 'Rock', power: 60, acc: 100, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'self', stats: ['atk', 'def', 'spa', 'spd', 'spe'], stages: 1 }, flags: [], tm: -1 });
+add({ id: 'shadowball', name: 'Shadow Ball', type: 'Ghost', power: 80, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.2 }, flags: [], tm: 30 });
+add({ id: 'futuresight', name: 'Future Sight', type: 'Psychic', power: 120, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'rocksmash', name: 'Rock Smash', type: 'Fighting', power: 40, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1, chance: 0.5 }, flags: ['contact'], tm: 106 });
+add({ id: 'whirlpool', name: 'Whirlpool', type: 'Water', power: 35, acc: 85, pp: 15, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'fakeout', name: 'Fake Out', type: 'Normal', power: 40, acc: 100, pp: 10, cls: 'physical', priority: 3, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 1.0 }, flags: ['contact'], tm: -1 });
+add({ id: 'uproar', name: 'Uproar', type: 'Normal', power: 90, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: ['sound'], tm: -1 });
+add({ id: 'stockpile', name: 'Stockpile', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'swallow', name: 'Swallow', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.25 }, flags: [], tm: -1 });
+add({ id: 'heatwave', name: 'Heat Wave', type: 'Fire', power: 95, acc: 90, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'hail', name: 'Hail', type: 'Ice', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 7 });
+add({ id: 'torment', name: 'Torment', type: 'Dark', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 41 });
+add({ id: 'flatter', name: 'Flatter', type: 'Dark', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF' }, flags: [], tm: -1 });
+add({ id: 'willowisp', name: 'Will-O-Wisp', type: 'Fire', power: 0, acc: 85, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN' }, flags: [], tm: 61 });
+add({ id: 'memento', name: 'Memento', type: 'Dark', power: 0, acc: 100, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'facade', name: 'Facade', type: 'Normal', power: 70, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 42 });
+add({ id: 'focuspunch', name: 'Focus Punch', type: 'Fighting', power: 150, acc: 100, pp: 20, cls: 'physical', priority: -3, crit: 0, effect: null, flags: ['contact', 'punch'], tm: 1 });
+add({ id: 'smellingsalts', name: 'Smelling Salts', type: 'Normal', power: 70, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'followme', name: 'Follow Me', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 2, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'naturepower', name: 'Nature Power', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'charge', name: 'Charge', type: 'Electric', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'spd', stages: 1 }, flags: [], tm: -1 });
+add({ id: 'taunt', name: 'Taunt', type: 'Dark', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 12 });
+add({ id: 'helpinghand', name: 'Helping Hand', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 5, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'trick', name: 'Trick', type: 'Psychic', power: 0, acc: 100, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'roleplay', name: 'Role Play', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'wish', name: 'Wish', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'assist', name: 'Assist', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'ingrain', name: 'Ingrain', type: 'Grass', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'superpower', name: 'Superpower', type: 'Fighting', power: 120, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'foe', stats: ['atk', 'def'], stages: -1 }, flags: ['contact'], tm: -1 });
+add({ id: 'magiccoat', name: 'Magic Coat', type: 'Psychic', power: 0, acc: 0, pp: 15, cls: 'status', priority: 4, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'recycle', name: 'Recycle', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 67 });
+add({ id: 'revenge', name: 'Revenge', type: 'Fighting', power: 60, acc: 100, pp: 10, cls: 'physical', priority: -4, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'brickbreak', name: 'Brick Break', type: 'Fighting', power: 75, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 31 });
+add({ id: 'yawn', name: 'Yawn', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'knockoff', name: 'Knock Off', type: 'Dark', power: 65, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'endeavor', name: 'Endeavor', type: 'Normal', power: 0, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'endeavor' });
+add({ id: 'eruption', name: 'Eruption', type: 'Fire', power: 150, acc: 100, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'skillswap', name: 'Skill Swap', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 48 });
+add({ id: 'imprison', name: 'Imprison', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'refresh', name: 'Refresh', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'grudge', name: 'Grudge', type: 'Ghost', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'snatch', name: 'Snatch', type: 'Dark', power: 0, acc: 0, pp: 10, cls: 'status', priority: 4, crit: 0, effect: null, flags: [], tm: 49 });
+add({ id: 'secretpower', name: 'Secret Power', type: 'Normal', power: 70, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: 43 });
+add({ id: 'dive', name: 'Dive', type: 'Water', power: 80, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'armthrust', name: 'Arm Thrust', type: 'Fighting', power: 15, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: ['contact'], tm: -1 });
+add({ id: 'camouflage', name: 'Camouflage', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'tailglow', name: 'Tail Glow', type: 'Bug', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'spa', stages: 3 }, flags: [], tm: -1 });
+add({ id: 'lusterpurge', name: 'Luster Purge', type: 'Psychic', power: 70, acc: 100, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.5 }, flags: [], tm: -1 });
+add({ id: 'mistball', name: 'Mist Ball', type: 'Psychic', power: 70, acc: 100, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spa', stages: -1, chance: 0.5 }, flags: [], tm: -1 });
+add({ id: 'featherdance', name: 'Feather Dance', type: 'Flying', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'atk', stages: -2 }, flags: [], tm: -1 });
+add({ id: 'teeterdance', name: 'Teeter Dance', type: 'Normal', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF' }, flags: [], tm: -1 });
+add({ id: 'blazekick', name: 'Blaze Kick', type: 'Fire', power: 85, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 1, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: ['contact'], tm: -1 });
+add({ id: 'mudsport', name: 'Mud Sport', type: 'Ground', power: 0, acc: 0, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'iceball', name: 'Ice Ball', type: 'Ice', power: 30, acc: 90, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'needlearm', name: 'Needle Arm', type: 'Grass', power: 60, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'slackoff', name: 'Slack Off', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'hypervoice', name: 'Hyper Voice', type: 'Normal', power: 90, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: ['sound'], tm: -1 });
+add({ id: 'poisonfang', name: 'Poison Fang', type: 'Poison', power: 50, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN', chance: 0.5 }, flags: ['bite', 'contact'], tm: -1 });
+add({ id: 'crushclaw', name: 'Crush Claw', type: 'Normal', power: 75, acc: 95, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1, chance: 0.5 }, flags: ['contact'], tm: -1 });
+add({ id: 'blastburn', name: 'Blast Burn', type: 'Fire', power: 150, acc: 90, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'hydrocannon', name: 'Hydro Cannon', type: 'Water', power: 150, acc: 90, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'meteormash', name: 'Meteor Mash', type: 'Steel', power: 90, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'atk', stages: 1, chance: 0.2 }, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'astonish', name: 'Astonish', type: 'Ghost', power: 30, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'weatherball', name: 'Weather Ball', type: 'Normal', power: 50, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'aromatherapy', name: 'Aromatherapy', type: 'Grass', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'faketears', name: 'Fake Tears', type: 'Dark', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -2 }, flags: [], tm: -1 });
+add({ id: 'aircutter', name: 'Air Cutter', type: 'Flying', power: 60, acc: 95, pp: 25, cls: 'special', priority: 0, crit: 1, effect: null, flags: [], tm: -1 });
+add({ id: 'overheat', name: 'Overheat', type: 'Fire', power: 130, acc: 90, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spa', stages: -2, chance: 1.0 }, flags: [], tm: 50 });
+add({ id: 'odorsleuth', name: 'Odor Sleuth', type: 'Normal', power: 0, acc: 0, pp: 40, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'rocktomb', name: 'Rock Tomb', type: 'Rock', power: 60, acc: 95, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 1.0 }, flags: [], tm: 39 });
+add({ id: 'silverwind', name: 'Silver Wind', type: 'Bug', power: 60, acc: 100, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'self', stats: ['atk', 'def', 'spa', 'spd', 'spe'], stages: 1 }, flags: [], tm: 62 });
+add({ id: 'metalsound', name: 'Metal Sound', type: 'Steel', power: 0, acc: 85, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -2 }, flags: ['sound'], tm: -1 });
+add({ id: 'grasswhistle', name: 'Grass Whistle', type: 'Grass', power: 0, acc: 55, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'SLP' }, flags: ['sound'], tm: -1 });
+add({ id: 'tickle', name: 'Tickle', type: 'Normal', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'foe', stats: ['atk', 'def'], stages: -1 }, flags: [], tm: -1 });
+add({ id: 'cosmicpower', name: 'Cosmic Power', type: 'Psychic', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'self', stats: ['def', 'spd'], stages: 1 }, flags: [], tm: -1 });
+add({ id: 'waterspout', name: 'Water Spout', type: 'Water', power: 150, acc: 100, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'signalbeam', name: 'Signal Beam', type: 'Bug', power: 75, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF', chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'shadowpunch', name: 'Shadow Punch', type: 'Ghost', power: 60, acc: 0, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'extrasensory', name: 'Extrasensory', type: 'Psychic', power: 80, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'skyuppercut', name: 'Sky Uppercut', type: 'Fighting', power: 85, acc: 90, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'sandtomb', name: 'Sand Tomb', type: 'Ground', power: 35, acc: 85, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'sheercold', name: 'Sheer Cold', type: 'Ice', power: 0, acc: 30, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1, variable: 'ohko' });
+add({ id: 'muddywater', name: 'Muddy Water', type: 'Water', power: 90, acc: 85, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1, chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'bulletseed', name: 'Bullet Seed', type: 'Grass', power: 25, acc: 100, pp: 30, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: [], tm: 9 });
+add({ id: 'aerialace', name: 'Aerial Ace', type: 'Flying', power: 60, acc: 0, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 40 });
+add({ id: 'iciclespear', name: 'Icicle Spear', type: 'Ice', power: 25, acc: 100, pp: 30, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: [], tm: -1 });
+add({ id: 'irondefense', name: 'Iron Defense', type: 'Steel', power: 0, acc: 0, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'def', stages: 2 }, flags: [], tm: -1 });
+add({ id: 'block', name: 'Block', type: 'Normal', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'howl', name: 'Howl', type: 'Normal', power: 0, acc: 0, pp: 40, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'atk', stages: 1 }, flags: ['sound'], tm: -1 });
+add({ id: 'dragonclaw', name: 'Dragon Claw', type: 'Dragon', power: 80, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 2 });
+add({ id: 'frenzyplant', name: 'Frenzy Plant', type: 'Grass', power: 150, acc: 90, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'bulkup', name: 'Bulk Up', type: 'Fighting', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'self', stats: ['atk', 'def'], stages: 1 }, flags: [], tm: 8 });
+add({ id: 'bounce', name: 'Bounce', type: 'Flying', power: 85, acc: 85, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'mudshot', name: 'Mud Shot', type: 'Ground', power: 55, acc: 95, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 1.0 }, flags: [], tm: -1 });
+add({ id: 'poisontail', name: 'Poison Tail', type: 'Poison', power: 50, acc: 100, pp: 25, cls: 'physical', priority: 0, crit: 1, effect: { kind: 'status', status: 'PSN', chance: 0.1 }, flags: ['contact'], tm: -1 });
+add({ id: 'covet', name: 'Covet', type: 'Normal', power: 60, acc: 100, pp: 25, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'volttackle', name: 'Volt Tackle', type: 'Electric', power: 120, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'recoil', fraction: 0.33 }, flags: ['contact'], tm: -1 });
+add({ id: 'magicalleaf', name: 'Magical Leaf', type: 'Grass', power: 60, acc: 0, pp: 20, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'watersport', name: 'Water Sport', type: 'Water', power: 0, acc: 0, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'calmmind', name: 'Calm Mind', type: 'Psychic', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'self', stats: ['spa', 'spd'], stages: 1 }, flags: [], tm: 4 });
+add({ id: 'leafblade', name: 'Leaf Blade', type: 'Grass', power: 90, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 1, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'dragondance', name: 'Dragon Dance', type: 'Dragon', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'self', stats: ['atk', 'spe'], stages: 1 }, flags: [], tm: -1 });
+add({ id: 'rockblast', name: 'Rock Blast', type: 'Rock', power: 25, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: [], tm: -1 });
+add({ id: 'shockwave', name: 'Shock Wave', type: 'Electric', power: 60, acc: 0, pp: 20, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: 34 });
+add({ id: 'waterpulse', name: 'Water Pulse', type: 'Water', power: 60, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF', chance: 0.2 }, flags: ['pulse'], tm: 3 });
+add({ id: 'doomdesire', name: 'Doom Desire', type: 'Steel', power: 140, acc: 100, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'psychoboost', name: 'Psycho Boost', type: 'Psychic', power: 140, acc: 90, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spa', stages: -2, chance: 1.0 }, flags: [], tm: -1 });
+add({ id: 'roost', name: 'Roost', type: 'Flying', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.5 }, flags: [], tm: 51 });
+add({ id: 'gravity', name: 'Gravity', type: 'Psychic', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'miracleeye', name: 'Miracle Eye', type: 'Psychic', power: 0, acc: 0, pp: 40, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'wakeupslap', name: 'Wake-Up Slap', type: 'Fighting', power: 70, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'hammerarm', name: 'Hammer Arm', type: 'Fighting', power: 100, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 1.0 }, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'gyroball', name: 'Gyro Ball', type: 'Steel', power: 0, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 74, variable: 'gyroball' });
+add({ id: 'healingwish', name: 'Healing Wish', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'brine', name: 'Brine', type: 'Water', power: 65, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: 55 });
+add({ id: 'feint', name: 'Feint', type: 'Normal', power: 30, acc: 100, pp: 10, cls: 'physical', priority: 2, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'pluck', name: 'Pluck', type: 'Flying', power: 60, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 88 });
+add({ id: 'tailwind', name: 'Tailwind', type: 'Flying', power: 0, acc: 0, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'acupressure', name: 'Acupressure', type: 'Normal', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'metalburst', name: 'Metal Burst', type: 'Steel', power: 0, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1, variable: 'metalburst' });
+add({ id: 'uturn', name: 'U-turn', type: 'Bug', power: 70, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 89 });
+add({ id: 'closecombat', name: 'Close Combat', type: 'Fighting', power: 120, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'foe', stats: ['def', 'spd'], stages: -1 }, flags: ['contact'], tm: -1 });
+add({ id: 'payback', name: 'Payback', type: 'Dark', power: 50, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 66 });
+add({ id: 'assurance', name: 'Assurance', type: 'Dark', power: 60, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'embargo', name: 'Embargo', type: 'Dark', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 63 });
+add({ id: 'psychoshift', name: 'Psycho Shift', type: 'Psychic', power: 0, acc: 100, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'healblock', name: 'Heal Block', type: 'Psychic', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'wringout', name: 'Wring Out', type: 'Normal', power: 0, acc: 100, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'targetHp' });
+add({ id: 'powertrick', name: 'Power Trick', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'gastroacid', name: 'Gastro Acid', type: 'Poison', power: 0, acc: 100, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'luckychant', name: 'Lucky Chant', type: 'Normal', power: 0, acc: 0, pp: 30, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'mefirst', name: 'Me First', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'copycat', name: 'Copycat', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'powerswap', name: 'Power Swap', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'guardswap', name: 'Guard Swap', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'punishment', name: 'Punishment', type: 'Dark', power: 0, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'punishment' });
+add({ id: 'lastresort', name: 'Last Resort', type: 'Normal', power: 140, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'worryseed', name: 'Worry Seed', type: 'Grass', power: 0, acc: 100, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'suckerpunch', name: 'Sucker Punch', type: 'Dark', power: 70, acc: 100, pp: 5, cls: 'physical', priority: 1, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'toxicspikes', name: 'Toxic Spikes', type: 'Poison', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'heartswap', name: 'Heart Swap', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'aquaring', name: 'Aqua Ring', type: 'Water', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'magnetrise', name: 'Magnet Rise', type: 'Electric', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'flareblitz', name: 'Flare Blitz', type: 'Fire', power: 120, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'recoil', fraction: 0.33 }, flags: ['contact'], tm: -1 });
+add({ id: 'forcepalm', name: 'Force Palm', type: 'Fighting', power: 60, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'aurasphere', name: 'Aura Sphere', type: 'Fighting', power: 80, acc: 0, pp: 20, cls: 'special', priority: 0, crit: 0, effect: null, flags: ['pulse'], tm: -1 });
+add({ id: 'rockpolish', name: 'Rock Polish', type: 'Rock', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'spe', stages: 2 }, flags: [], tm: 69 });
+add({ id: 'poisonjab', name: 'Poison Jab', type: 'Poison', power: 80, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN', chance: 0.3 }, flags: ['contact'], tm: 84 });
+add({ id: 'darkpulse', name: 'Dark Pulse', type: 'Dark', power: 80, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.2 }, flags: ['pulse'], tm: 79 });
+add({ id: 'nightslash', name: 'Night Slash', type: 'Dark', power: 70, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 1, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'aquatail', name: 'Aqua Tail', type: 'Water', power: 90, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'seedbomb', name: 'Seed Bomb', type: 'Grass', power: 80, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'airslash', name: 'Air Slash', type: 'Flying', power: 75, acc: 95, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'xscissor', name: 'X-Scissor', type: 'Bug', power: 80, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 81 });
+add({ id: 'bugbuzz', name: 'Bug Buzz', type: 'Bug', power: 90, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, flags: ['sound'], tm: -1 });
+add({ id: 'dragonpulse', name: 'Dragon Pulse', type: 'Dragon', power: 85, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: ['pulse'], tm: 59 });
+add({ id: 'dragonrush', name: 'Dragon Rush', type: 'Dragon', power: 100, acc: 75, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.2 }, flags: ['contact'], tm: -1 });
+add({ id: 'powergem', name: 'Power Gem', type: 'Rock', power: 80, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'drainpunch', name: 'Drain Punch', type: 'Fighting', power: 75, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'drain', fraction: 0.5 }, flags: ['contact', 'punch'], tm: 60 });
+add({ id: 'vacuumwave', name: 'Vacuum Wave', type: 'Fighting', power: 40, acc: 100, pp: 30, cls: 'special', priority: 1, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'focusblast', name: 'Focus Blast', type: 'Fighting', power: 120, acc: 70, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, flags: [], tm: 52 });
+add({ id: 'energyball', name: 'Energy Ball', type: 'Grass', power: 90, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, flags: [], tm: 53 });
+add({ id: 'bravebird', name: 'Brave Bird', type: 'Flying', power: 120, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'recoil', fraction: 0.33 }, flags: ['contact'], tm: -1 });
+add({ id: 'earthpower', name: 'Earth Power', type: 'Ground', power: 90, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, flags: [], tm: -1 });
+add({ id: 'switcheroo', name: 'Switcheroo', type: 'Dark', power: 0, acc: 100, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'gigaimpact', name: 'Giga Impact', type: 'Normal', power: 150, acc: 90, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 68 });
+add({ id: 'nastyplot', name: 'Nasty Plot', type: 'Dark', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'spa', stages: 2 }, flags: [], tm: -1 });
+add({ id: 'bulletpunch', name: 'Bullet Punch', type: 'Steel', power: 40, acc: 100, pp: 30, cls: 'physical', priority: 1, crit: 0, effect: null, flags: ['contact', 'punch'], tm: -1 });
+add({ id: 'avalanche', name: 'Avalanche', type: 'Ice', power: 60, acc: 100, pp: 10, cls: 'physical', priority: -4, crit: 0, effect: null, flags: ['contact'], tm: 72 });
+add({ id: 'iceshard', name: 'Ice Shard', type: 'Ice', power: 40, acc: 100, pp: 30, cls: 'physical', priority: 1, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'shadowclaw', name: 'Shadow Claw', type: 'Ghost', power: 70, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 1, effect: null, flags: ['contact'], tm: 65 });
+add({ id: 'thunderfang', name: 'Thunder Fang', type: 'Electric', power: 65, acc: 95, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.1 }, flags: ['bite', 'contact'], tm: -1 });
+add({ id: 'icefang', name: 'Ice Fang', type: 'Ice', power: 65, acc: 95, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'FRZ', chance: 0.1 }, flags: ['bite', 'contact'], tm: -1 });
+add({ id: 'firefang', name: 'Fire Fang', type: 'Fire', power: 65, acc: 95, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: ['bite', 'contact'], tm: -1 });
+add({ id: 'shadowsneak', name: 'Shadow Sneak', type: 'Ghost', power: 40, acc: 100, pp: 30, cls: 'physical', priority: 1, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'mudbomb', name: 'Mud Bomb', type: 'Ground', power: 65, acc: 85, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1, chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'psychocut', name: 'Psycho Cut', type: 'Psychic', power: 70, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 1, effect: null, flags: [], tm: -1 });
+add({ id: 'zenheadbutt', name: 'Zen Headbutt', type: 'Psychic', power: 80, acc: 90, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.2 }, flags: ['contact'], tm: -1 });
+add({ id: 'mirrorshot', name: 'Mirror Shot', type: 'Steel', power: 65, acc: 85, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1, chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'flashcannon', name: 'Flash Cannon', type: 'Steel', power: 80, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, flags: [], tm: 91 });
+add({ id: 'rockclimb', name: 'Rock Climb', type: 'Normal', power: 90, acc: 85, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF', chance: 0.2 }, flags: ['contact'], tm: 108 });
+add({ id: 'defog', name: 'Defog', type: 'Flying', power: 0, acc: 0, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 105 });
+add({ id: 'trickroom', name: 'Trick Room', type: 'Psychic', power: 0, acc: 0, pp: 5, cls: 'status', priority: -7, crit: 0, effect: null, flags: [], tm: 92 });
+add({ id: 'dracometeor', name: 'Draco Meteor', type: 'Dragon', power: 130, acc: 90, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spa', stages: -2, chance: 1.0 }, flags: [], tm: -1 });
+add({ id: 'discharge', name: 'Discharge', type: 'Electric', power: 80, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'PAR', chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'lavaplume', name: 'Lava Plume', type: 'Fire', power: 80, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'leafstorm', name: 'Leaf Storm', type: 'Grass', power: 130, acc: 90, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spa', stages: -2, chance: 1.0 }, flags: [], tm: -1 });
+add({ id: 'powerwhip', name: 'Power Whip', type: 'Grass', power: 120, acc: 85, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'rockwrecker', name: 'Rock Wrecker', type: 'Rock', power: 150, acc: 90, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'crosspoison', name: 'Cross Poison', type: 'Poison', power: 70, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 1, effect: { kind: 'status', status: 'PSN', chance: 0.1 }, flags: ['contact'], tm: -1 });
+add({ id: 'gunkshot', name: 'Gunk Shot', type: 'Poison', power: 120, acc: 80, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'PSN', chance: 0.3 }, flags: [], tm: -1 });
+add({ id: 'ironhead', name: 'Iron Head', type: 'Steel', power: 80, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.3 }, flags: ['contact'], tm: -1 });
+add({ id: 'magnetbomb', name: 'Magnet Bomb', type: 'Steel', power: 60, acc: 0, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'stoneedge', name: 'Stone Edge', type: 'Rock', power: 100, acc: 80, pp: 5, cls: 'physical', priority: 0, crit: 1, effect: null, flags: [], tm: 71 });
+add({ id: 'captivate', name: 'Captivate', type: 'Normal', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spa', stages: -2 }, flags: [], tm: 78 });
+add({ id: 'stealthrock', name: 'Stealth Rock', type: 'Rock', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 76 });
+add({ id: 'grassknot', name: 'Grass Knot', type: 'Grass', power: 0, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: 86, variable: 'weight' });
+add({ id: 'chatter', name: 'Chatter', type: 'Flying', power: 65, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF', chance: 1.0 }, flags: ['sound'], tm: -1 });
+add({ id: 'judgment', name: 'Judgment', type: 'Normal', power: 100, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'bugbite', name: 'Bug Bite', type: 'Bug', power: 60, acc: 100, pp: 20, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'chargebeam', name: 'Charge Beam', type: 'Electric', power: 50, acc: 90, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'self', stat: 'spa', stages: 1, chance: 0.7 }, flags: [], tm: 57 });
+add({ id: 'woodhammer', name: 'Wood Hammer', type: 'Grass', power: 120, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'recoil', fraction: 0.33 }, flags: ['contact'], tm: -1 });
+add({ id: 'aquajet', name: 'Aqua Jet', type: 'Water', power: 40, acc: 100, pp: 20, cls: 'physical', priority: 1, crit: 0, effect: null, flags: ['contact'], tm: -1 });
+add({ id: 'attackorder', name: 'Attack Order', type: 'Bug', power: 90, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 1, effect: null, flags: [], tm: -1 });
+add({ id: 'defendorder', name: 'Defend Order', type: 'Bug', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'self', stats: ['def', 'spd'], stages: 1 }, flags: [], tm: -1 });
+add({ id: 'healorder', name: 'Heal Order', type: 'Bug', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.5 }, flags: [], tm: -1 });
+add({ id: 'headsmash', name: 'Head Smash', type: 'Rock', power: 150, acc: 80, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'recoil', fraction: 0.5 }, flags: ['contact'], tm: -1 });
+add({ id: 'doublehit', name: 'Double Hit', type: 'Normal', power: 35, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 2 }, flags: ['contact'], tm: -1 });
+add({ id: 'roaroftime', name: 'Roar of Time', type: 'Dragon', power: 150, acc: 90, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'spacialrend', name: 'Spacial Rend', type: 'Dragon', power: 100, acc: 95, pp: 5, cls: 'special', priority: 0, crit: 1, effect: null, flags: [], tm: -1 });
+add({ id: 'lunardance', name: 'Lunar Dance', type: 'Psychic', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'crushgrip', name: 'Crush Grip', type: 'Normal', power: 0, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1, variable: 'targetHp' });
+add({ id: 'magmastorm', name: 'Magma Storm', type: 'Fire', power: 100, acc: 75, pp: 5, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
+add({ id: 'darkvoid', name: 'Dark Void', type: 'Dark', power: 0, acc: 50, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'SLP' }, flags: [], tm: -1 });
+add({ id: 'seedflare', name: 'Seed Flare', type: 'Grass', power: 120, acc: 85, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -2, chance: 0.4 }, flags: [], tm: -1 });
+add({ id: 'ominouswind', name: 'Ominous Wind', type: 'Ghost', power: 60, acc: 100, pp: 5, cls: 'special', priority: 0, crit: 0, effect: { kind: 'multistat', target: 'self', stats: ['atk', 'def', 'spa', 'spd', 'spe'], stages: 1 }, flags: [], tm: -1 });
+add({ id: 'shadowforce', name: 'Shadow Force', type: 'Ghost', power: 120, acc: 100, pp: 5, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
 
-// ---- Fire ------------------------------------------------------------
-add('ember', 'Ember', 'Fire', 40, 100, 25, { effect: { kind: 'status', status: 'BRN', chance: 0.1 }, desc: 'A small flame. May burn.' });
-add('flamewheel', 'Flame Wheel', 'Fire', 60, 100, 25, { flags: ['contact'], effect: { kind: 'status', status: 'BRN', chance: 0.1 }, desc: 'A fiery charge. May burn.' });
-add('firefang', 'Fire Fang', 'Fire', 65, 95, 15, { flags: ['contact'], effect: { kind: 'status', status: 'BRN', chance: 0.1 }, desc: 'Bites with flaming fangs.' });
-add('flamethrower', 'Flamethrower', 'Fire', 90, 100, 15, { effect: { kind: 'status', status: 'BRN', chance: 0.1 }, desc: 'A searing jet of flame.' });
-add('fireblast', 'Fire Blast', 'Fire', 110, 85, 5, { effect: { kind: 'status', status: 'BRN', chance: 0.1 }, desc: 'An all-consuming blast.' });
-add('flareblitz', 'Flare Blitz', 'Fire', 120, 100, 15, { flags: ['contact'], effect: { kind: 'recoil', fraction: 0.33 }, desc: 'A cloaked-in-fire charge that hurts the user.' });
-add('willowisp', 'Will-O-Wisp', 'Fire', 0, 85, 15, { effect: { kind: 'status', status: 'BRN', chance: 1 }, desc: 'Sinister flames that burn the foe.' });
-
-// ---- Water -----------------------------------------------------------
-add('watergun', 'Water Gun', 'Water', 40, 100, 25, { desc: 'Squirts water to attack.' });
-add('bubble', 'Bubble', 'Water', 40, 100, 30, { effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 0.1 }, desc: 'A spray of bubbles. May lower Speed.' });
-add('bubblebeam', 'Bubble Beam', 'Water', 65, 100, 20, { effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 0.1 }, desc: 'A forceful spray. May lower Speed.' });
-add('aquajet', 'Aqua Jet', 'Water', 40, 100, 20, { priority: 1, flags: ['contact'], desc: 'Strikes first at blinding speed.' });
-add('brine', 'Brine', 'Water', 65, 100, 10, { desc: 'Doubles in power if the foe is weakened.' });
-add('surf', 'Surf', 'Water', 90, 100, 15, { desc: 'A huge wave crashes down.' });
-add('hydropump', 'Hydro Pump', 'Water', 110, 80, 5, { desc: 'A tremendous blast of water.' });
-add('waterpulse', 'Water Pulse', 'Water', 60, 100, 20, { effect: { kind: 'status', status: 'CNF', chance: 0.2 }, desc: 'An ultrasonic pulse. May confuse.' });
-
-// ---- Grass -----------------------------------------------------------
-add('absorb', 'Absorb', 'Grass', 20, 100, 25, { effect: { kind: 'drain', fraction: 0.5 }, desc: 'Drains half the damage dealt.' });
-add('megadrain', 'Mega Drain', 'Grass', 40, 100, 15, { effect: { kind: 'drain', fraction: 0.5 }, desc: 'Drains half the damage dealt.' });
-add('gigadrain', 'Giga Drain', 'Grass', 75, 100, 10, { effect: { kind: 'drain', fraction: 0.5 }, desc: 'Drains half the damage dealt.' });
-add('razorleaf', 'Razor Leaf', 'Grass', 55, 95, 25, { crit: 1, desc: 'Sharp leaves. High critical-hit ratio.' });
-add('magicalleaf', 'Magical Leaf', 'Grass', 60, 0, 20, { desc: 'Glowing leaves that never miss.' });
-add('energyball', 'Energy Ball', 'Grass', 90, 100, 10, { effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, desc: 'A concentrated blast of nature.' });
-add('leafstorm', 'Leaf Storm', 'Grass', 130, 90, 5, { effect: { kind: 'stat', target: 'self', stat: 'spa', stages: -2 }, desc: 'A leaf whirlwind. Harshly lowers Sp. Atk.' });
-add('woodhammer', 'Wood Hammer', 'Grass', 120, 100, 15, { flags: ['contact'], effect: { kind: 'recoil', fraction: 0.33 }, desc: 'Slams with the body. Hurts the user.' });
-add('synthesis', 'Synthesis', 'Grass', 0, 0, 5, { effect: { kind: 'heal', fraction: 0.5 }, desc: 'Restores HP using sunlight.' });
-add('sleeppowder', 'Sleep Powder', 'Grass', 0, 75, 15, { effect: { kind: 'status', status: 'SLP', chance: 1 }, flags: ['powder'], desc: 'Scatters a sleep-inducing dust.' });
-add('stunspore', 'Stun Spore', 'Grass', 0, 75, 30, { effect: { kind: 'status', status: 'PAR', chance: 1 }, flags: ['powder'], desc: 'Scatters a paralysing powder.' });
-add('poisonpowder', 'Poison Powder', 'Poison', 0, 75, 35, { effect: { kind: 'status', status: 'PSN', chance: 1 }, flags: ['powder'], desc: 'Scatters a poisonous dust.' });
-add('worryseed', 'Worry Seed', 'Grass', 0, 100, 10, { effect: { kind: 'stat', target: 'foe', stat: 'spa', stages: -1 }, desc: 'Plants a seed of doubt.' });
-
-// ---- Electric --------------------------------------------------------
-add('thundershock', 'Thunder Shock', 'Electric', 40, 100, 30, { effect: { kind: 'status', status: 'PAR', chance: 0.1 }, desc: 'A jolt that may paralyse.' });
-add('spark', 'Spark', 'Electric', 65, 100, 20, { flags: ['contact'], effect: { kind: 'status', status: 'PAR', chance: 0.3 }, desc: 'An electrified charge. May paralyse.' });
-add('thunderbolt', 'Thunderbolt', 'Electric', 90, 100, 15, { effect: { kind: 'status', status: 'PAR', chance: 0.1 }, desc: 'A strong jolt. May paralyse.' });
-add('discharge', 'Discharge', 'Electric', 80, 100, 15, { effect: { kind: 'status', status: 'PAR', chance: 0.3 }, desc: 'A flare of electricity. May paralyse.' });
-add('thunderwave', 'Thunder Wave', 'Electric', 0, 90, 20, { effect: { kind: 'status', status: 'PAR', chance: 1 }, desc: 'A weak jolt that paralyses.' });
-add('charge', 'Charge', 'Electric', 0, 0, 20, { effect: { kind: 'stat', target: 'self', stat: 'spd', stages: 1 }, desc: 'Charges power and raises Sp. Def.' });
-
-// ---- Ice -------------------------------------------------------------
-add('iceshard', 'Ice Shard', 'Ice', 40, 100, 30, { priority: 1, desc: 'Hurls a chunk of ice. Strikes first.' });
-add('icywind', 'Icy Wind', 'Ice', 55, 95, 15, { effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 1 }, desc: 'A chilling gust that lowers Speed.' });
-add('icefang', 'Ice Fang', 'Ice', 65, 95, 15, { flags: ['contact'], effect: { kind: 'status', status: 'FRZ', chance: 0.1 }, desc: 'Bites with icy fangs. May freeze.' });
-add('icebeam', 'Ice Beam', 'Ice', 90, 100, 10, { effect: { kind: 'status', status: 'FRZ', chance: 0.1 }, desc: 'A freezing beam. May freeze.' });
-add('blizzard', 'Blizzard', 'Ice', 110, 70, 5, { effect: { kind: 'status', status: 'FRZ', chance: 0.1 }, desc: 'A howling snowstorm. May freeze.' });
-add('auroraveil', 'Aurora Beam', 'Ice', 65, 100, 20, { effect: { kind: 'stat', target: 'foe', stat: 'atk', stages: -1, chance: 0.1 }, desc: 'A rainbow beam. May lower Attack.' });
-
-// ---- Fighting --------------------------------------------------------
-add('karatechop', 'Karate Chop', 'Fighting', 50, 100, 25, { crit: 1, flags: ['contact'], desc: 'High critical-hit ratio.' });
-add('lowkick', 'Low Kick', 'Fighting', 55, 100, 20, { flags: ['contact'], desc: 'A kick to the legs.' });
-add('brickbreak', 'Brick Break', 'Fighting', 75, 100, 15, { flags: ['contact'], desc: 'A swift chop.' });
-add('machpunch', 'Mach Punch', 'Fighting', 40, 100, 30, { priority: 1, flags: ['contact', 'punch'], desc: 'A blindingly fast punch.' });
-add('closecombat', 'Close Combat', 'Fighting', 120, 100, 5, { flags: ['contact'], effect: { kind: 'stat', target: 'self', stat: 'def', stages: -1 }, desc: 'An all-out attack that lowers Defense.' });
-add('focusenergy', 'Focus Energy', 'Normal', 0, 0, 30, { effect: { kind: 'focus' }, desc: 'Raises the critical-hit ratio.' });
-add('revenge', 'Revenge', 'Fighting', 60, 100, 10, { flags: ['contact'], desc: 'Hits back with doubled force.' });
-
-// ---- Poison ----------------------------------------------------------
-add('poisonsting', 'Poison Sting', 'Poison', 15, 100, 35, { effect: { kind: 'status', status: 'PSN', chance: 0.3 }, desc: 'A toxic barb. May poison.' });
-add('sludge', 'Sludge', 'Poison', 65, 100, 20, { effect: { kind: 'status', status: 'PSN', chance: 0.3 }, desc: 'Hurls filth. May poison.' });
-add('sludgebomb', 'Sludge Bomb', 'Poison', 90, 100, 10, { effect: { kind: 'status', status: 'PSN', chance: 0.3 }, desc: 'Hurls sludge. May poison.' });
-add('toxic', 'Toxic', 'Poison', 0, 90, 10, { effect: { kind: 'status', status: 'PSN', chance: 1, bad: true }, desc: 'Badly poisons the foe.' });
-add('acid', 'Acid', 'Poison', 40, 100, 30, { effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, desc: 'Sprays acid. May lower Sp. Def.' });
-
-// ---- Ground ----------------------------------------------------------
-add('mudslap', 'Mud-Slap', 'Ground', 20, 100, 10, { effect: { kind: 'stat', target: 'foe', stat: 'acc', stages: -1, chance: 1 }, desc: 'Hurls mud and reduces accuracy.' });
-add('magnitude', 'Magnitude', 'Ground', 70, 100, 30, { desc: 'A quake of random intensity.' });
-add('bulldoze', 'Bulldoze', 'Ground', 60, 100, 20, { effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 1 }, desc: 'Stomps the ground and lowers Speed.' });
-add('earthquake', 'Earthquake', 'Ground', 100, 100, 10, { desc: 'A devastating tremor.' });
-
-// ---- Flying ----------------------------------------------------------
-add('gust', 'Gust', 'Flying', 40, 100, 35, { desc: 'Whips up a gust of wind.' });
-add('peck', 'Peck', 'Flying', 35, 100, 35, { flags: ['contact'], desc: 'Jabs with a beak.' });
-add('wingattack', 'Wing Attack', 'Flying', 60, 100, 35, { flags: ['contact'], desc: 'Strikes with spread wings.' });
-add('aerialace', 'Aerial Ace', 'Flying', 60, 0, 20, { flags: ['contact'], desc: 'An unavoidable speed strike.' });
-add('airslash', 'Air Slash', 'Flying', 75, 95, 15, { effect: { kind: 'status', status: 'flinch', chance: 0.3 }, desc: 'Slices with a blade of air. May flinch.' });
-add('bravebird', 'Brave Bird', 'Flying', 120, 100, 15, { flags: ['contact'], effect: { kind: 'recoil', fraction: 0.33 }, desc: 'A reckless dive that hurts the user.' });
-add('roost', 'Roost', 'Flying', 0, 0, 10, { effect: { kind: 'heal', fraction: 0.5 }, desc: 'Lands and rests to restore HP.' });
-
-// ---- Psychic ---------------------------------------------------------
-add('confusion', 'Confusion', 'Psychic', 50, 100, 25, { effect: { kind: 'status', status: 'CNF', chance: 0.1 }, desc: 'A telekinetic hit. May confuse.' });
-add('psybeam', 'Psybeam', 'Psychic', 65, 100, 20, { effect: { kind: 'status', status: 'CNF', chance: 0.1 }, desc: 'A peculiar ray. May confuse.' });
-add('psychic', 'Psychic', 'Psychic', 90, 100, 10, { effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, desc: 'A strong telekinetic force.' });
-add('calmmind', 'Calm Mind', 'Psychic', 0, 0, 20, { effect: { kind: 'multistat', target: 'self', stats: [['spa', 1], ['spd', 1]] }, desc: 'Raises Sp. Atk and Sp. Def.' });
-add('hypnosis', 'Hypnosis', 'Psychic', 0, 60, 20, { effect: { kind: 'status', status: 'SLP', chance: 1 }, desc: 'Hypnotic suggestion that induces sleep.' });
-add('teleport', 'Teleport', 'Psychic', 0, 0, 20, { priority: -6, effect: { kind: 'flee' }, desc: 'Flees from wild battles.' });
-add('futuresight', 'Future Sight', 'Psychic', 80, 100, 10, { desc: 'A chunk of psychic energy strikes later.' });
-
-// ---- Bug -------------------------------------------------------------
-add('bugbite', 'Bug Bite', 'Bug', 60, 100, 20, { flags: ['contact'], desc: 'Bites with sharp mandibles.' });
-add('furycutter', 'Fury Cutter', 'Bug', 40, 95, 20, { flags: ['contact'], desc: 'Grows stronger each time it hits.' });
-add('strugglebug', 'Struggle Bug', 'Bug', 50, 100, 20, { effect: { kind: 'stat', target: 'foe', stat: 'spa', stages: -1, chance: 1 }, desc: 'Resists and lowers the foe’s Sp. Atk.' });
-add('xscissor', 'X-Scissor', 'Bug', 80, 100, 15, { flags: ['contact'], desc: 'Slashes in a crossing motion.' });
-add('silverwind', 'Silver Wind', 'Bug', 60, 100, 5, { desc: 'A powder-filled wind.' });
-
-// ---- Rock ------------------------------------------------------------
-add('rockthrow', 'Rock Throw', 'Rock', 50, 90, 15, { desc: 'Hurls a small rock.' });
-add('rocktomb', 'Rock Tomb', 'Rock', 60, 95, 15, { effect: { kind: 'stat', target: 'foe', stat: 'spe', stages: -1, chance: 1 }, desc: 'Blocks the foe with rocks and lowers Speed.' });
-add('rockslide', 'Rock Slide', 'Rock', 75, 90, 10, { effect: { kind: 'status', status: 'flinch', chance: 0.3 }, desc: 'Large boulders. May flinch.' });
-add('stoneedge', 'Stone Edge', 'Rock', 100, 80, 5, { crit: 1, desc: 'Sharp stones. High critical-hit ratio.' });
-add('rockpolish', 'Rock Polish', 'Rock', 0, 0, 20, { effect: { kind: 'stat', target: 'self', stat: 'spe', stages: 2 }, desc: 'Polishes the body to sharply raise Speed.' });
-
-// ---- Ghost / Dark ----------------------------------------------------
-add('astonish', 'Astonish', 'Ghost', 30, 100, 15, { flags: ['contact'], effect: { kind: 'status', status: 'flinch', chance: 0.3 }, desc: 'A sudden shout. May flinch.' });
-add('shadowsneak', 'Shadow Sneak', 'Ghost', 40, 100, 30, { priority: 1, flags: ['contact'], desc: 'Strikes first from the shadows.' });
-add('shadowball', 'Shadow Ball', 'Ghost', 80, 100, 15, { effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.2 }, desc: 'Hurls a shadowy blob.' });
-add('bite', 'Bite', 'Dark', 60, 100, 25, { flags: ['contact'], effect: { kind: 'status', status: 'flinch', chance: 0.3 }, desc: 'Bites with sharp fangs. May flinch.' });
-add('crunch', 'Crunch', 'Dark', 80, 100, 15, { flags: ['contact'], effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1, chance: 0.2 }, desc: 'Crunches with sharp fangs.' });
-add('nightslash', 'Night Slash', 'Dark', 70, 100, 15, { crit: 1, flags: ['contact'], desc: 'A ruthless slash. High critical-hit ratio.' });
-add('taunt', 'Taunt', 'Dark', 0, 100, 20, { effect: { kind: 'stat', target: 'foe', stat: 'spa', stages: -1 }, desc: 'Enrages the foe.' });
-
-// ---- Dragon / Steel --------------------------------------------------
-add('dragonbreath', 'Dragon Breath', 'Dragon', 60, 100, 20, { effect: { kind: 'status', status: 'PAR', chance: 0.3 }, desc: 'A shock wave. May paralyse.' });
-add('dragonclaw', 'Dragon Claw', 'Dragon', 80, 100, 15, { flags: ['contact'], desc: 'Slashes with huge claws.' });
-add('metalclaw', 'Metal Claw', 'Steel', 50, 95, 35, { flags: ['contact'], effect: { kind: 'stat', target: 'self', stat: 'atk', stages: 1, chance: 0.1 }, desc: 'Steel claws. May raise Attack.' });
-add('irontail', 'Iron Tail', 'Steel', 100, 75, 15, { flags: ['contact'], effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1, chance: 0.3 }, desc: 'A hard tail slam. May lower Defense.' });
-add('flashcannon', 'Flash Cannon', 'Steel', 80, 100, 10, { effect: { kind: 'stat', target: 'foe', stat: 'spd', stages: -1, chance: 0.1 }, desc: 'A blast of light.' });
-add('irondefense', 'Iron Defense', 'Steel', 0, 0, 15, { effect: { kind: 'stat', target: 'self', stat: 'def', stages: 2 }, desc: 'Hardens to sharply raise Defense.' });
-
-// Fallback when a monster has no usable move.
-add('struggle', 'Struggle', 'Normal', 50, 0, 1, { flags: ['contact'], effect: { kind: 'recoil', fraction: 0.25 }, desc: 'Used only when out of PP.' });
+// Fallback when a monster has no usable move. Not a Platinum TM, not
+// learnable — the engine reaches for it directly.
+add({ id: 'struggle', name: 'Struggle', type: 'Normal', power: 50, acc: 0, pp: 1, cls: 'physical',
+  priority: 0, crit: 0, effect: { kind: 'recoil', fraction: 0.25 }, flags: ['contact'], tm: -1 });
 
 export function getMove(id) {
   return MOVES[id] || MOVES.tackle;

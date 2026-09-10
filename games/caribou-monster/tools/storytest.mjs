@@ -99,7 +99,7 @@ function freshState() {
   const st = freshState();
   st.flags[FLAGS.GOT_STARTER] = true;
   st.starterBase = 1;
-  st.party = [createMonster(1, 10)];
+  st.party = [createMonster(387, 10)];
 
   const c1 = fakeCtx(st, { battles: [true] });
   await SCRIPTS.rival1(c1);
@@ -186,13 +186,13 @@ function freshState() {
 {
   const st = freshState();
   st.flags[FLAGS.EVERLIGHT_OPENED] = true;
-  st.party = [createMonster(1, 30)];
+  st.party = [createMonster(387, 30)];
 
   const declined = fakeCtx(st, { wilds: ['lose'] });
   await SCRIPTS.everlightDialga(declined);
   check(!!st.flags[FLAGS.EVERLIGHT_RESOLVED], 'the encounter should resolve');
   check(!st.flags[FLAGS.CAUGHT_EVERLIGHT], 'losing must not count as catching');
-  check(!!st.dex.seen[37], 'Dialga should be registered as seen');
+  check(!!st.dex.seen[483], 'Dialga should be registered as seen');
   check(!!st.flags[FLAGS.MARS_LATE], 'Mars should arrive after the encounter');
   const firstText = declined.said.join(' ');
   check(/back to the door/i.test(firstText),

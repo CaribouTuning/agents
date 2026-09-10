@@ -50,7 +50,7 @@ export const PROS = {
   wren: P('wren', {
     name: 'Cass Wren', look: 'rivalGirl', region: 'Sinnoh', style: 'aggressive',
     rating: 1180, rival: true,
-    pool: [17, 12, 49, 6, 54, 30],
+    pool: [405, 398, 130, 392, 448, 67],
     tag: 'The Metronome',
     bio: 'Grew up four doors down from you in Twinleaf. Started a year earlier.',
     lines: {
@@ -67,7 +67,7 @@ export const PROS = {
   }),
   calder: P('calder', {
     name: 'Rhea Calder', look: 'lass', region: 'Unova', style: 'technical', rating: 1240,
-    pool: [35, 47, 33, 9, 40, 21],
+    pool: [64, 437, 55, 395, 267, 315],
     tag: 'The Architect',
     bio: 'Builds a match three turns before it happens. Rarely improvises.',
     lines: {
@@ -78,7 +78,7 @@ export const PROS = {
   }),
   vance: P('vance', {
     name: 'Dario Vance', look: 'youngster', region: 'Kalos', style: 'aggressive', rating: 1205,
-    pool: [6, 12, 49, 17, 54, 3],
+    pool: [392, 398, 130, 405, 448, 389],
     tag: 'First Blood',
     bio: 'Has never once switched out on turn one. Not once.',
     lines: {
@@ -89,7 +89,7 @@ export const PROS = {
   }),
   park: P('park', {
     name: 'Sun-Mi Park', look: 'nurse', region: 'Johto', style: 'defensive', rating: 1265,
-    pool: [9, 47, 45, 3, 52, 28],
+    pool: [395, 437, 423, 389, 185, 95],
     tag: 'The Wall',
     bio: 'Holds the circuit record for the longest sanctioned match: 148 turns.',
     lines: {
@@ -100,7 +100,7 @@ export const PROS = {
   }),
   kestrel: P('kestrel', {
     name: 'Bram Kestrel', look: 'hiker', region: 'Hoenn', style: 'balanced', rating: 1150,
-    pool: [12, 27, 30, 49, 14, 52],
+    pool: [398, 75, 67, 130, 400, 185],
     tag: 'The Journeyman',
     bio: 'Nineteen seasons. Never won a major. Never finished outside the top sixteen.',
     lines: {
@@ -111,7 +111,7 @@ export const PROS = {
   }),
   osei: P('osei', {
     name: 'Imani Osei', look: 'sailor', region: 'Alola', style: 'aggressive', rating: 1222,
-    pool: [49, 6, 40, 17, 33, 12],
+    pool: [130, 392, 267, 405, 55, 398],
     tag: 'Riptide',
     bio: 'Won her first major at seventeen and has not been out of the top ten since.',
     lines: {
@@ -122,7 +122,7 @@ export const PROS = {
   }),
   frost: P('frost', {
     name: 'Nikolai Frost', look: 'oldMan', region: 'Sinnoh', style: 'defensive', rating: 1290,
-    pool: [47, 9, 28, 52, 45, 3],
+    pool: [437, 395, 95, 185, 423, 389],
     tag: 'The Glacier',
     bio: 'Two-time Continental champion. Speaks to the press roughly once a year.',
     lines: {
@@ -133,7 +133,7 @@ export const PROS = {
   }),
   bloom: P('bloom', {
     name: 'Yara Bloom', look: 'mom', region: 'Galar', style: 'technical', rating: 1198,
-    pool: [21, 43, 40, 35, 54, 9],
+    pool: [315, 421, 267, 64, 448, 395],
     tag: 'The Gardener',
     bio: 'Coaches four juniors and still finds time to be ranked eighth in the world.',
     lines: {
@@ -144,7 +144,7 @@ export const PROS = {
   }),
   quint: P('quint', {
     name: 'Teo Quint', look: 'clerk', region: 'Kanto', style: 'balanced', rating: 1120,
-    pool: [14, 23, 12, 30, 33, 49],
+    pool: [400, 428, 398, 67, 55, 130],
     tag: 'The Analyst',
     bio: 'Retired from commentary to compete. The commentary was going better.',
     lines: {
@@ -155,7 +155,7 @@ export const PROS = {
   }),
   ferris: P('ferris', {
     name: 'Odile Ferris', look: 'scientist', region: 'Unova', style: 'technical', rating: 1170,
-    pool: [47, 35, 46, 9, 21, 45],
+    pool: [437, 64, 436, 395, 315, 423],
     tag: 'Cold Read',
     bio: 'Publishes her own matchup data after every event. Nobody asked her to.',
     lines: {
@@ -166,7 +166,7 @@ export const PROS = {
   }),
   marek: P('marek', {
     name: 'Josip Marek', look: 'worker', region: 'Hoenn', style: 'aggressive', rating: 1135,
-    pool: [30, 27, 52, 17, 6, 12],
+    pool: [67, 75, 185, 405, 392, 398],
     tag: 'The Hammer',
     bio: 'Trains in a quarry. This is not a metaphor.',
     lines: {
@@ -177,7 +177,7 @@ export const PROS = {
   }),
   sable: P('sable', {
     name: 'Nadia Sable', look: 'boss', region: 'Kalos', style: 'technical', rating: 1330,
-    pool: [54, 49, 9, 47, 12, 6],
+    pool: [448, 130, 395, 437, 398, 392],
     tag: 'The Standard',
     bio: 'World number one for eleven straight seasons. The rank everyone measures against.',
     lines: {

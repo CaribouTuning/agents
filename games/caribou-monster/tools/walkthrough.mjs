@@ -225,7 +225,7 @@ await page.evaluate(() => {
   // This section is testing the story, not survival. Oreburgh Gate rolls wild
   // encounters, and a level-5 starter loses them and blacks out to the heal
   // point halfway through the scene — which reads as a broken door.
-  g.debugGive(4, 45);
+  g.debugGive(390, 45);
   g.state.repelSteps = 9999;
   g.overworld.world.load('oreburgh_gate', 12, 3, 'up');
 });
@@ -277,11 +277,11 @@ if (inside.map === 'everlight_chamber') {
       level: s.battle.sides[1].party[0].level, kind: s.battle.kind };
   });
   check('the chamber starts a real encounter with Dialga',
-    battled && foe && foe.species === 37 && foe.kind === 'wild',
+    battled && foe && foe.species === 483 && foe.kind === 'wild',
     foe ? `${foe.name} #${foe.species} Lv${foe.level}` : 'no battle');
   await page.screenshot({ path: path.join(OUT, '10-dialga.png') });
   check('the encounter recorded Dialga as seen',
-    await page.evaluate(() => !!window.CARIBOU.state.dex.seen[37]));
+    await page.evaluate(() => !!window.CARIBOU.state.dex.seen[483]));
 
   // Run from it: a legendary you decline must still be there afterwards.
   await page.evaluate(() => {

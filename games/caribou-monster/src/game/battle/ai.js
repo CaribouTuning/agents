@@ -29,7 +29,10 @@ function scoreMove(battle, sideIdx, moveIndex) {
 
   const eff = typeMultiplier(move.type, typesOf(target));
 
-  if (move.power === 0) {
+  // A variable-power move is a damaging move whose number is not known yet;
+  // computeDamage's peek path resolves it, so it must not fall into the
+  // status-move branch below.
+  if (move.power === 0 && !move.variable) {
     // Status moves: worth something early, near-worthless when either side
     // is about to faint.
     const fx = move.effect;

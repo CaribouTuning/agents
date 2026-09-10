@@ -30,7 +30,7 @@ function baseState(name = 'Matthew') {
 function withStarter(st) {
   st.flags.gotStarter = true;
   st.starterBase = 1;
-  st.party = [createMonster(1, 5)];
+  st.party = [createMonster(387, 5)];
   return st;
 }
 
@@ -39,7 +39,7 @@ function withBadge(st) {
   st.flags.badge1 = true;
   st.flags.beatRival1 = true;
   st.flags.beat_gym1_leader = true;
-  st.party = [createMonster(3, 20)];
+  st.party = [createMonster(389, 20)];
   for (let i = 1; i <= 12; i++) { recordSeen(st.dex, i); recordCaught(st.dex, i); }
   return st;
 }
@@ -83,7 +83,7 @@ function withTitles(st, n) {
   c.wins = n * 4; c.losses = 2; c.streak = 4; c.bestStreak = 6;
   c.h2h = { wren: { w: 3, l: 1 } };
   c.news = [{ id: 'n', week: 3, kind: 'titleWin', outlet: 'Sinnoh Battle Wire', headline: 'A real headline', body: ['x'], big: true }];
-  st.party = [createMonster(4, 45)];
+  st.party = [createMonster(390, 45)];
   for (let i = 1; i <= 25; i++) { recordSeen(st.dex, i); recordCaught(st.dex, i); }
   return st;
 }

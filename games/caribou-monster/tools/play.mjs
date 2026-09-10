@@ -107,8 +107,8 @@ await run(() => {
   const g = window.CARIBOU;
   if (window.__forced) {
     import('./src/game/monster.js').then((m) => {
-      g.state.party.push(m.createMonster(4, 12));
-      g.state.party.push(m.createMonster(10, 10));
+      g.state.party.push(m.createMonster(390, 12));
+      g.state.party.push(m.createMonster(396, 10));
     });
   }
 });
@@ -213,7 +213,7 @@ try {
 try {
   await run(() => {
     const g = window.CARIBOU;
-    const mon = g.debugGive(16, 7);
+    const mon = g.debugGive(404, 7);
     g.openNickname(mon, null);
   });
   await shot('30b-nickname');

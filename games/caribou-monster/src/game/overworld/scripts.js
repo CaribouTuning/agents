@@ -316,9 +316,9 @@ SCRIPTS.everlightDialga = async (ctx) => {
 
   await speak(ctx, st.flags[FLAGS.EVERLIGHT_RESOLVED] ? EVERLIGHT.again : EVERLIGHT.firstSight);
 
-  ctx.dex.seen(37);
-  await ctx.showMonster(37);
-  ctx.cry(37);
+  ctx.dex.seen(483);
+  await ctx.showMonster(483);
+  ctx.cry(483);
   await ctx.wait(0.5);
   ctx.hideMonster();
 

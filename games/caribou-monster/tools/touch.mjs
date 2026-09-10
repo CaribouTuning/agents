@@ -269,10 +269,10 @@ for (const dev of DEVICES) {
     await page.evaluate(() => {
       const g = window.CARIBOU;
       while (g.screens.stack.length > 1) g.screens.pop();
-      g.debugGive(1, 12);
+      g.debugGive(387, 12);
       g.state.inventory.items.pokeball = 5;
       g.state.inventory.items.potion = 3;
-      g.startWildBattle(16, 4);
+      g.startWildBattle(404, 4);
     });
     await page.waitForTimeout(900);
     // Skip the intro text with taps on the message box.

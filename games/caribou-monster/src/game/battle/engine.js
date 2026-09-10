@@ -17,7 +17,7 @@ import { onLevelUp, onWonBattle, onFainted } from '../friendship.js';
 import { getSpecies } from '../../data/species.js';
 import { getItem } from '../../data/items.js';
 import {
-  maxHp, statValue, displayName, typesOf, isFainted, gainExp, expYield, awardEvs, expProgress,
+  maxHp, statValue, displayName, typesOf, isFainted, gainExp, expYield, awardEvs, expProgress, speciesOf,
 } from '../monster.js';
 
 export const STAGE_MULT = [2 / 8, 2 / 7, 2 / 6, 2 / 5, 2 / 4, 2 / 3, 1, 3 / 2, 4 / 2, 5 / 2, 6 / 2, 7 / 2, 8 / 2];
@@ -33,7 +33,12 @@ function newBoosts() {
   return { atk: 0, def: 0, spa: 0, spd: 0, spe: 0, acc: 0, eva: 0 };
 }
 function newVolatile() {
-  return { confusion: 0, flinch: false, focus: false, furyCutter: 0, protect: false, firstTurn: true };
+  // tookPhysical / tookSpecial are what Counter and Mirror Coat read: the
+  // damage this side absorbed since its own last action, cleared each turn.
+  return {
+    confusion: 0, flinch: false, focus: false, furyCutter: 0, protect: false, firstTurn: true,
+    tookPhysical: 0, tookSpecial: 0,
+  };
 }
 
 export function makeSide(cfg) {
@@ -86,11 +91,14 @@ export const foeIndex = (i) => (i === 0 ? 1 : 0);
 
 // ---- accessors used by both the engine and the UI ---------------------
 
-export function effectiveStat(battle, sideIdx, key) {
+export function effectiveStat(battle, sideIdx, key, viewer = null) {
   const side = battle.sides[sideIdx];
   const mon = activeOf(side);
   let v = statValue(mon, key);
-  v = Math.floor(v * stage(side.boosts[key] || 0));
+  // Unaware looks at the raw number: the foe's boosts simply are not there.
+  const blind = viewer && ability.ignoresBoosts(viewer);
+  v = Math.floor(v * (blind ? 1 : stage(side.boosts[key] || 0)));
+  v = Math.floor(v * ability.defenseStatMultiplier(mon, key));
   if (key === 'atk' && mon.status === 'BRN') v = Math.floor(v / 2);
   if (key === 'spe' && mon.status === 'PAR') v = Math.floor(v / 4);
   return Math.max(1, v);
@@ -187,6 +195,19 @@ function abilityCtx(battle, sideIdx, out, mon) {
       const t = activeOf(battle.sides[target]);
       if (!t || isFainted(t) || t.status) return;
       applyStatus(battle, target, { status }, out);
+    },
+    hp: (side, m) => out.push({ t: 'hp', side, uid: m.uid, hp: m.hp }),
+    stat: (m, key) => statValue(m, key),
+    foeMon: () => activeOf(battle.sides[foeIndex(sideIdx)]),
+    // Anticipation reads the foe's move list, which is exactly what the real
+    // ability does — it is not the AI peeking, it is the ability's whole point.
+    foeHasSuperEffective: () => {
+      const foe = activeOf(battle.sides[foeIndex(sideIdx)]);
+      if (!foe || !mon) return false;
+      return (foe.moves || []).some((slot) => {
+        const mv = getMove(slot.id);
+        return mv.power > 0 && typeMultiplier(mv.type, typesOf(mon)) > 1;
+      });
     },
   };
 }
@@ -367,7 +388,7 @@ function doMove(battle, sideIdx, action, out) {
     }
   }
   if (user.status === 'SLP') {
-    user.statusCounter--;
+    user.statusCounter -= ability.sleepTicks(user);
     if (user.statusCounter <= 0) {
       user.status = null;
       out.push({ t: 'text', s: `${displayName(user)} woke up!` });
@@ -409,18 +430,28 @@ function doMove(battle, sideIdx, action, out) {
   out.push({ t: 'usemove', side: sideIdx, move: used.id });
   out.push({ t: 'text', s: `${side.isPlayer ? '' : 'Foe '}${displayName(user)} used ${used.name}!` });
 
+  // Soundproof and friends: the move is simply refused.
+  if (ability.blocksMove(target, user, used)) {
+    out.push({ t: 'text', s: `${displayName(target)}'s ${target.ability} blocked ${used.name}!` });
+    return;
+  }
+
   // --- accuracy ---
   if (used.acc > 0) {
     const accMod = accStage((side.boosts.acc || 0) - (foeSide.boosts.eva || 0));
-    const chance = (used.acc / 100) * accMod;
-    if (battle.rng() >= chance) {
+    const chance = (used.acc / 100) * accMod
+      * ability.accuracyMultiplier(user, used)
+      / ability.evasionMultiplier(target, foeSide);
+    // The roll is spent either way: No Guard must not shift the shared stream.
+    const missed = battle.rng() >= chance;
+    if (missed && !ability.neverMisses(user, target)) {
       out.push({ t: 'text', s: `${displayName(user)}'s attack missed!` });
       if (used.id === 'furycutter') side.volatile.furyCutter = 0;
       return;
     }
   }
 
-  if (used.power > 0) {
+  if (used.power > 0 || used.variable) {
     applyDamagingMove(battle, sideIdx, used, out);
   } else {
     applyStatusMove(battle, sideIdx, used, out);
@@ -434,6 +465,77 @@ function confusionDamage(battle, sideIdx) {
   return Math.floor(Math.floor(Math.floor((2 * user.level) / 5 + 2) * 40 * a / d) / 50) + 2;
 }
 
+
+/**
+ * Moves whose power is decided at use time. Every rule here is named by the
+ * move table (`variable:`), and tools/gendex.py refuses to emit a damaging
+ * move that has neither a power nor a rule — so this switch and the data can
+ * never drift apart into a move that silently does nothing.
+ *
+ * `kind: 'set'` means the move deals exactly `dmg` and skips the type and
+ * damage formula entirely, the way Seismic Toss does.
+ */
+function variablePower(battle, sideIdx, move, opts) {
+  const side = battle.sides[sideIdx];
+  const foeSide = battle.sides[foeIndex(sideIdx)];
+  const user = activeOf(side);
+  const target = activeOf(foeSide);
+  const roll = opts.peek ? battle.scratch : battle.rng;
+
+  switch (move.variable) {
+    case 'fixed20': return { kind: 'set', dmg: 20 };
+    case 'fixed40': return { kind: 'set', dmg: 40 };
+    case 'level': return { kind: 'set', dmg: user.level };
+    case 'psywave': return { kind: 'set', dmg: Math.max(1, Math.floor(user.level * (0.5 + roll() * 1.0))) };
+    case 'halfHp': return { kind: 'set', dmg: Math.max(1, Math.floor(target.hp / 2)) };
+    case 'endeavor':
+      return target.hp <= user.hp ? { kind: 'fail' } : { kind: 'set', dmg: target.hp - user.hp };
+    case 'ohko':
+      // Platinum's own rule: it never lands on something at a higher level.
+      if (target.level > user.level) return { kind: 'fail' };
+      return roll() < 0.3 ? { kind: 'set', dmg: maxHp(target), ohko: true } : { kind: 'miss' };
+    case 'counter':
+    case 'metalburst':
+      return side.volatile.tookPhysical > 0
+        ? { kind: 'set', dmg: Math.floor(side.volatile.tookPhysical * (move.variable === 'counter' ? 2 : 1.5)) }
+        : { kind: 'fail' };
+    case 'mirrorcoat':
+      return side.volatile.tookSpecial > 0
+        ? { kind: 'set', dmg: side.volatile.tookSpecial * 2 } : { kind: 'fail' };
+    case 'weight': {
+      const w = speciesOf(target).weight || 10;
+      const p = w >= 200 ? 120 : w >= 100 ? 100 : w >= 50 ? 80 : w >= 25 ? 60 : w >= 10 ? 40 : 20;
+      return { kind: 'power', power: p };
+    }
+    case 'magnitude': {
+      const table = [[10, 4], [30, 10], [50, 20], [70, 30], [90, 20], [110, 10], [150, 6]];
+      let n = roll.int(100);
+      let p = 70;
+      for (const [pow, weight] of table) { if (n < weight) { p = pow; break; } n -= weight; }
+      return { kind: 'power', power: p };
+    }
+    case 'friendship': return { kind: 'power', power: Math.max(1, Math.floor((user.friendship || 70) / 2.5)) };
+    case 'frustrationRev': return { kind: 'power', power: Math.max(1, Math.floor((255 - (user.friendship || 70)) / 2.5)) };
+    case 'lowHp': {
+      const r = user.hp / maxHp(user);
+      const p = r > 0.688 ? 20 : r > 0.354 ? 40 : r > 0.208 ? 80 : r > 0.104 ? 100 : r > 0.042 ? 150 : 200;
+      return { kind: 'power', power: p };
+    }
+    case 'gyroball': {
+      const mine = Math.max(1, effectiveStat(battle, sideIdx, 'spe'));
+      const theirs = effectiveStat(battle, foeIndex(sideIdx), 'spe');
+      return { kind: 'power', power: Math.max(1, Math.min(150, Math.floor(25 * theirs / mine))) };
+    }
+    case 'targetHp':
+      return { kind: 'power', power: Math.max(1, Math.floor(120 * target.hp / maxHp(target))) };
+    case 'punishment': {
+      const boosts = Object.values(foeSide.boosts).reduce((a, b) => a + Math.max(0, b), 0);
+      return { kind: 'power', power: Math.min(200, 60 + 20 * boosts) };
+    }
+    default: return { kind: 'power', power: move.power };
+  }
+}
+
 export function computeDamage(battle, sideIdx, move, opts = {}) {
   const side = battle.sides[sideIdx];
   const foeSide = battle.sides[foeIndex(sideIdx)];
@@ -444,27 +546,41 @@ export function computeDamage(battle, sideIdx, move, opts = {}) {
   const atkKey = physical ? 'atk' : 'spa';
   const defKey = physical ? 'def' : 'spd';
 
-  let A = effectiveStat(battle, sideIdx, atkKey);
-  let D = effectiveStat(battle, foeIndex(sideIdx), defKey);
+  let A = effectiveStat(battle, sideIdx, atkKey, target);
+  let D = effectiveStat(battle, foeIndex(sideIdx), defKey, user);
 
   // Critical hits ignore the defender's positive defence boosts.
-  const critStages = (move.crit || 0) + (side.volatile.focus ? 1 : 0);
+  const critStages = (move.crit || 0) + (side.volatile.focus ? 1 : 0) + ability.critBonus(user);
   const critOdds = [16, 8, 4, 3, 2][Math.min(4, critStages)];
   const roll = opts.peek ? battle.scratch : battle.rng;
-  const crit = opts.forceCrit || (opts.peek ? false : roll.int(critOdds) === 0);
+  // Battle Armor cancels the crit, never the roll.
+  const rolledCrit = opts.forceCrit || (opts.peek ? false : roll.int(critOdds) === 0);
+  const crit = rolledCrit && !ability.blocksCrit(target, user);
   if (crit) {
     A = Math.max(A, statValue(user, atkKey));
     D = Math.min(D, statValue(target, defKey));
   }
 
   let power = move.power;
+  if (move.variable) {
+    const v = variablePower(battle, sideIdx, move, opts);
+    if (v.kind === 'fail') return { dmg: 0, eff: 1, crit: false, fail: true };
+    if (v.kind === 'miss') return { dmg: 0, eff: 1, crit: false, miss: true };
+    if (v.kind === 'set') {
+      const flat = ability.immuneToType(target, move.type)
+        || typeMultiplier(move.type, typesOf(target)) === 0;
+      if (flat) return { dmg: 0, eff: 0, crit: false };
+      return { dmg: Math.max(1, v.dmg), eff: 1, crit: false, ohko: !!v.ohko };
+    }
+    power = v.power;
+  }
   if (move.id === 'furycutter') power = Math.min(160, 40 * Math.pow(2, side.volatile.furyCutter));
   if (move.id === 'brine' && target.hp * 2 <= maxHp(target)) power *= 2;
   if (move.id === 'revenge' && opts.tookDamage) power *= 2;
 
   let dmg = Math.floor(Math.floor(Math.floor((2 * user.level) / 5 + 2) * power * A / D) / 50) + 2;
 
-  const stab = typesOf(user).includes(move.type) ? 1.5 : 1;
+  const stab = typesOf(user).includes(move.type) ? ability.stabMultiplier(user) : 1;
   // An ability that grants outright immunity zeroes the type chart, so the
   // caller's existing "doesn't affect" path handles it with no new branch.
   const eff = ability.immuneToType(target, move.type)
@@ -472,7 +588,10 @@ export function computeDamage(battle, sideIdx, move, opts = {}) {
   dmg = Math.floor(dmg * stab);
   dmg = Math.floor(dmg * eff);
   dmg = Math.floor(dmg * ability.attackMultiplier(user, move, side));
-  if (crit) dmg = Math.floor(dmg * 2);
+  dmg = Math.floor(dmg * ability.versusMultiplier(user, target));
+  dmg = Math.floor(dmg * ability.damageDealtMultiplier(user, eff));
+  dmg = Math.floor(dmg * ability.damageTakenMultiplier(target, user, move, eff));
+  if (crit) dmg = Math.floor(dmg * ability.critMultiplier(user));
   if (user.status === 'BRN' && physical && !ability.ignoresBurnDrop(user)) dmg = Math.floor(dmg * 0.5);
   // Damage roll: 85%..100%. A peek uses the average roll so the AI's
   // evaluation is stable and costs the shared stream nothing.
@@ -499,7 +618,10 @@ function applyDamagingMove(battle, sideIdx, move, out) {
   let lastEff = 1;
   for (let i = 0; i < hits; i++) {
     if (isFainted(target)) break;
-    const { dmg, eff, crit } = computeDamage(battle, sideIdx, move);
+    const { dmg, eff, crit, fail, miss, ohko } = computeDamage(battle, sideIdx, move);
+    if (fail) { out.push({ t: 'text', s: 'But it failed!' }); return; }
+    if (miss) { out.push({ t: 'text', s: `${displayName(user)}'s attack missed!` }); return; }
+    if (ohko) out.push({ t: 'text', s: 'It was a one-hit KO!' });
     lastEff = eff;
     if (eff === 0) {
       if (ability.immuneToType(target, move.type)) {
@@ -511,6 +633,7 @@ function applyDamagingMove(battle, sideIdx, move, out) {
       return;
     }
     target.hp = Math.max(0, target.hp - dmg);
+    foeSide.volatile[move.cls === 'physical' ? 'tookPhysical' : 'tookSpecial'] = dmg;
     total += dmg;
     out.push({ t: 'sfx', s: eff >= 2 ? 'supereffective' : eff < 1 ? 'weak' : 'hit' });
     out.push({ t: 'hit', side: foeIndex(sideIdx), eff, crit, move: move.id });
@@ -524,15 +647,23 @@ function applyDamagingMove(battle, sideIdx, move, out) {
 
   if (move.id === 'furycutter') side.volatile.furyCutter++;
 
+  applyContactReaction(battle, sideIdx, move, total, out);
+
   const fx = move.effect;
   if (fx && total > 0) {
     if (fx.kind === 'drain') {
-      const heal = Math.max(1, Math.floor(total * fx.fraction));
-      user.hp = Math.min(maxHp(user), user.hp + heal);
-      out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp });
-      out.push({ t: 'text', s: `${displayName(target)} had its energy drained!` });
+      const amount = Math.max(1, Math.floor(total * fx.fraction));
+      if (ability.drainBackfires(target, user)) {
+        user.hp = Math.max(0, user.hp - amount);
+        out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp, shake: true });
+        out.push({ t: 'text', s: `${displayName(user)} sucked up the liquid ooze!` });
+      } else {
+        user.hp = Math.min(maxHp(user), user.hp + amount);
+        out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp });
+        out.push({ t: 'text', s: `${displayName(target)} had its energy drained!` });
+      }
     }
-    if (fx.kind === 'recoil' && !ability.noRecoil(user)) {
+    if (fx.kind === 'recoil' && !ability.noRecoil(user) && !ability.noIndirectDamage(user)) {
       const hurt = Math.max(1, Math.floor(total * fx.fraction));
       user.hp = Math.max(0, user.hp - hurt);
       out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp, shake: true });
@@ -540,13 +671,56 @@ function applyDamagingMove(battle, sideIdx, move, out) {
     }
     // The roll happens either way, so an ability that blocks the effect cannot
     // shift the shared random stream a link battle replays on both phones.
-    if (fx.kind === 'status' && (!fx.chance || battle.rng() < fx.chance)) {
+    if (fx.kind === 'status' && (!fx.chance || battle.rng() < ability.secondaryChance(user, fx.chance))) {
       if (!ability.blocksSecondary(target)) applyStatus(battle, foeIndex(sideIdx), fx, out);
     }
-    if (fx.kind === 'stat' && (!fx.chance || battle.rng() < fx.chance)
+    if (fx.kind === 'stat' && (!fx.chance || battle.rng() < ability.secondaryChance(user, fx.chance))
       && !(fx.target === 'foe' && ability.blocksSecondary(target))) {
       const tgt = fx.target === 'self' ? sideIdx : foeIndex(sideIdx);
       applyStatChange(battle, tgt, fx.stat, fx.stages, out);
+    }
+  }
+}
+
+/**
+ * Static, Rough Skin, Aftermath and the rest: what touching something costs.
+ * The roll is taken unconditionally so the shared random stream is identical
+ * on both phones in a link battle whether or not an ability is present.
+ */
+function applyContactReaction(battle, sideIdx, move, total, out) {
+  const side = battle.sides[sideIdx];
+  const foeSide = battle.sides[foeIndex(sideIdx)];
+  const user = activeOf(side);
+  const target = activeOf(foeSide);
+  if (!user || !target || total <= 0) return;
+  if (!(move.flags || []).includes('contact')) return;
+
+  const rolled = battle.rng() < (ability.contactChanceOf(target, user) || 0.3);
+  if (!isFainted(user)) {
+    const react = ability.contactReaction(target, user, rolled);
+    if (react && react.kind === 'damage') {
+      const hurt = Math.max(1, Math.floor(maxHp(user) * react.fraction));
+      user.hp = Math.max(0, user.hp - hurt);
+      out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp, shake: true });
+      out.push({ t: 'text', s: `${displayName(user)} was hurt by ${react.name}!` });
+    } else if (react && react.kind === 'status' && !user.status) {
+      out.push({ t: 'text', s: `${displayName(target)}'s ${react.name} took hold!` });
+      applyStatus(battle, sideIdx, { status: react.status }, out);
+    } else if (react && react.kind === 'spore' && !user.status) {
+      const pick = ['PSN', 'PAR', 'SLP'][battle.rng.range(0, 2)];
+      out.push({ t: 'text', s: `${displayName(target)}'s ${react.name} took hold!` });
+      applyStatus(battle, sideIdx, { status: pick }, out);
+    }
+  }
+
+  // Aftermath fires on the knockout, not on the hit.
+  if (isFainted(target) && !isFainted(user)) {
+    const frac = ability.aftermathFraction(target, user);
+    if (frac) {
+      const hurt = Math.max(1, Math.floor(maxHp(user) * frac));
+      user.hp = Math.max(0, user.hp - hurt);
+      out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp, shake: true });
+      out.push({ t: 'text', s: `${displayName(user)} was caught in the aftermath!` });
     }
   }
 }
@@ -615,6 +789,10 @@ export function applyStatus(battle, sideIdx, fx, out) {
     return;
   }
   if (fx.status === 'CNF') {
+    if (ability.immuneToStatus(mon, 'CNF', fx.from)) {
+      out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} kept it clear-headed!` });
+      return;
+    }
     if (side.volatile.confusion > 0) { out.push({ t: 'text', s: `${displayName(mon)} is already confused.` }); return; }
     side.volatile.confusion = battle.rng.range(2, 5);
     out.push({ t: 'text', s: `${displayName(mon)} became confused!` });
@@ -631,6 +809,10 @@ export function applyStatus(battle, sideIdx, fx, out) {
     || (fx.status === 'FRZ' && types.includes('Ice'))
     || (fx.status === 'PAR' && types.includes('Electric'));
   if (immune) { out.push({ t: 'text', s: "It doesn't affect it..." }); return; }
+  if (ability.immuneToStatus(mon, fx.status, fx.from)) {
+    out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} prevents that!` });
+    return;
+  }
 
   mon.status = fx.status;
   mon.statusCounter = fx.status === 'SLP' ? battle.rng.range(1, 3) : (fx.bad ? 1 : 0);
@@ -668,13 +850,14 @@ function endOfTurn(battle, out) {
     const side = battle.sides[i];
     const mon = activeOf(side);
     if (!mon || isFainted(mon)) continue;
-    if (mon.status === 'PSN') {
+    const guarded = ability.noIndirectDamage(mon);
+    if (mon.status === 'PSN' && !guarded) {
       const frac = mon.badPoison ? Math.min(15, ++mon.statusCounter) / 16 : 1 / 8;
       const dmg = Math.max(1, Math.floor(maxHp(mon) * frac));
       mon.hp = Math.max(0, mon.hp - dmg);
       out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp, shake: true });
       out.push({ t: 'text', s: `${displayName(mon)} is hurt by poison!` });
-    } else if (mon.status === 'BRN') {
+    } else if (mon.status === 'BRN' && !guarded) {
       const dmg = Math.max(1, Math.floor(maxHp(mon) / 8));
       mon.hp = Math.max(0, mon.hp - dmg);
       out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp, shake: true });
@@ -682,7 +865,7 @@ function endOfTurn(battle, out) {
     }
     ability.onEndOfTurn(battle, i, abilityCtx(battle, i, out, mon), mon);
     // Held berry that triggers in a pinch.
-    if (mon.heldItem) {
+    if (mon.heldItem && ability.usesHeldItem(mon)) {
       const held = getItem(mon.heldItem);
       if (held && held.held && held.held.kind === 'pinch-heal' && mon.hp > 0 && mon.hp <= maxHp(mon) / 2) {
         mon.hp = Math.min(maxHp(mon), mon.hp + held.held.amount);
@@ -692,7 +875,11 @@ function endOfTurn(battle, out) {
       }
     }
   }
-  for (const s of battle.sides) s.volatile.firstTurn = false;
+  for (const s of battle.sides) {
+    s.volatile.firstTurn = false;
+    s.volatile.tookPhysical = 0;
+    s.volatile.tookSpecial = 0;
+  }
 }
 
 // ---- faints, exp, end ------------------------------------------------------
