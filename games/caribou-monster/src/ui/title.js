@@ -11,6 +11,9 @@ import {
 import { renderMonster } from '../render/monsterart.js';
 import { drawChar, lookFor } from '../render/sprites.js';
 import { getSpecies } from '../data/species.js';
+
+// The Everlight itself, on the ridge behind the logo.
+const DIALGA = 483;
 import { MUSIC } from '../data/music.js';
 import { formatPlayTime } from '../game/state.js';
 
@@ -108,7 +111,7 @@ export class TitleScreen extends Screen {
     }
 
     // The legendary stands on the ridge.
-    const img = renderMonster(getSpecies(37).art, { size: 56 });
+    const img = renderMonster(getSpecies(DIALGA).art, { size: 56 });
     ctx.globalAlpha = 0.92;
     ctx.drawImage(img, Math.round(W - 78), Math.round(H - 100 + Math.sin(this.t * 0.9) * 1.5));
     ctx.globalAlpha = 1;

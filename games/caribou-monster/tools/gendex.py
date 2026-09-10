@@ -261,32 +261,151 @@ ARCH_OVERRIDE = {
     'palkia': 'biped', 'giratina': 'serpent', 'garchomp': 'biped',
 }
 
+import colorsys
+
+
+def _hex(rgb):
+    return '#' + ''.join(f'{max(0, min(255, int(round(v * 255)))):02x}' for v in rgb)
+
+
+def _rgb(h):
+    h = h.lstrip('#')
+    return tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def tint(hexcol, dl=0.0, ds=0.0, dh=0.0):
+    """Shift a colour in HLS space. Keeps hues believable where a raw
+    lighten/darken would wash everything out to grey or white."""
+    r, g, b = _rgb(hexcol)
+    hh, l, ss = colorsys.rgb_to_hls(r, g, b)
+    hh = (hh + dh) % 1.0
+    l = max(0.06, min(0.94, l + dl))
+    ss = max(0.0, min(1.0, ss + ds))
+    return _hex(colorsys.hls_to_rgb(hh, l, ss))
+
+
+def fnv(text):
+    """A stable per-species hash, so two Water bugs are not identical twins
+    but the same species looks the same on both phones in a link battle."""
+    n = 2166136261
+    for ch in text:
+        n = ((n ^ ord(ch)) * 16777619) & 0xFFFFFFFF
+    return n
+
+
+# The colour a type reads as, used for horns, wings, flames and markings.
+TYPE_HUE = {
+    'normal': '#c8bca0', 'fire': '#f07830', 'water': '#4890e0', 'electric': '#f8d030',
+    'grass': '#68b850', 'ice': '#88d8f0', 'fighting': '#c03028', 'poison': '#a040a0',
+    'ground': '#d8b060', 'flying': '#a890f0', 'psychic': '#f85888', 'bug': '#a8b820',
+    'rock': '#b8a038', 'ghost': '#7058a0', 'dragon': '#7038f8', 'dark': '#584038',
+    'steel': '#b8b8d0', 'fairy': '#f0b0c8',
+}
+
+# A second, quieter feature per type, so a species picks up detail from both
+# of its types instead of one shape and one horn.
+TYPE_FEATURE2 = {
+    'grass': 'bloom', 'fire': 'mane', 'water': 'flatTail', 'electric': 'starTail',
+    'flying': 'crest', 'bug': 'earsTuft', 'rock': 'spikes', 'steel': 'collar',
+    'ground': 'armour', 'psychic': 'gem', 'ghost': 'halo', 'dragon': 'spikes',
+    'dark': 'thinTail', 'ice': 'crest', 'fighting': 'armour', 'poison': 'bushyTail',
+    'fairy': 'halo', 'normal': 'bushyTail',
+}
+FEATURE_SLOT = {
+    'earsRound': 'ears', 'earsPointed': 'ears', 'earsLong': 'ears', 'earsTuft': 'ears',
+    'horn': 'head', 'antlers': 'head', 'crest': 'head', 'halo': 'head', 'mane': 'head',
+    'thinTail': 'tail', 'bushyTail': 'tail', 'flatTail': 'tail', 'starTail': 'tail',
+    'flameTail': 'tail',
+    'wingsFeather': 'wings', 'wingsBug': 'wings',
+    'leaf': 'back', 'sprout': 'back', 'bloom': 'back', 'shell': 'back',
+    'spikes': 'body', 'armour': 'body', 'fins': 'body', 'collar': 'body', 'gem': 'body',
+}
+EAR_BY_HASH = ['earsRound', 'earsPointed', 'earsLong', 'earsTuft']
+TAIL_BY_HASH = ['thinTail', 'bushyTail', 'flatTail', 'starTail']
+KNOWN_FEATURES = {
+    'earsRound', 'earsPointed', 'earsLong', 'earsTuft', 'horn', 'antlers', 'crest',
+    'mane', 'leaf', 'sprout', 'bloom', 'shell', 'flameTail', 'bushyTail', 'starTail',
+    'thinTail', 'flatTail', 'wingsFeather', 'wingsBug', 'fins', 'spikes', 'armour',
+    'collar', 'gem', 'halo',
+}
+
+
 def art_for(sid, ident, tps, shape, color, base_total):
     arch = ARCH_OVERRIDE.get(ident) or SHAPE_ARCH.get(shape, 'blob')
-    primary = COLOR_HEX.get(color, '#98a0a8')
+    seed = fnv(ident)
+    body = COLOR_HEX.get(color, '#98a0a8')
+    t1 = tps[0] if tps else 'normal'
+    t2 = tps[1] if len(tps) > 1 else None
+
     feats = []
+    slots = set()
+
+    def add(f):
+        # One tail, one set of ears, one headpiece: a Pokemon with two tails
+        # is a bug, not variety.
+        if not f or f not in KNOWN_FEATURES or f in feats:
+            return
+        slot = FEATURE_SLOT.get(f)
+        if slot and slot in slots:
+            return
+        if slot:
+            slots.add(slot)
+        feats.append(f)
+
     for t in tps:
-        f = TYPE_FEATURE.get(t)
-        if f and f not in feats: feats.append(f)
-    if arch in ('bird', 'bat') and 'wingsFeather' not in feats and 'wingsBug' not in feats:
-        feats.append('wingsFeather')
-    if arch == 'stag': feats.append('antlers')
-    if arch == 'fish' and 'fins' not in feats: feats.append('fins')
+        add(TYPE_FEATURE.get(t))
+    # The second type gets its own quieter mark; a mono-type gets its own.
+    add(TYPE_FEATURE2.get(t2 or t1))
+    if arch in ('bird', 'bat'):
+        add('wingsFeather' if arch == 'bird' else 'wingsBug')
+    if arch == 'stag':
+        add('antlers')
+    if arch == 'fish':
+        add('fins')
+    if arch in ('quadruped', 'rodent', 'biped', 'stag'):
+        add(EAR_BY_HASH[seed % len(EAR_BY_HASH)])
+        add(TAIL_BY_HASH[(seed >> 5) % len(TAIL_BY_HASH)])
     if species[sid]['is_legendary'] == '1' or species[sid]['is_mythical'] == '1':
-        if 'gem' not in feats: feats.append('gem')
-    feats = feats[:3]
-    # Bigger, later-stage Pokémon read as bulkier.
+        add('halo')
+        add('gem')
+    feats = feats[:4]
+
+    # Bigger, later-stage Pokemon read as bulkier; tall thin ones read as tall.
     scale = min(1.35, max(0.85, base_total / 420.0))
+    mon = pokemon[default_mon[sid]]
+    height = max(1, num(mon['height']))          # decimetres
+    weight = max(1, num(mon['weight']))          # hectograms
+    # Weight per unit height, normalised around a middling Pokemon.
+    stout = min(1.6, max(0.6, (weight / (height * height * 3.0)) ** 0.35))
+
+    accent = TYPE_HUE.get(t2 or t1, tint(body, dl=-0.16, ds=0.12))
+    # A single-typed Pokemon whose type colour is too close to its body would
+    # lose all its detail, so it takes a shifted version of itself instead.
+    if not t2 and _close(accent, body):
+        accent = tint(body, dl=-0.20, ds=0.18, dh=0.06)
+
     return {
         'key': ident, 'arch': arch, 'features': feats,
-        'build': {'bodyW': round(0.26 * scale, 3), 'bodyH': round(0.21 * scale, 3)},
+        'build': {
+            'bodyW': round(0.25 * scale * stout, 3),
+            'bodyH': round(0.21 * scale / max(0.75, stout ** 0.5), 3),
+            'headR': round(0.15 + 0.05 * (1.4 - min(1.4, scale)), 3),
+            'legW': round(0.09 * stout, 3),
+        },
         'colors': {
-            'primary': primary,
-            'secondary': COLOR_HEX.get(color, '#98a0a8'),
-            'accent': primary,
-            'belly': '#e8e0c8',
+            'primary': body,
+            'secondary': tint(body, dl=0.10, ds=-0.05, dh=0.02),
+            'accent': accent,
+            'belly': tint(body, dl=0.32, ds=-0.25),
         },
     }
+
+
+def _close(a, b):
+    ar, ag, ab = _rgb(a)
+    br, bg, bb = _rgb(b)
+    return abs(ar - br) + abs(ag - bg) + abs(ab - bb) < 0.30
+
 
 # ---- build ------------------------------------------------------------------
 wanted = sorted(dexnums.items(), key=lambda kv: kv[1])

@@ -138,7 +138,7 @@ await shot('14-cave');
 // Wild battle.
 await run(() => { window.CARIBOU.teleport('route201'); });
 await page.waitForTimeout(700);
-await run(() => window.CARIBOU.startWildBattle(13, 6));
+await run(() => window.CARIBOU.startWildBattle(399, 6));
 await page.waitForTimeout(900);
 await shot('15-battle-intro');
 await key('KeyZ', 5, 260);

@@ -5,7 +5,7 @@
 // grass over anyone standing in it — the small detail that sells the
 // perspective in the games this is modelled on.
 import { TILE } from './canvas.js';
-import { drawTile, tileDef } from './tiles.js';
+import { drawTile, tileDef, drawEdge, drawCastShadow, drawRoofEdge, groundOf, groundRank, EDGE_DIRS } from './tiles.js';
 import { drawChar, lookFor, SPR_W, FOOT_OFFSET } from './sprites.js';
 import { PAL, shade } from './palette.js';
 import { drawTextCentered, drawText } from './font.js';
@@ -47,6 +47,59 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     for (let x = x0; x <= x1; x++) {
       const ch = map.tiles[y][x];
       drawTile(ctx, ch, x * TILE - camera.x, y * TILE - camera.y, frame);
+    }
+  }
+
+  // --- autotile pass: stronger ground creeps over weaker, so the map stops
+  // reading as a grid of squares ---
+  const at = (x, y) => (y >= 0 && y < map.height && x >= 0 && x < map.width ? map.tiles[y][x] : null);
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const mine = groundOf(map.tiles[y][x]);
+      if (!mine) continue;
+      const rank = groundRank(mine);
+      const sx = x * TILE - camera.x;
+      const sy = y * TILE - camera.y;
+      for (let d = 0; d < EDGE_DIRS.length; d++) {
+        const ch = at(x + EDGE_DIRS[d][0], y + EDGE_DIRS[d][1]);
+        if (ch === null) continue;
+        const theirs = groundOf(ch);
+        if (!theirs || theirs === mine || groundRank(theirs) <= rank) continue;
+        // A corner only softens when neither of its two sides already did,
+        // otherwise the overlap stacks into a hard dark blob.
+        if (d >= 4) {
+          const [dx, dy] = EDGE_DIRS[d];
+          const sideA = groundOf(at(x + dx, y));
+          const sideB = groundOf(at(x, y + dy));
+          if (sideA === theirs || sideB === theirs) continue;
+        }
+        drawEdge(ctx, theirs, d, sx, sy);
+      }
+    }
+  }
+
+  // --- roof ridges and eaves ---
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (!tileDef(map.tiles[y][x]).roof) continue;
+      const isRoof = (cx, cy) => { const c = at(cx, cy); return !!(c && tileDef(c).roof); };
+      drawRoofEdge(ctx, x * TILE - camera.x, y * TILE - camera.y, {
+        up: !isRoof(x, y - 1), down: !isRoof(x, y + 1),
+        left: !isRoof(x - 1, y), right: !isRoof(x + 1, y),
+      });
+    }
+  }
+
+  // --- shadows cast by trees and buildings onto the ground beside them ---
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (!groundOf(map.tiles[y][x])) continue;
+      const above = at(x, y - 1);
+      const left = at(x - 1, y);
+      const fromAbove = !!(above && tileDef(above).casts);
+      const fromLeft = !!(left && tileDef(left).casts);
+      if (!fromAbove && !fromLeft) continue;
+      drawCastShadow(ctx, x * TILE - camera.x, y * TILE - camera.y, fromAbove, fromLeft);
     }
   }
 

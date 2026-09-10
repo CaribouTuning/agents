@@ -21,10 +21,27 @@ const px = (c, x, y, w = 1, hh = 1) => { c.fillRect(x, y, w, hh); };
 
 function grass(c, f, seed = 0) {
   c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-    const r = h(x, y, seed + 7);
-    if (r > 0.93) { c.fillStyle = shade(PAL.grass, 0.10); px(c, x, y); }
-    else if (r < 0.06) { c.fillStyle = PAL.grassDark; px(c, x, y); }
+  // Two scales of noise. The coarse one puts broad patches of lighter and
+  // darker turf across the tile so a field stops reading as one flat colour;
+  // the fine one is the blade speckle on top of it.
+  const light = shade(PAL.grass, 0.09);
+  const mid = shade(PAL.grass, -0.06);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const coarse = h(x >> 2, y >> 2, seed + 3);
+      if (coarse > 0.62) { c.fillStyle = light; px(c, x, y); }
+      else if (coarse < 0.3) { c.fillStyle = mid; px(c, x, y); }
+      const r = h(x, y, seed + 7);
+      if (r > 0.9) { c.fillStyle = shade(PAL.grass, 0.16); px(c, x, y); }
+      else if (r < 0.07) { c.fillStyle = PAL.grassDark; px(c, x, y); }
+    }
+  }
+  // A few standing blades, so the ground has a direction.
+  c.fillStyle = PAL.grassDark;
+  for (let i = 0; i < 4; i++) {
+    const bx = Math.floor(h(i, seed, 19) * 15);
+    const by = 2 + Math.floor(h(i, seed, 23) * 12);
+    px(c, bx, by); px(c, bx, by - 1);
   }
 }
 
@@ -70,10 +87,22 @@ function flowers(c, f) {
 
 function path(c) {
   c.fillStyle = PAL.path; px(c, 0, 0, 16, 16);
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-    const r = h(x, y, 21);
-    if (r > 0.9) { c.fillStyle = shade(PAL.path, 0.10); px(c, x, y); }
-    else if (r < 0.08) { c.fillStyle = PAL.pathDark; px(c, x, y); }
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const coarse = h(x >> 2, y >> 2, 17);
+      if (coarse > 0.66) { c.fillStyle = shade(PAL.path, 0.07); px(c, x, y); }
+      else if (coarse < 0.28) { c.fillStyle = shade(PAL.path, -0.07); px(c, x, y); }
+      const r = h(x, y, 21);
+      if (r > 0.93) { c.fillStyle = shade(PAL.path, 0.14); px(c, x, y); }
+      else if (r < 0.06) { c.fillStyle = PAL.pathDark; px(c, x, y); }
+    }
+  }
+  // Loose stones pressed into the track.
+  for (let i = 0; i < 3; i++) {
+    const sx = 1 + Math.floor(h(i, 5, 27) * 13);
+    const sy = 1 + Math.floor(h(i, 9, 27) * 13);
+    c.fillStyle = PAL.pathDark; px(c, sx, sy, 2, 1); px(c, sx, sy + 1, 2, 1);
+    c.fillStyle = shade(PAL.path, 0.2); px(c, sx, sy, 1, 1);
   }
 }
 
@@ -125,21 +154,30 @@ function waterShallow(c, f) {
 
 function tree(c) {
   c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
-  c.fillStyle = PAL.treeTrunk; px(c, 7, 11, 3, 5);
-  c.fillStyle = shade(PAL.treeTrunk, -0.2); px(c, 9, 11, 1, 5);
-  // Canopy: three overlapping lobes.
+  // The shadow the canopy throws on its own tile, so the tree sits on the
+  // ground rather than floating on it.
+  c.fillStyle = shade(PAL.grass, -0.22); px(c, 3, 13, 11, 3); px(c, 2, 14, 13, 1);
+
+  c.fillStyle = shade(PAL.treeTrunk, -0.35); px(c, 6, 10, 5, 6);
+  c.fillStyle = PAL.treeTrunk; px(c, 7, 10, 3, 6);
+  c.fillStyle = shade(PAL.treeTrunk, 0.18); px(c, 7, 10, 1, 6);
+
   const lobe = (cx, cy, r, col) => {
     c.fillStyle = col;
     for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
       if (x * x + y * y <= r * r + 1) px(c, cx + x, cy + y);
     }
   };
+  // Outline first, then the canopy inside it: a dark rim is what makes a
+  // 16px tree read as a tree at this scale.
+  lobe(8, 7, 7, shade(PAL.treeLeafDark, -0.45));
   lobe(8, 7, 6, PAL.treeLeafDark);
   lobe(7, 6, 5, PAL.treeLeaf);
   lobe(6, 5, 3, PAL.treeLeafLight);
+  lobe(6, 4, 1, shade(PAL.treeLeafLight, 0.2));
   c.fillStyle = PAL.treeLeafDark;
-  for (let i = 0; i < 10; i++) {
-    const x = 2 + Math.floor(h(i, 3, 9) * 12), y = 2 + Math.floor(h(i, 7, 9) * 9);
+  for (let i = 0; i < 12; i++) {
+    const x = 3 + Math.floor(h(i, 3, 9) * 10), y = 3 + Math.floor(h(i, 7, 9) * 8);
     px(c, x, y);
   }
 }
@@ -238,6 +276,12 @@ function wallOut(c) {
     const off = (y / 4) % 2 ? 4 : 0;
     for (let x = off; x < 16; x += 8) px(c, x, y, 1, 4);
   }
+  // The shadow the roof overhang throws down the wall, and a plinth course
+  // at the bottom — the two details that give a flat wall a front and a base.
+  c.fillStyle = shade(PAL.wallOutDark, -0.3);
+  c.globalAlpha = 0.5; px(c, 0, 0, 16, 2); c.globalAlpha = 1;
+  c.fillStyle = shade(PAL.wallOut, -0.18); px(c, 0, 14, 16, 2);
+  c.fillStyle = shade(PAL.wallOut, 0.12); px(c, 0, 14, 16, 1);
 }
 
 function windowTile(c) {
@@ -260,6 +304,9 @@ function roof(base, dark) {
     }
     c.fillStyle = shade(base, 0.18);
     for (let y = 0; y < 16; y += 4) px(c, 0, y, 16, 1);
+    // Roofs are lit from the upper left, like everything else.
+    c.fillStyle = shade(base, 0.10); px(c, 0, 0, 16, 1);
+    c.fillStyle = shade(dark, -0.25); px(c, 15, 0, 1, 16);
   };
 }
 
@@ -450,32 +497,32 @@ function voidTile(c) {
 
 export const TILES = {
   ' ': { name: 'void', draw: voidTile, solid: true },
-  '.': { name: 'grass', draw: (c, f) => grass(c, f) },
-  ',': { name: 'grass tuft', draw: grassTuft },
-  '"': { name: 'tall grass', draw: tallGrass, tall: true, anim: 2 },
-  '*': { name: 'flowers', draw: flowers, anim: 2 },
-  ':': { name: 'path', draw: path },
-  ';': { name: 'dirt', draw: dirt },
-  's': { name: 'sand', draw: sand },
-  'n': { name: 'snow', draw: snow },
-  '~': { name: 'water', draw: water, solid: true, water: true, anim: 4 },
-  '-': { name: 'shallows', draw: waterShallow, solid: true, water: true, anim: 4 },
-  'T': { name: 'tree', draw: tree, solid: true },
-  'Y': { name: 'pine', draw: pine, solid: true },
-  'R': { name: 'rock', draw: rock, solid: true },
-  'o': { name: 'boulder', draw: boulder, solid: true },
-  '^': { name: 'cliff', draw: cliff, solid: true },
+  '.': { name: 'grass', draw: (c, f) => grass(c, f), ground: 'grass' },
+  ',': { name: 'grass tuft', draw: grassTuft, ground: 'grass' },
+  '"': { name: 'tall grass', draw: tallGrass, tall: true, anim: 2, ground: 'grass' },
+  '*': { name: 'flowers', draw: flowers, anim: 2, ground: 'grass' },
+  ':': { name: 'path', draw: path, ground: 'path' },
+  ';': { name: 'dirt', draw: dirt, ground: 'dirt' },
+  's': { name: 'sand', draw: sand, ground: 'sand' },
+  'n': { name: 'snow', draw: snow, ground: 'snow' },
+  '~': { name: 'water', draw: water, solid: true, water: true, anim: 4, ground: 'water' },
+  '-': { name: 'shallows', draw: waterShallow, solid: true, water: true, anim: 4, ground: 'water' },
+  'T': { name: 'tree', draw: tree, solid: true, casts: true },
+  'Y': { name: 'pine', draw: pine, solid: true, casts: true },
+  'R': { name: 'rock', draw: rock, solid: true, casts: true },
+  'o': { name: 'boulder', draw: boulder, solid: true, casts: true },
+  '^': { name: 'cliff', draw: cliff, solid: true, casts: true },
   'L': { name: 'ledge', draw: ledge, ledge: 'down' },
   '=': { name: 'bridge', draw: bridge },
-  'S': { name: 'sign', draw: sign, solid: true, sign: true },
-  '/': { name: 'fence', draw: fence, solid: true },
-  '#': { name: 'wall', draw: wallOut, solid: true },
-  'W': { name: 'window', draw: windowTile, solid: true },
-  'A': { name: 'red roof', draw: roof(PAL.roofRed, PAL.roofRedDark), solid: true },
-  'B': { name: 'blue roof', draw: roof(PAL.roofBlue, PAL.roofBlueDark), solid: true },
-  'G': { name: 'green roof', draw: roof(PAL.roofGreen, PAL.roofGreenDark), solid: true },
-  'E': { name: 'grey roof', draw: roof(PAL.roofGrey, PAL.roofGreyDark), solid: true },
-  'D': { name: 'door', draw: door },
+  'S': { name: 'sign', draw: sign, solid: true, sign: true, casts: true },
+  '/': { name: 'fence', draw: fence, solid: true, casts: true },
+  '#': { name: 'wall', draw: wallOut, solid: true, casts: true },
+  'W': { name: 'window', draw: windowTile, solid: true, casts: true },
+  'A': { roof: true, name: 'red roof', draw: roof(PAL.roofRed, PAL.roofRedDark), solid: true },
+  'B': { roof: true, name: 'blue roof', draw: roof(PAL.roofBlue, PAL.roofBlueDark), solid: true },
+  'G': { roof: true, name: 'green roof', draw: roof(PAL.roofGreen, PAL.roofGreenDark), solid: true },
+  'E': { roof: true, name: 'grey roof', draw: roof(PAL.roofGrey, PAL.roofGreyDark), solid: true },
+  'D': { name: 'door', draw: door, casts: true },
   '|': { name: 'inner wall', draw: wallIn, solid: true },
   '_': { name: 'wood floor', draw: woodFloor },
   '+': { name: 'tile floor', draw: tileFloor },
@@ -494,7 +541,7 @@ export const TILES = {
   '<': { name: 'stairs up', draw: stairs(true) },
   '>': { name: 'stairs down', draw: stairs(false) },
   'w': { name: 'warp pad', draw: warpPad },
-  'c': { name: 'cave floor', draw: caveFloor },
+  'c': { name: 'cave floor', draw: caveFloor, ground: 'cave' },
   'C': { name: 'cave wall', draw: caveWall, solid: true },
 };
 
@@ -534,3 +581,137 @@ export function drawTile(ctx, ch, x, y, frame = 0) {
 }
 
 export function tileDef(ch) { return TILES[ch] || TILES[' ']; }
+
+// ---- autotile edges --------------------------------------------------
+// A grid of independent 16x16 squares reads as a grid. The DS games hide
+// that by letting the "stronger" ground creep a few pixels over its
+// neighbour, so a path through grass has a soft, irregular border rather
+// than a staircase of hard corners.
+//
+// Each ground family gets a rank. When two ground tiles meet, the higher
+// rank paints a dithered lip over the lower one — eight pieces per family
+// (four sides, four corners), all pre-rendered into one atlas at boot.
+
+const GROUND = {
+  //          rank  colours the lip is painted in
+  water: { rank: 5, edge: () => [PAL.water, PAL.waterDark] },
+  sand: { rank: 4, edge: () => [PAL.sand, shade(PAL.sand, -0.1)] },
+  path: { rank: 3, edge: () => [PAL.path, PAL.pathDark] },
+  dirt: { rank: 2, edge: () => [PAL.pathDark, shade(PAL.pathDark, -0.12)] },
+  snow: { rank: 6, edge: () => [PAL.snow, PAL.snowDark] },
+  cave: { rank: 1, edge: () => [PAL.caveFloor, PAL.caveFloorDark] },
+  grass: { rank: 0, edge: () => [PAL.grass, PAL.grassDark] },
+};
+
+// N, E, S, W, then the four corners. Index order is fixed: worldrender.js
+// looks pieces up by this array's index.
+export const EDGE_DIRS = [
+  [0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1],
+];
+const DEPTH = 5;
+
+/** How far into the tile the lip reaches at (x, y) for one direction. */
+function reach(dir, x, y) {
+  switch (dir) {
+    case 0: return DEPTH - y;                 // from the north edge
+    case 1: return DEPTH - (15 - x);          // east
+    case 2: return DEPTH - (15 - y);          // south
+    case 3: return DEPTH - x;                 // west
+    case 4: return DEPTH - Math.max(y, 15 - x);
+    case 5: return DEPTH - Math.max(15 - y, 15 - x);
+    case 6: return DEPTH - Math.max(15 - y, x);
+    default: return DEPTH - Math.max(y, x);
+  }
+}
+
+function paintEdge(c, family, dir) {
+  const [base, dark] = GROUND[family].edge();
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const d = reach(dir, x, y);
+      if (d <= 0) continue;
+      // Dither: solid at the boundary, thinning to nothing over DEPTH px.
+      const keep = d / DEPTH;
+      if (h(x, y, dir * 31 + 5) > keep * keep) continue;
+      c.fillStyle = d <= 1 ? dark : base;
+      px(c, x, y);
+    }
+  }
+}
+
+let edgeAtlas = null;
+const edgeSlot = new Map();   // family -> atlas row
+
+function buildEdgeAtlas() {
+  const families = Object.keys(GROUND);
+  const surf = makeSurface(EDGE_DIRS.length * TILE, families.length * TILE);
+  families.forEach((fam, row) => {
+    edgeSlot.set(fam, row);
+    for (let dir = 0; dir < EDGE_DIRS.length; dir++) {
+      surf.ctx.save();
+      surf.ctx.translate(dir * TILE, row * TILE);
+      surf.ctx.beginPath();
+      surf.ctx.rect(0, 0, TILE, TILE);
+      surf.ctx.clip();
+      paintEdge(surf.ctx, fam, dir);
+      surf.ctx.restore();
+    }
+  });
+  edgeAtlas = surf.canvas;
+}
+
+export function groundOf(ch) { return tileDef(ch).ground || null; }
+export function groundRank(family) { return family ? GROUND[family].rank : -1; }
+
+/** Blit one family's lip for one direction over the tile at (x, y). */
+export function drawEdge(ctx, family, dir, x, y) {
+  if (!edgeAtlas) buildEdgeAtlas();
+  const row = edgeSlot.get(family);
+  if (row === undefined) return;
+  ctx.drawImage(edgeAtlas, dir * TILE, row * TILE, TILE, TILE, x, y, TILE, TILE);
+}
+
+/**
+ * The soft shadow a tree or a building throws onto the ground south of it.
+ * Drawn as three translucent bands rather than a gradient so it stays crisp
+ * at the small logical resolution everything else is drawn at.
+ */
+/**
+ * A roof is authored as a rectangle of identical tiles, which reads as a flat
+ * slab. Picking out its ridge and its eaves from the neighbours gives the
+ * building a top and a front without any new tile art.
+ */
+export function drawRoofEdge(ctx, x, y, open) {
+  ctx.save();
+  if (open.up) {
+    ctx.fillStyle = 'rgba(255,255,255,0.30)';
+    ctx.fillRect(x, y, TILE, 1);
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
+    ctx.fillRect(x, y + 1, TILE, 1);
+  }
+  if (open.down) {
+    ctx.fillStyle = 'rgba(16,24,40,0.40)';
+    ctx.fillRect(x, y + TILE - 2, TILE, 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    ctx.fillRect(x, y + TILE - 3, TILE, 1);
+  }
+  if (open.left) { ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(x, y, 1, TILE); }
+  if (open.right) { ctx.fillStyle = 'rgba(16,24,40,0.30)'; ctx.fillRect(x + TILE - 1, y, 1, TILE); }
+  ctx.restore();
+}
+
+export function drawCastShadow(ctx, x, y, fromAbove, fromLeft) {
+  ctx.save();
+  ctx.fillStyle = '#101828';
+  if (fromAbove) {
+    ctx.globalAlpha = 0.20;
+    ctx.fillRect(x, y, TILE, 3);
+    ctx.globalAlpha = 0.12;
+    ctx.fillRect(x, y + 3, TILE, 2);
+  }
+  if (fromLeft) {
+    ctx.globalAlpha = 0.14;
+    ctx.fillRect(x, y, 3, TILE);
+  }
+  ctx.restore();
+}
