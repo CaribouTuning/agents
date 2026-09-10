@@ -21,6 +21,7 @@ import {
 } from '../game/state.js';
 import { createMonster, healFully } from '../game/monster.js';
 import { net } from '../net/NetworkManager.js';
+import { currentHour, currentPhase, phaseLabel, forceHour } from '../game/clock.js';
 import { simulateSeasonWeek } from '../game/circuit/circuit.js';
 import { reportSeasonWeek, reportPowerRankings } from '../game/circuit/news.js';
 
@@ -30,6 +31,10 @@ function simulateWeek(game) {
   reportSeasonWeek(c, simulateSeasonWeek(c), game.state.player.name);
   reportPowerRankings(c, game.state.player.name);
 }
+
+// One tap walks the clock to the middle of the next phase, which is all a
+// tester ever wants from it.
+const NEXT_HOUR = { morning: 13, day: 22, night: 7 };
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
@@ -56,6 +61,8 @@ export class DebugScreen extends Screen {
         { t: `Give ${money(10000)}`, a: () => { st.inventory.money = Math.min(999999, st.inventory.money + 10000); this._msg('Money added.'); } },
         { t: 'Award next badge', a: () => { const n = st.badges.length + 1; awardBadge(st, n, `Badge ${n}`); this._msg(`Badge ${n} awarded.`); audio.sfx('badge'); } },
         { t: `Level +5 (party)`, a: () => { for (const m of st.party) { m.level = Math.min(100, m.level + 5); healFully(m); } this._msg('Party levelled.'); } },
+        { t: `Time of day: ${phaseLabel()}`, right: `${String(currentHour()).padStart(2, '0')}:00`,
+          a: () => { forceHour(NEXT_HOUR[currentPhase()]); this._msg(`It is now ${phaseLabel()}.`); } },
         { t: 'Circuit...', a: () => { this.page = 'circuit'; this.index = 0; this.scroll = 0; } },
         { t: 'Network state...', a: () => { this.page = 'net'; this.index = 0; } },
         { t: 'Reset save', a: () => { this.page = 'reset'; this.index = 1; } },

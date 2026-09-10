@@ -10,6 +10,7 @@ import { tileDef } from '../../render/tiles.js';
 import { getTrainer } from '../../data/trainers.js';
 import { weightedPick } from '../../core/rng.js';
 import { TILE } from '../../render/canvas.js';
+import { currentPhase } from '../clock.js';
 
 export const WALK_FRAMES = 14;    // logic ticks to cross one tile
 export const RUN_FRAMES = 8;
@@ -347,7 +348,20 @@ export class World {
     const def = this.defAt(p.x, p.y);
     const table = this.map.encounters
       && (def.tall ? this.map.encounters.grass : (this.map.kind === 'cave' ? this.map.encounters.cave : null));
-    if (table && this.encounterCooldown <= 0) this._rollEncounter(table);
+    const now = this._tableForNow(table);
+    if (now && this.encounterCooldown <= 0) this._rollEncounter(now);
+  }
+
+  /**
+   * The table for the hour. A map may give a `night` or `morning` variant
+   * beside its default one; anything that does not falls back to the default,
+   * so adding a nocturnal roster to one route does not mean writing three for
+   * every route.
+   */
+  _tableForNow(table) {
+    if (!table) return null;
+    const byPhase = table[currentPhase()];
+    return byPhase || table;
   }
 
   _rollEncounter(table) {

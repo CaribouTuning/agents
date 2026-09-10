@@ -12,6 +12,7 @@ import { MAPS } from '../src/data/maps/index.js';
 import { tileDef } from '../src/render/tiles.js';
 import { unrenderable } from '../src/render/font.js';
 import { objective, OBJECTIVE_MAX, ENTRIES as JOURNAL_ENTRIES } from '../src/game/journal.js';
+import { PHASES, phaseAt, tintFor } from '../src/game/clock.js';
 import { SPECIES } from '../src/data/species.js';
 import { MOVES } from '../src/data/moves.js';
 import { ITEMS } from '../src/data/items.js';
@@ -225,11 +226,23 @@ for (const map of Object.values(MAPS)) {
     }
   }
 
-  // 9. Encounter tables must reference real species.
-  const tables = [map.encounters?.grass, map.encounters?.cave].filter(Boolean);
-  for (const t of tables) {
-    if (t.min > t.max) err(`${tag} encounter level range is inverted (${t.min}-${t.max})`);
-    for (const [id] of t.table) if (!SPECIES[id]) err(`${tag} encounter table references unknown species ${id}`);
+  // 9. Encounter tables must reference real species — including the ones the
+  // clock swaps in. A nocturnal roster nobody validates is a roster that
+  // crashes the first time somebody plays after eight at night.
+  const tables = [];
+  for (const slot of [map.encounters?.grass, map.encounters?.cave]) {
+    if (!slot) continue;
+    tables.push([slot, 'default']);
+    for (const phase of ['morning', 'day', 'night']) {
+      if (slot[phase]) tables.push([slot[phase], phase]);
+    }
+  }
+  for (const [t, when] of tables) {
+    if (!Array.isArray(t.table)) { err(`${tag} ${when} encounter table has no entries`); continue; }
+    if (!(t.min <= t.max)) err(`${tag} ${when} encounter level range is inverted (${t.min}-${t.max})`);
+    for (const [id] of t.table) {
+      if (!SPECIES[id]) err(`${tag} ${when} encounter table references unknown species ${id}`);
+    }
   }
   if (map.kind === 'route' && !map.encounters) {
     const hasGrass = map.tiles.some((r) => r.includes('"'));
@@ -559,6 +572,28 @@ for (const e of errors) console.log(`  ERR   ${e}`);
   for (const e of JOURNAL_ENTRIES) {
     const bad = unrenderable(`${e.title} ${e.body.join(' ')} ${e.next || ''}`);
     if (bad.length) err('journal', `entry ${e.id} contains undrawable characters: ${JSON.stringify(bad)}`);
+  }
+}
+
+// ---- the world clock ------------------------------------------------------
+// Phases have to tile the whole 24 hours with no gap and no overlap, or there
+// is an hour of the day when the game does not know what time it is.
+{
+  const seen = {};
+  for (let h = 0; h < 24; h++) {
+    const p = phaseAt(h);
+    if (!PHASES.includes(p)) err('clock', `hour ${h} is in unknown phase "${p}"`);
+    seen[p] = (seen[p] || 0) + 1;
+  }
+  for (const p of PHASES) {
+    if (!seen[p]) err('clock', `no hour of the day falls in "${p}"`);
+  }
+  const day = tintFor('day');
+  if (day.alpha !== 0) err('clock', 'daytime should be drawn with no wash at all');
+  for (const p of PHASES) {
+    const t = tintFor(p);
+    if (!(t.alpha >= 0 && t.alpha <= 1)) err('clock', `${p} tint alpha ${t.alpha} is out of range`);
+    if (!/^#[0-9a-f]{6}$/i.test(t.color)) err('clock', `${p} tint colour ${t.color} is not a hex colour`);
   }
 }
 

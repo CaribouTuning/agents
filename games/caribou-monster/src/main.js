@@ -33,6 +33,7 @@ import { createBattle } from './game/battle/engine.js';
 import { getSpecies } from './data/species.js';
 import { getMap, MAPS } from './data/maps/index.js';
 import { SCRIPTS } from './game/overworld/scripts.js';
+import { forceHour, currentPhase } from './game/clock.js';
 import { randomSeed } from './core/rng.js';
 import { saveManager } from './save/SaveManager.js';
 import { net } from './net/NetworkManager.js';
@@ -61,6 +62,7 @@ class Game {
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
     this.gossipForTest = { resolveDialogue, worldSnapshot };
+    this.clockForTest = { forceHour, currentPhase };
     this.scriptsForTest = SCRIPTS;
     this.journalForTest = journalApi;
     // The World Circuit career. It reads and writes state.circuit, so it is

@@ -10,6 +10,7 @@ import { drawChar, lookFor, SPR_W, FOOT_OFFSET } from './sprites.js';
 import { renderMonster } from './monsterart.js';
 import { getSpecies } from '../data/species.js';
 import { PAL, shade } from './palette.js';
+import { tintFor } from '../game/clock.js';
 import { drawTextCentered, drawText } from './font.js';
 
 export class Camera {
@@ -171,6 +172,21 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     ctx.clip();
     drawTile(ctx, map.tiles[ty][tx], tx * TILE - camera.x, ty * TILE - camera.y, frame);
     ctx.restore();
+  }
+
+  // --- the time of day ---
+  // Outdoors only. A cave is dark whatever the hour, and the one place the
+  // light never changes is indoors.
+  if (map.kind !== 'cave' && map.kind !== 'indoor') {
+    const tint = tintFor();
+    if (tint.alpha > 0) {
+      ctx.save();
+      ctx.globalAlpha = tint.alpha;
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = tint.color;
+      ctx.fillRect(0, 0, viewW, viewH);
+      ctx.restore();
+    }
   }
 
   // --- caves are lit only near the player ---

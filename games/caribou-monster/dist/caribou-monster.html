@@ -10614,7 +10614,14 @@ const ROUTE201 = defineMap('route201', {
     },
   ],
   encounters: {
-    grass: { min: 2, max: 5, table: [[396, 30], [399, 28], [401, 18], [403, 12], [265, 7], [406, 5]] },
+    // Platinum's routes change roster with the clock, and it is the cheapest
+    // way to make walking the same road at nine at night feel different.
+    grass: {
+      min: 2, max: 5,
+      table: [[396, 30], [399, 28], [401, 18], [403, 12], [265, 7], [406, 5]],
+      morning: { min: 2, max: 5, table: [[396, 34], [399, 26], [401, 16], [403, 14], [265, 10]] },
+      night: { min: 2, max: 5, table: [[163, 30], [401, 24], [399, 18], [41, 16], [198, 12]] },
+    },
   },
 });
 
@@ -10691,7 +10698,11 @@ const ROUTE207 = defineMap('route207', {
     },
   ],
   encounters: {
-    grass: { min: 10, max: 14, table: [[403, 22], [399, 16], [77, 12], [54, 10], [427, 12], [396, 12], [438, 8], [422, 5], [129, 3]] },
+    grass: {
+      min: 10, max: 14,
+      table: [[403, 22], [399, 16], [77, 12], [54, 10], [427, 12], [396, 12], [438, 8], [422, 5], [129, 3]],
+      night: { min: 10, max: 14, table: [[41, 26], [163, 20], [200, 14], [434, 12], [427, 12], [399, 10], [438, 6]] },
+    },
   },
 });
 
@@ -10762,7 +10773,11 @@ const ROUTE203 = defineMap('route203', {
     },
   ],
   encounters: {
-    grass: { min: 5, max: 9, table: [[396, 24], [399, 20], [403, 18], [401, 14], [415, 10], [406, 8], [265, 6]] },
+    grass: {
+      min: 5, max: 9,
+      table: [[396, 24], [399, 20], [403, 18], [401, 14], [415, 10], [406, 8], [265, 6]],
+      night: { min: 5, max: 9, table: [[163, 26], [402, 20], [41, 18], [399, 14], [198, 12], [434, 10]] },
+    },
   },
 });
 
@@ -10847,7 +10862,11 @@ const ROUTE202 = defineMap('route202', {
     },
   ],
   encounters: {
-    grass: { min: 4, max: 8, table: [[401, 20], [265, 16], [406, 14], [427, 14], [396, 12], [415, 10], [420, 8], [41, 4], [403, 2]] },
+    grass: {
+      min: 4, max: 8,
+      table: [[401, 20], [265, 16], [406, 14], [427, 14], [396, 12], [415, 10], [420, 8], [41, 4], [403, 2]],
+      night: { min: 4, max: 8, table: [[41, 24], [401, 20], [163, 16], [92, 12], [427, 12], [200, 10], [434, 6]] },
+    },
   },
 });
 
@@ -10944,6 +10963,7 @@ const OREBURGH_GATE = defineMap('oreburgh_gate', {
   ],
   encounters: {
     grass: null,
+    // Underground, the hour makes no difference to what lives there.
     cave: { min: 9, max: 14, table: [[41, 30], [74, 26], [66, 16], [436, 10], [63, 8], [433, 5], [95, 3], [447, 2]] },
   },
 });
@@ -12241,6 +12261,85 @@ __exports(__x, { TRAINERS: () => TRAINERS, getTrainer: () => getTrainer, STARTER
 
 };
 
+__defs['game/clock.js'] = function (__x, __req) {
+
+// The world clock.
+//
+// Platinum reads the DS's own clock, so the game is morning when it is morning
+// where you are — which is the whole charm of it: play in the evening and the
+// world is lit like the evening, and two people playing together see the same
+// sky because they are in the same room.
+//
+// Phases are the series' own boundaries:
+//
+//   morning  04:00 - 09:59
+//   day      10:00 - 19:59
+//   night    20:00 - 03:59
+//
+// Nothing here is stored in a save. A clock you can save is a clock you can
+// desync, and the point of it is that it agrees with the world outside.
+
+const PHASES = ['morning', 'day', 'night'];
+
+/** Overridden by the debug menu and by the tests; null means "ask the device". */
+let forced = null;
+
+function forceHour(hour) {
+  forced = hour === null || hour === undefined ? null : ((hour % 24) + 24) % 24;
+}
+
+function currentHour() {
+  return forced === null ? new Date().getHours() : forced;
+}
+
+function phaseAt(hour) {
+  if (hour >= 4 && hour < 10) return 'morning';
+  if (hour >= 10 && hour < 20) return 'day';
+  return 'night';
+}
+
+function currentPhase() { return phaseAt(currentHour()); }
+
+function isNight(hour = currentHour()) { return phaseAt(hour) === 'night'; }
+
+/** "Morning", "Day", "Night" — for the trainer card and the summary screen. */
+function phaseLabel(phase = currentPhase()) {
+  return phase.charAt(0).toUpperCase() + phase.slice(1);
+}
+
+/**
+ * The wash laid over the overworld for this phase. Outdoor maps only: a cave
+ * is dark whatever the hour, and being indoors is the one place the light
+ * does not change.
+ *
+ * `alpha` of 0 means day, which is drawn as nothing at all rather than as a
+ * transparent rectangle nobody can see.
+ */
+const TINTS = {
+  morning: { color: '#ffb463', alpha: 0.26 },
+  day: { color: '#ffffff', alpha: 0 },
+  night: { color: '#2a3c88', alpha: 0.62 },
+};
+
+function tintFor(phase = currentPhase()) { return TINTS[phase] || TINTS.day; }
+
+/**
+ * How many real minutes a phase still has to run. Used by anything that wants
+ * to say "come back tomorrow morning" and mean it.
+ */
+function minutesLeftInPhase(now = new Date()) {
+  const hour = forced === null ? now.getHours() : forced;
+  const phase = phaseAt(hour);
+  let endHour = phase === 'morning' ? 10 : phase === 'day' ? 20 : 4;
+  let hours = (endHour - hour + 24) % 24;
+  if (hours === 0) hours = 24;
+  return hours * 60 - (forced === null ? now.getMinutes() : 0);
+}
+
+__exports(__x, { PHASES: () => PHASES, forceHour: () => forceHour, currentHour: () => currentHour, phaseAt: () => phaseAt, currentPhase: () => currentPhase, isNight: () => isNight, phaseLabel: () => phaseLabel, tintFor: () => tintFor, minutesLeftInPhase: () => minutesLeftInPhase });
+
+};
+
 __defs['game/overworld/world.js'] = function (__x, __req) {
 const { getMap } = __req('data/maps/index.js');
 const { onWalked } = __req('game/friendship.js');
@@ -12248,12 +12347,14 @@ const { tileDef } = __req('render/tiles.js');
 const { getTrainer } = __req('data/trainers.js');
 const { weightedPick } = __req('core/rng.js');
 const { TILE } = __req('render/canvas.js');
+const { currentPhase } = __req('game/clock.js');
 // The overworld simulation.
 //
 // Grid-based like the games it is modelled on: an entity always occupies a
 // whole tile and animates between tiles. Everything downstream — collision,
 // encounters, trainer sight, the camera — is simple and predictable because
 // of that, and it is what makes the movement feel right rather than floaty.
+
 
 
 
@@ -12597,7 +12698,20 @@ class World {
     const def = this.defAt(p.x, p.y);
     const table = this.map.encounters
       && (def.tall ? this.map.encounters.grass : (this.map.kind === 'cave' ? this.map.encounters.cave : null));
-    if (table && this.encounterCooldown <= 0) this._rollEncounter(table);
+    const now = this._tableForNow(table);
+    if (now && this.encounterCooldown <= 0) this._rollEncounter(now);
+  }
+
+  /**
+   * The table for the hour. A map may give a `night` or `morning` variant
+   * beside its default one; anything that does not falls back to the default,
+   * so adding a nocturnal roster to one route does not mean writing three for
+   * every route.
+   */
+  _tableForNow(table) {
+    if (!table) return null;
+    const byPhase = table[currentPhase()];
+    return byPhase || table;
   }
 
   _rollEncounter(table) {
@@ -12756,6 +12870,7 @@ const { drawChar, lookFor, SPR_W, FOOT_OFFSET } = __req('render/sprites.js');
 const { renderMonster } = __req('render/monsterart.js');
 const { getSpecies } = __req('data/species.js');
 const { PAL, shade } = __req('render/palette.js');
+const { tintFor } = __req('game/clock.js');
 const { drawTextCentered, drawText } = __req('render/font.js');
 // Overworld renderer.
 //
@@ -12763,6 +12878,7 @@ const { drawTextCentered, drawText } = __req('render/font.js');
 // characters walk behind things correctly, and re-draws the top half of tall
 // grass over anyone standing in it — the small detail that sells the
 // perspective in the games this is modelled on.
+
 
 
 
@@ -12930,6 +13046,21 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     ctx.clip();
     drawTile(ctx, map.tiles[ty][tx], tx * TILE - camera.x, ty * TILE - camera.y, frame);
     ctx.restore();
+  }
+
+  // --- the time of day ---
+  // Outdoors only. A cave is dark whatever the hour, and the one place the
+  // light never changes is indoors.
+  if (map.kind !== 'cave' && map.kind !== 'indoor') {
+    const tint = tintFor();
+    if (tint.alpha > 0) {
+      ctx.save();
+      ctx.globalAlpha = tint.alpha;
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = tint.color;
+      ctx.fillRect(0, 0, viewW, viewH);
+      ctx.restore();
+    }
   }
 
   // --- caves are lit only near the player ---
@@ -22054,6 +22185,7 @@ const { FLAGS } = __req('game/storyflags.js');
 const { debugGive, debugGiveItem, healParty, awardBadge, setStoryFlag, formatPlayTime } = __req('game/state.js');
 const { createMonster, healFully } = __req('game/monster.js');
 const { net } = __req('net/NetworkManager.js');
+const { currentHour, currentPhase, phaseLabel, forceHour } = __req('game/clock.js');
 const { simulateSeasonWeek } = __req('game/circuit/circuit.js');
 const { reportSeasonWeek, reportPowerRankings } = __req('game/circuit/news.js');
 // Developer menu.
@@ -22078,12 +22210,17 @@ const { reportSeasonWeek, reportPowerRankings } = __req('game/circuit/news.js');
 
 
 
+
 // One off-screen week of pro results, plus the table it changes.
 function simulateWeek(game) {
   const c = game.state.circuit;
   reportSeasonWeek(c, simulateSeasonWeek(c), game.state.player.name);
   reportPowerRankings(c, game.state.player.name);
 }
+
+// One tap walks the clock to the middle of the next phase, which is all a
+// tester ever wants from it.
+const NEXT_HOUR = { morning: 13, day: 22, night: 7 };
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
@@ -22110,6 +22247,8 @@ class DebugScreen extends Screen {
         { t: `Give ${money(10000)}`, a: () => { st.inventory.money = Math.min(999999, st.inventory.money + 10000); this._msg('Money added.'); } },
         { t: 'Award next badge', a: () => { const n = st.badges.length + 1; awardBadge(st, n, `Badge ${n}`); this._msg(`Badge ${n} awarded.`); audio.sfx('badge'); } },
         { t: `Level +5 (party)`, a: () => { for (const m of st.party) { m.level = Math.min(100, m.level + 5); healFully(m); } this._msg('Party levelled.'); } },
+        { t: `Time of day: ${phaseLabel()}`, right: `${String(currentHour()).padStart(2, '0')}:00`,
+          a: () => { forceHour(NEXT_HOUR[currentPhase()]); this._msg(`It is now ${phaseLabel()}.`); } },
         { t: 'Circuit...', a: () => { this.page = 'circuit'; this.index = 0; this.scroll = 0; } },
         { t: 'Network state...', a: () => { this.page = 'net'; this.index = 0; } },
         { t: 'Reset save', a: () => { this.page = 'reset'; this.index = 1; } },
@@ -24072,6 +24211,7 @@ const { createBattle } = __req('game/battle/engine.js');
 const { getSpecies } = __req('data/species.js');
 const { getMap, MAPS } = __req('data/maps/index.js');
 const { SCRIPTS } = __req('game/overworld/scripts.js');
+const { forceHour, currentPhase } = __req('game/clock.js');
 const { randomSeed } = __req('core/rng.js');
 const { saveManager } = __req('save/SaveManager.js');
 const { net } = __req('net/NetworkManager.js');
@@ -24086,6 +24226,7 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
 
 
 
@@ -24144,6 +24285,7 @@ class Game {
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
     this.gossipForTest = { resolveDialogue, worldSnapshot };
+    this.clockForTest = { forceHour, currentPhase };
     this.scriptsForTest = SCRIPTS;
     this.journalForTest = journalApi;
     // The World Circuit career. It reads and writes state.circuit, so it is

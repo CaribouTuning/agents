@@ -73,7 +73,11 @@ export const ROUTE202 = defineMap('route202', {
     },
   ],
   encounters: {
-    grass: { min: 4, max: 8, table: [[401, 20], [265, 16], [406, 14], [427, 14], [396, 12], [415, 10], [420, 8], [41, 4], [403, 2]] },
+    grass: {
+      min: 4, max: 8,
+      table: [[401, 20], [265, 16], [406, 14], [427, 14], [396, 12], [415, 10], [420, 8], [41, 4], [403, 2]],
+      night: { min: 4, max: 8, table: [[41, 24], [401, 20], [163, 16], [92, 12], [427, 12], [200, 10], [434, 6]] },
+    },
   },
 });
 
@@ -170,6 +174,7 @@ export const OREBURGH_GATE = defineMap('oreburgh_gate', {
   ],
   encounters: {
     grass: null,
+    // Underground, the hour makes no difference to what lives there.
     cave: { min: 9, max: 14, table: [[41, 30], [74, 26], [66, 16], [436, 10], [63, 8], [433, 5], [95, 3], [447, 2]] },
   },
 });

@@ -69,7 +69,14 @@ export const ROUTE201 = defineMap('route201', {
     },
   ],
   encounters: {
-    grass: { min: 2, max: 5, table: [[396, 30], [399, 28], [401, 18], [403, 12], [265, 7], [406, 5]] },
+    // Platinum's routes change roster with the clock, and it is the cheapest
+    // way to make walking the same road at nine at night feel different.
+    grass: {
+      min: 2, max: 5,
+      table: [[396, 30], [399, 28], [401, 18], [403, 12], [265, 7], [406, 5]],
+      morning: { min: 2, max: 5, table: [[396, 34], [399, 26], [401, 16], [403, 14], [265, 10]] },
+      night: { min: 2, max: 5, table: [[163, 30], [401, 24], [399, 18], [41, 16], [198, 12]] },
+    },
   },
 });
 
@@ -146,7 +153,11 @@ export const ROUTE207 = defineMap('route207', {
     },
   ],
   encounters: {
-    grass: { min: 10, max: 14, table: [[403, 22], [399, 16], [77, 12], [54, 10], [427, 12], [396, 12], [438, 8], [422, 5], [129, 3]] },
+    grass: {
+      min: 10, max: 14,
+      table: [[403, 22], [399, 16], [77, 12], [54, 10], [427, 12], [396, 12], [438, 8], [422, 5], [129, 3]],
+      night: { min: 10, max: 14, table: [[41, 26], [163, 20], [200, 14], [434, 12], [427, 12], [399, 10], [438, 6]] },
+    },
   },
 });
 
@@ -217,6 +228,10 @@ export const ROUTE203 = defineMap('route203', {
     },
   ],
   encounters: {
-    grass: { min: 5, max: 9, table: [[396, 24], [399, 20], [403, 18], [401, 14], [415, 10], [406, 8], [265, 6]] },
+    grass: {
+      min: 5, max: 9,
+      table: [[396, 24], [399, 20], [403, 18], [401, 14], [415, 10], [406, 8], [265, 6]],
+      night: { min: 5, max: 9, table: [[163, 26], [402, 20], [41, 18], [399, 14], [198, 12], [434, 10]] },
+    },
   },
 });
