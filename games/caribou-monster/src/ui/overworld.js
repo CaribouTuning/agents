@@ -6,7 +6,7 @@
 // as long as one is running.
 import { Screen, FADE } from './screen.js';
 import { World, DIRS } from '../game/overworld/world.js';
-import { Camera, drawWorld, drawLocationBanner } from '../render/worldrender.js';
+import { Camera, drawWorld, drawLocationBanner, drawGuideBar } from '../render/worldrender.js';
 import { drawControls, hintBar, computeLayout } from './controls.js';
 import { dialogue } from './dialogue.js';
 import { input } from '../core/input.js';
@@ -24,7 +24,7 @@ import { recordSeen, recordCaught } from '../game/pokedex.js';
 import { awardBadge, healParty, setStoryFlag, progress } from '../game/state.js';
 import { scriptFor } from '../game/overworld/scripts.js';
 import { resolveDialogue, fillText } from '../game/overworld/gossip.js';
-import { record as recordJournal, getEntry } from '../game/journal.js';
+import { record as recordJournal, getEntry, objective } from '../game/journal.js';
 import { renderMonster } from '../render/monsterart.js';
 import { musicFor } from '../data/music.js';
 import { net } from '../net/NetworkManager.js';
@@ -531,6 +531,11 @@ export class OverworldScreen extends Screen {
     }
 
     drawLocationBanner(ctx, this.bannerName, this.bannerT, W);
+    // While the banner is sliding in it owns the top-left corner, so the
+    // guide bar steps underneath it rather than fighting it.
+    if (this.game.state.settings.guide !== false && !dialogue.visible && !this.script) {
+      drawGuideBar(ctx, objective(this.game.state), W, H, { belowBanner: this.bannerT < 2.4 });
+    }
     this._drawNetBadge(ctx, W);
 
     if (this.showcase) {

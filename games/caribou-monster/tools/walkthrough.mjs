@@ -138,12 +138,12 @@ await wait(900);
 let w = await where();
 check('walked out into the town', w.map === 'twinleaf', `${w.map} ${w.x},${w.y}`);
 
-// Town path: down to the main road, east to the crossroads, north, then west
-// to the lab door at (6,5).
-await walkTo(5, 14);
-await walkTo(14, 14);
-await walkTo(14, 6);
-await walkTo(6, 6);
+// Town path: down to the main road, east to the crossroads, north to the
+// lab's front path, then west to the door at (6,6).
+await walkTo(5, 15);
+await walkTo(14, 15);
+await walkTo(14, 7);
+await walkTo(6, 7);
 await hold('ArrowUp', 500);
 await wait(900);
 w = await where();

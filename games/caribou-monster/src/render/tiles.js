@@ -319,6 +319,119 @@ function door(c) {
   c.fillStyle = shade(PAL.door, 0.2); px(c, 4, 4, 4, 5);
 }
 
+
+// ---- civic buildings -------------------------------------------------
+// A Pokemon Center, a Mart and a Gym drawn as three identical coloured
+// rectangles is the reason a player can walk into a city and not know a Gym
+// is in it. Each one gets its own facade panel with its own emblem, its own
+// door, and a name board the renderer writes across the front.
+
+/** The panel under a Center's roof: white, with the red cross and a ball. */
+function centerFront(c) {
+  c.fillStyle = '#f0ece0'; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade('#f0ece0', -0.12); px(c, 0, 0, 16, 2);
+  c.fillStyle = '#d8493f';
+  px(c, 6, 4, 4, 8); px(c, 4, 6, 8, 4);
+  c.fillStyle = '#ffffff'; px(c, 7, 5, 1, 2);
+  c.fillStyle = shade('#f0ece0', -0.2); px(c, 0, 14, 16, 2);
+}
+
+/** The Mart panel: the blue stripe and a ball. */
+function martFront(c) {
+  c.fillStyle = '#f0ece0'; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade('#f0ece0', -0.12); px(c, 0, 0, 16, 2);
+  c.fillStyle = '#4a6fc0'; px(c, 0, 4, 16, 3);
+  ball(c, 8, 11, 4);
+  c.fillStyle = shade('#f0ece0', -0.2); px(c, 0, 14, 16, 2);
+}
+
+/** A Poke Ball, drawn as a disc split by a dark band. */
+function ball(c, cx, cy, r) {
+  c.fillStyle = '#20283a';
+  for (let y = -r - 1; y <= r + 1; y++) {
+    for (let x = -r - 1; x <= r + 1; x++) {
+      if (x * x + y * y <= (r + 1) * (r + 1)) px(c, cx + x, cy + y);
+    }
+  }
+  for (let y = -r; y <= r; y++) {
+    for (let x = -r; x <= r; x++) {
+      if (x * x + y * y > r * r) continue;
+      c.fillStyle = y < -1 ? '#e05248' : y > 0 ? '#f4f4f8' : '#20283a';
+      px(c, cx + x, cy + y);
+    }
+  }
+  c.fillStyle = '#f4f4f8'; px(c, cx - 1, cy, 2, 1);
+}
+
+/**
+ * The Gym facade. Dark stone, a badge plate, and a heavy base course — it
+ * has to be recognisable as a Gym from across the map with no text at all.
+ */
+function gymFront(c) {
+  const stone = '#6b7488';
+  c.fillStyle = stone; px(c, 0, 0, 16, 16);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const r = h(x, y, 131);
+      if (r > 0.9) { c.fillStyle = shade(stone, 0.1); px(c, x, y); }
+      else if (r < 0.1) { c.fillStyle = shade(stone, -0.12); px(c, x, y); }
+    }
+  }
+  // Ashlar courses.
+  c.fillStyle = shade(stone, -0.28);
+  for (let y = 4; y < 16; y += 5) px(c, 0, y, 16, 1);
+  for (let y = 0; y < 16; y += 5) {
+    const off = (y / 5) % 2 ? 4 : 0;
+    for (let x = off; x < 16; x += 8) px(c, x, y, 1, 4);
+  }
+  c.fillStyle = shade(stone, 0.16); px(c, 0, 0, 16, 1);
+  c.fillStyle = shade(stone, -0.35); px(c, 0, 14, 16, 2);
+}
+
+/** The badge plate that sits over a Gym's door: a gold eight-point badge. */
+function gymBadge(c) {
+  gymFront(c);
+  c.fillStyle = '#2b3450'; px(c, 2, 3, 12, 10);
+  c.fillStyle = '#f0c840';
+  for (let y = -4; y <= 4; y++) {
+    for (let x = -5; x <= 5; x++) {
+      if (Math.abs(x) / 5 + Math.abs(y) / 4 <= 1) px(c, 8 + x, 8 + y);
+    }
+  }
+  c.fillStyle = '#f8e8a0'; px(c, 5, 6, 3, 2);
+  c.fillStyle = '#a07818'; px(c, 8, 9, 3, 2);
+  c.fillStyle = '#2b3450'; px(c, 7, 7, 3, 3);
+}
+
+/** A Gym's double door: taller and heavier than a house's. */
+function gymDoor(c) {
+  gymFront(c);
+  c.fillStyle = '#20283a'; px(c, 1, 1, 14, 15);
+  c.fillStyle = '#3f4a68'; px(c, 2, 2, 12, 14);
+  c.fillStyle = '#2b3450'; px(c, 7, 2, 2, 14);
+  c.fillStyle = '#5a6a94'; px(c, 3, 3, 4, 6); px(c, 9, 3, 4, 6);
+  c.fillStyle = '#f0c840'; px(c, 5, 10, 1, 2); px(c, 10, 10, 1, 2);
+}
+
+/** A stone marker either side of a Gym door. */
+function statue(c) {
+  c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade(PAL.grass, -0.22); px(c, 2, 13, 12, 3);
+  c.fillStyle = PAL.rockDark; px(c, 3, 12, 10, 4);
+  c.fillStyle = PAL.rock; px(c, 4, 2, 8, 11);
+  c.fillStyle = PAL.rockLight; px(c, 5, 3, 3, 9);
+  c.fillStyle = PAL.rockDark; px(c, 10, 4, 2, 8);
+  c.fillStyle = '#f0c840'; px(c, 6, 5, 4, 4);
+  c.fillStyle = PAL.rockDark; px(c, 7, 6, 2, 2);
+}
+
+/** The blank board a building's name is written across. */
+function nameBoard(c) {
+  c.fillStyle = '#2b3450'; px(c, 0, 3, 16, 10);
+  c.fillStyle = '#5a6a94'; px(c, 0, 3, 16, 1);
+  c.fillStyle = '#1b2135'; px(c, 0, 12, 16, 1);
+}
+
 // ---- interiors -------------------------------------------------------
 
 function woodFloor(c) {
@@ -523,6 +636,14 @@ export const TILES = {
   'G': { roof: true, name: 'green roof', draw: roof(PAL.roofGreen, PAL.roofGreenDark), solid: true },
   'E': { roof: true, name: 'grey roof', draw: roof(PAL.roofGrey, PAL.roofGreyDark), solid: true },
   'D': { name: 'door', draw: door, casts: true },
+  'K': { roof: true, name: 'gym roof', draw: roof('#7a8398', '#525a70'), solid: true },
+  'N': { name: 'gym wall', draw: gymFront, solid: true, casts: true },
+  'Q': { name: 'gym badge plate', draw: gymBadge, solid: true, casts: true },
+  'd': { name: 'gym door', draw: gymDoor, casts: true },
+  'I': { name: 'stone marker', draw: statue, solid: true, casts: true },
+  'F': { name: 'centre front', draw: centerFront, solid: true, casts: true },
+  'J': { name: 'mart front', draw: martFront, solid: true, casts: true },
+  'V': { name: 'name board', draw: nameBoard, solid: true, casts: true },
   '|': { name: 'inner wall', draw: wallIn, solid: true },
   '_': { name: 'wood floor', draw: woodFloor },
   '+': { name: 'tile floor', draw: tileFloor },

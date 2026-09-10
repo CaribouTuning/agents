@@ -760,6 +760,7 @@ export class OptionsScreen extends Screen {
       { key: 'difficulty', label: 'DIFFICULTY', value: this.game.state.difficulty.toUpperCase() },
       { key: 'music', label: 'MUSIC', value: s.music ? 'ON' : 'OFF' },
       { key: 'sfx', label: 'SOUND', value: s.sfx ? 'ON' : 'OFF' },
+      { key: 'guide', label: 'GUIDE BAR', value: s.guide === false ? 'OFF' : 'ON' },
       { key: 'debug', label: 'DEBUG MENU', value: this.game.debugEnabled ? 'ON' : 'OFF' },
       { key: 'back', label: 'BACK', value: '' },
     ];
@@ -791,6 +792,7 @@ export class OptionsScreen extends Screen {
       case 'difficulty': this.game.state.difficulty = this.game.state.difficulty === 'easy' ? 'normal' : 'easy'; break;
       case 'music': s.music = !s.music; this.game.applySettings(); break;
       case 'sfx': s.sfx = !s.sfx; this.game.applySettings(); break;
+      case 'guide': s.guide = s.guide === false; break;
       case 'debug': this.game.debugEnabled = !this.game.debugEnabled; break;
       case 'back': this.game.screens.pop(); return;
       default: break;

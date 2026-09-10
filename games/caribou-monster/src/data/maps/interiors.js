@@ -12,7 +12,7 @@ const PLAYER_HOUSE = defineMap('player_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 5, ty: 13, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 5, ty: 14, dir: 'down' }],
   npcs: [
     {
       id: 'ph_mom', x: 3, y: 4, look: 'mom', name: 'Mum', movement: 'still', facing: 'down',
@@ -85,7 +85,7 @@ const RIVAL_HOUSE = defineMap('rival_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 22, ty: 13, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 22, ty: 14, dir: 'down' }],
   npcs: [
     {
       id: 'rh_parent', x: 7, y: 4, look: 'oldMan', name: 'Neighbour', movement: 'still', facing: 'down',
@@ -129,7 +129,7 @@ const ROWAN_LAB = defineMap('rowan_lab', {
     '|__p_________|',
     '||||||D|||||||',
   ],
-  warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 6, ty: 6, dir: 'down' }],
+  warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 6, ty: 7, dir: 'down' }],
   npcs: [
     {
       id: 'lab_aspen', x: 6, y: 2, look: 'professor', name: 'Prof. Rowan', movement: 'still', facing: 'down',
@@ -172,8 +172,8 @@ const OREBURGH_CENTER = defineMap('oreburgh_center', {
     '||||||DD||||||',
   ],
   warps: [
-    { x: 6, y: 7, to: 'oreburgh', tx: 6, ty: 7, dir: 'down' },
-    { x: 7, y: 7, to: 'oreburgh', tx: 6, ty: 7, dir: 'down' },
+    { x: 6, y: 7, to: 'oreburgh', tx: 7, ty: 7, dir: 'down' },
+    { x: 7, y: 7, to: 'oreburgh', tx: 7, ty: 7, dir: 'down' },
   ],
   npcs: [
     {
@@ -296,16 +296,44 @@ const OREBURGH_GYM = defineMap('oreburgh_gym', {
     '|||||||DD|||||||',
   ],
   warps: [
-    { x: 7, y: 15, to: 'oreburgh', tx: 14, ty: 19, dir: 'down' },
-    { x: 8, y: 15, to: 'oreburgh', tx: 15, ty: 19, dir: 'down' },
+    { x: 7, y: 15, to: 'oreburgh', tx: 14, ty: 20, dir: 'down' },
+    { x: 8, y: 15, to: 'oreburgh', tx: 15, ty: 20, dir: 'down' },
   ],
   npcs: [
+    {
+      // The guide by the door. Every Pokemon game has one, and it is the
+      // reason a first-timer knows what a Gym is for.
+      id: 'gym1_guide', x: 5, y: 14, look: 'youngster', name: 'Gym Guide',
+      facing: 'right', movement: 'still',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['You took the Coal Badge off Roark! I saw it!',
+            'That badge makes traded Pokémon up to level 20 obey you.',
+            'Seven more Gyms after this one. Then the League.'],
+        },
+        {
+          lines: ['Hey! You here to challenge the Gym? Let me give you the rundown.',
+            'This is a Pokémon Gym. Beat the Leader and he hands you a BADGE.',
+            'Eight badges gets you into the Pokémon League. That is the whole road.',
+            'Roark uses ROCK types. Rock is heavy, slow, and hates Water and Grass.',
+            'Every trainer in here is between you and him. Go on — flatten them!'],
+        },
+      ],
+    },
     { id: 'gym1_a', x: 2, y: 12, look: 'hiker', trainer: 'gym1_hiker1', facing: 'right', sight: 4, movement: 'still' },
     { id: 'gym1_b', x: 13, y: 8, look: 'worker', trainer: 'gym1_worker', facing: 'left', sight: 4, movement: 'still' },
     { id: 'gym1_c', x: 5, y: 4, look: 'hiker', trainer: 'gym1_hiker2', facing: 'down', sight: 3, movement: 'still' },
     {
       id: 'gym1_leader', x: 7, y: 1, look: 'leaderRock', trainer: 'gym1_leader',
       facing: 'down', sight: 0, movement: 'still',
+      dialogue: [
+        {
+          lines: ['I am Roark. Gym Leader here, and foreman down the quarry.',
+            'You want the COAL BADGE, you take it off me. That is how this works.',
+            'Rock does not blink. Show me you can make it.'],
+        },
+      ],
       after: [
         {
           when: { champion: true },

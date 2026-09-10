@@ -1203,6 +1203,119 @@ function door(c) {
   c.fillStyle = shade(PAL.door, 0.2); px(c, 4, 4, 4, 5);
 }
 
+
+// ---- civic buildings -------------------------------------------------
+// A Pokemon Center, a Mart and a Gym drawn as three identical coloured
+// rectangles is the reason a player can walk into a city and not know a Gym
+// is in it. Each one gets its own facade panel with its own emblem, its own
+// door, and a name board the renderer writes across the front.
+
+/** The panel under a Center's roof: white, with the red cross and a ball. */
+function centerFront(c) {
+  c.fillStyle = '#f0ece0'; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade('#f0ece0', -0.12); px(c, 0, 0, 16, 2);
+  c.fillStyle = '#d8493f';
+  px(c, 6, 4, 4, 8); px(c, 4, 6, 8, 4);
+  c.fillStyle = '#ffffff'; px(c, 7, 5, 1, 2);
+  c.fillStyle = shade('#f0ece0', -0.2); px(c, 0, 14, 16, 2);
+}
+
+/** The Mart panel: the blue stripe and a ball. */
+function martFront(c) {
+  c.fillStyle = '#f0ece0'; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade('#f0ece0', -0.12); px(c, 0, 0, 16, 2);
+  c.fillStyle = '#4a6fc0'; px(c, 0, 4, 16, 3);
+  ball(c, 8, 11, 4);
+  c.fillStyle = shade('#f0ece0', -0.2); px(c, 0, 14, 16, 2);
+}
+
+/** A Poke Ball, drawn as a disc split by a dark band. */
+function ball(c, cx, cy, r) {
+  c.fillStyle = '#20283a';
+  for (let y = -r - 1; y <= r + 1; y++) {
+    for (let x = -r - 1; x <= r + 1; x++) {
+      if (x * x + y * y <= (r + 1) * (r + 1)) px(c, cx + x, cy + y);
+    }
+  }
+  for (let y = -r; y <= r; y++) {
+    for (let x = -r; x <= r; x++) {
+      if (x * x + y * y > r * r) continue;
+      c.fillStyle = y < -1 ? '#e05248' : y > 0 ? '#f4f4f8' : '#20283a';
+      px(c, cx + x, cy + y);
+    }
+  }
+  c.fillStyle = '#f4f4f8'; px(c, cx - 1, cy, 2, 1);
+}
+
+/**
+ * The Gym facade. Dark stone, a badge plate, and a heavy base course — it
+ * has to be recognisable as a Gym from across the map with no text at all.
+ */
+function gymFront(c) {
+  const stone = '#6b7488';
+  c.fillStyle = stone; px(c, 0, 0, 16, 16);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const r = h(x, y, 131);
+      if (r > 0.9) { c.fillStyle = shade(stone, 0.1); px(c, x, y); }
+      else if (r < 0.1) { c.fillStyle = shade(stone, -0.12); px(c, x, y); }
+    }
+  }
+  // Ashlar courses.
+  c.fillStyle = shade(stone, -0.28);
+  for (let y = 4; y < 16; y += 5) px(c, 0, y, 16, 1);
+  for (let y = 0; y < 16; y += 5) {
+    const off = (y / 5) % 2 ? 4 : 0;
+    for (let x = off; x < 16; x += 8) px(c, x, y, 1, 4);
+  }
+  c.fillStyle = shade(stone, 0.16); px(c, 0, 0, 16, 1);
+  c.fillStyle = shade(stone, -0.35); px(c, 0, 14, 16, 2);
+}
+
+/** The badge plate that sits over a Gym's door: a gold eight-point badge. */
+function gymBadge(c) {
+  gymFront(c);
+  c.fillStyle = '#2b3450'; px(c, 2, 3, 12, 10);
+  c.fillStyle = '#f0c840';
+  for (let y = -4; y <= 4; y++) {
+    for (let x = -5; x <= 5; x++) {
+      if (Math.abs(x) / 5 + Math.abs(y) / 4 <= 1) px(c, 8 + x, 8 + y);
+    }
+  }
+  c.fillStyle = '#f8e8a0'; px(c, 5, 6, 3, 2);
+  c.fillStyle = '#a07818'; px(c, 8, 9, 3, 2);
+  c.fillStyle = '#2b3450'; px(c, 7, 7, 3, 3);
+}
+
+/** A Gym's double door: taller and heavier than a house's. */
+function gymDoor(c) {
+  gymFront(c);
+  c.fillStyle = '#20283a'; px(c, 1, 1, 14, 15);
+  c.fillStyle = '#3f4a68'; px(c, 2, 2, 12, 14);
+  c.fillStyle = '#2b3450'; px(c, 7, 2, 2, 14);
+  c.fillStyle = '#5a6a94'; px(c, 3, 3, 4, 6); px(c, 9, 3, 4, 6);
+  c.fillStyle = '#f0c840'; px(c, 5, 10, 1, 2); px(c, 10, 10, 1, 2);
+}
+
+/** A stone marker either side of a Gym door. */
+function statue(c) {
+  c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade(PAL.grass, -0.22); px(c, 2, 13, 12, 3);
+  c.fillStyle = PAL.rockDark; px(c, 3, 12, 10, 4);
+  c.fillStyle = PAL.rock; px(c, 4, 2, 8, 11);
+  c.fillStyle = PAL.rockLight; px(c, 5, 3, 3, 9);
+  c.fillStyle = PAL.rockDark; px(c, 10, 4, 2, 8);
+  c.fillStyle = '#f0c840'; px(c, 6, 5, 4, 4);
+  c.fillStyle = PAL.rockDark; px(c, 7, 6, 2, 2);
+}
+
+/** The blank board a building's name is written across. */
+function nameBoard(c) {
+  c.fillStyle = '#2b3450'; px(c, 0, 3, 16, 10);
+  c.fillStyle = '#5a6a94'; px(c, 0, 3, 16, 1);
+  c.fillStyle = '#1b2135'; px(c, 0, 12, 16, 1);
+}
+
 // ---- interiors -------------------------------------------------------
 
 function woodFloor(c) {
@@ -1407,6 +1520,14 @@ const TILES = {
   'G': { roof: true, name: 'green roof', draw: roof(PAL.roofGreen, PAL.roofGreenDark), solid: true },
   'E': { roof: true, name: 'grey roof', draw: roof(PAL.roofGrey, PAL.roofGreyDark), solid: true },
   'D': { name: 'door', draw: door, casts: true },
+  'K': { roof: true, name: 'gym roof', draw: roof('#7a8398', '#525a70'), solid: true },
+  'N': { name: 'gym wall', draw: gymFront, solid: true, casts: true },
+  'Q': { name: 'gym badge plate', draw: gymBadge, solid: true, casts: true },
+  'd': { name: 'gym door', draw: gymDoor, casts: true },
+  'I': { name: 'stone marker', draw: statue, solid: true, casts: true },
+  'F': { name: 'centre front', draw: centerFront, solid: true, casts: true },
+  'J': { name: 'mart front', draw: martFront, solid: true, casts: true },
+  'V': { name: 'name board', draw: nameBoard, solid: true, casts: true },
   '|': { name: 'inner wall', draw: wallIn, solid: true },
   '_': { name: 'wood floor', draw: woodFloor },
   '+': { name: 'tile floor', draw: tileFloor },
@@ -1715,6 +1836,7 @@ const GLYPHS = {
   '←': '.....' + '..#..' + '.#...' + '#####' + '.#...' + '..#..' + '.....', // left arrow
   '✓': '.....' + '....#' + '...#.' + '#..#.' + '.##..' + '.....' + '.....', // tick
   '◀': '....#' + '...##' + '..###' + '.####' + '..###' + '...##' + '....#', // cursor, left
+  '▸': '#....' + '##...' + '###..' + '####.' + '###..' + '##...' + '#....', // guide-bar chevron
 };
 
 const GLYPH_W = 5;
@@ -8099,19 +8221,66 @@ function entriesFor(state) {
 }
 
 /**
- * What to do next: the objective from the most recent entry that carries one.
- * Falls back to the opening instruction so the journal is never blank.
+ * What to do next — the line the guide bar puts on screen and the journal
+ * puts at the top.
+ *
+ * This used to read the last journal entry's `next` and stop there, which
+ * went stale the moment the player did something out of order: walk into
+ * Oreburgh without having spoken to Cass and the game was still telling you
+ * to walk to Oreburgh. So the flags come first. Each rule is a plain
+ * (condition, instruction) pair in the order the game happens, and every
+ * instruction names a PLACE and a REASON, because "go north" without "to
+ * take the Gym's badge" is how a player ends up wandering a city wondering
+ * what the game wants.
+ *
+ * Each rule sees the flags and the whole state, so an instruction can change
+ * once the player is actually in the building it was pointing at. Every line
+ * is kept under 48 characters, because it has to fit the guide bar on a phone
+ * without being cut off — tools/audit.mjs enforces that.
  */
+const OBJECTIVE_MAX = 48;
+
+const RULES = [
+  // --- the opening ---
+  [(f, st) => !f.gotStarter && st.player.map === 'rowan_lab', 'Talk to Prof. Rowan. Choose a Pokémon.'],
+  [(f) => !f.gotStarter, "Go to Prof. Rowan's lab, north of your house."],
+
+  // --- the road to Oreburgh ---
+  [(f, st) => !f.reachedOreburgh && st.player.map === 'twinleaf', 'Leave Twinleaf to the north, onto Route 201.'],
+  [(f, st) => !f.reachedOreburgh && st.player.map === 'route201', 'North up Route 201, then east to Route 202.'],
+  [(f, st) => !f.reachedOreburgh && st.player.map === 'route202', 'Follow Route 202 north to Oreburgh City.'],
+  [(f) => !f.reachedOreburgh, 'Head north from Twinleaf to Oreburgh City.'],
+
+  // --- the first badge. The whole point of arriving. ---
+  [(f, st) => !f.badge1 && st.player.map === 'oreburgh_gym', 'Beat 3 trainers, then Roark, for the badge.'],
+  [(f, st) => !f.badge1 && st.player.map === 'oreburgh_center', 'Heal your team, then challenge the GYM.'],
+  [(f, st) => !f.badge1 && st.player.map === 'oreburgh', 'Win the COAL BADGE at the GYM, south end.'],
+  [(f) => !f.badge1, 'Return to Oreburgh and challenge the GYM.'],
+
+  // --- Galactic, the cave, the Everlight ---
+  [(f, st) => !f.beatCommander && st.player.map === 'oreburgh_gate', 'Find the Galactic commander in here.'],
+  [(f) => !f.beatCommander, 'Head up Route 207. Galactic are digging.'],
+  [(f) => !f.gotCharm, 'Take the Aurora Charm from the dig site.'],
+  [(f) => !f.everlightOpened, "The sealed seam is in the Gate's north wall."],
+  [(f) => !f.everlightResolved, 'Enter the Everlight Chamber.'],
+];
+
 function objective(state) {
+  const f = (state && state.flags) || {};
+  const st = state || { player: {}, flags: {} };
+  for (const [when, text] of RULES) {
+    if (when(f, st)) return text;
+  }
+  // Past the story's end the journal takes over: whatever the last recorded
+  // entry says to do next, then the circuit, which never runs out.
   const mine = entriesFor(state);
   for (let i = mine.length - 1; i >= 0; i--) {
     if (mine[i].next) return mine[i].next;
   }
-  if (state.flags && state.flags[FLAGS.GOT_STARTER]) return 'Head north out of Twinleaf.';
-  return 'Go and see Prof. Rowan at the lab.';
+  return 'The World Circuit is still running. The Battle Hall is in Oreburgh.';
 }
 
-__exports(__x, { ENTRIES: () => ENTRIES, getEntry: () => getEntry, createJournal: () => createJournal, reviveJournal: () => reviveJournal, serializeJournal: () => serializeJournal, record: () => record, entriesFor: () => entriesFor, objective: () => objective });
+__exports(__x, { ENTRIES: () => ENTRIES, getEntry: () => getEntry, createJournal: () => createJournal, reviveJournal: () => reviveJournal, serializeJournal: () => serializeJournal, record: () => record, entriesFor: () => entriesFor, OBJECTIVE_MAX: () => OBJECTIVE_MAX, objective: () => objective });
 
 };
 
@@ -8170,7 +8339,7 @@ function createGameState(opts = {}) {
     circuit: createCircuit(),
     // What the player has worked out so far, and what they are doing next.
     journal: createJournal(),
-    settings: { textSpeed: 1, music: true, sfx: true, showGrid: false },
+    settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
 
@@ -9038,6 +9207,9 @@ function defineMap(id, def) {
     npcs: def.npcs || [],
     objects: def.objects || [],     // ground items
     signs: def.signs || [],
+    // Names written across the front of a building, so a player can read the
+    // city instead of guessing at it.
+    labels: def.labels || [],
     encounters: def.encounters || null,
     events: def.events || [],       // scripted triggers on step
     darkEdges: def.darkEdges !== false,
@@ -9061,6 +9233,7 @@ const TWINLEAF = defineMap('twinleaf', {
     'T..........,..::..,..........T',
     'T..GGGGGGG....::.............T',
     'T..GGGGGGG....::..,..........T',
+    'T..VVVVVVV....::.............T',
     'T..#W#D#W#....::.............T',
     'T..:::::::::::::.............T',
     'T....*........::....TTT......T',
@@ -9080,13 +9253,16 @@ const TWINLEAF = defineMap('twinleaf', {
   warps: [
     { x: 14, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true },
     { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true },
-    { x: 5, y: 12, to: 'player_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 22, y: 12, to: 'rival_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 6, y: 5, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
+    { x: 5, y: 13, to: 'player_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 22, y: 13, to: 'rival_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 6, y: 6, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 5, w: 7, text: "ROWAN'S LAB" },
   ],
   signs: [
-    { x: 3, y: 16, text: 'TWINLEAF TOWN\nWhere every road out is uphill.' },
-    { x: 26, y: 16, text: 'Route 201 ahead.\nTall grass — carry a Pokémon with you.' },
+    { x: 3, y: 17, text: 'TWINLEAF TOWN\n"Fresh and free!"\nWhere every road out is uphill.' },
+    { x: 26, y: 17, text: 'ROUTE 201 — NORTH\nTall grass ahead. Wild Pokémon live in it.\nDo not walk in without a Pokémon.' },
   ],
   npcs: [
     {
@@ -9247,7 +9423,7 @@ const TWINLEAF = defineMap('twinleaf', {
       ],
     },
   ],
-  healPoint: { map: 'twinleaf', x: 5, y: 13 },
+  healPoint: { map: 'player_house', x: 5, y: 6 },
 });
 
 const OREBURGH = defineMap('oreburgh', {
@@ -9256,23 +9432,24 @@ const OREBURGH = defineMap('oreburgh', {
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
     'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
     'T.............::...............T',
-    'T....,........::.........,.....T',
-    'T..AAAAAA.....::......BBBBBB...T',
-    'T..AAAAAA.....::......BBBBBB...T',
-    'T..#W#D#W.....::......#W#D#W...T',
-    'T.....:.......::.........:.....T',
+    'T..AAAAAAAA...::.....BBBBBBBB..T',
+    'T..AAAAAAAA...::.....BBBBBBBB..T',
+    'T..VVVVVVVV...::.....VVVVVVVV..T',
+    'T..#WFFDFFW#..::.....#WJJDJJW#.T',
+    'T......:......::........:......T',
     'T.....::::::::::::::::::::.....T',
-    'T.............::..EEEEEEE......T',
-    'T....*........::..EEEEEEE......T',
-    'T.............::..#WWDDW#......T',
-    'T..GGGGG......::...S....GGGGG..T',
+    'T.............::..EEEEEEEE.....T',
+    'T....*........::..EEEEEEEE.....T',
+    'T.............::..#WWDDWW#.....T',
+    'T..GGGGG......::.S.............T',
     'T..GGGGG......::........GGGGG..T',
     'T..#WDW#......::........#WDW#..T',
-    'T....:.....EEEEEEEE.......:....T',
-    'T....:.....EEEEEEEE.......:....T',
-    'T....:.....EEEEEEEE.......:....T',
-    'T....:.....#W#DD#W#.......:....T',
-    'T....:........::..........:....T',
+    'T....:....KKKKKKKKKK......:....T',
+    'T....:....KKKKKKKKKK......:....T',
+    'T....:....KKKKKKKKKK......:....T',
+    'T....:....VVVVVVVVVV......:....T',
+    'T....:....NQNNddNNQN......:....T',
+    'T....:....I.S.::.S.I......:....T',
     'T....::::::::::::::::::::::....T',
     'T.............::...............T',
     'T..S..........::..........S....T',
@@ -9281,25 +9458,32 @@ const OREBURGH = defineMap('oreburgh', {
   warps: [
     { x: 14, y: 0, to: 'route207', tx: 12, ty: 16, dir: 'up', edge: true },
     { x: 15, y: 0, to: 'route207', tx: 13, ty: 16, dir: 'up', edge: true },
-    { x: 14, y: 23, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 15, y: 23, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 6, y: 6, to: 'oreburgh_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 14, y: 24, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 15, y: 24, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 7, y: 6, to: 'oreburgh_center', tx: 6, ty: 6, dir: 'up' },
     { x: 25, y: 6, to: 'oreburgh_mart', tx: 5, ty: 5, dir: 'up' },
     { x: 5, y: 14, to: 'oreburgh_house', tx: 5, ty: 6, dir: 'up' },
     { x: 26, y: 14, to: 'oreburgh_house2', tx: 5, ty: 6, dir: 'up' },
-    { x: 14, y: 18, to: 'oreburgh_gym', tx: 7, ty: 14, dir: 'up' },
-    { x: 15, y: 18, to: 'oreburgh_gym', tx: 8, ty: 14, dir: 'up' },
+    { x: 14, y: 19, to: 'oreburgh_gym', tx: 7, ty: 14, dir: 'up' },
+    { x: 15, y: 19, to: 'oreburgh_gym', tx: 8, ty: 14, dir: 'up' },
     { x: 21, y: 11, to: 'oreburgh_hall', tx: 7, ty: 8, dir: 'up' },
     { x: 22, y: 11, to: 'oreburgh_hall', tx: 8, ty: 8, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 5, w: 8, text: 'POKéMON CENTER' },
+    { x: 21, y: 5, w: 8, text: 'POKéMON MART' },
+    { x: 10, y: 18, w: 10, text: 'OREBURGH GYM', tone: '#f8e070' },
   ],
   events: [
     // The survey Ines keeps talking about, left on the bench beside her.
     { x: 20, y: 21, flag: 'doc_survey_read', script: 'docSurvey' },
   ],
   signs: [
-    { x: 3, y: 22, text: 'OREBURGH CITY\nCut from the hillside, stone by stone.' },
-    { x: 26, y: 22, text: 'OREBURGH GYM\nLeader: ROARK\n"The quarry does not blink."' },
-    { x: 19, y: 12, text: 'OREBURGH BATTLE HALL\nSanctioned venue of the World Circuit.\nOpen entry. Bring a team.' },
+    { x: 3, y: 23, text: 'OREBURGH CITY\n"The City of Energy"\nCut from the hillside, stone by stone.' },
+    { x: 26, y: 23, text: 'OREBURGH CITY\nGYM ahead — south end of the main road.\nBATTLE HALL — east side.' },
+    { x: 17, y: 12, text: 'OREBURGH BATTLE HALL\nSanctioned venue of the World Circuit.\nOpen entry. Bring a team.' },
+    { x: 12, y: 20, text: 'OREBURGH GYM\nLeader: ROARK\nThe Rock-type Pokémon user!\n"The quarry does not blink."' },
+    { x: 17, y: 20, text: 'WIN AND CLAIM THE COAL BADGE\nA Gym Badge is proof you beat a Leader.\nEight of them opens the League.' },
   ],
   npcs: [
     {
@@ -9819,7 +10003,7 @@ const PLAYER_HOUSE = defineMap('player_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 5, ty: 13, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 5, ty: 14, dir: 'down' }],
   npcs: [
     {
       id: 'ph_mom', x: 3, y: 4, look: 'mom', name: 'Mum', movement: 'still', facing: 'down',
@@ -9892,7 +10076,7 @@ const RIVAL_HOUSE = defineMap('rival_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 22, ty: 13, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 22, ty: 14, dir: 'down' }],
   npcs: [
     {
       id: 'rh_parent', x: 7, y: 4, look: 'oldMan', name: 'Neighbour', movement: 'still', facing: 'down',
@@ -9936,7 +10120,7 @@ const ROWAN_LAB = defineMap('rowan_lab', {
     '|__p_________|',
     '||||||D|||||||',
   ],
-  warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 6, ty: 6, dir: 'down' }],
+  warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 6, ty: 7, dir: 'down' }],
   npcs: [
     {
       id: 'lab_aspen', x: 6, y: 2, look: 'professor', name: 'Prof. Rowan', movement: 'still', facing: 'down',
@@ -9979,8 +10163,8 @@ const OREBURGH_CENTER = defineMap('oreburgh_center', {
     '||||||DD||||||',
   ],
   warps: [
-    { x: 6, y: 7, to: 'oreburgh', tx: 6, ty: 7, dir: 'down' },
-    { x: 7, y: 7, to: 'oreburgh', tx: 6, ty: 7, dir: 'down' },
+    { x: 6, y: 7, to: 'oreburgh', tx: 7, ty: 7, dir: 'down' },
+    { x: 7, y: 7, to: 'oreburgh', tx: 7, ty: 7, dir: 'down' },
   ],
   npcs: [
     {
@@ -10103,16 +10287,44 @@ const OREBURGH_GYM = defineMap('oreburgh_gym', {
     '|||||||DD|||||||',
   ],
   warps: [
-    { x: 7, y: 15, to: 'oreburgh', tx: 14, ty: 19, dir: 'down' },
-    { x: 8, y: 15, to: 'oreburgh', tx: 15, ty: 19, dir: 'down' },
+    { x: 7, y: 15, to: 'oreburgh', tx: 14, ty: 20, dir: 'down' },
+    { x: 8, y: 15, to: 'oreburgh', tx: 15, ty: 20, dir: 'down' },
   ],
   npcs: [
+    {
+      // The guide by the door. Every Pokemon game has one, and it is the
+      // reason a first-timer knows what a Gym is for.
+      id: 'gym1_guide', x: 5, y: 14, look: 'youngster', name: 'Gym Guide',
+      facing: 'right', movement: 'still',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['You took the Coal Badge off Roark! I saw it!',
+            'That badge makes traded Pokémon up to level 20 obey you.',
+            'Seven more Gyms after this one. Then the League.'],
+        },
+        {
+          lines: ['Hey! You here to challenge the Gym? Let me give you the rundown.',
+            'This is a Pokémon Gym. Beat the Leader and he hands you a BADGE.',
+            'Eight badges gets you into the Pokémon League. That is the whole road.',
+            'Roark uses ROCK types. Rock is heavy, slow, and hates Water and Grass.',
+            'Every trainer in here is between you and him. Go on — flatten them!'],
+        },
+      ],
+    },
     { id: 'gym1_a', x: 2, y: 12, look: 'hiker', trainer: 'gym1_hiker1', facing: 'right', sight: 4, movement: 'still' },
     { id: 'gym1_b', x: 13, y: 8, look: 'worker', trainer: 'gym1_worker', facing: 'left', sight: 4, movement: 'still' },
     { id: 'gym1_c', x: 5, y: 4, look: 'hiker', trainer: 'gym1_hiker2', facing: 'down', sight: 3, movement: 'still' },
     {
       id: 'gym1_leader', x: 7, y: 1, look: 'leaderRock', trainer: 'gym1_leader',
       facing: 'down', sight: 0, movement: 'still',
+      dialogue: [
+        {
+          lines: ['I am Roark. Gym Leader here, and foreman down the quarry.',
+            'You want the COAL BADGE, you take it off me. That is how this works.',
+            'Rock does not blink. Show me you can make it.'],
+        },
+      ],
       after: [
         {
           when: { champion: true },
@@ -11219,6 +11431,17 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     }
   }
 
+  // --- building name boards ---
+  // The DS games put the building's name on the building. Without it a city
+  // is a row of coloured rectangles and the player has to open every door to
+  // find the Gym.
+  for (const lb of map.labels || []) {
+    const sx = lb.x * TILE - camera.x;
+    const sy = lb.y * TILE - camera.y;
+    if (sx < -160 || sx > viewW + 40 || sy < -20 || sy > viewH + 20) continue;
+    drawBoardText(ctx, lb, sx, sy);
+  }
+
   // --- entity pass, sorted by feet ---
   const drawables = [];
   for (const e of world.entities) {
@@ -11265,6 +11488,19 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
 
   // Remote name tags go last so nothing draws over them.
   for (const r of world.remotesHere()) drawNameTag(ctx, r, camera, viewW, viewH);
+}
+
+/**
+ * One building's name, centred across the board tiles it was authored over.
+ * `w` is in tiles; the text is drawn at half scale if it would not fit, so a
+ * long name never spills onto the roof.
+ */
+function drawBoardText(ctx, lb, sx, sy) {
+  const w = (lb.w || 2) * TILE;
+  const cx = sx + w / 2;
+  const cy = sy + 6;
+  drawTextCentered(ctx, lb.text, cx + 1, cy + 1, { color: '#10162a' });
+  drawTextCentered(ctx, lb.text, cx, cy, { color: lb.tone || '#f8f4e4' });
 }
 
 function drawShadow(ctx, sx, groundY, lift) {
@@ -11329,6 +11565,38 @@ function drawCaveLight(ctx, cx, cy, w, h) {
   ctx.fillRect(0, 0, w, h);
 }
 
+/**
+ * The guide bar: what to do next, pinned to the screen.
+ *
+ * The journal has always known the objective, but it was three taps deep in a
+ * menu, which is the same as not existing. A player who walks into a new city
+ * and cannot tell what the game wants from them has been failed by the game,
+ * not by their attention. So it lives on the overworld now, one line, always
+ * true, and switchable off in OPTIONS for anyone who would rather find their
+ * own way.
+ */
+function drawGuideBar(ctx, text, W, H, opts = {}) {
+  if (!text) return;
+  const yBelow = opts.belowBanner ? 24 : 6;
+  // The MENU and LINK chips own the top-right corner, so the bar stops short
+  // of them rather than sliding underneath.
+  const maxChars = Math.max(8, Math.floor((W - 76) / 6));
+  const line = text.length > maxChars ? `${text.slice(0, maxChars - 1)}…` : text;
+  const w = line.length * 6 + 16;
+  const x = 4;
+  const y = yBelow;
+  ctx.globalAlpha = 0.86;
+  ctx.fillStyle = PAL.uiFrame;
+  ctx.fillRect(x, y, w, 13);
+  ctx.fillStyle = shade(PAL.uiFrame, 0.22);
+  ctx.fillRect(x, y, w, 1);
+  ctx.globalAlpha = 1;
+  // A small chevron, so it reads as an instruction rather than a caption.
+  drawText(ctx, '\u25b8', x + 4, y + 3, { color: PAL.uiHighlight });
+  drawText(ctx, line, x + 11, y + 3, { color: PAL.uiTextLight });
+  void H;
+}
+
 // The location banner that slides in when you enter a new area.
 function drawLocationBanner(ctx, name, t, W) {
   const dur = 2.4;
@@ -11347,7 +11615,7 @@ function drawLocationBanner(ctx, name, t, W) {
   void W;
 }
 
-__exports(__x, { Camera: () => Camera, drawWorld: () => drawWorld, drawLocationBanner: () => drawLocationBanner });
+__exports(__x, { Camera: () => Camera, drawWorld: () => drawWorld, drawGuideBar: () => drawGuideBar, drawLocationBanner: () => drawLocationBanner });
 
 };
 
@@ -11416,7 +11684,8 @@ const CASS = {
     win: [
       'Cass: You have got faster.',
       'Cass: Not better. Faster. There is a difference and I will explain it to you one day.',
-      'Cass: Roark is Rock. You already knew that. I am telling you anyway.',
+      'Cass: The Gym is the stone one at the south end. You cannot miss it, it has a badge over the door.',
+      'Cass: Roark is Rock. Bring something Grass or Water.\fI am telling you because you would find out the hard way otherwise.',
     ],
     lose: [
       'Cass: Good. I was worried this was going to get boring.',
@@ -11492,8 +11761,10 @@ const ROWAN = {
     'Prof. Rowan: An old habit of mine. The data has to go somewhere.',
   ],
   send: [
-    'Prof. Rowan: Oreburgh City is north, past Route 202.',
-    'Prof. Rowan: The road there is the whole point. Go and walk it.',
+    'Prof. Rowan: Oreburgh City is north, past Route 201 and Route 202.',
+    'Prof. Rowan: There is a Pokémon Gym in it. Roark runs it — Rock types.',
+    'Prof. Rowan: Beat him and he gives you the Coal Badge.\fEight of those and the League has to let you in.',
+    'Prof. Rowan: That is the road. Go and walk it.',
   ],
 
   // Over the Pokédex, the moment you pick up the Aurora Charm.
@@ -13172,7 +13443,7 @@ __exports(__x, { NET_STATUS: () => NET_STATUS, net: () => net, MSG: () => MSG, T
 __defs['ui/overworld.js'] = function (__x, __req) {
 const { Screen, FADE } = __req('ui/screen.js');
 const { World, DIRS } = __req('game/overworld/world.js');
-const { Camera, drawWorld, drawLocationBanner } = __req('render/worldrender.js');
+const { Camera, drawWorld, drawLocationBanner, drawGuideBar } = __req('render/worldrender.js');
 const { drawControls, hintBar, computeLayout } = __req('ui/controls.js');
 const { dialogue } = __req('ui/dialogue.js');
 const { input } = __req('core/input.js');
@@ -13190,7 +13461,7 @@ const { recordSeen, recordCaught } = __req('game/pokedex.js');
 const { awardBadge, healParty, setStoryFlag, progress } = __req('game/state.js');
 const { scriptFor } = __req('game/overworld/scripts.js');
 const { resolveDialogue, fillText } = __req('game/overworld/gossip.js');
-const { record: recordJournal, getEntry } = __req('game/journal.js');
+const { record: recordJournal, getEntry, objective } = __req('game/journal.js');
 const { renderMonster } = __req('render/monsterart.js');
 const { musicFor } = __req('data/music.js');
 const { net } = __req('net/NetworkManager.js');
@@ -13727,6 +13998,11 @@ class OverworldScreen extends Screen {
     }
 
     drawLocationBanner(ctx, this.bannerName, this.bannerT, W);
+    // While the banner is sliding in it owns the top-left corner, so the
+    // guide bar steps underneath it rather than fighting it.
+    if (this.game.state.settings.guide !== false && !dialogue.visible && !this.script) {
+      drawGuideBar(ctx, objective(this.game.state), W, H, { belowBanner: this.bannerT < 2.4 });
+    }
     this._drawNetBadge(ctx, W);
 
     if (this.showcase) {
@@ -18322,6 +18598,7 @@ class OptionsScreen extends Screen {
       { key: 'difficulty', label: 'DIFFICULTY', value: this.game.state.difficulty.toUpperCase() },
       { key: 'music', label: 'MUSIC', value: s.music ? 'ON' : 'OFF' },
       { key: 'sfx', label: 'SOUND', value: s.sfx ? 'ON' : 'OFF' },
+      { key: 'guide', label: 'GUIDE BAR', value: s.guide === false ? 'OFF' : 'ON' },
       { key: 'debug', label: 'DEBUG MENU', value: this.game.debugEnabled ? 'ON' : 'OFF' },
       { key: 'back', label: 'BACK', value: '' },
     ];
@@ -18353,6 +18630,7 @@ class OptionsScreen extends Screen {
       case 'difficulty': this.game.state.difficulty = this.game.state.difficulty === 'easy' ? 'normal' : 'easy'; break;
       case 'music': s.music = !s.music; this.game.applySettings(); break;
       case 'sfx': s.sfx = !s.sfx; this.game.applySettings(); break;
+      case 'guide': s.guide = s.guide === false; break;
       case 'debug': this.game.debugEnabled = !this.game.debugEnabled; break;
       case 'back': this.game.screens.pop(); return;
       default: break;

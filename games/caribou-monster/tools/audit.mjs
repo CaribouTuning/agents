@@ -11,6 +11,7 @@
 import { MAPS } from '../src/data/maps/index.js';
 import { tileDef } from '../src/render/tiles.js';
 import { unrenderable } from '../src/render/font.js';
+import { objective, OBJECTIVE_MAX, ENTRIES as JOURNAL_ENTRIES } from '../src/game/journal.js';
 import { SPECIES } from '../src/data/species.js';
 import { MOVES } from '../src/data/moves.js';
 import { ITEMS } from '../src/data/items.js';
@@ -515,5 +516,47 @@ for (const o of OUTLETS) checkText(`[outlet ${o.id}]`, o.name);
 
 for (const w of warnings) console.log(`  WARN  ${w}`);
 for (const e of errors) console.log(`  ERR   ${e}`);
+// ---- the guide bar tells the truth, in a line that fits -------------------
+// The objective is the only instruction most of the world gives the player,
+// and it is drawn in one strip on a phone. A line too long to fit is cut off
+// mid-word, and a cut-off instruction is worse than none.
+{
+  const stages = [
+    {}, { map: 'rowan_lab' },
+    { f: { gotStarter: 1 }, map: 'twinleaf' },
+    { f: { gotStarter: 1 }, map: 'route201' },
+    { f: { gotStarter: 1 }, map: 'route202' },
+    { f: { gotStarter: 1, reachedOreburgh: 1 }, map: 'oreburgh' },
+    { f: { gotStarter: 1, reachedOreburgh: 1 }, map: 'oreburgh_gym' },
+    { f: { gotStarter: 1, reachedOreburgh: 1 }, map: 'oreburgh_center' },
+    { f: { gotStarter: 1, reachedOreburgh: 1, badge1: 1 }, map: 'oreburgh' },
+    { f: { gotStarter: 1, reachedOreburgh: 1, badge1: 1 }, map: 'route207' },
+    { f: { gotStarter: 1, reachedOreburgh: 1, badge1: 1 }, map: 'oreburgh_gate' },
+    { f: { gotStarter: 1, reachedOreburgh: 1, badge1: 1, beatCommander: 1 } },
+    { f: { gotStarter: 1, reachedOreburgh: 1, badge1: 1, beatCommander: 1, gotCharm: 1 } },
+    { f: { gotStarter: 1, badge1: 1, beatCommander: 1, gotCharm: 1, everlightOpened: 1 } },
+    { f: { gotStarter: 1, badge1: 1, beatCommander: 1, gotCharm: 1, everlightOpened: 1, everlightResolved: 1 } },
+  ];
+  const seen = new Set();
+  for (const stage of stages) {
+    const st = createGameState({ name: 'Matthew' });
+    Object.assign(st.flags, stage.f || {});
+    if (stage.map) st.player.map = stage.map;
+    const line = objective(st);
+    seen.add(line);
+    if (!line) err('journal', 'the guide bar has nothing to say at some point in the story');
+    else if (line.length > OBJECTIVE_MAX) {
+      err('journal', `objective is ${line.length} chars, over the ${OBJECTIVE_MAX} the guide bar fits: "${line}"`);
+    }
+    const bad = unrenderable(line);
+    if (bad.length) err('journal', `objective contains characters the font cannot draw: ${JSON.stringify(bad)}`);
+  }
+  if (seen.size < 8) err('journal', `only ${seen.size} distinct objectives across the whole story`);
+  for (const e of JOURNAL_ENTRIES) {
+    const bad = unrenderable(`${e.title} ${e.body.join(' ')} ${e.next || ''}`);
+    if (bad.length) err('journal', `entry ${e.id} contains undrawable characters: ${JSON.stringify(bad)}`);
+  }
+}
+
 console.log(`\n${errors.length} error(s), ${warnings.length} warning(s) across ${Object.keys(MAPS).length} maps`);
 process.exit(errors.length ? 1 : 0);

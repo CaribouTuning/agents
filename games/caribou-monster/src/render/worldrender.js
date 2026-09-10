@@ -103,6 +103,17 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     }
   }
 
+  // --- building name boards ---
+  // The DS games put the building's name on the building. Without it a city
+  // is a row of coloured rectangles and the player has to open every door to
+  // find the Gym.
+  for (const lb of map.labels || []) {
+    const sx = lb.x * TILE - camera.x;
+    const sy = lb.y * TILE - camera.y;
+    if (sx < -160 || sx > viewW + 40 || sy < -20 || sy > viewH + 20) continue;
+    drawBoardText(ctx, lb, sx, sy);
+  }
+
   // --- entity pass, sorted by feet ---
   const drawables = [];
   for (const e of world.entities) {
@@ -149,6 +160,19 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
 
   // Remote name tags go last so nothing draws over them.
   for (const r of world.remotesHere()) drawNameTag(ctx, r, camera, viewW, viewH);
+}
+
+/**
+ * One building's name, centred across the board tiles it was authored over.
+ * `w` is in tiles; the text is drawn at half scale if it would not fit, so a
+ * long name never spills onto the roof.
+ */
+function drawBoardText(ctx, lb, sx, sy) {
+  const w = (lb.w || 2) * TILE;
+  const cx = sx + w / 2;
+  const cy = sy + 6;
+  drawTextCentered(ctx, lb.text, cx + 1, cy + 1, { color: '#10162a' });
+  drawTextCentered(ctx, lb.text, cx, cy, { color: lb.tone || '#f8f4e4' });
 }
 
 function drawShadow(ctx, sx, groundY, lift) {
@@ -211,6 +235,38 @@ function drawCaveLight(ctx, cx, cy, w, h) {
   g.addColorStop(1, 'rgba(4,6,12,0.88)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
+}
+
+/**
+ * The guide bar: what to do next, pinned to the screen.
+ *
+ * The journal has always known the objective, but it was three taps deep in a
+ * menu, which is the same as not existing. A player who walks into a new city
+ * and cannot tell what the game wants from them has been failed by the game,
+ * not by their attention. So it lives on the overworld now, one line, always
+ * true, and switchable off in OPTIONS for anyone who would rather find their
+ * own way.
+ */
+export function drawGuideBar(ctx, text, W, H, opts = {}) {
+  if (!text) return;
+  const yBelow = opts.belowBanner ? 24 : 6;
+  // The MENU and LINK chips own the top-right corner, so the bar stops short
+  // of them rather than sliding underneath.
+  const maxChars = Math.max(8, Math.floor((W - 76) / 6));
+  const line = text.length > maxChars ? `${text.slice(0, maxChars - 1)}…` : text;
+  const w = line.length * 6 + 16;
+  const x = 4;
+  const y = yBelow;
+  ctx.globalAlpha = 0.86;
+  ctx.fillStyle = PAL.uiFrame;
+  ctx.fillRect(x, y, w, 13);
+  ctx.fillStyle = shade(PAL.uiFrame, 0.22);
+  ctx.fillRect(x, y, w, 1);
+  ctx.globalAlpha = 1;
+  // A small chevron, so it reads as an instruction rather than a caption.
+  drawText(ctx, '\u25b8', x + 4, y + 3, { color: PAL.uiHighlight });
+  drawText(ctx, line, x + 11, y + 3, { color: PAL.uiTextLight });
+  void H;
 }
 
 // The location banner that slides in when you enter a new area.

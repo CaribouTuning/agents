@@ -179,14 +179,61 @@ export function entriesFor(state) {
 }
 
 /**
- * What to do next: the objective from the most recent entry that carries one.
- * Falls back to the opening instruction so the journal is never blank.
+ * What to do next — the line the guide bar puts on screen and the journal
+ * puts at the top.
+ *
+ * This used to read the last journal entry's `next` and stop there, which
+ * went stale the moment the player did something out of order: walk into
+ * Oreburgh without having spoken to Cass and the game was still telling you
+ * to walk to Oreburgh. So the flags come first. Each rule is a plain
+ * (condition, instruction) pair in the order the game happens, and every
+ * instruction names a PLACE and a REASON, because "go north" without "to
+ * take the Gym's badge" is how a player ends up wandering a city wondering
+ * what the game wants.
+ *
+ * Each rule sees the flags and the whole state, so an instruction can change
+ * once the player is actually in the building it was pointing at. Every line
+ * is kept under 48 characters, because it has to fit the guide bar on a phone
+ * without being cut off — tools/audit.mjs enforces that.
  */
+export const OBJECTIVE_MAX = 48;
+
+const RULES = [
+  // --- the opening ---
+  [(f, st) => !f.gotStarter && st.player.map === 'rowan_lab', 'Talk to Prof. Rowan. Choose a Pokémon.'],
+  [(f) => !f.gotStarter, "Go to Prof. Rowan's lab, north of your house."],
+
+  // --- the road to Oreburgh ---
+  [(f, st) => !f.reachedOreburgh && st.player.map === 'twinleaf', 'Leave Twinleaf to the north, onto Route 201.'],
+  [(f, st) => !f.reachedOreburgh && st.player.map === 'route201', 'North up Route 201, then east to Route 202.'],
+  [(f, st) => !f.reachedOreburgh && st.player.map === 'route202', 'Follow Route 202 north to Oreburgh City.'],
+  [(f) => !f.reachedOreburgh, 'Head north from Twinleaf to Oreburgh City.'],
+
+  // --- the first badge. The whole point of arriving. ---
+  [(f, st) => !f.badge1 && st.player.map === 'oreburgh_gym', 'Beat 3 trainers, then Roark, for the badge.'],
+  [(f, st) => !f.badge1 && st.player.map === 'oreburgh_center', 'Heal your team, then challenge the GYM.'],
+  [(f, st) => !f.badge1 && st.player.map === 'oreburgh', 'Win the COAL BADGE at the GYM, south end.'],
+  [(f) => !f.badge1, 'Return to Oreburgh and challenge the GYM.'],
+
+  // --- Galactic, the cave, the Everlight ---
+  [(f, st) => !f.beatCommander && st.player.map === 'oreburgh_gate', 'Find the Galactic commander in here.'],
+  [(f) => !f.beatCommander, 'Head up Route 207. Galactic are digging.'],
+  [(f) => !f.gotCharm, 'Take the Aurora Charm from the dig site.'],
+  [(f) => !f.everlightOpened, "The sealed seam is in the Gate's north wall."],
+  [(f) => !f.everlightResolved, 'Enter the Everlight Chamber.'],
+];
+
 export function objective(state) {
+  const f = (state && state.flags) || {};
+  const st = state || { player: {}, flags: {} };
+  for (const [when, text] of RULES) {
+    if (when(f, st)) return text;
+  }
+  // Past the story's end the journal takes over: whatever the last recorded
+  // entry says to do next, then the circuit, which never runs out.
   const mine = entriesFor(state);
   for (let i = mine.length - 1; i >= 0; i--) {
     if (mine[i].next) return mine[i].next;
   }
-  if (state.flags && state.flags[FLAGS.GOT_STARTER]) return 'Head north out of Twinleaf.';
-  return 'Go and see Prof. Rowan at the lab.';
+  return 'The World Circuit is still running. The Battle Hall is in Oreburgh.';
 }

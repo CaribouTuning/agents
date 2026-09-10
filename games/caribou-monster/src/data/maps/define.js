@@ -28,6 +28,9 @@ export function defineMap(id, def) {
     npcs: def.npcs || [],
     objects: def.objects || [],     // ground items
     signs: def.signs || [],
+    // Names written across the front of a building, so a player can read the
+    // city instead of guessing at it.
+    labels: def.labels || [],
     encounters: def.encounters || null,
     events: def.events || [],       // scripted triggers on step
     darkEdges: def.darkEdges !== false,

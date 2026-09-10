@@ -61,7 +61,8 @@ export const CASS = {
     win: [
       'Cass: You have got faster.',
       'Cass: Not better. Faster. There is a difference and I will explain it to you one day.',
-      'Cass: Roark is Rock. You already knew that. I am telling you anyway.',
+      'Cass: The Gym is the stone one at the south end. You cannot miss it, it has a badge over the door.',
+      'Cass: Roark is Rock. Bring something Grass or Water.\fI am telling you because you would find out the hard way otherwise.',
     ],
     lose: [
       'Cass: Good. I was worried this was going to get boring.',
@@ -137,8 +138,10 @@ export const ROWAN = {
     'Prof. Rowan: An old habit of mine. The data has to go somewhere.',
   ],
   send: [
-    'Prof. Rowan: Oreburgh City is north, past Route 202.',
-    'Prof. Rowan: The road there is the whole point. Go and walk it.',
+    'Prof. Rowan: Oreburgh City is north, past Route 201 and Route 202.',
+    'Prof. Rowan: There is a Pokémon Gym in it. Roark runs it — Rock types.',
+    'Prof. Rowan: Beat him and he gives you the Coal Badge.\fEight of those and the League has to let you in.',
+    'Prof. Rowan: That is the road. Go and walk it.',
   ],
 
   // Over the Pokédex, the moment you pick up the Aurora Charm.

@@ -48,7 +48,7 @@ export function createGameState(opts = {}) {
     circuit: createCircuit(),
     // What the player has worked out so far, and what they are doing next.
     journal: createJournal(),
-    settings: { textSpeed: 1, music: true, sfx: true, showGrid: false },
+    settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
 

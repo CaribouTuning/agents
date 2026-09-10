@@ -251,8 +251,19 @@ function freshState() {
   check(mine.length === 2, `duplicate entries should collapse, got ${mine.length}`);
   check(mine[0].id === 'gotStarter' && mine[1].id === 'theKey',
     'entries should read in story order, not the order they were recorded');
-  check(objective(st) === ENTRIES.find((e) => e.id === 'theKey').next,
-    'the objective should come from the latest entry that has one');
+  // The guide bar reads the player's actual state, not the last thing they
+  // happened to write down: recording a late journal entry must not make it
+  // claim the early story is finished.
+  check(objective(st) === "Go to Prof. Rowan's lab, north of your house.",
+    `a player with no starter should still be sent to the lab, got "${objective(st)}"`);
+  st.flags.gotStarter = true;
+  st.flags.reachedOreburgh = true;
+  st.player.map = 'oreburgh';
+  check(/COAL BADGE/.test(objective(st)),
+    `standing in Oreburgh without the badge should point at the Gym, got "${objective(st)}"`);
+  st.flags.badge1 = true;
+  check(!/COAL BADGE/.test(objective(st)),
+    'the badge objective should clear once the badge is won');
 
   // And it survives a save.
   const back = deserializeState(JSON.parse(JSON.stringify(serializeState(st))));
