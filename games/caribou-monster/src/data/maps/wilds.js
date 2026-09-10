@@ -29,10 +29,10 @@ export const ROUTE202 = defineMap('route202', {
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
-    { x: 12, y: 23, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 13, y: 23, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'oreburgh', tx: 14, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'oreburgh', tx: 15, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 23, to: 'sandgem', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'sandgem', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'jubilife', tx: 12, ty: 1, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'jubilife', tx: 13, ty: 1, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 22, text: 'ROUTE 202\nStay on the path and you will come out the other side.' },

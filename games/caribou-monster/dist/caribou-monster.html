@@ -8164,7 +8164,7 @@ const ENTRIES = [
       'Cass from four doors down was waiting on Route 201. She started a year\nbefore me and has never once let me forget it.',
       'She got up at seven to take the starter that beats mine. On purpose.',
     ],
-    next: 'Follow Route 201 north, then Route 202, to Oreburgh City.',
+    next: 'North through Sandgem and Jubilife to Oreburgh.',
   },
   {
     id: 'cassCircuit',
@@ -8330,16 +8330,22 @@ function entriesFor(state) {
  */
 const OBJECTIVE_MAX = 48;
 
+const onTheRoad = (f, st) => !f.reachedOreburgh && !String(st.player.map).startsWith('oreburgh');
+
 const RULES = [
   // --- the opening ---
   [(f, st) => !f.gotStarter && st.player.map === 'rowan_lab', 'Talk to Prof. Rowan. Choose a Pokémon.'],
   [(f) => !f.gotStarter, "Go to Prof. Rowan's lab, north of your house."],
 
-  // --- the road to Oreburgh ---
-  [(f, st) => !f.reachedOreburgh && st.player.map === 'twinleaf', 'Leave Twinleaf to the north, onto Route 201.'],
-  [(f, st) => !f.reachedOreburgh && st.player.map === 'route201', 'North up Route 201, then east to Route 202.'],
-  [(f, st) => !f.reachedOreburgh && st.player.map === 'route202', 'Follow Route 202 north to Oreburgh City.'],
-  [(f) => !f.reachedOreburgh, 'Head north from Twinleaf to Oreburgh City.'],
+  // --- the road to Oreburgh, town by town ---
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'twinleaf', 'Leave Twinleaf to the north, onto Route 201.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'route201', 'North up Route 201 to Sandgem Town.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'sandgem', 'Rest here, then north on Route 202.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'route202', 'North through Route 202 to Jubilife City.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'jubilife_school', 'Read the boards. Talk to Ms. Orme.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'jubilife', "Visit the Trainers' School, then Route 203."],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'route203', 'Follow Route 203 south to Oreburgh City.'],
+  [onTheRoad, 'Head north from Twinleaf toward Oreburgh.'],
 
   // --- the first badge. The whole point of arriving. ---
   [(f, st) => !f.badge1 && st.player.map === 'oreburgh_gym', 'Beat 3 trainers, then Roark, for the badge.'],
@@ -9605,8 +9611,8 @@ const OREBURGH = defineMap('oreburgh', {
   warps: [
     { x: 14, y: 0, to: 'route207', tx: 12, ty: 16, dir: 'up', edge: true },
     { x: 15, y: 0, to: 'route207', tx: 13, ty: 16, dir: 'up', edge: true },
-    { x: 14, y: 24, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 15, y: 24, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 14, y: 24, to: 'route203', tx: 12, ty: 22, dir: 'down', edge: true },
+    { x: 15, y: 24, to: 'route203', tx: 13, ty: 22, dir: 'down', edge: true },
     { x: 7, y: 6, to: 'oreburgh_center', tx: 6, ty: 6, dir: 'up' },
     { x: 25, y: 6, to: 'oreburgh_mart', tx: 5, ty: 5, dir: 'up' },
     { x: 5, y: 14, to: 'oreburgh_house', tx: 5, ty: 6, dir: 'up' },
@@ -9790,7 +9796,220 @@ const OREBURGH = defineMap('oreburgh', {
   healPoint: { map: 'oreburgh_center', x: 6, y: 5 },
 });
 
-__exports(__x, { TWINLEAF: () => TWINLEAF, OREBURGH: () => OREBURGH });
+// ---------------------------------------------------------------------------
+// Sandgem Town — the first place with a Center in it, and where the game
+// teaches catching. In Platinum this is where Rowan's lab is; here the lab is
+// at home in Twinleaf, so Sandgem is what it is on the map: the little coastal
+// town you hit the moment you have a Pokémon and no idea what to do with it.
+// ---------------------------------------------------------------------------
+
+const SANDGEM = defineMap('sandgem', {
+  name: 'Sandgem Town', kind: 'town', music: 'town',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T..AAAAAAAA.::...........T',
+    'T..AAAAAAAA.::....BBBBBB.T',
+    'T..VVVVVVVV.::....BBBBBB.T',
+    'T..#WFFDFFW.::....VVVVVV.T',
+    'T.....:::::::::::.#WJDJW.T',
+    'T.....:.....::...:.......T',
+    'T.....:.....::...:.......T',
+    'T..S..:..GGGGG...:.ssssssT',
+    'T.....:..GGGGG...:.ssssssT',
+    'T.....:..#WDW#...:.~~~~~~T',
+    'T.....:::::::::::::~~~~~~T',
+    'T...........::.....~~~~~~T',
+    'T...........::.....~~~~~~T',
+    'T...........::...........T',
+    'T..S........::..........ST',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 17, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 17, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 7, y: 5, to: 'sandgem_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 21, y: 6, to: 'sandgem_mart', tx: 5, ty: 5, dir: 'up' },
+    { x: 11, y: 11, to: 'sandgem_house', tx: 5, ty: 6, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
+    { x: 18, y: 5, w: 6, text: 'POKéMON MART' },
+  ],
+  signs: [
+    { x: 3, y: 9, text: 'SANDGEM TOWN\n"Where the sand shines."\nCENTER — west. MART — east.\nROUTE 202 runs north to Jubilife.' },
+    { x: 3, y: 16, text: 'ROUTE 201 — SOUTH\nTwinleaf Town is back that way.' },
+    { x: 24, y: 16, text: 'The beach is closed to trainers\nwithout a fishing licence.\nThe sea does not check.' },
+  ],
+  encounters: null,
+  npcs: [
+    {
+      // The catching lesson. In the DS games somebody demonstrates this at you
+      // whether you want it or not, and it is the reason nobody ever had to
+      // guess how a Poke Ball works.
+      id: 'sg_catcher', x: 8, y: 7, look: 'youngster', name: 'Riko',
+      movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { caught: 5 },
+          lines: ['{caught} caught already! You have got the hang of it.',
+            'Different balls have different pull. Great Balls are worth the money.'],
+        },
+        {
+          lines: ['You have got a Pokémon but no catches yet? Right. Listen.',
+            'Wild Pokémon live in the TALL GRASS. Walk in it and one will find you.',
+            'Do NOT throw a ball at a healthy one.\fYou are throwing money into a hedge.',
+            'Knock its HP down first. Yellow bar is better. Red bar is better still.',
+            'Sleep or paralysis makes it easier again.\fThen BAG, then BALLS, then throw.',
+            'That is the whole trick. Go and fill that Pokédex.'],
+        },
+      ],
+    },
+    {
+      id: 'sg_fisher', x: 20, y: 15, look: 'sailor', name: 'Bram', movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['Coal Badge, is it? Roark does not hand those out for turning up.',
+            'The sea is that way and it is not going anywhere.\fGo and be famous first.'],
+        },
+        {
+          lines: ['The beach goes on for miles and the water is full of things I cannot name.',
+            'You will need a rod, and I have not got a spare. Sorry, friend.'],
+        },
+      ],
+    },
+    {
+      id: 'sg_gran', x: 4, y: 13, look: 'mom', name: 'Enna', movement: 'still', facing: 'right',
+      dialogue: [
+        {
+          when: { alone: true },
+          lines: ['Travelling on your own, are you?',
+            'My sister and I did this road together forty years ago.',
+            'We argued the entire way.\fI would not change a minute of it.',
+            'If {buddy} is out there somewhere, find a way to walk it together.'],
+        },
+        {
+          lines: ['Two of you! Oh, that is the way to do it.',
+            'You will remember this road for the rest of your lives.\fMake sure you remember it the same.'],
+        },
+      ],
+    },
+  ],
+  healPoint: { map: 'sandgem_center', x: 6, y: 5 },
+});
+
+// ---------------------------------------------------------------------------
+// Jubilife City — the biggest place on this stretch of road, and the one with
+// the Trainers' School in it. Everything a Pokemon game needs to teach and
+// cannot teach in a menu is taught in a classroom, by people, out loud. That
+// is why this building exists in the real games and why it exists here.
+// ---------------------------------------------------------------------------
+
+const JUBILIFE = defineMap('jubilife', {
+  name: 'Jubilife City', kind: 'town', music: 'city',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
+    'T...........::...............T',
+    'T..AAAAAAAA.::......BBBBBBBB.T',
+    'T..AAAAAAAA.::......BBBBBBBB.T',
+    'T..VVVVVVVV.::......VVVVVVVV.T',
+    'T..#WFFDFFW.::......#WJJDJJW.T',
+    'T.....:.....::..........:....T',
+    'T.....:::::::::::::::::::....T',
+    'T.....:.....::..........:....T',
+    'T..S..:.....::..........:....T',
+    'T.....:.EEEEEEEEEEEE....:....T',
+    'T.....:.EEEEEEEEEEEE....:....T',
+    'T.....:.VVVVVVVVVVVV....:....T',
+    'T.....:.#WW#WWDDWW#WW...:....T',
+    'T.....:........::.......:....T',
+    'T.....::::::::::::::::::::...T',
+    'T..............::............T',
+    'T..GGGGG.......::....GGGGG...T',
+    'T..GGGGG.......::....GGGGG...T',
+    'T..#WDW#.......::....#WDW#...T',
+    'T.....:........::......:.....T',
+    'T.....::::::::::::::::::.....T',
+    'T..S...........::...........ST',
+    'TTTTTTTTTTTT::::::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
+    { x: 14, y: 23, to: 'route203', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 15, y: 23, to: 'route203', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 7, y: 5, to: 'jubilife_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 24, y: 5, to: 'jubilife_mart', tx: 5, ty: 5, dir: 'up' },
+    { x: 14, y: 13, to: 'jubilife_school', tx: 7, ty: 11, dir: 'up' },
+    { x: 15, y: 13, to: 'jubilife_school', tx: 8, ty: 11, dir: 'up' },
+    { x: 5, y: 19, to: 'jubilife_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 23, y: 19, to: 'jubilife_house2', tx: 5, ty: 6, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
+    { x: 20, y: 4, w: 8, text: 'POKéMON MART' },
+    { x: 8, y: 12, w: 12, text: "TRAINERS' SCHOOL", tone: '#f8e070' },
+  ],
+  signs: [
+    { x: 3, y: 9, text: 'JUBILIFE CITY\n"The most modern city there is."\nTRAINERS’ SCHOOL — centre.\nROUTE 203 — south, to Oreburgh.' },
+    { x: 3, y: 22, text: 'TRAINERS’ SCHOOL\nFree lessons, every day.\nIf a battle has ever confused you,\ngo in.' },
+    { x: 28, y: 22, text: 'ROUTE 203 — SOUTH\nOreburgh City is beyond it.\nThe Gym there is the first one most\ntrainers take.' },
+  ],
+  npcs: [
+    {
+      id: 'jl_greeter', x: 13, y: 8, look: 'clerk', name: 'Greeter',
+      movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['A badge already! Jubilife likes a winner.',
+            'Seven to go, and the League will not come to you.'],
+        },
+        {
+          lines: ['Welcome to Jubilife City! Biggest place you will have seen so far.',
+            'The grey building in the middle is the TRAINERS’ SCHOOL. Go in.',
+            'They will explain type matchups better than I can, and it is free.',
+            'When you are done: ROUTE 203, south. Oreburgh and its Gym are past it.'],
+        },
+      ],
+    },
+    {
+      id: 'jl_kid', x: 20, y: 16, look: 'kid', name: 'Nel', movement: 'wander', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['There are TWO of you walking round together.',
+            'My brother says link trainers are showing off.\fI think it looks brilliant.'],
+        },
+        {
+          lines: ['I go to the school every day and I still have not beaten the quiz.',
+            'It is the one about which type beats which. It is HARD.'],
+        },
+      ],
+    },
+    {
+      id: 'jl_suit', x: 25, y: 10, look: 'scientist', name: 'Analyst',
+      movement: 'still', facing: 'left',
+      dialogue: [
+        {
+          when: { joined: true },
+          lines: ['Rating {rating}, is it? The Hall board updates in real time now.',
+            'Half this city checks it at lunch. The other half pretends not to.'],
+        },
+        {
+          lines: ['Oreburgh has the Battle Hall, but Jubilife has the money that pays for it.',
+            'Somebody has to. Announcers are not free.'],
+        },
+      ],
+    },
+  ],
+  healPoint: { map: 'jubilife_center', x: 6, y: 5 },
+});
+
+__exports(__x, { TWINLEAF: () => TWINLEAF, OREBURGH: () => OREBURGH, SANDGEM: () => SANDGEM, JUBILIFE: () => JUBILIFE });
 
 };
 
@@ -9833,8 +10052,8 @@ const ROUTE201 = defineMap('route201', {
   warps: [
     { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
     { x: 13, y: 27, to: 'twinleaf', tx: 15, ty: 2, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 1, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 1, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
@@ -9948,7 +10167,78 @@ const ROUTE207 = defineMap('route207', {
   },
 });
 
-__exports(__x, { ROUTE201: () => ROUTE201, ROUTE207: () => ROUTE207 });
+// ---------------------------------------------------------------------------
+// Route 203 — Jubilife down to Oreburgh. Where the road stops being a footpath
+// between two villages and starts having other trainers on it.
+// ---------------------------------------------------------------------------
+
+const ROUTE203 = defineMap('route203', {
+  name: 'Route 203', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T....""""...::......RR....',
+    'T....""""...::...........T',
+    'T...........::...........T',
+    'T..TTT......::....""""...T',
+    'T.TTTTT.....::....""""...T',
+    'T..TTT......::...........T',
+    'T...........::...........T',
+    'T:::::::::::::::.........T',
+    'T...........::..:........T',
+    'T...RR......::..:........T',
+    'T...........::..:...TTT..T',
+    'T....""""...::..:..TTTTT.T',
+    'T....""""...::..:...TTT..T',
+    'T...........::..:........T',
+    'T..LLLLLL...::..:........T',
+    'T...........::..:........T',
+    'T...........::::::.......T',
+    'T....""""...::...........T',
+    'T....""""...::.....""""..T',
+    'T...........::.....""""..T',
+    'T....S......::...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 0, to: 'jubilife', tx: 14, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'jubilife', tx: 15, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 23, to: 'oreburgh', tx: 14, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'oreburgh', tx: 15, ty: 1, dir: 'down', edge: true },
+  ],
+  objects: [
+    { id: 'r3_potion', x: 2, y: 11, item: 'potion', qty: 2 },
+    { id: 'r3_ball', x: 20, y: 20, item: 'pokeball', qty: 5 },
+  ],
+  signs: [
+    { x: 5, y: 22, text: 'ROUTE 203\nOREBURGH CITY — SOUTH\nJUBILIFE CITY — NORTH\nThe Gym in Oreburgh takes challengers.' },
+  ],
+  npcs: [
+    { id: 'r3_t1', x: 8, y: 9, look: 'youngster', trainer: 'r3_youngster', facing: 'right', sight: 4, movement: 'still' },
+    { id: 'r3_t2', x: 18, y: 15, look: 'lass', trainer: 'r3_lass', facing: 'left', sight: 4, movement: 'still' },
+    { id: 'r3_t3', x: 6, y: 19, look: 'bugCatcher', trainer: 'r3_bug', facing: 'down', sight: 3, movement: 'still' },
+    {
+      id: 'r3_walker', x: 20, y: 6, look: 'hiker', name: 'Rambler', movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['Coal Badge. Good. Roark makes people work for it.',
+            'Rest at the Center in Oreburgh before you go up Route 207.\fWhat is up there is not friendly.'],
+        },
+        {
+          lines: ['Oreburgh is south. Mining town, and the Gym there is Rock-type.',
+            'If you have got anything Grass or Water, bring it.',
+            'If you have not, the grass on this route has both.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: { min: 5, max: 9, table: [[396, 24], [399, 20], [403, 18], [401, 14], [415, 10], [406, 8], [265, 6]] },
+  },
+});
+
+__exports(__x, { ROUTE201: () => ROUTE201, ROUTE207: () => ROUTE207, ROUTE203: () => ROUTE203 });
 
 };
 
@@ -9985,10 +10275,10 @@ const ROUTE202 = defineMap('route202', {
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
-    { x: 12, y: 23, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 13, y: 23, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'oreburgh', tx: 14, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'oreburgh', tx: 15, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 23, to: 'sandgem', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'sandgem', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'jubilife', tx: 12, ty: 1, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'jubilife', tx: 13, ty: 1, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 22, text: 'ROUTE 202\nStay on the path and you will come out the other side.' },
@@ -10769,19 +11059,359 @@ const OREBURGH_HALL = defineMap('oreburgh_hall', {
   ],
 });
 
+// (the INTERIORS list is at the bottom of this file, after the factories)
+
+// ---------------------------------------------------------------------------
+// Every town needs a Center and a Mart, and they are the same building in
+// every town — the layout is the point. These build one from the four facts
+// that actually differ: which town it is in, and where its door lets out.
+// ---------------------------------------------------------------------------
+
+function makeCenter(id, { town, backX, backY, name = 'Pokémon Center', greeting, extras = [] }) {
+  return defineMap(id, {
+    name, kind: 'indoor', music: 'center', darkEdges: false,
+    tiles: [
+      '||||||||||||||',
+      '|__H_______P_|',
+      '|_xxxxx______|',
+      '|____________|',
+      '|_p________p_|',
+      '|____________|',
+      '|____________|',
+      '||||||DD||||||',
+    ],
+    warps: [
+      { x: 6, y: 7, to: town, tx: backX, ty: backY, dir: 'down' },
+      { x: 7, y: 7, to: town, tx: backX, ty: backY, dir: 'down' },
+    ],
+    npcs: [
+      {
+        id: `${id}_nurse`, x: 4, y: 1, look: 'nurse', name: 'Nurse',
+        movement: 'still', facing: 'down', script: 'heal', overCounter: true,
+        dialogue: [
+          {
+            when: { linked: true },
+            lines: ['Welcome back. {partner} is showing as connected on the link network too.',
+              'Shall I heal your team to full health?'],
+          },
+          { lines: [greeting || 'Welcome to the Pokémon Center. Shall I heal your team to full health?'] },
+        ],
+      },
+      {
+        id: `${id}_pc`, x: 10, y: 1, look: 'clerk', name: 'Attendant',
+        movement: 'still', facing: 'down', overCounter: true,
+        dialogue: [
+          {
+            when: { caught: 12 },
+            lines: ['{caught} caught. You will be needing the boxes before long.',
+              'Walk up to the terminal and press A.'],
+          },
+          {
+            lines: ['The storage system behind me holds anything your party cannot.',
+              'Walk up to the terminal and press A.'],
+          },
+        ],
+      },
+      ...extras,
+    ],
+    healPoint: { map: id, x: 6, y: 5 },
+  });
+}
+
+function makeMart(id, { town, backX, backY, extras = [] }) {
+  return defineMap(id, {
+    name: 'Poké Mart', kind: 'indoor', music: 'mart', darkEdges: false,
+    tiles: [
+      '||||||||||||',
+      '|MMMM______|',
+      '|__________|',
+      '|_xxx______|',
+      '|__________|',
+      '|__________|',
+      '|||||D||||||',
+    ],
+    warps: [{ x: 5, y: 6, to: town, tx: backX, ty: backY, dir: 'down' }],
+    npcs: [
+      {
+        id: `${id}_clerk`, x: 3, y: 2, look: 'clerk', name: 'Clerk',
+        movement: 'still', facing: 'down', script: 'shop', overCounter: true,
+        dialogue: ['Welcome! What can I get you?'],
+      },
+      ...extras,
+    ],
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The Trainers' School.
+//
+// Every Pokemon game has one and every one of them exists for the same
+// reason: a battle system with eighteen types, five status conditions and a
+// stat-stage table cannot be taught by a tooltip. It is taught by four people
+// in a room who each explain one thing properly, and by a blackboard you can
+// walk up to and read.
+// ---------------------------------------------------------------------------
+
+const JUBILIFE_SCHOOL = defineMap('jubilife_school', {
+  name: "Trainers' School", kind: 'indoor', music: 'lab', darkEdges: false,
+  tiles: [
+    '||||||||||||||||',
+    '|kkkkkkkkkkkkkk|',
+    '|++++++++++++++|',
+    '|+ee+ee++ee+ee+|',
+    '|++++++++++++++|',
+    '|+ee+ee++ee+ee+|',
+    '|++++++++++++++|',
+    '|+ee+ee++ee+ee+|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|||||||DD|||||||',
+  ],
+  warps: [
+    { x: 7, y: 12, to: 'jubilife', tx: 14, ty: 14, dir: 'down' },
+    { x: 8, y: 12, to: 'jubilife', tx: 15, ty: 14, dir: 'down' },
+  ],
+  signs: [
+    { x: 3, y: 1, text: 'BLACKBOARD — TYPES\nWater beats Fire, Rock and Ground.\nGrass beats Water, Rock and Ground.\nFire beats Grass, Bug, Ice and Steel.\nEach of those three loses to the next.' },
+    { x: 6, y: 1, text: 'BLACKBOARD — TYPES II\nElectric beats Water and Flying,\nand does NOTHING to Ground.\nPsychic beats Fighting and Poison.\nDark and Ghost beat Psychic.' },
+    { x: 9, y: 1, text: 'BLACKBOARD — STATUS\nPAR halves Speed and skips turns.\nBRN halves Attack and burns each turn.\nSLP costs the foe whole turns —\nthe best moment to throw a ball.' },
+    { x: 12, y: 1, text: 'BLACKBOARD — STATS\nGROWL and LEER lower the foe.\nDEFENSE CURL and HARDEN raise you.\nSix stages up or down is the limit.\nSwitching out clears every stage.' },
+  ],
+  npcs: [
+    {
+      id: 'sch_teacher', x: 7, y: 2, look: 'professor', name: 'Ms. Orme',
+      movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['A Coal Badge. Then you have already met a Rock-type Gym.',
+            'You will have noticed Water and Grass go straight through them.',
+            'That is the whole lesson, really. Everything else is practice.'],
+        },
+        {
+          lines: ['Welcome. Sit anywhere, read the boards, ask the class.',
+            'Here is the short version: every Pokémon has one or two TYPES,\fand every move has one.',
+            'A move that is strong against the foe’s type does DOUBLE damage.\fWeak against it does half.',
+            'The game tells you: "It’s super effective!" or "not very effective".\fListen to it.',
+            'And a move of your own type hits harder than one that is not.\fUse a Grass move on a Grass Pokémon.',
+            'That is it. That is the game. Go and be good at it.'],
+        },
+      ],
+    },
+    {
+      id: 'sch_pupil1', x: 4, y: 5, look: 'lass', name: 'Pupil', movement: 'still', facing: 'right',
+      dialogue: [
+        {
+          lines: ['I keep losing because I forget I can SWITCH.',
+            'If the foe is beating your lead, swap to something that resists it.',
+            'Switching costs a turn. Fainting costs the whole Pokémon.'],
+        },
+      ],
+    },
+    {
+      id: 'sch_pupil2', x: 8, y: 5, look: 'youngster', name: 'Pupil', movement: 'still', facing: 'left',
+      dialogue: [
+        {
+          lines: ['Everyone forgets POTIONS exist until they are out of Pokémon.',
+            'BAG in the middle of a battle. It costs a turn and it is nearly always worth it.',
+            'Same with balls. BAG, then BALLS, then pick one.'],
+        },
+      ],
+    },
+    {
+      id: 'sch_pupil3', x: 4, y: 9, look: 'bugCatcher', name: 'Pupil', movement: 'still', facing: 'right',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['You are LINKED? With another actual person?',
+            'Ms. Orme says a link battle is the only honest test there is.',
+            'The other one is thinking back at you.'],
+        },
+        {
+          lines: ['A Pokémon that likes you fights harder. Really.',
+            'Walk about with it, win with it, level it up. It notices.'],
+        },
+      ],
+    },
+    {
+      id: 'sch_prize', x: 10, y: 9, look: 'worker', name: 'Caretaker', movement: 'still', facing: 'left',
+      script: 'schoolGift',
+      dialogue: [{ lines: ['Stayed for the whole lesson, did you? Here — the school keeps a few of these.'] }],
+    },
+  ],
+});
+
+
+// ---------------------------------------------------------------------------
+// Sandgem and Jubilife, built from the shared shells above.
+// ---------------------------------------------------------------------------
+
+const SANDGEM_CENTER = makeCenter('sandgem_center', {
+  town: 'sandgem', backX: 7, backY: 6,
+  greeting: 'Welcome to the Sandgem Pokémon Center. Shall I heal your team?',
+});
+const SANDGEM_MART = makeMart('sandgem_mart', {
+  town: 'sandgem', backX: 21, backY: 7,
+  extras: [{
+    id: 'sgm_shopper', x: 8, y: 4, look: 'youngster', name: 'Shopper',
+    movement: 'still', facing: 'left',
+    dialogue: [{
+      lines: ['POTIONS first, BALLS second, and never leave with an empty bag.',
+        'Whatever you think you need, buy one more.'],
+    }],
+  }],
+});
+
+const SANDGEM_HOUSE = defineMap('sandgem_house', {
+  name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
+  tiles: [
+    '||||||||||||',
+    '|kk____bb__|',
+    '|__________|',
+    '|_e________|',
+    '|__________|',
+    '|_p_______v|',
+    '|__________|',
+    '|||||D||||||',
+  ],
+  warps: [{ x: 5, y: 7, to: 'sandgem', tx: 11, ty: 12, dir: 'down' }],
+  npcs: [
+    {
+      id: 'sgh_man', x: 3, y: 3, look: 'oldMan', name: 'Resident',
+      movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'hasBandit' },
+          lines: ['There is a Houndour sitting on my step every time you come in here.',
+            'He is not begging. He is supervising. There is a difference and he knows it.'],
+        },
+        {
+          lines: ['Sandgem is quiet, and I intend to keep it that way.',
+            'Jubilife is up the road if you want noise. They have got a school and everything.'],
+        },
+      ],
+    },
+  ],
+});
+
+const JUBILIFE_CENTER = makeCenter('jubilife_center', {
+  town: 'jubilife', backX: 7, backY: 6,
+  greeting: 'Welcome to the Jubilife Pokémon Center — the busiest one there is.',
+  extras: [{
+    id: 'jc_traveller', x: 3, y: 5, look: 'sailor', name: 'Traveller',
+    movement: 'still', facing: 'down',
+    dialogue: [
+      {
+        when: { linked: true },
+        lines: ['Two trainers on one link, walking the same road.',
+          'I have seen a lot of pairs come through here.',
+          'The ones that finish are the ones that wait for each other.'],
+      },
+      {
+        lines: ['Heal here before Route 203. There is nothing between here and Oreburgh but trainers.'],
+      },
+    ],
+  }],
+});
+const JUBILIFE_MART = makeMart('jubilife_mart', {
+  town: 'jubilife', backX: 24, backY: 6,
+  extras: [{
+    id: 'jm_shopper', x: 8, y: 4, look: 'lass', name: 'Shopper',
+    movement: 'still', facing: 'left',
+    dialogue: [{
+      when: { maxBadges: 0 },
+      lines: ['Going for the Oreburgh Gym? Rock types hit like a wall falling on you.',
+        'Buy POTIONS. More than you want to. You will use them all.'],
+    }, {
+      lines: ['Stock changes as you win badges. Come back after the Gym.'],
+    }],
+  }],
+});
+
+const JUBILIFE_HOUSE = defineMap('jubilife_house', {
+  name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
+  tiles: [
+    '||||||||||||',
+    '|kk____bb__|',
+    '|__________|',
+    '|_e________|',
+    '|__________|',
+    '|_p_______v|',
+    '|__________|',
+    '|||||D||||||',
+  ],
+  warps: [{ x: 5, y: 7, to: 'jubilife', tx: 5, ty: 20, dir: 'down' }],
+  npcs: [
+    {
+      id: 'jh_woman', x: 3, y: 3, look: 'mom', name: 'Resident',
+      movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { champion: true },
+          lines: ['You are the one off the Hall board. In MY front room.',
+            'My son will not believe this and I am not going to stop telling him.'],
+        },
+        {
+          lines: ['My son is at the school every single day and has never once beaten the quiz.',
+            'Do not tell him I told you.'],
+        },
+      ],
+    },
+  ],
+});
+
+const JUBILIFE_HOUSE2 = defineMap('jubilife_house2', {
+  name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
+  tiles: [
+    '||||||||||||',
+    '|kk____bb__|',
+    '|__________|',
+    '|_e________|',
+    '|__________|',
+    '|_p_______v|',
+    '|__________|',
+    '|||||D||||||',
+  ],
+  warps: [{ x: 5, y: 7, to: 'jubilife', tx: 23, ty: 20, dir: 'down' }],
+  npcs: [
+    {
+      id: 'jh2_man', x: 8, y: 3, look: 'grunt', name: 'Man in Blue',
+      movement: 'still', facing: 'left',
+      dialogue: [
+        {
+          when: { flag: 'beatCommander' },
+          lines: ['...You are the one from the Gate.',
+            'I am not with them. I was never with them. I rent this room.',
+            'Whatever you found under that hill — I hope you put it back.'],
+        },
+        {
+          lines: ['Nice city. Very modern. Very well lit.',
+            'You would think somewhere this bright would notice what goes on in it.'],
+        },
+      ],
+    },
+  ],
+});
+
+
 const INTERIORS = [
-  PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB, OREBURGH_CENTER, OREBURGH_MART,
-  OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2, OREBURGH_HALL,
+  PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB,
+  SANDGEM_CENTER, SANDGEM_MART, SANDGEM_HOUSE,
+  JUBILIFE_CENTER, JUBILIFE_MART, JUBILIFE_SCHOOL, JUBILIFE_HOUSE, JUBILIFE_HOUSE2,
+  OREBURGH_CENTER, OREBURGH_MART, OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2,
+  OREBURGH_HALL,
 ];
 
-__exports(__x, { INTERIORS: () => INTERIORS });
+__exports(__x, { makeCenter: () => makeCenter, makeMart: () => makeMart, INTERIORS: () => INTERIORS });
 
 };
 
 __defs['data/maps/index.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
-const { TWINLEAF, OREBURGH } = __req('data/maps/towns.js');
-const { ROUTE201, ROUTE207 } = __req('data/maps/routes.js');
+const { TWINLEAF, SANDGEM, JUBILIFE, OREBURGH } = __req('data/maps/towns.js');
+const { ROUTE201, ROUTE203, ROUTE207 } = __req('data/maps/routes.js');
 const { ROUTE202, OREBURGH_GATE, EVERLIGHT_CHAMBER } = __req('data/maps/wilds.js');
 const { INTERIORS } = __req('data/maps/interiors.js');
 // Map registry.
@@ -10797,8 +11427,10 @@ const { INTERIORS } = __req('data/maps/interiors.js');
 
 
 
-const ALL = [TWINLEAF, OREBURGH, ROUTE201, ROUTE207, ROUTE202, OREBURGH_GATE,
-  EVERLIGHT_CHAMBER, ...INTERIORS];
+// The road, in the order a player walks it: Twinleaf, Route 201, Sandgem,
+// Route 202, Jubilife, Route 203, Oreburgh — then Route 207 and the Gate.
+const ALL = [TWINLEAF, ROUTE201, SANDGEM, ROUTE202, JUBILIFE, ROUTE203, OREBURGH,
+  ROUTE207, OREBURGH_GATE, EVERLIGHT_CHAMBER, ...INTERIORS];
 
 const MAPS = {};
 for (const m of ALL) MAPS[m.id] = m;
@@ -10929,6 +11561,26 @@ add('ww_grunt', {
   intro: 'Team Galactic is measuring this forest. Move along or be measured.',
   defeat: 'Fine. Measure it yourself.',
   team: [mon(41, 9, ['astonish', 'supersonic']), mon(401, 10, ['bugbite', 'furycutter'])],
+});
+
+// ---- Route 203 -----------------------------------------------------------
+add('r3_youngster', {
+  name: 'Youngster Pell', cls: 'Youngster', look: 'youngster', ai: 1, prize: 352,
+  intro: 'Jubilife kids are soft. I walk this road every day.',
+  defeat: 'I walk it every day and I still lost on it.',
+  team: [mon(396, 9, ['tackle', 'growl', 'quickattack']), mon(399, 10, ['tackle', 'defensecurl'])],
+});
+add('r3_lass', {
+  name: 'Lass Nima', cls: 'Lass', look: 'lass', ai: 1, prize: 400,
+  intro: 'Everyone here is going to Oreburgh. Nobody here is ready for Oreburgh.',
+  defeat: 'You might be, actually.',
+  team: [mon(403, 10, ['tackle', 'leer', 'spark']), mon(401, 9, ['bugbite', 'stringshot'])],
+});
+add('r3_bug', {
+  name: 'Bug Catcher Odo', cls: 'Bug Catcher', look: 'bugCatcher', ai: 0, prize: 320,
+  intro: 'There are better bugs on this route than in the whole forest!',
+  defeat: 'There are better trainers on it too, apparently.',
+  team: [mon(415, 10, ['bugbite', 'gust']), mon(401, 11, ['bugbite', 'furycutter'])],
 });
 
 // ---- Oreburgh Gym -------------------------------------------------------
@@ -12037,7 +12689,8 @@ const ROWAN = {
     'Prof. Rowan: An old habit of mine. The data has to go somewhere.',
   ],
   send: [
-    'Prof. Rowan: Oreburgh City is north, past Route 201 and Route 202.',
+    'Prof. Rowan: North, then. Route 201 to Sandgem, Route 202 to Jubilife,\fRoute 203 to Oreburgh.',
+    'Prof. Rowan: Stop at the Trainers’ School in Jubilife.\fIt is free and it is better than anything I could tell you here.',
     'Prof. Rowan: There is a Pokémon Gym in it. Roark runs it — Rock types.',
     'Prof. Rowan: Beat him and he gives you the Coal Badge.\fEight of those and the League has to let you in.',
     'Prof. Rowan: That is the road. Go and walk it.',
@@ -12532,6 +13185,25 @@ SCRIPTS.heal = async (ctx) => {
 SCRIPTS.shop = async (ctx) => {
   await ctx.say('Clerk: Welcome! What can I get you?', { instant: true });
   await ctx.openShop();
+};
+
+/**
+ * The Trainers' School keeps a drawer of Potions for anyone who sits through
+ * the whole lesson. Once each — it is a school, not a shop.
+ */
+SCRIPTS.schoolGift = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.schoolGift) {
+    await ctx.say('Caretaker: Come back when you have something to ask.\fThe boards do not move.');
+    return;
+  }
+  await ctx.say('Caretaker: Stayed for the whole lesson, did you?\fHere — the school keeps a few of these.');
+  ctx.give('potion', 3);
+  ctx.give('greatball', 2);
+  ctx.sfx('buy');
+  await ctx.say('You received 3 Potions and 2 Great Balls!');
+  await ctx.say('Caretaker: Great Balls hold better than the plain ones.\fSave them for something you want.');
+  ctx.setFlag('schoolGift');
 };
 
 // ---- Gym leader ---------------------------------------------------------------

@@ -631,7 +631,347 @@ const OREBURGH_HALL = defineMap('oreburgh_hall', {
   ],
 });
 
+// (the INTERIORS list is at the bottom of this file, after the factories)
+
+// ---------------------------------------------------------------------------
+// Every town needs a Center and a Mart, and they are the same building in
+// every town — the layout is the point. These build one from the four facts
+// that actually differ: which town it is in, and where its door lets out.
+// ---------------------------------------------------------------------------
+
+export function makeCenter(id, { town, backX, backY, name = 'Pokémon Center', greeting, extras = [] }) {
+  return defineMap(id, {
+    name, kind: 'indoor', music: 'center', darkEdges: false,
+    tiles: [
+      '||||||||||||||',
+      '|__H_______P_|',
+      '|_xxxxx______|',
+      '|____________|',
+      '|_p________p_|',
+      '|____________|',
+      '|____________|',
+      '||||||DD||||||',
+    ],
+    warps: [
+      { x: 6, y: 7, to: town, tx: backX, ty: backY, dir: 'down' },
+      { x: 7, y: 7, to: town, tx: backX, ty: backY, dir: 'down' },
+    ],
+    npcs: [
+      {
+        id: `${id}_nurse`, x: 4, y: 1, look: 'nurse', name: 'Nurse',
+        movement: 'still', facing: 'down', script: 'heal', overCounter: true,
+        dialogue: [
+          {
+            when: { linked: true },
+            lines: ['Welcome back. {partner} is showing as connected on the link network too.',
+              'Shall I heal your team to full health?'],
+          },
+          { lines: [greeting || 'Welcome to the Pokémon Center. Shall I heal your team to full health?'] },
+        ],
+      },
+      {
+        id: `${id}_pc`, x: 10, y: 1, look: 'clerk', name: 'Attendant',
+        movement: 'still', facing: 'down', overCounter: true,
+        dialogue: [
+          {
+            when: { caught: 12 },
+            lines: ['{caught} caught. You will be needing the boxes before long.',
+              'Walk up to the terminal and press A.'],
+          },
+          {
+            lines: ['The storage system behind me holds anything your party cannot.',
+              'Walk up to the terminal and press A.'],
+          },
+        ],
+      },
+      ...extras,
+    ],
+    healPoint: { map: id, x: 6, y: 5 },
+  });
+}
+
+export function makeMart(id, { town, backX, backY, extras = [] }) {
+  return defineMap(id, {
+    name: 'Poké Mart', kind: 'indoor', music: 'mart', darkEdges: false,
+    tiles: [
+      '||||||||||||',
+      '|MMMM______|',
+      '|__________|',
+      '|_xxx______|',
+      '|__________|',
+      '|__________|',
+      '|||||D||||||',
+    ],
+    warps: [{ x: 5, y: 6, to: town, tx: backX, ty: backY, dir: 'down' }],
+    npcs: [
+      {
+        id: `${id}_clerk`, x: 3, y: 2, look: 'clerk', name: 'Clerk',
+        movement: 'still', facing: 'down', script: 'shop', overCounter: true,
+        dialogue: ['Welcome! What can I get you?'],
+      },
+      ...extras,
+    ],
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The Trainers' School.
+//
+// Every Pokemon game has one and every one of them exists for the same
+// reason: a battle system with eighteen types, five status conditions and a
+// stat-stage table cannot be taught by a tooltip. It is taught by four people
+// in a room who each explain one thing properly, and by a blackboard you can
+// walk up to and read.
+// ---------------------------------------------------------------------------
+
+const JUBILIFE_SCHOOL = defineMap('jubilife_school', {
+  name: "Trainers' School", kind: 'indoor', music: 'lab', darkEdges: false,
+  tiles: [
+    '||||||||||||||||',
+    '|kkkkkkkkkkkkkk|',
+    '|++++++++++++++|',
+    '|+ee+ee++ee+ee+|',
+    '|++++++++++++++|',
+    '|+ee+ee++ee+ee+|',
+    '|++++++++++++++|',
+    '|+ee+ee++ee+ee+|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|||||||DD|||||||',
+  ],
+  warps: [
+    { x: 7, y: 12, to: 'jubilife', tx: 14, ty: 14, dir: 'down' },
+    { x: 8, y: 12, to: 'jubilife', tx: 15, ty: 14, dir: 'down' },
+  ],
+  signs: [
+    { x: 3, y: 1, text: 'BLACKBOARD — TYPES\nWater beats Fire, Rock and Ground.\nGrass beats Water, Rock and Ground.\nFire beats Grass, Bug, Ice and Steel.\nEach of those three loses to the next.' },
+    { x: 6, y: 1, text: 'BLACKBOARD — TYPES II\nElectric beats Water and Flying,\nand does NOTHING to Ground.\nPsychic beats Fighting and Poison.\nDark and Ghost beat Psychic.' },
+    { x: 9, y: 1, text: 'BLACKBOARD — STATUS\nPAR halves Speed and skips turns.\nBRN halves Attack and burns each turn.\nSLP costs the foe whole turns —\nthe best moment to throw a ball.' },
+    { x: 12, y: 1, text: 'BLACKBOARD — STATS\nGROWL and LEER lower the foe.\nDEFENSE CURL and HARDEN raise you.\nSix stages up or down is the limit.\nSwitching out clears every stage.' },
+  ],
+  npcs: [
+    {
+      id: 'sch_teacher', x: 7, y: 2, look: 'professor', name: 'Ms. Orme',
+      movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['A Coal Badge. Then you have already met a Rock-type Gym.',
+            'You will have noticed Water and Grass go straight through them.',
+            'That is the whole lesson, really. Everything else is practice.'],
+        },
+        {
+          lines: ['Welcome. Sit anywhere, read the boards, ask the class.',
+            'Here is the short version: every Pokémon has one or two TYPES,\fand every move has one.',
+            'A move that is strong against the foe’s type does DOUBLE damage.\fWeak against it does half.',
+            'The game tells you: "It’s super effective!" or "not very effective".\fListen to it.',
+            'And a move of your own type hits harder than one that is not.\fUse a Grass move on a Grass Pokémon.',
+            'That is it. That is the game. Go and be good at it.'],
+        },
+      ],
+    },
+    {
+      id: 'sch_pupil1', x: 4, y: 5, look: 'lass', name: 'Pupil', movement: 'still', facing: 'right',
+      dialogue: [
+        {
+          lines: ['I keep losing because I forget I can SWITCH.',
+            'If the foe is beating your lead, swap to something that resists it.',
+            'Switching costs a turn. Fainting costs the whole Pokémon.'],
+        },
+      ],
+    },
+    {
+      id: 'sch_pupil2', x: 8, y: 5, look: 'youngster', name: 'Pupil', movement: 'still', facing: 'left',
+      dialogue: [
+        {
+          lines: ['Everyone forgets POTIONS exist until they are out of Pokémon.',
+            'BAG in the middle of a battle. It costs a turn and it is nearly always worth it.',
+            'Same with balls. BAG, then BALLS, then pick one.'],
+        },
+      ],
+    },
+    {
+      id: 'sch_pupil3', x: 4, y: 9, look: 'bugCatcher', name: 'Pupil', movement: 'still', facing: 'right',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['You are LINKED? With another actual person?',
+            'Ms. Orme says a link battle is the only honest test there is.',
+            'The other one is thinking back at you.'],
+        },
+        {
+          lines: ['A Pokémon that likes you fights harder. Really.',
+            'Walk about with it, win with it, level it up. It notices.'],
+        },
+      ],
+    },
+    {
+      id: 'sch_prize', x: 10, y: 9, look: 'worker', name: 'Caretaker', movement: 'still', facing: 'left',
+      script: 'schoolGift',
+      dialogue: [{ lines: ['Stayed for the whole lesson, did you? Here — the school keeps a few of these.'] }],
+    },
+  ],
+});
+
+
+// ---------------------------------------------------------------------------
+// Sandgem and Jubilife, built from the shared shells above.
+// ---------------------------------------------------------------------------
+
+const SANDGEM_CENTER = makeCenter('sandgem_center', {
+  town: 'sandgem', backX: 7, backY: 6,
+  greeting: 'Welcome to the Sandgem Pokémon Center. Shall I heal your team?',
+});
+const SANDGEM_MART = makeMart('sandgem_mart', {
+  town: 'sandgem', backX: 21, backY: 7,
+  extras: [{
+    id: 'sgm_shopper', x: 8, y: 4, look: 'youngster', name: 'Shopper',
+    movement: 'still', facing: 'left',
+    dialogue: [{
+      lines: ['POTIONS first, BALLS second, and never leave with an empty bag.',
+        'Whatever you think you need, buy one more.'],
+    }],
+  }],
+});
+
+const SANDGEM_HOUSE = defineMap('sandgem_house', {
+  name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
+  tiles: [
+    '||||||||||||',
+    '|kk____bb__|',
+    '|__________|',
+    '|_e________|',
+    '|__________|',
+    '|_p_______v|',
+    '|__________|',
+    '|||||D||||||',
+  ],
+  warps: [{ x: 5, y: 7, to: 'sandgem', tx: 11, ty: 12, dir: 'down' }],
+  npcs: [
+    {
+      id: 'sgh_man', x: 3, y: 3, look: 'oldMan', name: 'Resident',
+      movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'hasBandit' },
+          lines: ['There is a Houndour sitting on my step every time you come in here.',
+            'He is not begging. He is supervising. There is a difference and he knows it.'],
+        },
+        {
+          lines: ['Sandgem is quiet, and I intend to keep it that way.',
+            'Jubilife is up the road if you want noise. They have got a school and everything.'],
+        },
+      ],
+    },
+  ],
+});
+
+const JUBILIFE_CENTER = makeCenter('jubilife_center', {
+  town: 'jubilife', backX: 7, backY: 6,
+  greeting: 'Welcome to the Jubilife Pokémon Center — the busiest one there is.',
+  extras: [{
+    id: 'jc_traveller', x: 3, y: 5, look: 'sailor', name: 'Traveller',
+    movement: 'still', facing: 'down',
+    dialogue: [
+      {
+        when: { linked: true },
+        lines: ['Two trainers on one link, walking the same road.',
+          'I have seen a lot of pairs come through here.',
+          'The ones that finish are the ones that wait for each other.'],
+      },
+      {
+        lines: ['Heal here before Route 203. There is nothing between here and Oreburgh but trainers.'],
+      },
+    ],
+  }],
+});
+const JUBILIFE_MART = makeMart('jubilife_mart', {
+  town: 'jubilife', backX: 24, backY: 6,
+  extras: [{
+    id: 'jm_shopper', x: 8, y: 4, look: 'lass', name: 'Shopper',
+    movement: 'still', facing: 'left',
+    dialogue: [{
+      when: { maxBadges: 0 },
+      lines: ['Going for the Oreburgh Gym? Rock types hit like a wall falling on you.',
+        'Buy POTIONS. More than you want to. You will use them all.'],
+    }, {
+      lines: ['Stock changes as you win badges. Come back after the Gym.'],
+    }],
+  }],
+});
+
+const JUBILIFE_HOUSE = defineMap('jubilife_house', {
+  name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
+  tiles: [
+    '||||||||||||',
+    '|kk____bb__|',
+    '|__________|',
+    '|_e________|',
+    '|__________|',
+    '|_p_______v|',
+    '|__________|',
+    '|||||D||||||',
+  ],
+  warps: [{ x: 5, y: 7, to: 'jubilife', tx: 5, ty: 20, dir: 'down' }],
+  npcs: [
+    {
+      id: 'jh_woman', x: 3, y: 3, look: 'mom', name: 'Resident',
+      movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { champion: true },
+          lines: ['You are the one off the Hall board. In MY front room.',
+            'My son will not believe this and I am not going to stop telling him.'],
+        },
+        {
+          lines: ['My son is at the school every single day and has never once beaten the quiz.',
+            'Do not tell him I told you.'],
+        },
+      ],
+    },
+  ],
+});
+
+const JUBILIFE_HOUSE2 = defineMap('jubilife_house2', {
+  name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
+  tiles: [
+    '||||||||||||',
+    '|kk____bb__|',
+    '|__________|',
+    '|_e________|',
+    '|__________|',
+    '|_p_______v|',
+    '|__________|',
+    '|||||D||||||',
+  ],
+  warps: [{ x: 5, y: 7, to: 'jubilife', tx: 23, ty: 20, dir: 'down' }],
+  npcs: [
+    {
+      id: 'jh2_man', x: 8, y: 3, look: 'grunt', name: 'Man in Blue',
+      movement: 'still', facing: 'left',
+      dialogue: [
+        {
+          when: { flag: 'beatCommander' },
+          lines: ['...You are the one from the Gate.',
+            'I am not with them. I was never with them. I rent this room.',
+            'Whatever you found under that hill — I hope you put it back.'],
+        },
+        {
+          lines: ['Nice city. Very modern. Very well lit.',
+            'You would think somewhere this bright would notice what goes on in it.'],
+        },
+      ],
+    },
+  ],
+});
+
+
 export const INTERIORS = [
-  PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB, OREBURGH_CENTER, OREBURGH_MART,
-  OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2, OREBURGH_HALL,
+  PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB,
+  SANDGEM_CENTER, SANDGEM_MART, SANDGEM_HOUSE,
+  JUBILIFE_CENTER, JUBILIFE_MART, JUBILIFE_SCHOOL, JUBILIFE_HOUSE, JUBILIFE_HOUSE2,
+  OREBURGH_CENTER, OREBURGH_MART, OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2,
+  OREBURGH_HALL,
 ];

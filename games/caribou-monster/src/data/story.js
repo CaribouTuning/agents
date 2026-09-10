@@ -138,7 +138,8 @@ export const ROWAN = {
     'Prof. Rowan: An old habit of mine. The data has to go somewhere.',
   ],
   send: [
-    'Prof. Rowan: Oreburgh City is north, past Route 201 and Route 202.',
+    'Prof. Rowan: North, then. Route 201 to Sandgem, Route 202 to Jubilife,\fRoute 203 to Oreburgh.',
+    'Prof. Rowan: Stop at the Trainers’ School in Jubilife.\fIt is free and it is better than anything I could tell you here.',
     'Prof. Rowan: There is a Pokémon Gym in it. Roark runs it — Rock types.',
     'Prof. Rowan: Beat him and he gives you the Coal Badge.\fEight of those and the League has to let you in.',
     'Prof. Rowan: That is the road. Go and walk it.',

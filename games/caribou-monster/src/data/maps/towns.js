@@ -236,8 +236,8 @@ export const OREBURGH = defineMap('oreburgh', {
   warps: [
     { x: 14, y: 0, to: 'route207', tx: 12, ty: 16, dir: 'up', edge: true },
     { x: 15, y: 0, to: 'route207', tx: 13, ty: 16, dir: 'up', edge: true },
-    { x: 14, y: 24, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 15, y: 24, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 14, y: 24, to: 'route203', tx: 12, ty: 22, dir: 'down', edge: true },
+    { x: 15, y: 24, to: 'route203', tx: 13, ty: 22, dir: 'down', edge: true },
     { x: 7, y: 6, to: 'oreburgh_center', tx: 6, ty: 6, dir: 'up' },
     { x: 25, y: 6, to: 'oreburgh_mart', tx: 5, ty: 5, dir: 'up' },
     { x: 5, y: 14, to: 'oreburgh_house', tx: 5, ty: 6, dir: 'up' },
@@ -419,4 +419,217 @@ export const OREBURGH = defineMap('oreburgh', {
     },
   ],
   healPoint: { map: 'oreburgh_center', x: 6, y: 5 },
+});
+
+// ---------------------------------------------------------------------------
+// Sandgem Town — the first place with a Center in it, and where the game
+// teaches catching. In Platinum this is where Rowan's lab is; here the lab is
+// at home in Twinleaf, so Sandgem is what it is on the map: the little coastal
+// town you hit the moment you have a Pokémon and no idea what to do with it.
+// ---------------------------------------------------------------------------
+
+export const SANDGEM = defineMap('sandgem', {
+  name: 'Sandgem Town', kind: 'town', music: 'town',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T..AAAAAAAA.::...........T',
+    'T..AAAAAAAA.::....BBBBBB.T',
+    'T..VVVVVVVV.::....BBBBBB.T',
+    'T..#WFFDFFW.::....VVVVVV.T',
+    'T.....:::::::::::.#WJDJW.T',
+    'T.....:.....::...:.......T',
+    'T.....:.....::...:.......T',
+    'T..S..:..GGGGG...:.ssssssT',
+    'T.....:..GGGGG...:.ssssssT',
+    'T.....:..#WDW#...:.~~~~~~T',
+    'T.....:::::::::::::~~~~~~T',
+    'T...........::.....~~~~~~T',
+    'T...........::.....~~~~~~T',
+    'T...........::...........T',
+    'T..S........::..........ST',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 17, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 17, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 7, y: 5, to: 'sandgem_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 21, y: 6, to: 'sandgem_mart', tx: 5, ty: 5, dir: 'up' },
+    { x: 11, y: 11, to: 'sandgem_house', tx: 5, ty: 6, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
+    { x: 18, y: 5, w: 6, text: 'POKéMON MART' },
+  ],
+  signs: [
+    { x: 3, y: 9, text: 'SANDGEM TOWN\n"Where the sand shines."\nCENTER — west. MART — east.\nROUTE 202 runs north to Jubilife.' },
+    { x: 3, y: 16, text: 'ROUTE 201 — SOUTH\nTwinleaf Town is back that way.' },
+    { x: 24, y: 16, text: 'The beach is closed to trainers\nwithout a fishing licence.\nThe sea does not check.' },
+  ],
+  encounters: null,
+  npcs: [
+    {
+      // The catching lesson. In the DS games somebody demonstrates this at you
+      // whether you want it or not, and it is the reason nobody ever had to
+      // guess how a Poke Ball works.
+      id: 'sg_catcher', x: 8, y: 7, look: 'youngster', name: 'Riko',
+      movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { caught: 5 },
+          lines: ['{caught} caught already! You have got the hang of it.',
+            'Different balls have different pull. Great Balls are worth the money.'],
+        },
+        {
+          lines: ['You have got a Pokémon but no catches yet? Right. Listen.',
+            'Wild Pokémon live in the TALL GRASS. Walk in it and one will find you.',
+            'Do NOT throw a ball at a healthy one.\fYou are throwing money into a hedge.',
+            'Knock its HP down first. Yellow bar is better. Red bar is better still.',
+            'Sleep or paralysis makes it easier again.\fThen BAG, then BALLS, then throw.',
+            'That is the whole trick. Go and fill that Pokédex.'],
+        },
+      ],
+    },
+    {
+      id: 'sg_fisher', x: 20, y: 15, look: 'sailor', name: 'Bram', movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['Coal Badge, is it? Roark does not hand those out for turning up.',
+            'The sea is that way and it is not going anywhere.\fGo and be famous first.'],
+        },
+        {
+          lines: ['The beach goes on for miles and the water is full of things I cannot name.',
+            'You will need a rod, and I have not got a spare. Sorry, friend.'],
+        },
+      ],
+    },
+    {
+      id: 'sg_gran', x: 4, y: 13, look: 'mom', name: 'Enna', movement: 'still', facing: 'right',
+      dialogue: [
+        {
+          when: { alone: true },
+          lines: ['Travelling on your own, are you?',
+            'My sister and I did this road together forty years ago.',
+            'We argued the entire way.\fI would not change a minute of it.',
+            'If {buddy} is out there somewhere, find a way to walk it together.'],
+        },
+        {
+          lines: ['Two of you! Oh, that is the way to do it.',
+            'You will remember this road for the rest of your lives.\fMake sure you remember it the same.'],
+        },
+      ],
+    },
+  ],
+  healPoint: { map: 'sandgem_center', x: 6, y: 5 },
+});
+
+// ---------------------------------------------------------------------------
+// Jubilife City — the biggest place on this stretch of road, and the one with
+// the Trainers' School in it. Everything a Pokemon game needs to teach and
+// cannot teach in a menu is taught in a classroom, by people, out loud. That
+// is why this building exists in the real games and why it exists here.
+// ---------------------------------------------------------------------------
+
+export const JUBILIFE = defineMap('jubilife', {
+  name: 'Jubilife City', kind: 'town', music: 'city',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
+    'T...........::...............T',
+    'T..AAAAAAAA.::......BBBBBBBB.T',
+    'T..AAAAAAAA.::......BBBBBBBB.T',
+    'T..VVVVVVVV.::......VVVVVVVV.T',
+    'T..#WFFDFFW.::......#WJJDJJW.T',
+    'T.....:.....::..........:....T',
+    'T.....:::::::::::::::::::....T',
+    'T.....:.....::..........:....T',
+    'T..S..:.....::..........:....T',
+    'T.....:.EEEEEEEEEEEE....:....T',
+    'T.....:.EEEEEEEEEEEE....:....T',
+    'T.....:.VVVVVVVVVVVV....:....T',
+    'T.....:.#WW#WWDDWW#WW...:....T',
+    'T.....:........::.......:....T',
+    'T.....::::::::::::::::::::...T',
+    'T..............::............T',
+    'T..GGGGG.......::....GGGGG...T',
+    'T..GGGGG.......::....GGGGG...T',
+    'T..#WDW#.......::....#WDW#...T',
+    'T.....:........::......:.....T',
+    'T.....::::::::::::::::::.....T',
+    'T..S...........::...........ST',
+    'TTTTTTTTTTTT::::::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
+    { x: 14, y: 23, to: 'route203', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 15, y: 23, to: 'route203', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 7, y: 5, to: 'jubilife_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 24, y: 5, to: 'jubilife_mart', tx: 5, ty: 5, dir: 'up' },
+    { x: 14, y: 13, to: 'jubilife_school', tx: 7, ty: 11, dir: 'up' },
+    { x: 15, y: 13, to: 'jubilife_school', tx: 8, ty: 11, dir: 'up' },
+    { x: 5, y: 19, to: 'jubilife_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 23, y: 19, to: 'jubilife_house2', tx: 5, ty: 6, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
+    { x: 20, y: 4, w: 8, text: 'POKéMON MART' },
+    { x: 8, y: 12, w: 12, text: "TRAINERS' SCHOOL", tone: '#f8e070' },
+  ],
+  signs: [
+    { x: 3, y: 9, text: 'JUBILIFE CITY\n"The most modern city there is."\nTRAINERS’ SCHOOL — centre.\nROUTE 203 — south, to Oreburgh.' },
+    { x: 3, y: 22, text: 'TRAINERS’ SCHOOL\nFree lessons, every day.\nIf a battle has ever confused you,\ngo in.' },
+    { x: 28, y: 22, text: 'ROUTE 203 — SOUTH\nOreburgh City is beyond it.\nThe Gym there is the first one most\ntrainers take.' },
+  ],
+  npcs: [
+    {
+      id: 'jl_greeter', x: 13, y: 8, look: 'clerk', name: 'Greeter',
+      movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['A badge already! Jubilife likes a winner.',
+            'Seven to go, and the League will not come to you.'],
+        },
+        {
+          lines: ['Welcome to Jubilife City! Biggest place you will have seen so far.',
+            'The grey building in the middle is the TRAINERS’ SCHOOL. Go in.',
+            'They will explain type matchups better than I can, and it is free.',
+            'When you are done: ROUTE 203, south. Oreburgh and its Gym are past it.'],
+        },
+      ],
+    },
+    {
+      id: 'jl_kid', x: 20, y: 16, look: 'kid', name: 'Nel', movement: 'wander', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['There are TWO of you walking round together.',
+            'My brother says link trainers are showing off.\fI think it looks brilliant.'],
+        },
+        {
+          lines: ['I go to the school every day and I still have not beaten the quiz.',
+            'It is the one about which type beats which. It is HARD.'],
+        },
+      ],
+    },
+    {
+      id: 'jl_suit', x: 25, y: 10, look: 'scientist', name: 'Analyst',
+      movement: 'still', facing: 'left',
+      dialogue: [
+        {
+          when: { joined: true },
+          lines: ['Rating {rating}, is it? The Hall board updates in real time now.',
+            'Half this city checks it at lunch. The other half pretends not to.'],
+        },
+        {
+          lines: ['Oreburgh has the Battle Hall, but Jubilife has the money that pays for it.',
+            'Somebody has to. Announcers are not free.'],
+        },
+      ],
+    },
+  ],
+  healPoint: { map: 'jubilife_center', x: 6, y: 5 },
 });

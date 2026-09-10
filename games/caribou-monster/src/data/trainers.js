@@ -51,6 +51,26 @@ add('ww_grunt', {
   team: [mon(41, 9, ['astonish', 'supersonic']), mon(401, 10, ['bugbite', 'furycutter'])],
 });
 
+// ---- Route 203 -----------------------------------------------------------
+add('r3_youngster', {
+  name: 'Youngster Pell', cls: 'Youngster', look: 'youngster', ai: 1, prize: 352,
+  intro: 'Jubilife kids are soft. I walk this road every day.',
+  defeat: 'I walk it every day and I still lost on it.',
+  team: [mon(396, 9, ['tackle', 'growl', 'quickattack']), mon(399, 10, ['tackle', 'defensecurl'])],
+});
+add('r3_lass', {
+  name: 'Lass Nima', cls: 'Lass', look: 'lass', ai: 1, prize: 400,
+  intro: 'Everyone here is going to Oreburgh. Nobody here is ready for Oreburgh.',
+  defeat: 'You might be, actually.',
+  team: [mon(403, 10, ['tackle', 'leer', 'spark']), mon(401, 9, ['bugbite', 'stringshot'])],
+});
+add('r3_bug', {
+  name: 'Bug Catcher Odo', cls: 'Bug Catcher', look: 'bugCatcher', ai: 0, prize: 320,
+  intro: 'There are better bugs on this route than in the whole forest!',
+  defeat: 'There are better trainers on it too, apparently.',
+  team: [mon(415, 10, ['bugbite', 'gust']), mon(401, 11, ['bugbite', 'furycutter'])],
+});
+
 // ---- Oreburgh Gym -------------------------------------------------------
 add('gym1_hiker1', {
   name: 'Hiker Bost', cls: 'Hiker', look: 'hiker', ai: 1, prize: 560,

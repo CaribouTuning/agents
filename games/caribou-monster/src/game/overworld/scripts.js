@@ -246,6 +246,25 @@ SCRIPTS.shop = async (ctx) => {
   await ctx.openShop();
 };
 
+/**
+ * The Trainers' School keeps a drawer of Potions for anyone who sits through
+ * the whole lesson. Once each — it is a school, not a shop.
+ */
+SCRIPTS.schoolGift = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.schoolGift) {
+    await ctx.say('Caretaker: Come back when you have something to ask.\fThe boards do not move.');
+    return;
+  }
+  await ctx.say('Caretaker: Stayed for the whole lesson, did you?\fHere — the school keeps a few of these.');
+  ctx.give('potion', 3);
+  ctx.give('greatball', 2);
+  ctx.sfx('buy');
+  await ctx.say('You received 3 Potions and 2 Great Balls!');
+  await ctx.say('Caretaker: Great Balls hold better than the plain ones.\fSave them for something you want.');
+  ctx.setFlag('schoolGift');
+};
+
 // ---- Gym leader ---------------------------------------------------------------
 
 SCRIPTS.gymLeader = async (ctx, npc) => {

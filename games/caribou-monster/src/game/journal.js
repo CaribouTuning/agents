@@ -41,7 +41,7 @@ export const ENTRIES = [
       'Cass from four doors down was waiting on Route 201. She started a year\nbefore me and has never once let me forget it.',
       'She got up at seven to take the starter that beats mine. On purpose.',
     ],
-    next: 'Follow Route 201 north, then Route 202, to Oreburgh City.',
+    next: 'North through Sandgem and Jubilife to Oreburgh.',
   },
   {
     id: 'cassCircuit',
@@ -207,16 +207,22 @@ export function entriesFor(state) {
  */
 export const OBJECTIVE_MAX = 48;
 
+const onTheRoad = (f, st) => !f.reachedOreburgh && !String(st.player.map).startsWith('oreburgh');
+
 const RULES = [
   // --- the opening ---
   [(f, st) => !f.gotStarter && st.player.map === 'rowan_lab', 'Talk to Prof. Rowan. Choose a Pokémon.'],
   [(f) => !f.gotStarter, "Go to Prof. Rowan's lab, north of your house."],
 
-  // --- the road to Oreburgh ---
-  [(f, st) => !f.reachedOreburgh && st.player.map === 'twinleaf', 'Leave Twinleaf to the north, onto Route 201.'],
-  [(f, st) => !f.reachedOreburgh && st.player.map === 'route201', 'North up Route 201, then east to Route 202.'],
-  [(f, st) => !f.reachedOreburgh && st.player.map === 'route202', 'Follow Route 202 north to Oreburgh City.'],
-  [(f) => !f.reachedOreburgh, 'Head north from Twinleaf to Oreburgh City.'],
+  // --- the road to Oreburgh, town by town ---
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'twinleaf', 'Leave Twinleaf to the north, onto Route 201.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'route201', 'North up Route 201 to Sandgem Town.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'sandgem', 'Rest here, then north on Route 202.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'route202', 'North through Route 202 to Jubilife City.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'jubilife_school', 'Read the boards. Talk to Ms. Orme.'],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'jubilife', "Visit the Trainers' School, then Route 203."],
+  [(f, st) => onTheRoad(f, st) && st.player.map === 'route203', 'Follow Route 203 south to Oreburgh City.'],
+  [onTheRoad, 'Head north from Twinleaf toward Oreburgh.'],
 
   // --- the first badge. The whole point of arriving. ---
   [(f, st) => !f.badge1 && st.player.map === 'oreburgh_gym', 'Beat 3 trainers, then Roark, for the badge.'],

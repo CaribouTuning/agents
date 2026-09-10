@@ -186,10 +186,10 @@ w = await where();
 check('left the lab again', w.map === 'twinleaf', `${w.map} ${w.x},${w.y}`);
 await page.screenshot({ path: path.join(OUT, '03-back-outside.png') });
 
-// Every interior, entered directly, must leave the player able to move.
-const interiors = ['player_house', 'rival_house', 'rowan_lab', 'oreburgh_center',
-  'oreburgh_mart', 'oreburgh_gym', 'oreburgh_house', 'oreburgh_house2', 'oreburgh_hall',
-  'oreburgh_gate', 'everlight_chamber', 'route201', 'route207', 'route202', 'oreburgh', 'twinleaf'];
+// EVERY map in the game, entered the way a player enters it, must leave the
+// player able to move. Enumerated from the registry rather than a hand-kept
+// list, so a new town is covered the moment it exists.
+const interiors = await page.evaluate(() => Object.keys(window.CARIBOU.mapsForTest.MAPS));
 for (const id of interiors) {
   const res = await page.evaluate(async (mapId) => {
     const g = window.CARIBOU;

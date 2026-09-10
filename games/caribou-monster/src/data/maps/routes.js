@@ -35,8 +35,8 @@ export const ROUTE201 = defineMap('route201', {
   warps: [
     { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
     { x: 13, y: 27, to: 'twinleaf', tx: 15, ty: 2, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 1, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 1, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
@@ -147,5 +147,76 @@ export const ROUTE207 = defineMap('route207', {
   ],
   encounters: {
     grass: { min: 10, max: 14, table: [[403, 22], [399, 16], [77, 12], [54, 10], [427, 12], [396, 12], [438, 8], [422, 5], [129, 3]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Route 203 — Jubilife down to Oreburgh. Where the road stops being a footpath
+// between two villages and starts having other trainers on it.
+// ---------------------------------------------------------------------------
+
+export const ROUTE203 = defineMap('route203', {
+  name: 'Route 203', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T....""""...::......RR....',
+    'T....""""...::...........T',
+    'T...........::...........T',
+    'T..TTT......::....""""...T',
+    'T.TTTTT.....::....""""...T',
+    'T..TTT......::...........T',
+    'T...........::...........T',
+    'T:::::::::::::::.........T',
+    'T...........::..:........T',
+    'T...RR......::..:........T',
+    'T...........::..:...TTT..T',
+    'T....""""...::..:..TTTTT.T',
+    'T....""""...::..:...TTT..T',
+    'T...........::..:........T',
+    'T..LLLLLL...::..:........T',
+    'T...........::..:........T',
+    'T...........::::::.......T',
+    'T....""""...::...........T',
+    'T....""""...::.....""""..T',
+    'T...........::.....""""..T',
+    'T....S......::...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 0, to: 'jubilife', tx: 14, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'jubilife', tx: 15, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 23, to: 'oreburgh', tx: 14, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'oreburgh', tx: 15, ty: 1, dir: 'down', edge: true },
+  ],
+  objects: [
+    { id: 'r3_potion', x: 2, y: 11, item: 'potion', qty: 2 },
+    { id: 'r3_ball', x: 20, y: 20, item: 'pokeball', qty: 5 },
+  ],
+  signs: [
+    { x: 5, y: 22, text: 'ROUTE 203\nOREBURGH CITY — SOUTH\nJUBILIFE CITY — NORTH\nThe Gym in Oreburgh takes challengers.' },
+  ],
+  npcs: [
+    { id: 'r3_t1', x: 8, y: 9, look: 'youngster', trainer: 'r3_youngster', facing: 'right', sight: 4, movement: 'still' },
+    { id: 'r3_t2', x: 18, y: 15, look: 'lass', trainer: 'r3_lass', facing: 'left', sight: 4, movement: 'still' },
+    { id: 'r3_t3', x: 6, y: 19, look: 'bugCatcher', trainer: 'r3_bug', facing: 'down', sight: 3, movement: 'still' },
+    {
+      id: 'r3_walker', x: 20, y: 6, look: 'hiker', name: 'Rambler', movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['Coal Badge. Good. Roark makes people work for it.',
+            'Rest at the Center in Oreburgh before you go up Route 207.\fWhat is up there is not friendly.'],
+        },
+        {
+          lines: ['Oreburgh is south. Mining town, and the Gym there is Rock-type.',
+            'If you have got anything Grass or Water, bring it.',
+            'If you have not, the grass on this route has both.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: { min: 5, max: 9, table: [[396, 24], [399, 20], [403, 18], [401, 14], [415, 10], [406, 8], [265, 6]] },
   },
 });
