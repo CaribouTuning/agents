@@ -13,6 +13,8 @@ import {
   WORLD_POS, worldGraph, reachableFrom, edgeOf, linksOf, directionHolds, OPPOSITE,
 } from '../src/data/maps/world.js';
 import { tileDef } from '../src/render/tiles.js';
+import { FIELD_MOVES, badgeFor, storyGateFor, moveForTile } from '../src/game/fieldmoves.js';
+import { GYMS } from '../src/data/campaign.js';
 import { unrenderable } from '../src/render/font.js';
 import { objective, OBJECTIVE_MAX, ENTRIES as JOURNAL_ENTRIES } from '../src/game/journal.js';
 import { PHASES, phaseAt, tintFor } from '../src/game/clock.js';
@@ -62,6 +64,10 @@ function step(map, block, x, y, dir) {
   const nx = x + dx, ny = y + dy;
   const def = at(map, nx, ny);
   if (!def) return null;
+  // An obstacle that answers to a field move is a locked door, not a wall:
+  // the player gets through it eventually, so reachability has to treat it as
+  // passable. Whether they can ever hold the key is checked separately below.
+  if (def.field) return { x: nx, y: ny };
   if (def.ledge) {
     if (def.ledge !== dir) return null;
     const lx = nx + dx, ly = ny + dy;
@@ -360,6 +366,72 @@ for (const map of Object.values(MAPS)) {
       if (onEdge && target && target.kind !== 'indoor' && !w.edge) {
         warn(`[${map.id}] warp at ${w.x},${w.y} is on the ${onEdge} edge but is not marked edge:true`);
       }
+    }
+  }
+}
+
+// ---- progression gates -----------------------------------------------------
+//
+// A locked door is only fair if the key exists. These check that every field
+// move the world uses can actually be obtained, that the badge authorising it
+// comes from a Gym that has been built, and that no obstacle is standing in
+// the way of something the player needs before they could possibly clear it.
+{
+  const usedTiles = new Map();      // field id -> [where]
+  for (const map of Object.values(MAPS)) {
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        const id = moveForTile(map.tiles[y][x]);
+        if (!id) continue;
+        if (!usedTiles.has(id)) usedTiles.set(id, []);
+        usedTiles.get(id).push(`${map.id}@${x},${y}`);
+      }
+    }
+  }
+
+  for (const [id, where] of usedTiles) {
+    const spec = FIELD_MOVES[id];
+    // The move has to be a real move.
+    if (!MOVES[spec.move]) {
+      err(`[gate] ${id} clears tiles but ${spec.move} is not a move`);
+      continue;
+    }
+    // Something in the world has to hand it over.
+    const hmId = Object.keys(ITEMS).find((i) => ITEMS[i].hm && ITEMS[i].move === spec.move);
+    if (!hmId) { err(`[gate] ${id} blocks the way at ${where[0]} but no HM teaches ${spec.move}`); continue; }
+    const placed = Object.values(MAPS).some((m) => m.objects.some((o) => o.item === hmId))
+      || Object.values(SCRIPTS).some((fn) => String(fn).includes(`'${hmId}'`));
+    if (!placed) err(`[gate] ${hmId} exists but nothing in the world gives it out`);
+
+    // And the badge that authorises it has to come from a Gym that is built.
+    const n = badgeFor(id);
+    if (n !== null) {
+      const gym = GYMS.find((g) => g.n === n);
+      if (!gym) err(`[gate] ${id} is authorised by badge ${n}, which no Gym gives`);
+      else if (!MAPS[gym.map]) {
+        err(`[gate] ${id} blocks the way at ${where[0]}, but ${gym.leader}'s Gym is not built yet`);
+      }
+    } else if (!storyGateFor(id)) {
+      err(`[gate] nothing authorises ${id}, so its obstacles can never be cleared`);
+    }
+  }
+
+  // Every Gym on the spine that exists must give the badge the spine says.
+  for (const g of GYMS) {
+    if (!MAPS[g.map]) continue;
+    const t = TRAINERS[g.trainer];
+    if (!t) { err(`[campaign] ${g.leader}'s Gym is built but trainer ${g.trainer} is missing`); continue; }
+    if (t.badge !== g.n) err(`[campaign] ${g.leader} gives badge ${t.badge}, the spine says ${g.n}`);
+    if (t.badgeName !== g.badge) err(`[campaign] ${g.leader} gives the ${t.badgeName}, the spine says the ${g.badge}`);
+    if (g.tm && !ITEMS[g.tm]) err(`[campaign] ${g.leader} rewards ${g.tm}, which is not an item`);
+  }
+  // Gyms must be built in order: a player cannot reach the fourth badge with
+  // no third Gym in the world to take it from.
+  const built = GYMS.filter((g) => MAPS[g.map]).map((g) => g.n);
+  for (let i = 0; i < built.length; i++) {
+    if (built[i] !== i + 1) {
+      err(`[campaign] Gyms are built out of order: have ${built.join(',')}`);
+      break;
     }
   }
 }

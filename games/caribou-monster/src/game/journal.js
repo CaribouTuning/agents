@@ -99,6 +99,15 @@ export const ENTRIES = [
     ],
   },
   {
+    id: 'metCynthia',
+    title: 'Cynthia',
+    body: [
+      'A woman in Eterna knew who I was before I said anything. She studies\nwhat Sinnoh was before it was Sinnoh.',
+      'She gave me Cut, and then explained that the move is not the point — the\nbadge is. The world has to agree to let you use it.',
+      'She said that like it was about more than trees.',
+    ],
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [

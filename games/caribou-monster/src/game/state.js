@@ -15,6 +15,7 @@ import { createJournal, serializeJournal, reviveJournal } from './journal.js';
 import { createDaycare, serializeDaycare, reviveDaycare } from './daycare.js';
 import { createPatches, serializePatches, revivePatches } from './berries.js';
 import { createUnderground, serializeUnderground, reviveUnderground } from './underground/site.js';
+import { serializeCleared, reviveCleared } from './fieldmoves.js';
 
 export const MAX_PARTY = 6;
 export const BOX_COUNT = 8;
@@ -58,6 +59,8 @@ export function createGameState(opts = {}) {
     underground: createUnderground(),
     // Every place you have stood in. The Town Map draws only these.
     visited: {},
+    // Trees cut down, rocks smashed, walls climbed: obstacles stay cleared.
+    cleared: {},
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
@@ -190,6 +193,7 @@ export function serializeState(st) {
     patches: serializePatches(st.patches),
     underground: serializeUnderground(st.underground),
     visited: { ...st.visited },
+    cleared: serializeCleared(st.cleared),
   };
 }
 
@@ -224,6 +228,7 @@ export function deserializeState(raw) {
   st.underground = reviveUnderground(raw.underground);
   st.visited = {};
   for (const k of Object.keys(raw.visited || {})) if (typeof k === 'string') st.visited[k] = true;
+  st.cleared = reviveCleared(raw.cleared);
   return st;
 }
 

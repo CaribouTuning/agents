@@ -430,6 +430,13 @@ export const ETERNA = defineMap('eterna', {
       ],
     },
     {
+      // Cynthia. Long before she is the Champion she is just the woman who
+      // knows more about this region than anyone and keeps turning up.
+      id: 'et_cynthia', x: 20, y: 18, look: 'mom', name: 'Cynthia',
+      movement: 'still', facing: 'down', script: 'cynthiaCut',
+      dialogue: [{ lines: ['There is more history under Sinnoh than on top of it.'] }],
+    },
+    {
       id: 'et_old', x: 8, y: 18, look: 'oldMan', name: 'Hest', movement: 'lookAround', facing: 'down',
       dialogue: [
         {
@@ -457,9 +464,9 @@ export const ROUTE206 = defineMap('route206', {
   name: 'Route 206', kind: 'route', music: 'route',
   tiles: [
     'TTTTTTTTTTTTTTTTTTTTTTTTTT',
-    'T........................T',
-    'T..""""........RR........T',
-    'T..""""..................T',
+    'T...................TTT..T',
+    'T..""""........RR...T.T..T',
+    'T.."""".............TfT..T',
     'T................TTT.....T',
     'T..OOO..........TTTTT....T',
     '::::::::::::::...TTT.....T',

@@ -158,6 +158,27 @@ tm(6, 'icywind', 'Icy Wind', 3000);
 tm(7, 'magnitude', 'Magnitude', 3000);
 tm(8, 'doubleteam', 'Double Team', 2000);
 
+// ---- HMs ---------------------------------------------------------------
+// The moves that open the region. They behave like TMs — the bag never
+// consumes a TM here — but they are Key Items, because losing one would lock
+// a player out of half of Sinnoh and no amount of "are you sure?" is worth
+// that risk.
+
+const hm = (n, moveId, name) =>
+  add(`hm${String(n).padStart(2, '0')}`, `HM${String(n).padStart(2, '0')} ${name}`, 'Key Items', 0,
+    { kind: 'tm', move: moveId },
+    `Teaches ${name}. With the right badge, it also clears the way outside.`,
+    { key: true, hm: true, move: moveId });
+
+hm(1, 'cut', 'Cut');
+hm(2, 'fly', 'Fly');
+hm(3, 'surf', 'Surf');
+hm(4, 'strength', 'Strength');
+hm(5, 'defog', 'Defog');
+hm(6, 'rocksmash', 'Rock Smash');
+hm(7, 'waterfall', 'Waterfall');
+hm(8, 'rockclimb', 'Rock Climb');
+
 // A pair of these exists in the world. There is no second pair.
 add('pairbell', 'Pair Bell', 'Items', 0, { kind: 'hold' },
   'One of two. Whoever carries it, their Pokémon settle faster.',

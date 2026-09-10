@@ -22,6 +22,7 @@ import { getSpecies } from '../data/species.js';
 import { partnerLine } from '../game/monster.js';
 import { BANDIT } from '../data/story.js';
 import { acceptShared, shareable, GOODS } from '../game/underground/base.js';
+import { refusalText } from '../game/fieldmoves.js';
 import { BASE_BOARD, BASE_ORIGIN } from '../data/maps/underground.js';
 import { addItem, removeItem } from '../game/inventory.js';
 import { recordSeen, recordCaught } from '../game/pokedex.js';
@@ -194,6 +195,7 @@ export class OverworldScreen extends Screen {
     if (target.type === 'flavour') { this.say(target.text); return; }
     if (target.type === 'soil') { this.runScript('berryPatch', { data: { tile: target } }); return; }
     if (target.type === 'dig') { this.runScript('digWall', { data: { tile: target } }); return; }
+    if (target.type === 'field') { this.runScript('fieldMove', { data: { tile: target } }); return; }
     if (target.type === 'board') { this.runScript('baseBoard'); return; }
     if (target.type === 'decor') { this.runScript('baseTidy', { data: { tile: target } }); return; }
     if (target.type === 'baseWall') { this.runScript('secretBase', { data: { tile: target } }); return; }
@@ -201,7 +203,7 @@ export class OverworldScreen extends Screen {
       // A rod turns the water's edge into somewhere to stand for ten minutes.
       // Without one it stays what it was: a nice view.
       if ((this.game.state.inventory.items.oldrod || 0) > 0) { this.runScript('fish'); return; }
-      this.say('The water is clear and deep.');
+      this.say(refusalText(this.game.state, 'surf') || 'The water is clear and deep.');
       return;
     }
     if (target.type === 'partner') { this._talkToPartner(target.mon); return; }

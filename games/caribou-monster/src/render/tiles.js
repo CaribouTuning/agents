@@ -735,6 +735,86 @@ function baseWall(c) {
 }
 
 
+// ---- obstacles that answer to a field move ---------------------------------
+// Each of these is solid until the player has both the badge and a Pokemon
+// that knows the move. They have to read as *removable* rather than as
+// scenery, or the player walks past them for an hour.
+
+/** A thin tree: half the height of a real one, and obviously in the way. */
+function cutTree(c) {
+  grass(c, 0, 41);
+  c.fillStyle = shade(PAL.grass, -0.24); px(c, 4, 13, 8, 2);
+  c.fillStyle = shade(PAL.treeTrunk, -0.3); px(c, 7, 9, 3, 6);
+  c.fillStyle = PAL.treeTrunk; px(c, 7, 9, 2, 6);
+  const lobe = (cx, cy, r, col) => {
+    c.fillStyle = col;
+    for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
+      if (x * x + y * y <= r * r + 1) px(c, cx + x, cy + y);
+    }
+  };
+  lobe(8, 6, 5, shade(PAL.treeLeafDark, -0.45));
+  lobe(8, 6, 4, PAL.treeLeaf);
+  lobe(7, 5, 2, PAL.treeLeafLight);
+  // The nick in the trunk: somebody has been at this one before.
+  c.fillStyle = shade(PAL.treeTrunk, -0.55); px(c, 7, 12, 2, 1);
+  c.fillStyle = shade(PAL.treeLeafLight, 0.3); px(c, 6, 4, 2, 1);
+}
+
+/** A cracked rock. The crack is the whole message. */
+function crackedRock(c) {
+  grass(c, 0, 43);
+  c.fillStyle = shade(PAL.grass, -0.26); px(c, 3, 12, 10, 3);
+  const blob = (cx, cy, rx, ry, col) => {
+    c.fillStyle = col;
+    for (let y = -ry; y <= ry; y++) {
+      const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2)));
+      px(c, cx - half, cy + y, half * 2 + 1, 1);
+    }
+  };
+  blob(8, 9, 6, 5, shade(PAL.rockDark, -0.35));
+  blob(8, 9, 5, 4, PAL.rock);
+  blob(6, 7, 2, 2, PAL.rockLight);
+  c.fillStyle = shade(PAL.rockDark, -0.5);
+  px(c, 8, 5, 1, 4); px(c, 7, 9, 1, 2); px(c, 9, 8, 1, 3); px(c, 6, 11, 2, 1);
+}
+
+/** A boulder: bigger, rounder and greyer than anything decorative. */
+function pushBoulder(c) {
+  grass(c, 0, 47);
+  c.fillStyle = shade(PAL.grass, -0.3); px(c, 2, 13, 12, 3); px(c, 1, 14, 14, 1);
+  c.fillStyle = shade(PAL.rockDark, -0.4); px(c, 1, 2, 14, 13);
+  c.fillStyle = PAL.rockDark; px(c, 2, 2, 12, 12);
+  c.fillStyle = PAL.rock; px(c, 3, 3, 10, 10);
+  c.fillStyle = PAL.rockLight; px(c, 4, 4, 4, 3);
+  c.fillStyle = shade(PAL.rockDark, -0.2); px(c, 9, 8, 4, 4); px(c, 4, 11, 4, 2);
+  c.fillStyle = shade(PAL.rockLight, 0.25); px(c, 4, 4, 2, 1);
+}
+
+/** A rock face with handholds, and chevrons saying which way is up. */
+function climbWall(c) {
+  cliff(c);
+  c.fillStyle = shade(PAL.cliffDark, -0.3);
+  px(c, 3, 3, 2, 2); px(c, 10, 6, 2, 2); px(c, 5, 9, 2, 2); px(c, 11, 12, 2, 2);
+  c.fillStyle = shade(PAL.cliff, 0.4);
+  for (const y of [11, 7, 3]) { px(c, 7, y); px(c, 6, y + 1); px(c, 8, y + 1); }
+}
+
+/** Water climbing a rock face. Animated upward, so it reads as a waterfall. */
+function waterfallTile(c, f) {
+  c.fillStyle = PAL.cliffDark; px(c, 0, 0, 16, 16);
+  c.fillStyle = PAL.waterDark; px(c, 2, 0, 12, 16);
+  c.fillStyle = PAL.water; px(c, 3, 0, 10, 16);
+  const o = (f * 4) % 16;
+  c.fillStyle = PAL.waterLight;
+  for (let i = 0; i < 4; i++) {
+    const y = (i * 4 + o) % 16;
+    px(c, 4, y, 2, 2); px(c, 10, (y + 8) % 16, 2, 2);
+  }
+  c.fillStyle = shade(PAL.waterLight, 0.35);
+  px(c, 7, (o + 2) % 16, 2, 3);
+}
+
+
 function voidTile(c) {
   c.fillStyle = PAL.black; px(c, 0, 0, 16, 16);
 }
@@ -765,6 +845,13 @@ export const TILES = {
   '2': { name: 'pine crown', draw: pineTop, solid: true },
   'R': { name: 'rock', draw: rock, solid: true, casts: true },
   'o': { name: 'boulder', draw: boulder, solid: true, casts: true },
+  // Field-move obstacles. Solid until cleared; `clearsTo` is what is left
+  // behind, so the world only ever has to change one character.
+  'f': { name: 'cuttable tree', draw: cutTree, solid: true, casts: true, field: 'cut', clearsTo: '.' },
+  'r': { name: 'cracked rock', draw: crackedRock, solid: true, casts: true, field: 'rocksmash', clearsTo: '.' },
+  'm': { name: 'boulder', draw: pushBoulder, solid: true, casts: true, field: 'strength', clearsTo: '.' },
+  'a': { name: 'climbable wall', draw: climbWall, solid: true, casts: true, field: 'rockclimb', clearsTo: '.' },
+  'u': { name: 'waterfall', draw: waterfallTile, solid: true, water: true, anim: 4, field: 'waterfall', clearsTo: '~' },
   '^': { name: 'cliff', draw: cliff, solid: true, casts: true },
   'L': { name: 'ledge', draw: ledge, ledge: 'down' },
   '=': { name: 'bridge', draw: bridge },

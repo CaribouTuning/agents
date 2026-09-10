@@ -7,6 +7,7 @@
 import { getMap } from '../../data/maps/index.js';
 import { onWalked } from '../friendship.js';
 import { walk as daycareWalk } from '../daycare.js';
+import { isCleared, canUse } from '../fieldmoves.js';
 import { tileDef } from '../../render/tiles.js';
 import { getTrainer } from '../../data/trainers.js';
 import { weightedPick } from '../../core/rng.js';
@@ -110,7 +111,26 @@ export class World {
 
   // ---- queries -------------------------------------------------------------
 
+  /**
+   * The tile as the game currently sees it.
+   *
+   * A tree the player has cut down is not a tree any more, and saying so here
+   * rather than in the collision code means the renderer, the pathing, the
+   * audit and everything else agree about it for free.
+   */
   tileAt(x, y) {
+    if (!this.map) return ' ';
+    if (x < 0 || y < 0 || x >= this.map.width || y >= this.map.height) return ' ';
+    const ch = this.map.tiles[y][x];
+    const def = tileDef(ch);
+    if (def.field && isCleared(this.state, this.mapId, x, y)) {
+      return this.map.kind === 'cave' && def.clearsTo === '.' ? 'c' : def.clearsTo;
+    }
+    return ch;
+  }
+
+  /** The tile as the map author wrote it, obstacles and all. */
+  rawTileAt(x, y) {
     if (!this.map) return ' ';
     if (x < 0 || y < 0 || x >= this.map.width || y >= this.map.height) return ' ';
     return this.map.tiles[y][x];
@@ -140,6 +160,10 @@ export class World {
     if (x < 0 || y < 0 || x >= this.map.width || y >= this.map.height) return false;
     const def = this.defAt(x, y);
     if (def.ledge) return dirName === def.ledge;    // ledges are one-way hops
+    // Deep water is solid until somebody can carry you across it. Surf is the
+    // one field move with no obstacle tile of its own: it does not clear
+    // anything, it changes what counts as ground.
+    if (def.water && !def.field && entity.kind === 'player' && canUse(this.state, 'surf')) return true;
     if (def.solid) return false;
     if (this.entityAt(x, y, entity)) return false;
     if (entity.kind === 'player' && this.remoteAt(x, y)) return false;
@@ -455,6 +479,12 @@ export class World {
     if (def.name === 'TV') return { type: 'flavour', text: 'A documentary about migrating Pokémon is on.' };
     if (def.name === 'bed') return { type: 'flavour', text: 'Neatly made. It looks very comfortable.' };
     if (def.soil) return { type: 'soil', x: tx, y: ty };
+    // An obstacle that answers to a field move. The world offers it; whether
+    // the player may actually use it is the field-move system's business.
+    if (def.field) return { type: 'field', id: def.field, x: tx, y: ty };
+    if (def.water && !def.field && canUse(this.state, 'surf')) {
+      return { type: 'field', id: 'surf', x: tx, y: ty };
+    }
     // Inside a Secret Base: the board on the back wall, and whatever has been
     // put on the floor. Both are save data rather than tiles, so the world has
     // to ask the game for them.

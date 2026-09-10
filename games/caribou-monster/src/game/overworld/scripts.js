@@ -27,6 +27,9 @@ import {
 } from '../underground/base.js';
 import { SPHERES, sphereCount } from '../underground/treasure.js';
 import { makeRng } from '../../core/rng.js';
+import {
+  FIELD_MOVES, usability, refusalText, markCleared, isCleared,
+} from '../fieldmoves.js';
 import { weightedPick } from '../../core/rng.js';
 import { spend, formatMoney as money } from '../inventory.js';
 import { FLAGS } from '../storyflags.js';
@@ -1083,6 +1086,76 @@ SCRIPTS.baseTidy = async (ctx, npc) => {
   ctx.sfx('select');
   await ctx.say(`You put the ${GOODS[gone.id].name} away.`);
   if (ctx.linked()) ctx.shareBase();
+};
+
+// ---- field moves -----------------------------------------------------------
+//
+// The badge is permission and the move is capability, so there are two ways to
+// be turned away here and they are different problems: one is solved at a Gym
+// and the other in the party menu. Saying which is which is most of the value.
+
+SCRIPTS.fieldMove = async (ctx, npc) => {
+  const tile = npc && npc.data && npc.data.tile;
+  if (!tile) return;
+  const id = tile.id;
+  const spec = FIELD_MOVES[id];
+  if (!spec) return;
+  const st = ctx.state;
+
+  const u = usability(st, id);
+  if (!u.ok) { await ctx.say(refusalText(st, id)); return; }
+
+  // Surfing is a state, not a one-off: it opens the water rather than
+  // clearing anything, so it needs no confirmation beyond stepping in.
+  if (id === 'surf') {
+    if (st.surfing) return;
+    const yes = await ctx.ask(`${spec.prompt}\fUse ${spec.name}?`, ['Yes', 'No']);
+    if (yes !== 0) return;
+    st.surfing = true;
+    ctx.sfx('warp');
+    await ctx.say(`${displayName(u.mon)} ${spec.doing}.`);
+    return;
+  }
+
+  if (isCleared(st, ctx.here().map, tile.x, tile.y)) return;
+
+  const yes = await ctx.ask(`${spec.prompt}\fUse ${spec.name}?`, ['Yes', 'No']);
+  if (yes !== 0) return;
+
+  ctx.sfx(id === 'rocksmash' || id === 'strength' ? 'hit' : 'select');
+  await ctx.say(`${displayName(u.mon)} used ${spec.name}!`);
+  markCleared(st, ctx.here().map, tile.x, tile.y);
+  ctx.shake(id === 'strength' ? 1 : 0.5);
+  await ctx.wait(0.35);
+  await ctx.say(`${displayName(u.mon)} ${spec.doing}.`);
+  ctx.autosave();
+};
+
+// ---- Cynthia, and the move that opens the region ---------------------------
+
+SCRIPTS.cynthiaCut = async (ctx) => {
+  const st = ctx.state;
+  if (ctx.hasItem('hm01')) {
+    if (ctx.linked()) {
+      await ctx.say('Cynthia: The two of you, travelling together.\fThat is how I did it, at your age. It is the better way.');
+    } else {
+      await ctx.say('Cynthia: A badge from Gardenia lets you use Cut out here.\fWithout it the move is just a move.');
+    }
+    return;
+  }
+  await ctx.say('Cynthia: You are the one who has been in Oreburgh Gate.\fWord travels. It usually travels to me first.');
+  await ctx.say('Cynthia: My name is Cynthia. I study what Sinnoh was before it was Sinnoh.');
+  if (st.flags.knowsTwist) {
+    await ctx.say('Cynthia: Then you already know Team Galactic did not find that door.\fThey built the key for it.');
+    await ctx.say('Cynthia: Which means they know exactly what is behind it.\fThat is the part that keeps me up.');
+  }
+  ctx.give('hm01', 1);
+  ctx.sfx('badge');
+  await ctx.say('Cynthia handed over HM01!');
+  await ctx.say('Cynthia: Cut. Teach it to something and the thin trees stop being walls.',
+    { speaker: 'Cynthia' });
+  await ctx.say('Cynthia: Gardenia’s badge is what makes the world accept it.\fThe move on its own is not enough — it never is.');
+  ctx.journal('metCynthia');
 };
 
 export function scriptFor(name) { return SCRIPTS[name] || null; }
