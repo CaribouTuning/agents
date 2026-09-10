@@ -15,6 +15,8 @@ import json
 import os
 import sys
 
+from PIL import Image
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'assets', 'sprites')
 OUT = os.path.join(ROOT, 'src', 'render', '_gen_sprites.js')
@@ -37,6 +39,13 @@ def main():
             raw = open(path, 'rb').read()
             total += len(raw)
             parts.append(f"{name}:'{base64.b64encode(raw).decode('ascii')}'")
+            # Where the creature's feet actually are. The sprites are centred
+            # in an 80x80 cell rather than bottom-anchored, so a small Pokemon
+            # has twenty pixels of nothing under it — and would float above
+            # the battle platform if the cell were placed instead of the feet.
+            if name in ('f', 'b'):
+                box = Image.open(path).convert('RGBA').getbbox()
+                parts.append(f"{'yf' if name == 'f' else 'yb'}:{box[3] if box else 80}")
         if parts:
             rows.append(f"  '{slug}':{{{','.join(parts)}}},")
 
@@ -51,6 +60,8 @@ def main():
 //   f   80x80 front, normal        b   80x80 back, normal
 //   fs  80x80 front, shiny         bs  80x80 back, shiny
 //   i   32x32 menu icon
+//   yf  the row the front sprite's feet sit on, inside its 80px cell
+//   yb  the same for the back sprite
 //
 // These are Game Freak's sprites, in a private game for two people. Do not
 // publish this build anywhere public.

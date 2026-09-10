@@ -82,6 +82,22 @@ export function spriteAt(slug, set, size) {
 }
 
 /**
+ * How far down a rendered sprite the creature's feet are, in pixels.
+ *
+ * The sheets centre each Pokémon in an 80px cell rather than sitting it on
+ * the floor of one, so placing the cell on a battle platform leaves a small
+ * Pokémon hovering twenty pixels above it. This is the number to place by.
+ * Falls back to the bottom of the box for anything without a sprite, which is
+ * where the generated art draws its feet anyway.
+ */
+export function spriteFoot(slug, back, size) {
+  const rec = SPRITE_SHEETS[slug];
+  const y = rec && (back ? rec.yb : rec.yf);
+  if (!y) return size;
+  return Math.round((y / 80) * size);
+}
+
+/**
  * Warms the sprites a screen is about to need, so nothing pops.
  * Safe to call every frame: an already-created Image is not created twice.
  */

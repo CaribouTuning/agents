@@ -80,6 +80,19 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     }
   }
 
+  // --- tree crowns ---
+  // A tree is one 16x32 picture across two tiles: the map holds the trunk,
+  // and its crown is drawn into the tile above. Before the entity pass, so a
+  // player standing under a canopy is in front of it rather than inside it.
+  for (let y = y0; y <= y1 + 1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const ch = at(x, y);
+      const def = ch && tileDef(ch);
+      if (!def || !def.over) continue;
+      drawTile(ctx, def.over, x * TILE - camera.x, y * TILE - camera.y - TILE, frame);
+    }
+  }
+
   // --- roof ridges and eaves ---
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {

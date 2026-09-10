@@ -14,6 +14,8 @@ import {
   rowHighlight,
 } from './kit.js';
 import { renderMonster } from '../render/monsterart.js';
+import { drawBattleScene } from '../render/battleart.js';
+import { spriteFoot } from '../render/monstersprites.js';
 
 // Platinum's sprites are 80x80 and this screen is 192 logical pixels tall,
 // which is the DS's own screen height. Drawing them at anything else is
@@ -821,8 +823,19 @@ export class BattleScreen extends Screen {
     }
   }
 
+  /** Where the two fighters stand. One source, so bases and sprites agree. */
+  _platforms(W, H) {
+    return { foe: { x: W - 74, y: H * 0.42 + 12 }, player: { x: 46, y: H * 0.66 + 8 } };
+  }
+
   _drawBackdrop(ctx, W, H) {
     const kind = this.opts.terrain || 'grass';
+    // Outdoors, the DS's own scene. A cave or a gym is not a grass field, so
+    // those keep the drawn backdrop.
+    if (kind !== 'cave' && kind !== 'indoor') {
+      const p = this._platforms(W, H);
+      if (drawBattleScene(ctx, W, H, p.foe, p.player)) return;
+    }
     const sky = kind === 'cave' ? shade(PAL.caveWall, 0.1)
       : kind === 'indoor' ? shade(PAL.wallIn, -0.05) : PAL.battleSky;
     rect(ctx, 0, 0, W, H, sky);
@@ -860,15 +873,17 @@ export class BattleScreen extends Screen {
     if (foe) {
       const art = getSpecies(foe.species).art;
       const img = renderMonster(art, { size: MON, shiny: foe.shiny });
-      const sx = W - 74 - MON / 2 + this._shakeOffset(this.foeSide) + (1 - this.slide[this.foeSide]) * 60;
-      const sy = H * 0.42 + 12 - MON + this.faintDrop[this.foeSide] * 34;
+      const p = this._platforms(W, H).foe;
+      const sx = p.x - MON / 2 + this._shakeOffset(this.foeSide) + (1 - this.slide[this.foeSide]) * 60;
+      const sy = p.y - spriteFoot(art.key, false, MON) + this.faintDrop[this.foeSide] * 34;
       this._drawSprite(ctx, img, sx, sy, this.flash[this.foeSide], this.faintDrop[this.foeSide]);
     }
     if (me) {
       const art = getSpecies(me.species).art;
       const img = renderMonster(art, { size: MON, back: true, shiny: me.shiny });
-      const sx = 46 - MON / 2 + this._shakeOffset(this.mySide) - (1 - this.slide[this.mySide]) * 80;
-      const sy = H * 0.66 + 8 - MON + this.faintDrop[this.mySide] * 40;
+      const p = this._platforms(W, H).player;
+      const sx = p.x - MON / 2 + this._shakeOffset(this.mySide) - (1 - this.slide[this.mySide]) * 80;
+      const sy = p.y - spriteFoot(art.key, true, MON) + this.faintDrop[this.mySide] * 40;
       this._drawSprite(ctx, img, sx, sy, this.flash[this.mySide], this.faintDrop[this.mySide]);
     }
     if (this.ballAnim) this._drawBall(ctx, W, H);

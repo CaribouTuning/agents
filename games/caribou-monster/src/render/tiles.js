@@ -173,51 +173,78 @@ function waterShallow(c, f) {
   for (let x = 0; x < 16; x++) if (h(x, 0, 61) > 0.5) px(c, x, 0, 1, 1);
 }
 
-function tree(c) {
-  c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
-  // The shadow the canopy throws on its own tile, so the tree sits on the
-  // ground rather than floating on it.
-  c.fillStyle = shade(PAL.grass, -0.22); px(c, 3, 13, 11, 3); px(c, 2, 14, 13, 1);
-
-  c.fillStyle = shade(PAL.treeTrunk, -0.35); px(c, 6, 10, 5, 6);
-  c.fillStyle = PAL.treeTrunk; px(c, 7, 10, 3, 6);
-  c.fillStyle = shade(PAL.treeTrunk, 0.18); px(c, 7, 10, 1, 6);
-
+/**
+ * A tree, drawn as one 16x32 picture across two tiles.
+ *
+ * A tree that fits inside a single 16px tile is a bush, and a row of them is
+ * a hedge — which is what every forest edge in this game looked like. The DS
+ * games draw trees two tiles tall, so the canopy overhangs the tile above.
+ * `yOff` selects which half is being painted: 0 for the crown that hangs over
+ * the tile above, 16 for the trunk tile the map actually contains.
+ *
+ * The crown half paints on transparency so whatever is behind it shows
+ * through; only the trunk half lays down grass.
+ */
+function treeArt(c, yOff, seed = 9) {
+  const at = (y) => y - yOff;
+  if (yOff) {
+    grass(c, 0, seed + 1);
+    // The shadow the canopy throws, so the tree sits on the ground.
+    c.fillStyle = shade(PAL.grass, -0.22); px(c, 3, 29 - yOff, 11, 3); px(c, 2, 30 - yOff, 13, 1);
+    c.fillStyle = shade(PAL.treeTrunk, -0.35); px(c, 6, at(21), 5, 9);
+    c.fillStyle = PAL.treeTrunk; px(c, 7, at(21), 3, 9);
+    c.fillStyle = shade(PAL.treeTrunk, 0.18); px(c, 7, at(21), 1, 9);
+  }
   const lobe = (cx, cy, r, col) => {
     c.fillStyle = col;
-    for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
-      if (x * x + y * y <= r * r + 1) px(c, cx + x, cy + y);
+    for (let y = -r; y <= r; y++) {
+      for (let x = -r; x <= r; x++) {
+        if (x * x + y * y <= r * r + 1) px(c, cx + x, at(cy + y));
+      }
     }
   };
-  // Outline first, then the canopy inside it: a dark rim is what makes a
-  // 16px tree read as a tree at this scale.
-  lobe(8, 7, 7, shade(PAL.treeLeafDark, -0.45));
-  lobe(8, 7, 6, PAL.treeLeafDark);
-  lobe(7, 6, 5, PAL.treeLeaf);
-  lobe(6, 5, 3, PAL.treeLeafLight);
-  lobe(6, 4, 1, shade(PAL.treeLeafLight, 0.2));
+  // A dark rim first, then the canopy inside it: the outline is what makes a
+  // clump of pixels read as a tree.
+  lobe(8, 12, 9, shade(PAL.treeLeafDark, -0.5));
+  lobe(8, 12, 8, PAL.treeLeafDark);
+  lobe(7, 11, 7, PAL.treeLeaf);
+  lobe(6, 9, 4, PAL.treeLeafLight);
+  lobe(6, 8, 2, shade(PAL.treeLeafLight, 0.22));
   c.fillStyle = PAL.treeLeafDark;
-  for (let i = 0; i < 12; i++) {
-    const x = 3 + Math.floor(h(i, 3, 9) * 10), y = 3 + Math.floor(h(i, 7, 9) * 8);
-    px(c, x, y);
+  for (let i = 0; i < 18; i++) {
+    const x = 2 + Math.floor(h(i, 3, seed) * 12);
+    const y = 4 + Math.floor(h(i, 7, seed) * 15);
+    if (x * x) px(c, x, at(y));
   }
 }
 
-function pine(c) {
-  c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
-  c.fillStyle = PAL.treeTrunk; px(c, 7, 13, 2, 3);
-  for (let tier = 0; tier < 3; tier++) {
-    const top = 1 + tier * 4;
-    const wBase = 4 + tier * 3;
-    for (let y = 0; y < 5; y++) {
-      const w = Math.round((y / 4) * wBase) + 1;
+function tree(c) { treeArt(c, 16); }
+function treeTop(c) { treeArt(c, 0); }
+
+/** A conifer, two tiles tall for the same reason. */
+function pineArt(c, yOff) {
+  const at = (y) => y - yOff;
+  if (yOff) {
+    grass(c, 0, 23);
+    c.fillStyle = shade(PAL.grass, -0.22); px(c, 4, 29 - yOff, 9, 3);
+    c.fillStyle = shade(PAL.treeTrunk, -0.3); px(c, 6, at(26), 4, 5);
+    c.fillStyle = PAL.treeTrunk; px(c, 7, at(26), 2, 5);
+  }
+  for (let tier = 0; tier < 4; tier++) {
+    const top = 1 + tier * 6;
+    const wBase = 2 + tier * 2;
+    for (let y = 0; y < 7; y++) {
+      const w = Math.round((y / 6) * wBase) + 1;
       c.fillStyle = y < 2 ? PAL.treeLeafLight : PAL.treeLeaf;
-      px(c, 8 - w, top + y, w * 2, 1);
+      px(c, 8 - w, at(top + y), w * 2, 1);
     }
     c.fillStyle = PAL.treeLeafDark;
-    px(c, 8 - wBase - 1, top + 4, wBase * 2 + 2, 1);
+    px(c, 8 - wBase - 1, at(top + 6), wBase * 2 + 2, 1);
   }
 }
+
+function pine(c) { pineArt(c, 16); }
+function pineTop(c) { pineArt(c, 0); }
 
 /** A weathered rock sitting in the grass, not a grey box. */
 function rock(c) {
@@ -662,8 +689,12 @@ export const TILES = {
   'n': { name: 'snow', draw: snow, ground: 'snow' },
   '~': { name: 'water', draw: water, solid: true, water: true, anim: 4, ground: 'water' },
   '-': { name: 'shallows', draw: waterShallow, solid: true, water: true, anim: 4, ground: 'water' },
-  'T': { name: 'tree', draw: tree, solid: true, casts: true },
-  'Y': { name: 'pine', draw: pine, solid: true, casts: true },
+  'T': { name: 'tree', draw: tree, solid: true, casts: true, over: '1' },
+  'Y': { name: 'pine', draw: pine, solid: true, casts: true, over: '2' },
+  // Crown halves. Never authored in a map — the renderer draws them one tile
+  // above their trunk, which is why they paint on transparency.
+  '1': { name: 'tree crown', draw: treeTop, solid: true },
+  '2': { name: 'pine crown', draw: pineTop, solid: true },
   'R': { name: 'rock', draw: rock, solid: true, casts: true },
   'o': { name: 'boulder', draw: boulder, solid: true, casts: true },
   '^': { name: 'cliff', draw: cliff, solid: true, casts: true },
