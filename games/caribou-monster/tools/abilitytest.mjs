@@ -8,7 +8,7 @@
 import { createBattle, resolveTurn, computeDamage, activeOf } from '../src/game/battle/engine.js';
 import { createMonster, maxHp, isFainted } from '../src/game/monster.js';
 import { ABILITIES, INERT_ABILITIES, abilityDescription } from '../src/game/battle/abilities.js';
-import { SPECIES_LIST } from '../src/data/species.js';
+import { SPECIES_LIST, getSpecies } from '../src/data/species.js';
 import { getMove } from '../src/data/moves.js';
 
 let fails = 0;
@@ -19,9 +19,13 @@ function duel(aSpec, bSpec, opts = {}) {
   // Gender and ability are rolled per monster in the real game, and both now
   // change damage (Rivalry, and every ability in this file). Pin them, or an
   // A/B that is supposed to isolate one ability silently varies two things.
+  // An unspecified ability would otherwise be *rolled*, which is right for
+  // the game and wrong for an A/B: the control run could quietly pick a
+  // different ability from the test run. Pin it to the species' first.
   const fixed = { ivs: flat(20), evs: flat(0), nature: 0, gender: 'M', shiny: false };
-  const a = createMonster(aSpec, opts.aLevel || 30, { ...fixed, ability: opts.aAbility });
-  const b = createMonster(bSpec, opts.bLevel || 30, { ...fixed, ability: opts.bAbility });
+  const first = (id) => getSpecies(id).abilities[0];
+  const a = createMonster(aSpec, opts.aLevel || 30, { ...fixed, ability: opts.aAbility || first(aSpec) });
+  const b = createMonster(bSpec, opts.bLevel || 30, { ...fixed, ability: opts.bAbility || first(bSpec) });
   if (opts.aAbility !== undefined) a.ability = opts.aAbility;
   if (opts.bAbility !== undefined) b.ability = opts.bAbility;
   if (opts.aMoves) a.moves = opts.aMoves.map((id) => ({ id, pp: getMove(id).pp, ppMax: getMove(id).pp }));

@@ -6,9 +6,10 @@
 // without any game code changing.
 import { storage } from '../core/storage.js';
 import { serializeState, deserializeState } from '../game/state.js';
+import { MIGRATIONS } from './migrations.js';
 
 export const SAVE_SLOT = 'save1';
-const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 const AUTOSAVE_MS = 45000;
 
 export class LocalBackend {
@@ -99,12 +100,26 @@ export class SaveManager {
 
   async erase(slot = SAVE_SLOT) { return this.backend.remove(slot); }
 
-  // Forward-compatibility hook. Old saves are upgraded here rather than being
-  // rejected, so a content update never costs the players their game.
+  /**
+   * Old saves are upgraded here rather than rejected, so a content update
+   * never costs the players their game. Steps run in order from whatever
+   * version the payload claims up to SAVE_VERSION, so a save may skip any
+   * number of releases.
+   */
   migrate(raw) {
-    let data = raw;
-    if (!data.v || data.v < 1) data = { ...data, v: 1 };
-    return data;
+    let v = Number(raw && raw.v) || 1;
+    let state = raw.state;
+    for (const step of MIGRATIONS) {
+      if (v !== step.from) continue;
+      state = step.apply(state);
+      v = step.to;
+    }
+    if (v > SAVE_VERSION) {
+      // A save from a newer build. Loading it would silently discard
+      // whatever that build added, so say so rather than guessing.
+      throw new Error(`save version ${v} is newer than this build (${SAVE_VERSION})`);
+    }
+    return { ...raw, v, state };
   }
 
   // Autosave is opportunistic: it never runs during a battle or a trade,

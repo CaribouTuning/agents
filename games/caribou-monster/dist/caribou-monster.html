@@ -7501,8 +7501,14 @@ function createCircuit() {
 
 function serializeCircuit(c) {
   if (!c) return null;
+  // `rank` is derived from cp and recomputed on revive. Storing it as well
+  // means a save can carry a rank that disagrees with its own cp, which is
+  // the kind of thing that only shows up as a wrong word on a screen months
+  // later. Derived state does not go in the save.
+  const { rank, ...rest } = c;
+  void rank;
   return {
-    ...c,
+    ...rest,
     pros: JSON.parse(JSON.stringify(c.pros)),
     h2h: JSON.parse(JSON.stringify(c.h2h)),
     titles: [...c.titles],
@@ -21617,9 +21623,73 @@ __exports(__x, { storage: () => storage });
 
 };
 
+__defs['save/migrations.js'] = function (__x, __req) {
+
+// Save migrations.
+//
+// A save is a promise: whatever we change in here, the game somebody was
+// halfway through still has to open. Every migration is a pure function from
+// one version's payload to the next, so they compose and each one can be
+// tested on its own.
+
+// v1 -> v2. Before the real Pokedex landed, this game had a hand-written
+// roster of 54 monsters numbered 1..54. Those numbers are now national dex
+// numbers belonging to entirely different Pokemon, so a v1 save left alone
+// would either lose its whole party (unknown species are dropped) or, worse,
+// quietly turn a Turtwig into a Bulbasaur. This is the exact table the roster
+// was remapped through, by name.
+const V1_TO_NATIONAL = {
+  1: 387, 2: 388, 3: 389, 4: 390, 5: 391, 6: 392, 7: 393, 8: 394, 9: 395,
+  10: 396, 11: 397, 12: 398, 13: 399, 14: 400, 15: 403, 16: 404, 17: 405, 18: 401,
+  19: 402, 20: 406, 21: 315, 22: 427, 23: 428, 24: 41, 25: 42, 26: 74, 27: 75,
+  28: 95, 29: 66, 30: 67, 31: 77, 32: 54, 33: 55, 34: 63, 35: 64, 36: 417,
+  37: 483, 38: 265, 39: 266, 40: 267, 41: 415, 42: 420, 43: 421, 44: 422, 45: 423,
+  46: 436, 47: 437, 48: 129, 49: 130, 50: 433, 51: 438, 52: 185, 53: 447, 54: 448,
+};
+
+function remapSpecies(id) {
+  const n = Number(id);
+  return V1_TO_NATIONAL[n] !== undefined ? V1_TO_NATIONAL[n] : n;
+}
+
+function remapMon(mon) {
+  if (!mon || mon.species === undefined) return mon;
+  return { ...mon, species: remapSpecies(mon.species) };
+}
+
+function remapDexSide(side) {
+  const out = {};
+  for (const key of Object.keys(side || {})) out[remapSpecies(key)] = side[key];
+  return out;
+}
+
+function migrateV1toV2(state) {
+  if (!state) return state;
+  const next = { ...state };
+  next.party = (state.party || []).map(remapMon);
+  next.boxes = (state.boxes || []).map((b) => ({ ...b, mons: (b.mons || []).map(remapMon) }));
+  next.dex = {
+    seen: remapDexSide(state.dex && state.dex.seen),
+    caught: remapDexSide(state.dex && state.dex.caught),
+  };
+  if (state.starterBase != null) next.starterBase = remapSpecies(state.starterBase);
+  return next;
+}
+
+// Ordered. `migrate` applies every step from the payload's version up to
+// SAVE_VERSION, so a save can skip as many releases as it likes.
+const MIGRATIONS = [
+  { from: 1, to: 2, apply: migrateV1toV2 },
+];
+
+__exports(__x, { migrateV1toV2: () => migrateV1toV2, MIGRATIONS: () => MIGRATIONS });
+
+};
+
 __defs['save/SaveManager.js'] = function (__x, __req) {
 const { storage } = __req('core/storage.js');
 const { serializeState, deserializeState } = __req('game/state.js');
+const { MIGRATIONS } = __req('save/migrations.js');
 // Saving.
 //
 // The backend is an interface, not localStorage. Today the only
@@ -21629,8 +21699,9 @@ const { serializeState, deserializeState } = __req('game/state.js');
 
 
 
+
 const SAVE_SLOT = 'save1';
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 const AUTOSAVE_MS = 45000;
 
 class LocalBackend {
@@ -21721,12 +21792,26 @@ class SaveManager {
 
   async erase(slot = SAVE_SLOT) { return this.backend.remove(slot); }
 
-  // Forward-compatibility hook. Old saves are upgraded here rather than being
-  // rejected, so a content update never costs the players their game.
+  /**
+   * Old saves are upgraded here rather than rejected, so a content update
+   * never costs the players their game. Steps run in order from whatever
+   * version the payload claims up to SAVE_VERSION, so a save may skip any
+   * number of releases.
+   */
   migrate(raw) {
-    let data = raw;
-    if (!data.v || data.v < 1) data = { ...data, v: 1 };
-    return data;
+    let v = Number(raw && raw.v) || 1;
+    let state = raw.state;
+    for (const step of MIGRATIONS) {
+      if (v !== step.from) continue;
+      state = step.apply(state);
+      v = step.to;
+    }
+    if (v > SAVE_VERSION) {
+      // A save from a newer build. Loading it would silently discard
+      // whatever that build added, so say so rather than guessing.
+      throw new Error(`save version ${v} is newer than this build (${SAVE_VERSION})`);
+    }
+    return { ...raw, v, state };
   }
 
   // Autosave is opportunistic: it never runs during a battle or a trade,
@@ -21741,7 +21826,7 @@ class SaveManager {
 
 const saveManager = new SaveManager();
 
-__exports(__x, { SAVE_SLOT: () => SAVE_SLOT, LocalBackend: () => LocalBackend, CloudBackend: () => CloudBackend, SaveManager: () => SaveManager, saveManager: () => saveManager });
+__exports(__x, { SAVE_SLOT: () => SAVE_SLOT, SAVE_VERSION: () => SAVE_VERSION, LocalBackend: () => LocalBackend, CloudBackend: () => CloudBackend, SaveManager: () => SaveManager, saveManager: () => saveManager });
 
 };
 

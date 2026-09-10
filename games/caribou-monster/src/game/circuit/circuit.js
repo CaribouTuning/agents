@@ -45,8 +45,14 @@ export function createCircuit() {
 
 export function serializeCircuit(c) {
   if (!c) return null;
+  // `rank` is derived from cp and recomputed on revive. Storing it as well
+  // means a save can carry a rank that disagrees with its own cp, which is
+  // the kind of thing that only shows up as a wrong word on a screen months
+  // later. Derived state does not go in the save.
+  const { rank, ...rest } = c;
+  void rank;
   return {
-    ...c,
+    ...rest,
     pros: JSON.parse(JSON.stringify(c.pros)),
     h2h: JSON.parse(JSON.stringify(c.h2h)),
     titles: [...c.titles],
