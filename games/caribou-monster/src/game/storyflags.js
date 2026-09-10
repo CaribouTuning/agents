@@ -11,6 +11,9 @@ export const FLAGS = {
   PAIR_REGISTERED: 'pairRegistered',
   SCHOOL_GIFT: 'schoolGift',
   GOT_BERRIES: 'gotBerries',
+  LOST_TOWER: 'lostTower',
+  MET_LOOKER: 'metLooker',
+  GALACTIC_HQ: 'galacticHQ',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',
@@ -34,6 +37,7 @@ export const FLAGS = {
 export const SHARED_MILESTONES = [
   FLAGS.GOT_STARTER, FLAGS.LEFT_TOWN, FLAGS.ENTERED_FOREST, FLAGS.FOREST_GRUNT,
   FLAGS.REACHED_ALDERMERE, FLAGS.BADGE_1, FLAGS.ENTERED_CAVE, FLAGS.BEAT_COMMANDER,
+  FLAGS.GALACTIC_HQ,
   FLAGS.CAUGHT_EVERLIGHT,
 ];
 

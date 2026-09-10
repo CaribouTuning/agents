@@ -63,6 +63,21 @@ function withThirdBadge(st) {
   return st;
 }
 
+/** The fourth, from Maylene, and the day the grey building stopped being a rumour. */
+function withFourthBadge(st) {
+  st.badges = [1, 2, 3, 4];
+  st.flags.badge4 = true;
+  st.flags.beat_gym4_leader = true;
+  return st;
+}
+
+function insideGalactic(st) {
+  st.flags.metLooker = true;
+  st.flags.galacticHQ = true;
+  st.flags.beat_galactic_saturn = true;
+  return st;
+}
+
 /** Somebody in Twinleaf has handed over a few berries. */
 function withBerries(st) {
   st.flags.gotBerries = true;
@@ -180,6 +195,8 @@ const STAGES = [
   ['carrying berries', () => withBerries(withStarter(baseState()))],
   ['second badge', () => withSecondBadge(withBadge(withStarter(baseState())))],
   ['third badge', () => withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))],
+  ['fourth badge', () => withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState())))))],
+  ['inside Galactic HQ', () => insideGalactic(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))))],
   ['knows the twist', () => withTwist(withCommander(withCave(withBadge(withStarter(baseState())))))],
 ];
 

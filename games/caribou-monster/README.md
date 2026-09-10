@@ -32,7 +32,7 @@ controls.
 
 | | |
 |---|---|
-| **World** | 52 maps: Twinleaf, Sandgem, Jubilife, Oreburgh, Floaroma, Eterna and Hearthome; Routes 201–208; Mt. Coronet; Lake Verity, the Ravaged Path, Valley Windworks, Eterna Forest, Oreburgh Gate, the Everlight Chamber, the Underground and a Secret Base — connected as a **region with a loop in it**, not a corridor |
+| **World** | 68 maps: Twinleaf, Sandgem, Jubilife, Oreburgh, Floaroma, Eterna, Hearthome, Solaceon and Veilstone; Routes 201–215; Mt. Coronet, the Lost Tower, the Solaceon Ruins and two grey Galactic buildings; Lake Verity, the Ravaged Path, Valley Windworks, Eterna Forest, Oreburgh Gate, the Everlight Chamber, the Underground and a Secret Base — connected as a **region with a loop in it**, not a corridor |
 | **Pokémon** | 210 species with real base stats, types, natures, genders, IVs/EVs, shinies, learnsets, egg groups and evolution lines — plus nicknaming, friendship that moves, held items you can give and take, and **84 working abilities** |
 | **Moves** | 460, all data-driven, with the 17-type chart, STAB, criticals, accuracy, five status conditions, confusion, flinch and stat stages |
 | **Weather** | Sun, rain, sandstorm and hail — set by a move or walked into by an ability, with the damage, speed, accuracy, chip and healing rules that go with each |
@@ -42,7 +42,7 @@ controls.
 | **Fishing** | The Old Rod, a real bite roll, and three stretches of water with their own tables |
 | **The Underground** | A second Sinnoh under the first one: the Explorer Kit, three shafts, seams that come back, and a touch-first digging minigame |
 | **Secret Bases** | A room cut into a wall a hundred feet down, furnished with spheres, with a board on the back wall — and your partner can walk into it |
-| **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, and three of Platinum's eight Gyms — Roark, Gardenia and Fantina |
+| **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, and four of Platinum's eight Gyms — Roark, Gardenia, Fantina and Maylene |
 | **Field moves** | Cut, Rock Smash, Strength, Rock Climb, Waterfall and Surf as real gates: a badge is permission, a move is capability, and an obstacle needs both |
 | **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, Town Map, trainer card, save/load, EASY and NORMAL difficulty |
 | **World Circuit** | A second career track: 6 sanctioned tournaments, 12 professional trainers, an Elo world ranking, Circuit Points, promotions, a press feed and post-event press conferences |

@@ -308,3 +308,127 @@ add('gym3_leader', {
     mon(429, 26, ['shadowball', 'confuseray', 'psybeam', 'magicalleaf']),
   ],
 });
+
+// ---- the graveyard road, Solaceon and Veilstone -------------------------------
+// The middle third of the campaign. Levels run high twenties into low thirties,
+// and Team Galactic stops being a rumour somewhere around here.
+
+add('r9_lass', {
+  name: 'Lass Perr', cls: 'Lass', look: 'lass', ai: 2, prize: 1120,
+  intro: 'Everyone goes quiet near the Tower. I do not. I battle.',
+  defeat: 'Fine. I will go and be quiet for a bit.',
+  team: [mon(431, 26, ['scratch', 'growl', 'fakeout']), mon(63, 26, ['confusion', 'teleport'])],
+});
+add('r9_youngster', {
+  name: 'Youngster Tobe', cls: 'Youngster', look: 'youngster', ai: 2, prize: 1120,
+  intro: 'North is Solaceon. Nothing happens in Solaceon. That is the appeal.',
+  defeat: 'Go on then. Go and have nothing happen to you.',
+  team: [mon(396, 26, ['wingattack', 'quickattack', 'doubleteam']), mon(415, 26, ['gust', 'bugbite'])],
+});
+add('lt_lass', {
+  name: 'Lass Nia', cls: 'Lass', look: 'lass', ai: 2, prize: 1200,
+  intro: 'I come here to train because nobody else will.',
+  defeat: 'It is quiet. That is all. It is only quiet.',
+  team: [mon(92, 27, ['lick', 'hypnosis', 'nightshade']), mon(355, 27, ['astonish', 'willowisp'])],
+});
+add('lt_youngster', {
+  name: 'Youngster Cale', cls: 'Youngster', look: 'youngster', ai: 2, prize: 1200,
+  intro: 'Second floor. Most people turn back on the second floor.',
+  defeat: 'You are going up, then. Say hello to the sisters.',
+  team: [mon(200, 27, ['astonish', 'confuseray', 'psybeam']), mon(92, 27, ['lick', 'spite'])],
+});
+add('lt_bug', {
+  name: 'Bug Catcher Nim', cls: 'Bug Catcher', look: 'bugCatcher', ai: 2, prize: 1200,
+  intro: 'There are things in here that are not on anybody\u2019s list.',
+  defeat: 'I have seen a Spiritomb on the third floor. Nobody believes me.',
+  team: [mon(355, 27, ['astonish', 'nightshade']), mon(442, 28, ['shadowsneak', 'confuseray', 'suckerpunch'])],
+});
+add('r10_hiker', {
+  name: 'Hiker Odd', cls: 'Hiker', look: 'hiker', ai: 2, prize: 1440,
+  intro: 'You cannot see me properly and I cannot see you. Fair fight.',
+  defeat: 'Well. You could see enough.',
+  team: [mon(66, 29, ['karatechop', 'lowkick', 'foresight']), mon(74, 29, ['rockthrow', 'magnitude', 'defensecurl'])],
+});
+add('r10_lass', {
+  name: 'Lass Wren', cls: 'Lass', look: 'lass', ai: 2, prize: 1400,
+  intro: 'I have been standing in this fog for two hours waiting for somebody.',
+  defeat: 'Worth the wait. I am going home.',
+  team: [mon(307, 29, ['confusion', 'meditate', 'lowkick']), mon(431, 29, ['fakeout', 'furyswipes', 'growl'])],
+});
+add('r15_youngster', {
+  name: 'Youngster Bray', cls: 'Youngster', look: 'youngster', ai: 2, prize: 1520,
+  intro: 'Rains every day here. You get used to it or you leave.',
+  defeat: 'I have not left yet.',
+  team: [mon(418, 30, ['watergun', 'quickattack', 'pursuit']), mon(403, 30, ['spark', 'charge', 'quickattack'])],
+});
+add('r15_hiker', {
+  name: 'Hiker Stond', cls: 'Hiker', look: 'hiker', ai: 3, prize: 1600,
+  intro: 'Veilstone is down that way. Mind the grey coats when you get there.',
+  defeat: 'You will see what I mean.',
+  team: [
+    mon(66, 30, ['karatechop', 'lowkick', 'seismictoss']),
+    mon(95, 30, ['rockthrow', 'rocktomb', 'screech']),
+    mon(453, 30, ['poisonsting', 'mudslap', 'revenge']),
+  ],
+});
+
+// ---- the Galactic buildings -----------------------------------------------------
+add('gw_grunt', {
+  name: 'Galactic Grunt', cls: 'Galactic', look: 'grunt', ai: 2, prize: 1280,
+  intro: 'This is a storage facility. You are trespassing in a storage facility.',
+  defeat: 'It is a storage facility. That part was true.',
+  team: [mon(431, 29, ['fakeout', 'furyswipes', 'hypnosis']), mon(453, 29, ['revenge', 'mudslap', 'poisonsting'])],
+});
+add('hq_grunt1', {
+  name: 'Galactic Grunt', cls: 'Galactic', look: 'grunt', ai: 3, prize: 1440,
+  intro: 'Nobody walks into this building. Nobody has ever walked into this building.',
+  defeat: 'Somebody has now.',
+  team: [mon(431, 31, ['fakeout', 'furyswipes', 'hypnosis']), mon(198, 31, ['pursuit', 'feintattack', 'torment'])],
+});
+add('hq_grunt2', {
+  name: 'Galactic Grunt', cls: 'Galactic', look: 'gruntF', ai: 3, prize: 1440,
+  intro: 'Commander Saturn is upstairs and he does not like being interrupted.',
+  defeat: 'Go up, then. See how that goes for you.',
+  team: [mon(453, 31, ['revenge', 'mudslap', 'swagger']), mon(41, 31, ['wingattack', 'bite', 'astonish'])],
+});
+add('galactic_saturn', {
+  name: 'Saturn', cls: 'Galactic Commander', look: 'boss', ai: 3, prize: 4000,
+  intro: 'You have walked into a building you were not invited into, and now you\nwould like me to explain myself. Nobody explains themselves to trespassers.',
+  defeat: 'That was not the outcome I had allowed for. I will allow for it next time.',
+  team: [
+    mon(431, 32, ['fakeout', 'furyswipes', 'hypnosis', 'assist']),
+    mon(453, 32, ['revenge', 'mudslap', 'swagger', 'poisonsting']),
+    mon(198, 34, ['feintattack', 'pursuit', 'torment', 'wingattack']),
+  ],
+});
+
+// ---- the Veilstone Gym -------------------------------------------------------------
+add('gym4_a', {
+  name: 'Youngster Rell', cls: 'Youngster', look: 'youngster', ai: 3, prize: 1400,
+  intro: 'Shoes off. Maylene\u2019s rule, not mine, and I would not argue with her.',
+  defeat: 'Straight on. She is at the end.',
+  team: [mon(66, 30, ['karatechop', 'lowkick', 'foresight']), mon(307, 30, ['confusion', 'meditate'])],
+});
+add('gym4_b', {
+  name: 'Hiker Bors', cls: 'Hiker', look: 'hiker', ai: 3, prize: 1400,
+  intro: 'She trains everybody in this room herself. Every morning. Before school.',
+  defeat: 'Before school. Think about that on your way up.',
+  team: [mon(67, 31, ['karatechop', 'seismictoss', 'lowkick']), mon(453, 30, ['revenge', 'mudslap'])],
+});
+add('gym4_c', {
+  name: 'Bug Catcher Ives', cls: 'Bug Catcher', look: 'bugCatcher', ai: 3, prize: 1400,
+  intro: 'Flying moves. Psychic moves. That is what you want and I am telling you\nbecause you will still lose.',
+  defeat: 'You had one. Of course you had one.',
+  team: [mon(307, 31, ['confusion', 'meditate', 'lowkick']), mon(66, 31, ['karatechop', 'foresight', 'seismictoss'])],
+});
+add('gym4_leader', {
+  name: 'Maylene', cls: 'Gym Leader', look: 'lass', ai: 3, prize: 5200, leader: true,
+  badge: 4, badgeName: 'Cobble Badge', tm: 'tm03',
+  intro: 'I am Maylene. I know what you are thinking, and everybody thinks it.\nNo shoes on my floor and no tricks in my Gym. Just what we both brought.',
+  defeat: 'You were better than me today. I am going to train until you are not.',
+  team: [
+    mon(307, 30, ['confusion', 'meditate', 'lowkick', 'detect']),
+    mon(67, 31, ['karatechop', 'seismictoss', 'foresight', 'lowkick']),
+    mon(448, 32, ['forcepalm', 'quickattack', 'metalclaw', 'screech']),
+  ],
+});

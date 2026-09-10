@@ -45,6 +45,12 @@ export const WORLD_POS = {
   mt_coronet:     { x: 8, y: 8, kind: 'cave' },
   route208:       { x: 10, y: 8, kind: 'route' },
   hearthome:      { x: 12, y: 8, kind: 'city' },
+  // North out of Hearthome, then west into Veilstone.
+  route209:       { x: 12, y: 6, kind: 'route' },
+  solaceon:       { x: 12, y: 4, kind: 'town' },
+  route210:       { x: 12, y: 2, kind: 'route' },
+  route215:       { x: 10, y: 2, kind: 'route' },
+  veilstone:      { x: 8, y: 2, kind: 'city' },
   // Underneath all of it. A Secret Base is a room off these tunnels rather
   // than a place in the region, so it has no position on the paper at all.
   underground:    { x: 2, y: 16, kind: 'underground' },

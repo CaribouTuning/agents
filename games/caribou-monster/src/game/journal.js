@@ -108,6 +108,34 @@ export const ENTRIES = [
     ],
   },
   {
+    id: 'lostTower',
+    title: 'The Lost Tower',
+    body: [
+      'Five floors of other people\u2019s goodbyes, and two sisters at the top who\nclimb it every week for a grandmother who is a stone.',
+      'She walked the whole region twice and never earned a badge. They said it\nlike it was the best thing about her. I think it was.',
+      'They gave me Defog for the fog on 210.',
+    ],
+  },
+  {
+    id: 'metLooker',
+    title: 'Looker',
+    body: [
+      'A man in Veilstone stopped me in the street to explain that he is an\ninternational police officer and that people laugh at him for it.',
+      'He has been watching the grey building on the hill for six weeks and\ncannot go in, because he has no cause and I am only a trainer.',
+      'He was very careful not to ask me to do anything.',
+    ],
+  },
+  {
+    id: 'galacticHQ',
+    title: 'What the building is for',
+    body: [
+      'Team Galactic are not a company. They never said they were — everybody\nelse said it for them, and then stopped worrying.',
+      'Saturn told me what the warehouse is for. Storage. For whatever they take\nout of the lakes. There are three lakes and something asleep in each.',
+      'He said the seam under Oreburgh was a rehearsal. He said it like it was\nadmin.',
+    ],
+    next: 'Get to the lakes before they finish.',
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [

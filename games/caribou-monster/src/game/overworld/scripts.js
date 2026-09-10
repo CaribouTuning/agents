@@ -1158,4 +1158,90 @@ SCRIPTS.cynthiaCut = async (ctx) => {
   ctx.journal('metCynthia');
 };
 
+// ---- the road east: the Tower, Looker, and the grey building ----------------
+
+/** The sisters at the top of the Lost Tower. */
+SCRIPTS.lostTowerTop = async (ctx) => {
+  const st = ctx.state;
+  if (!st.flags.lostTower) {
+    await ctx.say('Rue: You climbed all the way up. Most people stop at the second floor.');
+    await ctx.say('Rue: Our grandmother is here. Not here here. There is a stone.');
+    await ctx.say('Rue: She walked this whole region twice and never earned a badge in her life.\fShe would have liked you.');
+    ctx.give('hm05', 1);
+    ctx.sfx('badge');
+    await ctx.say('Rue handed over HM05!');
+    await ctx.say('Rue: Defog. The fog on Route 210 has been there since before the road was.',
+      { speaker: 'Rue' });
+    await ctx.say('Rue: Fantina’s badge is what lets you use it out there.\fShe will not make it easy.');
+    ctx.setFlag('lostTower', true);
+    ctx.journal('lostTower');
+    return;
+  }
+  if (ctx.linked()) {
+    await ctx.say(`Rue: The two of you came up together. Good.\fMy sister and I have been climbing these stairs for thirty years.`);
+    return;
+  }
+  await ctx.say('Rue: Defog clears the road north. Fantina’s badge is what makes the world accept it.');
+};
+
+/**
+ * Looker. He is not a quest-giver standing in one spot — he turns up, tells
+ * you slightly less than he knows, and goes somewhere else.
+ */
+SCRIPTS.looker = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.galacticHQ) {
+    await ctx.say('Looker: You went inside. Of course you went inside.');
+    await ctx.say('Looker: I have been watching that door for six weeks and taking notes,\fand you simply walked through it.');
+    await ctx.say('Looker: I am not annoyed. I am reconsidering my methods.');
+    return;
+  }
+  if (!st.flags.metLooker) {
+    await ctx.say('Looker: You. Yes, you. A moment of your time.');
+    await ctx.say('Looker: I am an international police officer. That is a real job.\fPeople laugh. It is still a real job.');
+    await ctx.say('Looker: The grey building on that hill belongs to a company that\nfiles no accounts and sells nothing.');
+    await ctx.say('Looker: I cannot go in. I have no cause. You are a trainer, and trainers\nwalk into buildings all day long and nobody stops them.');
+    await ctx.say('Looker: I am not asking you to do anything. I am telling you a fact\nabout trainers.');
+    ctx.setFlag('metLooker', true);
+    ctx.journal('metLooker');
+    return;
+  }
+  if (ctx.linked()) {
+    await ctx.say(`Looker: Two of you. Even better. Two trainers walking into a building\nis half as suspicious as one, which makes no sense and is entirely true.`);
+    return;
+  }
+  await ctx.say('Looker: The door is not locked. I have checked. Repeatedly.\fI have simply no cause to open it.');
+};
+
+/** Saturn, at the top of Galactic HQ. */
+SCRIPTS.saturn = async (ctx, npc) => {
+  const st = ctx.state;
+  const t = getTrainer('galactic_saturn');
+  if (st.flags[`beat_${t.id}`]) {
+    await ctx.say('Saturn: The building is a building. Look round it if you must.');
+    await ctx.say('Saturn: Everything that mattered left for the lakes a week ago.');
+    return;
+  }
+  await ctx.say('Saturn: You are in a building you were not invited into.', { speaker: 'Saturn' });
+  await ctx.say('Saturn: People keep calling us a company. We have never once said we were.\fThey say it, and then they stop worrying, and we get on.');
+  if (st.flags.knowsTwist) {
+    await ctx.say('Saturn: You have seen the seam under Oreburgh. I can tell — everyone who has\nlooks at me the same way.');
+    await ctx.say('Saturn: Then you already understand. That was not a discovery.\fThat was a rehearsal.');
+  }
+  await ctx.say('Saturn: Cyrus is not here and would not explain himself if he were.\fI will do neither, but I will battle you.');
+  const won = await ctx.battle({ trainer: t, kind: 'trainer' });
+  if (!won) return;
+
+  await ctx.say(`Saturn: ${t.defeat}`, { speaker: 'Saturn' });
+  await ctx.say('Saturn: You want to know what this building is for.');
+  await ctx.say('Saturn: It is for storing what we take out of the lakes.\fThere are three of them, and there is something asleep in each one.');
+  await ctx.say('Saturn: We are already at the first. We were always going to be already there.');
+  ctx.setFlag('galacticHQ', true);
+  ctx.shareMilestone('galacticHQ');
+  ctx.journal('galacticHQ');
+  ctx.sfx('badge');
+  await ctx.say('Saturn: Go to Pastoria. Go anywhere. It changes nothing —\fbut you will feel better for having gone.');
+  void npc;
+};
+
 export function scriptFor(name) { return SCRIPTS[name] || null; }
