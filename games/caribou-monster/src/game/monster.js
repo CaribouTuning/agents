@@ -98,6 +98,7 @@ export function allStats(mon) {
 }
 
 export function displayName(mon) {
+  if (mon && mon.isEgg) return 'Egg';
   return mon.nickname || getSpecies(mon.species).name;
 }
 
@@ -105,7 +106,17 @@ export function speciesOf(mon) { return getSpecies(mon.species); }
 export function typesOf(mon) { return getSpecies(mon.species).types; }
 export function natureOf(mon) { return natureName(mon.nature); }
 
-export function isFainted(mon) { return mon.hp <= 0; }
+/**
+ * An Egg counts as unable to battle.
+ *
+ * Every "can this fight" question in the game already runs through here — the
+ * blackout check, the switch menu, whether a wild encounter may start — so
+ * saying it once means an Egg can never be sent into a fight by any path.
+ */
+export function isFainted(mon) {
+  if (mon && mon.isEgg) return true;
+  return mon.hp <= 0;
+}
 
 export function healFully(mon) {
   mon.hp = maxHp(mon);

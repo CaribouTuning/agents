@@ -457,11 +457,12 @@ export const SANDGEM = defineMap('sandgem', {
     { x: 13, y: 17, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
     { x: 7, y: 5, to: 'sandgem_center', tx: 6, ty: 6, dir: 'up' },
     { x: 21, y: 6, to: 'sandgem_mart', tx: 5, ty: 5, dir: 'up' },
-    { x: 11, y: 11, to: 'sandgem_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 11, y: 11, to: 'sandgem_daycare', tx: 5, ty: 6, dir: 'up' },
   ],
   labels: [
     { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
     { x: 18, y: 5, w: 6, text: 'POKéMON MART' },
+    { x: 9, y: 10, w: 5, text: 'DAY CARE', tone: '#f8e070' },
   ],
   signs: [
     { x: 3, y: 9, text: 'SANDGEM TOWN\n"Where the sand shines."\nCENTER — west. MART — east.\nROUTE 202 runs north to Jubilife.' },

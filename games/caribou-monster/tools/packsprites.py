@@ -68,6 +68,26 @@ def main():
 
 export const SPRITE_SHEETS = {
 '''
+
+    # The Egg. Not a species, but it needs a front sprite and an icon exactly
+    # the way one does, and every screen already asks for artwork by slug.
+    egg = []
+    for name, path in (('f', 'egg-front.png'), ('b', 'egg-front.png'), ('fs', 'egg-front.png'),
+                       ('bs', 'egg-front.png'), ('i', 'egg-icon.png')):
+        full = os.path.join(SRC, path)
+        if not os.path.exists(full):
+            continue
+        raw = open(full, 'rb').read()
+        egg.append(f"{name}:'{base64.b64encode(raw).decode('ascii')}'")
+        if name == 'f':
+            box = Image.open(full).convert('RGBA').getbbox()
+            egg.append(f'yf:{box[3] if box else 80}')
+            egg.append(f'yb:{box[3] if box else 80}')
+    if egg:
+        rows.append(f"  'egg':{{{','.join(egg)}}},")
+        with open(OUT, 'a', encoding='utf8'):
+            pass
+
     with open(OUT, 'w', encoding='utf8') as f:
         f.write(header)
         f.write('\n'.join(rows))

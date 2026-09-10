@@ -35,6 +35,22 @@ export const ENTRIES = [
     ],
   },
   {
+    id: 'firstEgg',
+    title: 'An Egg',
+    body: [
+      'The Day-Care Lady handed it over like it was a parcel. It is warm and it\nis not a parcel.',
+      'She says they hatch for people who walk. So I am walking.',
+    ],
+  },
+  {
+    id: 'hatched',
+    title: 'It hatched',
+    body: [
+      'It went quiet, and then it did not. I have never seen anything come out\nof anything before.',
+      'It is level one and it has no idea what is going on. Neither have I,\nreally. We will manage.',
+    ],
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [

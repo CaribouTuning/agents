@@ -6,6 +6,7 @@
 // of that, and it is what makes the movement feel right rather than floaty.
 import { getMap } from '../../data/maps/index.js';
 import { onWalked } from '../friendship.js';
+import { walk as daycareWalk } from '../daycare.js';
 import { tileDef } from '../../render/tiles.js';
 import { getTrainer } from '../../data/trainers.js';
 import { weightedPick } from '../../core/rng.js';
@@ -190,7 +191,8 @@ export class World {
   refreshFollower() {
     const f = this.follower;
     if (!f) return;
-    const lead = (this.state.party || []).find((m) => m && m.hp > 0) || null;
+    // An Egg does not walk beside you, and a fainted one is in its ball.
+    const lead = (this.state.party || []).find((m) => m && !m.isEgg && m.hp > 0) || null;
     f.mon = lead;
     f.visible = !!lead && this.map && this.map.kind !== 'indoor';
     if (!f.visible) return;
@@ -326,6 +328,13 @@ export class World {
       onWalked(this.state.party[0]);
     }
     if (this.state.repelSteps > 0) this.state.repelSteps--;
+
+    // The Day Care counts the same steps: the pair you left grows, an Egg may
+    // turn up, and one you are carrying gets closer to hatching.
+    if (this.state.daycare) {
+      const news = daycareWalk(this.state.daycare, this.state.party, 1);
+      if (news.hatched && this.onHatch) this.onHatch(news.hatched);
+    }
     if (this.onStep) this.onStep();
 
     // Warp?

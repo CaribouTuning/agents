@@ -74,7 +74,8 @@ lines = ["""// Species data — generated, do not hand-edit.
 //
 // 210 Pokemon: the extended Sinnoh Pokedex exactly as Platinum ships it,
 // with that game's base stats, abilities, catch rates, growth curves,
-// level-up learnsets, TM compatibility and evolution methods.
+// level-up learnsets, TM compatibility, evolution methods, egg groups and
+// hatch counters.
 //
 // Everything a monster is lives here as plain data. The battle engine, the
 // Pokedex and the sprite generator all read from this one table.
@@ -101,6 +102,7 @@ for s in species:
     lines.append(f"    catchRate: {s['catchRate']}, baseExp: {s['baseExp']}, growth: {js(s['growth'])}, "
                  f"genderRatio: {js(s['genderRatio'])}, height: {js(s['height'])}, weight: {js(s['weight'])},")
     lines.append(f"    abilities: {js(s['abilities'])}, legendary: {js(s['legendary'])},")
+    lines.append(f"    eggGroups: {js(s['eggGroups'])}, hatchSteps: {s['hatchSteps']}, baby: {s['baby']},")
     lines.append(f"    dex: {js(prose(s['dex']))},")
     lines.append(wrap('    learnset: [', [js(e) for e in s['learnset']], '      ') + '],')
     lines.append(f"    evolutions: {js(s['evolutions'])},")

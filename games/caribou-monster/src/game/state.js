@@ -12,6 +12,7 @@ import {
 } from './monster.js';
 import { createCircuit, serializeCircuit, reviveCircuit } from './circuit/circuit.js';
 import { createJournal, serializeJournal, reviveJournal } from './journal.js';
+import { createDaycare, serializeDaycare, reviveDaycare } from './daycare.js';
 
 export const MAX_PARTY = 6;
 export const BOX_COUNT = 8;
@@ -48,6 +49,7 @@ export function createGameState(opts = {}) {
     circuit: createCircuit(),
     // What the player has worked out so far, and what they are doing next.
     journal: createJournal(),
+    daycare: createDaycare(),
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
@@ -176,6 +178,7 @@ export function serializeState(st) {
     settings: { ...st.settings },
     circuit: serializeCircuit(st.circuit),
     journal: serializeJournal(st.journal),
+    daycare: serializeDaycare(st.daycare),
   };
 }
 
@@ -205,6 +208,7 @@ export function deserializeState(raw) {
   Object.assign(st.settings, raw.settings || {});
   st.circuit = reviveCircuit(raw.circuit);
   st.journal = reviveJournal(raw.journal);
+  st.daycare = reviveDaycare(raw.daycare, reviveMonster);
   return st;
 }
 

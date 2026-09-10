@@ -192,7 +192,7 @@ export class PCScreen extends Screen {
       const sel = this.pane === 'box' && i === this.cursorIdx;
       rect(ctx, c.x, c.y, c.w, c.h, sel ? PAL.uiHighlight : PAL.uiBgAlt);
       if (mon) {
-        const img = renderMonster(getSpecies(mon.species).art, { size: c.w - 2, shiny: mon.shiny });
+        const img = renderMonster(getSpecies(mon.species).art, { size: c.w - 2, shiny: mon.shiny, egg: mon.isEgg });
         ctx.drawImage(img, c.x + 1, c.y + 1);
       }
     }
@@ -203,7 +203,7 @@ export class PCScreen extends Screen {
       const c = this._partyCell(i);
       const sel = this.pane === 'party' && i === this.partyIdx;
       rect(ctx, c.x, c.y, c.w, c.h, sel ? PAL.uiHighlight : PAL.uiBgAlt);
-      const img = renderMonster(getSpecies(m.species).art, { size: 20, shiny: m.shiny });
+      const img = renderMonster(getSpecies(m.species).art, { size: 20, shiny: m.shiny, egg: m.isEgg });
       ctx.drawImage(img, c.x + 1, c.y + 1);
       hpBar(ctx, c.x + 2, c.y + 22, 18, m.hp / maxHp(m), { h: 2 });
     });
@@ -233,7 +233,7 @@ export class PCScreen extends Screen {
       const src = this.held.from === 'box' ? this.boxData.mons[this.held.index] : st.party[this.held.index];
       if (src) {
         const c = this.pane === 'box' ? this._cell(this.cursorIdx) : this._partyCell(this.partyIdx);
-        const img = renderMonster(getSpecies(src.species).art, { size: 20, shiny: src.shiny });
+        const img = renderMonster(getSpecies(src.species).art, { size: 20, shiny: src.shiny, egg: src.isEgg });
         ctx.globalAlpha = 0.85;
         ctx.drawImage(img, c.x + 2, c.y - 8);
         ctx.globalAlpha = 1;

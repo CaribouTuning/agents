@@ -127,7 +127,7 @@ export class TradeScreen extends Screen {
       const sel = i === this.index && s.phase === TRADE_STATE.SELECTING;
       const offered = s.myOffer === m.uid;
       rect(ctx, r.x, r.y, r.w, r.h, offered ? PAL.uiHighlight : sel ? shade(PAL.uiBgAlt, 0.15) : PAL.uiBgAlt);
-      const img = renderMonster(getSpecies(m.species).art, { size: 16, shiny: m.shiny });
+      const img = renderMonster(getSpecies(m.species).art, { size: 16, shiny: m.shiny, egg: m.isEgg });
       ctx.drawImage(img, r.x + 1, r.y + 1);
       label(ctx, displayName(m), r.x + 20, r.y + 2, { color: PAL.uiText });
       drawTextRight(ctx, `Lv${m.level}`, r.x + r.w - 4, r.y + 2, { color: PAL.uiTextDim });
@@ -172,7 +172,7 @@ export class TradeScreen extends Screen {
       return;
     }
     const sp = getSpecies(mon.species);
-    const img = renderMonster(sp.art, { size: 32, shiny: mon.shiny });
+    const img = renderMonster(sp.art, { size: 32, shiny: mon.shiny, egg: mon.isEgg });
     ctx.drawImage(img, x + 3, y + 12);
     label(ctx, displayName(mon), x + 40, y + 14);
     genderMark(ctx, mon.gender, x + 42 + displayName(mon).length * 6, y + 14);
@@ -209,11 +209,11 @@ export class TradeScreen extends Screen {
       const p = this.anim;
       const sent = s.result.sent, got = s.result.got;
       if (sent) {
-        const img = renderMonster(getSpecies(sent.species).art, { size: 40, shiny: sent.shiny });
+        const img = renderMonster(getSpecies(sent.species).art, { size: 40, shiny: sent.shiny, egg: sent.isEgg });
         ctx.drawImage(img, Math.round(20 + (W - 80) * p), Math.round(H / 2 - 50));
       }
       if (got) {
-        const img = renderMonster(getSpecies(got.species).art, { size: 40, shiny: got.shiny });
+        const img = renderMonster(getSpecies(got.species).art, { size: 40, shiny: got.shiny, egg: got.isEgg });
         ctx.drawImage(img, Math.round(W - 60 - (W - 80) * p), Math.round(H / 2 + 6));
       }
     }

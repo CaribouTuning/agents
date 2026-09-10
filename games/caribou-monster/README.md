@@ -32,14 +32,17 @@ controls.
 
 | | |
 |---|---|
-| **World** | 16 maps: Twinleaf Town, Route 201, Route 202, Oreburgh City, Route 207, Oreburgh Gate, the Everlight Chamber and nine interiors |
-| **Pokémon** | 54 species with real base stats, types, natures, genders, IVs/EVs, shinies, learnsets and evolution lines — plus nicknaming, friendship that moves, held items you can give and take, and **18 working abilities** |
-| **Moves** | 119, all data-driven, with the 17-type chart, STAB, criticals, accuracy, five status conditions, confusion, flinch and stat stages |
+| **World** | 27 maps: Twinleaf Town, Sandgem Town, Jubilife City, Oreburgh City, Routes 201–203 and 207, Oreburgh Gate, the Everlight Chamber and eighteen interiors |
+| **Pokémon** | 210 species with real base stats, types, natures, genders, IVs/EVs, shinies, learnsets, egg groups and evolution lines — plus nicknaming, friendship that moves, held items you can give and take, and **84 working abilities** |
+| **Moves** | 460, all data-driven, with the 17-type chart, STAB, criticals, accuracy, five status conditions, confusion, flinch and stat stages |
+| **Weather** | Sun, rain, sandstorm and hail — set by a move or walked into by an ability, with the damage, speed, accuracy, chip and healing rules that go with each |
+| **Time** | A day/night cycle read off the real clock: morning, day and night, tinted on the map and answered by the people in it |
+| **Day Care** | Leave two, walk a long way, come home to an Egg — and if the two of you were linked when you handed them over, both names go on it |
 | **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, the Oreburgh Gym and its badge |
 | **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, trainer card, save/load, EASY and NORMAL difficulty |
 | **World Circuit** | A second career track: 6 sanctioned tournaments, 12 professional trainers, an Elo world ranking, Circuit Points, promotions, a press feed and post-event press conferences |
 | **Living world** | Conditional NPC dialogue: everyone reacts to your starter, badges, Pokédex, story flags, circuit rank, titles and how you talk to the press — and names the trainer who is *actually* world number one |
-| **Co-op** | Room codes, a shared overworld, link trades and link battles |
+| **Co-op** | Room codes, a shared overworld, link trades, link battles, the Pair Bell register and Eggs with two names on them |
 | **Debug** | A developer menu behind OPTIONS: teleport, give monsters/items/money, set flags, force battles, inspect the network |
 
 ---
@@ -192,6 +195,44 @@ that cannot be told apart from its absence is a label, not a mechanic.
 
 ---
 
+## Two names on the Egg
+
+The Day Care in Sandgem is the slowest thing in the game and the only one that
+rewards you for going away. You leave two Pokémon, walk, and come back to find
+they have grown a little and there is an Egg waiting. Boarders gain a level
+every 256 steps; the fee is honest arithmetic on the levels they gained, not a
+number picked to sting. Compatibility is the real rule — a shared egg group,
+opposite genders, and nothing from `no-eggs` — and the Day-Care Lady tells you
+which of those is missing rather than shrugging.
+
+The co-op part is why it is here. `deposit()` takes a **witness**: if the two of
+you are linked at the moment the pair is completed, the partner's name is
+written down, carried onto the Egg, and kept on whatever hatches for the rest of
+its life.
+
+```js
+deposit(d, mon, ctx.linked() ? ctx.partnerName() : null);
+//   d.witness -> egg.witness -> mon.coParent
+```
+
+> *Day-Care Man: Two trainers here at once. I have put both names down — yours
+> and Sammy's.*
+
+An Egg is an ordinary Pokémon with `isEgg` set, which is what keeps it from
+leaking into everything else: `displayName()` calls it "Egg", `isFainted()`
+reports it as unable to battle so it can never be sent out, and it does not walk
+behind you. It hatches from the step counter rather than from talking to
+anybody, so it hatches wherever you happen to be standing — which is the whole
+memory of it.
+
+`tools/daycaretest.mjs` covers boarding, the refusal to take your last able
+Pokémon, levels and fees, compatibility in both directions, the Egg odds, the
+witness, hatching, and the save round trip — including a save that names a
+species which no longer exists. The full deposit → Egg → hatch loop is also
+driven through the real UI in `tools/walkthrough.mjs`.
+
+---
+
 ## The world talks back
 
 Every NPC line is data with a condition attached. `game/overworld/gossip.js`
@@ -332,6 +373,7 @@ node tools/abilitytest.mjs             # every ability, proved against its own a
 node tools/storytest.mjs               # every story beat, headless, in order
 node tools/savetest.mjs                # save round trip, migration, and refusal
 node tools/weathertest.mjs             # sun, rain, sand and hail, each against its absence
+node tools/daycaretest.mjs             # boarding, fees, Egg odds, hatching, and the save
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```

@@ -521,7 +521,12 @@ function rotateHue(hex, deg) {
 
 // ---- public API ------------------------------------------------------
 
-export function renderMonster(art, { size = 48, back = false, shiny = false } = {}) {
+export function renderMonster(art, { size = 48, back = false, shiny = false, egg = false } = {}) {
+  // An Egg shows an Egg, whatever is inside it.
+  if (egg) {
+    const shell = spriteAt('egg', 'f', size);
+    if (shell) return shell;
+  }
   const key = `${art.key}:${size}:${back ? 'b' : 'f'}:${shiny ? 's' : 'n'}`;
   if (cache.has(key)) return cache.get(key);
 

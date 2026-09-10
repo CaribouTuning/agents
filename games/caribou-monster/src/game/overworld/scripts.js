@@ -7,7 +7,11 @@
 import { STARTER_LINES, rivalStarterBase, getTrainer } from '../../data/trainers.js';
 import { getTournament } from '../../data/circuit.js';
 import { getSpecies } from '../../data/species.js';
-import { createMonster } from '../monster.js';
+import { createMonster, displayName } from '../monster.js';
+import {
+  deposit, withdraw, feeFor, hasEgg, collectEgg, compatibilityText, eggHint, hatch,
+} from '../daycare.js';
+import { spend, formatMoney as money } from '../inventory.js';
 import { FLAGS } from '../storyflags.js';
 import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../../data/story.js';
 import { playerByLook } from '../players.js';
@@ -294,6 +298,134 @@ SCRIPTS.pairRegistry = async (ctx) => {
   await ctx.say('Registrar: A Pokémon holding it settles quicker.\fSomething about knowing where it belongs.');
   ctx.setFlag('pairRegistered');
   ctx.journal('registered');
+};
+
+/**
+ * The Day Care.
+ *
+ * Deposit, withdraw, and collect whatever turned up. The one rule enforced
+ * here rather than in the system is that you may not hand over your last
+ * Pokémon that can fight — walking out of the door with nothing but an Egg is
+ * a softlock, not a decision.
+ */
+SCRIPTS.daycare = async (ctx) => {
+  const st = ctx.state;
+  const d = st.daycare;
+
+  for (;;) {
+    const boarded = d.mons.length;
+    const options = [];
+    if (boarded < 2) options.push('Leave one');
+    if (boarded > 0) options.push('Take one back');
+    if (hasEgg(d)) options.push('Take the Egg');
+    options.push('How are they?');
+    options.push('Leave');
+
+    const summary = boarded === 0
+      ? 'Day-Care Lady: I am not looking after anything at the moment.'
+      : `Day-Care Lady: I have ${d.mons.map((m) => displayName(m)).join(' and ')} here.`;
+    const pick = options[await ctx.ask(summary, options)];
+
+    if (pick === 'Leave' || pick === undefined) {
+      await ctx.say('Day-Care Lady: Come back any time.');
+      return;
+    }
+
+    if (pick === 'Leave one') {
+      const able = st.party.filter((m) => !m.isEgg && m.hp > 0).length;
+      if (able <= 1) {
+        await ctx.say('Day-Care Lady: That is the only one you have that can battle.\fI would not be doing you a favour.');
+        continue;
+      }
+      const index = await ctx.pickFromParty('Leave which Pokémon?');
+      if (index < 0) continue;
+      const mon = st.party[index];
+      if (mon.isEgg) { await ctx.say('Day-Care Lady: That one has not hatched yet!'); continue; }
+      st.party.splice(index, 1);
+      deposit(d, mon, ctx.linked() ? ctx.partnerName() : null);
+      await ctx.say(`Day-Care Lady: We will look after ${displayName(mon)}. Off you go.`);
+      if (d.mons.length === 2) {
+        await ctx.say(`Day-Care Lady: ${compatibilityText(d.mons[0], d.mons[1])}`);
+        if (d.witness) {
+          await ctx.say(`Day-Care Man: Two trainers here at once.\fI have put both names down — yours and ${d.witness}\u2019s.`);
+        }
+      }
+      continue;
+    }
+
+    if (pick === 'Take one back') {
+      const which = d.mons.length === 1 ? 0
+        : await ctx.ask('Which one?', d.mons.map((m) => displayName(m)));
+      const fee = feeFor(d, which);
+      const name = displayName(d.mons[which]);
+      const yes = await ctx.ask(`Day-Care Lady: ${name} has come on nicely.\fThat will be ${money(fee)}.`, ['Pay', 'Not now']);
+      if (yes !== 0) continue;
+      if (st.inventory.money < fee) { await ctx.say('Day-Care Lady: You are a bit short, I am afraid.'); continue; }
+      if (st.party.length >= 6) { await ctx.say('Day-Care Lady: Your team is full. Make room first.'); continue; }
+      spend(st.inventory, fee);
+      const mon = withdraw(d, which);
+      st.party.push(mon);
+      ctx.sfx('heal');
+      await ctx.say(`${name} came back! It is level ${mon.level}.`);
+      continue;
+    }
+
+    if (pick === 'Take the Egg') {
+      if (st.party.length >= 6) { await ctx.say('Day-Care Lady: You have no room for it. Come back.'); continue; }
+      const egg = collectEgg(d, st.player);
+      st.party.push(egg);
+      ctx.sfx('caught');
+      await ctx.say('You received the Egg!');
+      if (egg.coParent) {
+        await ctx.say(`Day-Care Man: Both names are on it.\fYours, and ${egg.coParent}\u2019s.`);
+      }
+      await ctx.say('Day-Care Lady: Carry it about with you. They hatch for people who walk.');
+      ctx.journal('firstEgg');
+      continue;
+    }
+
+    if (pick === 'How are they?') {
+      if (!boarded) { await ctx.say('Day-Care Lady: Bring me something and I will tell you.'); continue; }
+      for (const mon of d.mons) {
+        await ctx.say(`${displayName(mon)} is level ${mon.level}.`);
+      }
+      const carried = st.party.find((m) => m.isEgg);
+      if (carried) await ctx.say(`Day-Care Lady: About that Egg —\f${eggHint(carried)}`);
+      else if (d.mons.length === 2) await ctx.say(`Day-Care Lady: ${compatibilityText(d.mons[0], d.mons[1])}`);
+    }
+  }
+};
+
+/**
+ * An Egg hatching.
+ *
+ * Fires from the step counter rather than from talking to anything, so it
+ * happens where you happen to be standing — which is the whole memory of it.
+ */
+SCRIPTS.eggHatch = async (ctx, npc) => {
+  const egg = npc && npc.data && npc.data.egg;
+  if (!egg || !egg.isEgg) return;
+
+  ctx.sfx('encounter');
+  await ctx.say('Huh? Your Egg is acting strangely!');
+  await ctx.wait(0.7);
+
+  const born = hatch(egg);
+  const sp = getSpecies(born.species);
+  await ctx.showMonster(born.species);
+  ctx.sfx('caught');
+  ctx.cry(born.species);
+  await ctx.say(`Your Egg hatched!\f${sp.name} came out of it!`);
+  ctx.hideMonster();
+
+  ctx.dex.seen(born.species);
+  ctx.dex.caught(born.species);
+  if (born.coParent) {
+    await ctx.say(`Both your names are on it \u2014 yours and ${born.coParent}\u2019s.`);
+  }
+  await ctx.askNickname(born);
+  ctx.journal('hatched');
+  egg.hatching = false;
 };
 
 // ---- Gym leader ---------------------------------------------------------------

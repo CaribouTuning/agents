@@ -110,6 +110,13 @@ for r in rows('move_meta_stat_changes'):
 # would be data nobody reads.
 KEEP_FLAGS = {'contact', 'sound', 'punch', 'bite', 'pulse', 'powder'}
 
+# Egg groups: two Pokemon can breed when they share one. Without these the
+# Day Care would have to guess, and guessing produces Bidoof from a Piplup.
+egg_group_name = {int(r['id']): r['identifier'] for r in rows('egg_groups')}
+egg_groups = defaultdict(list)
+for r in rows('pokemon_egg_groups'):
+    egg_groups[int(r['species_id'])].append(egg_group_name[int(r['egg_group_id'])])
+
 move_flags = {int(r['id']): r['identifier'] for r in rows('move_flags')}
 flags_of = defaultdict(list)
 for r in rows('move_flag_map'):
@@ -336,6 +343,17 @@ KNOWN_FEATURES = {
 }
 
 
+def base_form(sid):
+    """The bottom of a species' evolution line."""
+    seen = set()
+    while True:
+        parent = species.get(sid, {}).get('evolves_from_species_id')
+        if not parent or sid in seen:
+            return sid
+        seen.add(sid)
+        sid = int(parent)
+
+
 def art_for(sid, ident, tps, shape, color, base_total):
     arch = ARCH_OVERRIDE.get(ident) or SHAPE_ARCH.get(shape, 'blob')
     seed = fnv(ident)
@@ -488,6 +506,11 @@ for sid, _dexno in wanted:
         'weight': num(mon['weight']) / 10.0,
         'abilities': abil,
         'legendary': sp['is_legendary'] == '1' or sp['is_mythical'] == '1',
+        'eggGroups': sorted(egg_groups.get(sid, [])) or ['no-eggs'],
+        'hatchSteps': (num(sp['hatch_counter'], 20) + 1) * 255,
+        # Which species an Egg from this one hatches into: the bottom of its
+        # evolution line, walked all the way down.
+        'baby': base_form(sid),
         'dex': flavour.get(sid, 'Little is known about this Pokémon.'),
         'learnset': lset,
         'tms': sorted(machine_of[m] for m in machine_learners.get(pid, ()) if m in machine_of),

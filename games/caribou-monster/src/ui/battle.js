@@ -1206,7 +1206,7 @@ export class BattleScreen extends Screen {
       const sel = i === this.partyIndex;
       rect(ctx, bx, iy, 150, 20, sel ? PAL.uiHighlight : PAL.uiBgAlt);
       rect(ctx, bx, iy, 150, 1, shade(sel ? PAL.uiHighlight : PAL.uiBgAlt, 0.3));
-      const img = renderMonster(getSpecies(m.species).art, { size: 20, shiny: m.shiny });
+      const img = renderMonster(getSpecies(m.species).art, { size: 20, shiny: m.shiny, egg: m.isEgg });
       ctx.drawImage(img, bx + 1, iy);
       label(ctx, displayName(m), bx + 24, iy + 2, { color: isFainted(m) ? PAL.uiShadow : PAL.uiText });
       drawText(ctx, `Lv${m.level}`, bx + 24, iy + 11, { color: PAL.uiTextDim });

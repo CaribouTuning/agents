@@ -836,32 +836,45 @@ const SANDGEM_MART = makeMart('sandgem_mart', {
   }],
 });
 
-const SANDGEM_HOUSE = defineMap('sandgem_house', {
-  name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
+// The Day Care. Two people run it, and neither of them will explain how it
+// works, which is traditional.
+const SANDGEM_DAYCARE = defineMap('sandgem_daycare', {
+  name: 'Pokémon Day Care', kind: 'indoor', music: 'home', darkEdges: false,
   tiles: [
     '||||||||||||',
-    '|kk____bb__|',
+    '|kk__ee___p|',
     '|__________|',
-    '|_e________|',
+    '|_xxxx_____|',
     '|__________|',
-    '|_p_______v|',
+    '|_p______b_|',
     '|__________|',
     '|||||D||||||',
   ],
   warps: [{ x: 5, y: 7, to: 'sandgem', tx: 11, ty: 12, dir: 'down' }],
+  signs: [
+    { x: 10, y: 1, text: 'DAY CARE NOTICE\nLeave two and we will look after them.\nThey may come back knowing more than\nthey left with. We do not ask.' },
+  ],
   npcs: [
     {
-      id: 'sgh_man', x: 3, y: 3, look: 'oldMan', name: 'Resident',
-      movement: 'still', facing: 'down',
+      id: 'dc_lady', x: 3, y: 2, look: 'mom', name: 'Day-Care Lady',
+      movement: 'still', facing: 'down', script: 'daycare', overCounter: true,
+      dialogue: [{ lines: ['Would you like me to look after a Pokémon?'] }],
+    },
+    {
+      id: 'dc_man', x: 9, y: 5, look: 'oldMan', name: 'Day-Care Man',
+      movement: 'still', facing: 'left',
       dialogue: [
         {
-          when: { flag: 'hasBandit' },
-          lines: ['There is a Houndour sitting on my step every time you come in here.',
-            'She is not begging. She is supervising.\fThere is a difference and she knows it.'],
+          when: { linked: true },
+          lines: ['Two trainers at once. That is my favourite kind of afternoon.',
+            'Leave a pair with us while you are both here.',
+            'We will write both of your names on whatever turns up.',
+            'It is only a bit of paper. People keep them for years, though.'],
         },
         {
-          lines: ['Sandgem is quiet, and I intend to keep it that way.',
-            'Jubilife is up the road if you want noise. They have got a school and everything.'],
+          lines: ['My wife does the talking. I do the walking.',
+            'Whatever you leave with us, we walk it about a bit.\fIt is good for them.',
+            'Sometimes there is an Egg. I have stopped asking where they come from.'],
         },
       ],
     },
@@ -984,7 +997,7 @@ const JUBILIFE_HOUSE2 = defineMap('jubilife_house2', {
 
 export const INTERIORS = [
   PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB,
-  SANDGEM_CENTER, SANDGEM_MART, SANDGEM_HOUSE,
+  SANDGEM_CENTER, SANDGEM_MART, SANDGEM_DAYCARE,
   JUBILIFE_CENTER, JUBILIFE_MART, JUBILIFE_SCHOOL, JUBILIFE_HOUSE, JUBILIFE_HOUSE2,
   OREBURGH_CENTER, OREBURGH_MART, OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2,
   OREBURGH_HALL,

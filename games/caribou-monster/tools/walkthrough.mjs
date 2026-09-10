@@ -53,7 +53,7 @@ const tap = async (k, n = 1, d = 200) => {
 };
 const where = () => page.evaluate(() => {
   const g = window.CARIBOU, w = g.overworld && g.overworld.world;
-  return w ? { map: w.mapId, x: w.player.x, y: w.player.y, screen: g.screens.top.constructor.name } : null;
+  return w ? { map: w.mapId, x: w.player.x, y: w.player.y, dir: w.player.dir, screen: g.screens.top.constructor.name } : null;
 });
 // The softlock predicate, evaluated live against the running world.
 const canMove = () => page.evaluate(() => {
@@ -100,6 +100,7 @@ const PERPENDICULAR = {
 
 const walkTo = async (tx, ty, limit = 16) => {
   let stuck = 0;
+  let turns = 0;
   for (let i = 0; i < limit; i++) {
     const w = await where();
     if (!w) return false;
@@ -109,13 +110,20 @@ const walkTo = async (tx, ty, limit = 16) => {
     else key = w.y < ty ? 'ArrowDown' : 'ArrowUp';
     const dist = w.x !== tx ? Math.abs(tx - w.x) : Math.abs(ty - w.y);
     const before = `${w.x},${w.y},${w.map}`;
+    const facing = w.dir;
     // A single-tile move gets a short hold. A long one used to overshoot and
     // then oscillate around the target until the attempt budget ran out.
-    await hold(key, dist === 1 ? 240 : 200 + dist * 240);
+    await hold(key, dist === 1 ? 300 : 260 + dist * 240);
     let after = await where();
     if (after.map !== w.map) return true;                              // warped
 
     if (`${after.x},${after.y},${after.map}` === before) {
+      // Turning is not being blocked. The overworld spends five frames facing
+      // a new direction before it walks, so a hold that lands on that beat
+      // ends with the player turned and standing still — which is progress,
+      // and pressing the same key again finishes the step. Sidestepping here
+      // instead is how this walk used to wander off and fail.
+      if (after.dir !== facing && ++turns <= 4) { i--; continue; }
       // Blocked. Towns have NPCs that wander into doorways, and giving up on
       // the first bump made every walk in this suite a coin toss. Sidestep and
       // carry on; only a repeatedly immovable wall is a real failure.
@@ -211,6 +219,150 @@ for (const id of interiors) {
   }, id);
   check(`entering ${id} leaves the player mobile`, res.legal.length > 0,
     `at ${res.entry.x},${res.entry.y} moves: ${res.legal.join(',') || 'NONE'}`);
+}
+
+// --- the Day Care ---
+// The slowest system in the game, driven end to end: walk in, hand two
+// Pokemon over, get an Egg out of it, and hatch it by walking. Everything
+// here is the real script and the real UI; only the dice are held still.
+console.log('\n--- the day care ---');
+
+// Advances text until a choice list is up, then picks the option whose label
+// contains `label`. The dialogue box exposes its own cursor, so this steers
+// the real menu rather than guessing at keypress counts.
+const choose = async (label, limit = 24) => {
+  for (let i = 0; i < limit; i++) {
+    const c = await page.evaluate(() => {
+      const d = window.CARIBOU.dialogueForTest;
+      return d.choice ? { options: d.choice.options.map(String), index: d.choice.index } : null;
+    });
+    if (c) {
+      const target = c.options.findIndex((o) => o.includes(label));
+      if (target < 0) return false;
+      let idx = c.index;
+      while (idx !== target) {
+        await hold('ArrowDown', 60);
+        idx = (idx + 1) % c.options.length;
+      }
+      await tap('KeyZ', 1, 260);
+      return true;
+    }
+    await tap('KeyZ', 1, 150);
+  }
+  return false;
+};
+
+// Picks the nth party slot out of the party screen the script pops open.
+const pickParty = async (slot) => {
+  for (let i = 0; i < 20; i++) {
+    const open = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name === 'PartyScreen');
+    if (open) break;
+    await tap('KeyZ', 1, 150);
+  }
+  for (let i = 0; i < slot; i++) await hold('ArrowDown', 60);
+  await tap('KeyZ', 1, 300);
+};
+
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  // Two Bidoof, one of each, so the pair is guaranteed compatible. The Day
+  // Care refuses your last able Pokemon, which is a rule worth keeping, so
+  // the party has to be able to spare both of them.
+  g.debugGive(399, 20);
+  g.debugGive(399, 20);
+  g.state.party[g.state.party.length - 2].gender = 'M';
+  g.state.party[g.state.party.length - 1].gender = 'F';
+  g.state.repelSteps = 9999;
+  g.overworld.world.load('sandgem', 11, 12, 'up');
+});
+await wait(500);
+await waitIdle();
+const partyBefore = await page.evaluate(() => window.CARIBOU.state.party.length);
+await walkTo(11, 11, 4);
+await wait(500);
+const inDaycare = await where();
+check('the Day Care door opens', inDaycare.map === 'sandgem_daycare', inDaycare.map);
+
+if (inDaycare.map === 'sandgem_daycare') {
+  await waitIdle();
+  await walkTo(7, 2, 8);
+  await walkTo(4, 2, 6);
+  await hold('ArrowLeft', 120);                       // face the Day-Care Lady
+  await tap('KeyZ', 1, 320);
+
+  check('the Day-Care Lady offers to take one', await choose('Leave one'));
+  await pickParty(partyBefore - 2);                   // the male Bidoof
+  const one = await page.evaluate(() => window.CARIBOU.state.daycare.mons.length);
+  check('handing one over boards it', one === 1, `boarded ${one}`);
+
+  check('and she will take a second', await choose('Leave one'));
+  await pickParty(partyBefore - 2);                   // the female, now shuffled up
+  const pair = await page.evaluate(() => ({
+    boarded: window.CARIBOU.state.daycare.mons.length,
+    party: window.CARIBOU.state.party.length,
+  }));
+  check('a pair boards, and leaves the party', pair.boarded === 2 && pair.party === partyBefore - 2,
+    `boarded ${pair.boarded}, party ${pair.party}`);
+  await choose('Leave');
+  await waitIdle();
+
+  // The Egg check is one roll every 128 steps. Hold the dice still and walk
+  // the last step of the window, so this proves the step counter is wired to
+  // the Day Care rather than proving that random numbers are random.
+  await page.evaluate(() => {
+    window.CARIBOU.state.daycare.steps = 127;
+    window.__rng = Math.random;
+    Math.random = () => 0;
+  });
+  await hold('ArrowRight', 300);
+  await hold('ArrowLeft', 300);
+  await page.evaluate(() => { Math.random = window.__rng; });
+  await waitIdle();
+  const laid = await page.evaluate(() => {
+    const d = window.CARIBOU.state.daycare;
+    return { egg: !!d.egg, parents: d.egg ? d.egg.parents.join(' + ') : '' };
+  });
+  check('walking turns up an Egg', laid.egg, laid.parents);
+
+  await walkTo(4, 2, 6);
+  await hold('ArrowLeft', 120);
+  await tap('KeyZ', 1, 320);
+  check('the Egg can be collected', await choose('Take the Egg'));
+  await choose('Leave');
+  await waitIdle();
+  const carried = await page.evaluate(() => {
+    const e = window.CARIBOU.state.party.find((m) => m.isEgg);
+    return e ? { needed: e.eggNeeded, species: e.species } : null;
+  });
+  check('the Egg is in the party', !!carried, carried ? `#${carried.species}` : 'none');
+  check('an Egg is never a battler',
+    await page.evaluate(() => window.CARIBOU.state.party.filter((m) => !m.isEgg && m.hp > 0).length > 0));
+
+  // One step from hatching, then take it.
+  await page.evaluate(() => {
+    const e = window.CARIBOU.state.party.find((m) => m.isEgg);
+    if (e) e.eggSteps = e.eggNeeded - 1;
+  });
+  await hold('ArrowRight', 300);
+  await waitIdle(60);
+  const hatched = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    const m = g.state.party.find((x) => !x.isEgg && x.level === 1);
+    return { any: g.state.party.some((x) => x.isEgg), born: m ? m.species : 0 };
+  });
+  check('the Egg hatches where you are standing', !hatched.any && hatched.born > 0,
+    `born #${hatched.born}`);
+  await page.screenshot({ path: path.join(OUT, '08b-daycare.png') });
+
+  // And the whole thing survives a save, which is where a system with its own
+  // parallel party usually falls over.
+  const round = await page.evaluate(async () => {
+    const g = window.CARIBOU;
+    await g.save.save(g.state);
+    const back = await g.save.load();
+    return { boarded: back && back.daycare ? back.daycare.mons.length : -1 };
+  });
+  check('the Day Care survives a save', round.boarded === 2, `boarded ${round.boarded}`);
 }
 
 // --- the Everlight, the story's ending ---

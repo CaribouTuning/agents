@@ -51,6 +51,7 @@ export class OverworldScreen extends Screen {
 
   onEnter() {
     const st = this.game.state;
+    this.world.onHatch = (egg) => this._hatch(egg);
     this.world.load(st.player.map, st.player.x, st.player.y, st.player.dir);
     this.showBanner(this.world.map);
     this.playMusic();
@@ -186,6 +187,13 @@ export class OverworldScreen extends Screen {
       ? BANDIT.talk : null;
     this.say(partnerLine(mon, this.game.state.stats.steps, own));
     audio.cry(mon.species, 1.1);
+  }
+
+  /** An Egg hatching, mid-walk. The scene itself lives with the other ones. */
+  _hatch(egg) {
+    if (this.script || egg.hatching) return;
+    egg.hatching = true;
+    this.runScript('eggHatch', { data: { egg } });
   }
 
   _pickUp(e) {
@@ -341,6 +349,9 @@ export class OverworldScreen extends Screen {
         this.script = null;
         this.showcase = null;
         input.releaseAll();
+        // A cutscene can change the party — a starter, an Egg, a trade — so
+        // whoever is walking beside you is re-read once it ends.
+        this.world.refreshFollower();
         if (this.game.save) this.game.save.markDirty();
       });
   }
@@ -361,6 +372,17 @@ export class OverworldScreen extends Screen {
       }),
 
       wait: (sec) => new Promise((resolve) => screen.timers.push({ t: sec, resolve })),
+
+      /** Opens the party as a picker and resolves with the index, or -1. */
+      pickFromParty: (prompt) => new Promise((resolve) => {
+        // The picker pops itself, and hands back null when the player backs
+        // out, which every caller here wants as -1.
+        screen.game.openParty({
+          mode: 'pick',
+          prompt,
+          onPick: (index) => resolve(index === null || index === undefined ? -1 : index),
+        });
+      }),
 
       sfx: (n) => audio.sfx(n),
 
@@ -455,6 +477,10 @@ export class OverworldScreen extends Screen {
       linked: () => {
         const snap = net.snapshot();
         return !!(snap.connected && snap.partner);
+      },
+      partnerName: () => {
+        const snap = net.snapshot();
+        return (snap.partner && snap.partner.name) || null;
       },
 
       askNickname: (mon) => new Promise((resolve) => {

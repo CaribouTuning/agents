@@ -170,7 +170,7 @@ export class NicknameScreen extends Screen {
     const size = 28;
     const sx = Math.round(W / 2 - 66 - size - 4);
     if (sx > 2) {
-      const img = renderMonster(sp.art, { size, shiny: this.mon.shiny });
+      const img = renderMonster(sp.art, { size, shiny: this.mon.shiny, egg: this.mon.isEgg });
       ctx.drawImage(img, sx, boxY - 6);
     }
 

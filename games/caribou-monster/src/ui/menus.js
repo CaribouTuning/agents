@@ -118,6 +118,7 @@ export class PartyScreen extends Screen {
     this.index = 0;
     this.mode = opts.mode || 'browse';   // browse | pick | swap
     this.onPick = opts.onPick || null;
+    this.onCancel = opts.onCancel || null;
     this.prompt = opts.prompt || null;
     this.swapFrom = -1;
     this.sub = null;      // action menu
@@ -260,7 +261,7 @@ export class PartyScreen extends Screen {
         frame: sel ? PAL.uiSelect : PAL.uiFrame,
       });
       const big = i === 0;
-      const img = renderMonster(getSpecies(m.species).art, { size: big ? 32 : 16, shiny: m.shiny });
+      const img = renderMonster(getSpecies(m.species).art, { size: big ? 32 : 16, shiny: m.shiny, egg: m.isEgg });
       ctx.drawImage(img, r.x + 3, r.y + (big ? 3 : 1));
       const tx = r.x + (big ? 36 : 23);
       label(ctx, displayName(m), tx, r.y + 3, { color: isFainted(m) ? PAL.uiShadow : PAL.uiText });
@@ -296,7 +297,7 @@ export class PartyScreen extends Screen {
     const sp = getSpecies(mon.species);
     window9(ctx, 2, 2, W - 4, H - 4);
 
-    const img = renderMonster(sp.art, { size: 64, shiny: mon.shiny });
+    const img = renderMonster(sp.art, { size: 64, shiny: mon.shiny, egg: mon.isEgg });
     ctx.drawImage(img, 8, 16);
     label(ctx, displayName(mon), 8, 6);
     genderMark(ctx, mon.gender, 8 + displayName(mon).length * 6 + 2, 6);
@@ -367,6 +368,7 @@ export class BagScreen extends Screen {
     this.mode = opts.mode || 'browse';   // browse | use | sell | pick | give
     this.target = opts.target ?? null;
     this.onPick = opts.onPick || null;
+    this.onCancel = opts.onCancel || null;
     this.message = null;
     this.messageT = 0;
   }
