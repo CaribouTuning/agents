@@ -21,56 +21,77 @@ const px = (c, x, y, w = 1, hh = 1) => { c.fillRect(x, y, w, hh); };
 
 function grass(c, f, seed = 0) {
   c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
-  // Two scales of noise. The coarse one puts broad patches of lighter and
-  // darker turf across the tile so a field stops reading as one flat colour;
-  // the fine one is the blade speckle on top of it.
-  const light = shade(PAL.grass, 0.09);
-  const mid = shade(PAL.grass, -0.06);
+  // Turf reads best as broad patches with a fine blade texture over them.
+  // Pure per-pixel noise looks like television static at this scale, so the
+  // coarse layer works in 4x4 blocks and the fine layer only marks blades.
+  const light = shade(PAL.grass, 0.07);
+  const mid = shade(PAL.grass, -0.05);
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {
       const coarse = h(x >> 2, y >> 2, seed + 3);
-      if (coarse > 0.62) { c.fillStyle = light; px(c, x, y); }
-      else if (coarse < 0.3) { c.fillStyle = mid; px(c, x, y); }
-      const r = h(x, y, seed + 7);
-      if (r > 0.9) { c.fillStyle = shade(PAL.grass, 0.16); px(c, x, y); }
-      else if (r < 0.07) { c.fillStyle = PAL.grassDark; px(c, x, y); }
+      if (coarse > 0.66) { c.fillStyle = light; px(c, x, y); }
+      else if (coarse < 0.28) { c.fillStyle = mid; px(c, x, y); }
     }
   }
-  // A few standing blades, so the ground has a direction.
-  c.fillStyle = PAL.grassDark;
-  for (let i = 0; i < 4; i++) {
-    const bx = Math.floor(h(i, seed, 19) * 15);
+  // Short blades: a 2px vertical mark with a lighter tip, scattered but
+  // never on the tile seam, so neighbouring tiles do not form a grid line.
+  for (let i = 0; i < 7; i++) {
+    const bx = 1 + Math.floor(h(i, seed, 19) * 14);
     const by = 2 + Math.floor(h(i, seed, 23) * 12);
-    px(c, bx, by); px(c, bx, by - 1);
+    c.fillStyle = PAL.grassDark; px(c, bx, by); px(c, bx, by - 1);
+    c.fillStyle = shade(PAL.grass, 0.16); px(c, bx, by - 2);
   }
 }
 
 function grassTuft(c, f) {
   grass(c, f, 3);
-  c.fillStyle = PAL.grassDark;
-  px(c, 4, 10, 1, 3); px(c, 5, 9, 1, 3); px(c, 6, 11, 1, 2);
-  px(c, 11, 5, 1, 3); px(c, 12, 4, 1, 3); px(c, 10, 6, 1, 2);
+  // A denser clump: three V-shaped tufts, the way route grass breaks up.
+  const tuft = (bx, by, hgt) => {
+    c.fillStyle = PAL.grassTall;
+    for (let k = 0; k < hgt; k++) {
+      px(c, bx - Math.round(k / 2.4), by - k);
+      px(c, bx + Math.round(k / 2.4), by - k);
+    }
+    c.fillStyle = PAL.grassTallLight;
+    px(c, bx - Math.round((hgt - 1) / 2.4), by - hgt + 1);
+    px(c, bx + Math.round((hgt - 1) / 2.4), by - hgt + 1);
+  };
+  tuft(4, 13, 5); tuft(11, 10, 4); tuft(7, 6, 4);
 }
 
+/**
+ * Tall grass — the tile wild Pokemon come out of, so it has to be obviously
+ * different from ordinary turf at a glance, not just slightly darker. Filled
+ * edge to edge with overlapping blade clusters on a dark bed, with the tips
+ * swaying on the animation frame.
+ */
 function tallGrass(c, f) {
-  grass(c, f, 11);
-  const sway = f === 1 ? 1 : 0;
-  c.fillStyle = PAL.grassTall;
-  for (let i = 0; i < 5; i++) {
-    const bx = 1 + i * 3;
-    const bh = 7 + ((i * 5) % 4);
-    for (let k = 0; k < bh; k++) {
-      const off = Math.round((k / bh) * (i % 2 ? 2 : -2)) + (k > bh - 3 ? sway : 0);
-      px(c, bx + off, 15 - k);
+  const bed = shade(PAL.grassTall, -0.35);
+  c.fillStyle = bed; px(c, 0, 0, 16, 16);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      if (h(x, y, 71) > 0.8) { c.fillStyle = shade(bed, 0.12); px(c, x, y); }
     }
   }
-  c.fillStyle = PAL.grassTallLight;
-  for (let i = 0; i < 5; i++) {
-    const bx = 1 + i * 3;
-    const bh = 7 + ((i * 5) % 4);
-    const off = Math.round((i % 2 ? 2 : -2)) + sway;
-    px(c, bx + off, 15 - bh + 1);
-  }
+  const sway = f === 1 ? 1 : 0;
+  // Two ranks of blades so the tile has depth: a dark back rank, a lit
+  // front rank slightly offset.
+  const rank = (rows, baseY, col, tip, lean) => {
+    for (const [bx, hgt] of rows) {
+      c.fillStyle = col;
+      for (let k = 0; k < hgt; k++) {
+        const off = Math.round((k / hgt) * lean) + (k > hgt - 3 ? sway * Math.sign(lean || 1) : 0);
+        px(c, bx + off, baseY - k);
+      }
+      c.fillStyle = tip;
+      const top = Math.round(lean) + sway * Math.sign(lean || 1);
+      px(c, bx + top, baseY - hgt + 1);
+      px(c, bx + top, baseY - hgt);
+    }
+  };
+  rank([[2, 9], [6, 11], [10, 10], [14, 8]], 15, PAL.grassTall, shade(PAL.grassTall, 0.2), -2);
+  rank([[4, 12], [8, 13], [12, 11]], 16, PAL.grassTallLight, shade(PAL.grassTallLight, 0.28), 2);
+  rank([[0, 7], [15, 7]], 15, PAL.grassTall, shade(PAL.grassTall, 0.15), 1);
 }
 
 function flowers(c, f) {
@@ -198,16 +219,23 @@ function pine(c) {
   }
 }
 
+/** A weathered rock sitting in the grass, not a grey box. */
 function rock(c) {
-  c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
+  grass(c, 0, 37);
+  c.fillStyle = shade(PAL.grass, -0.28); px(c, 2, 13, 12, 3); px(c, 1, 14, 14, 1);
+  const blob = (cx, cy, rx, ry, col) => {
+    c.fillStyle = col;
+    for (let y = -ry; y <= ry; y++) {
+      const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2)));
+      px(c, cx - half, cy + y, half * 2 + 1, 1);
+    }
+  };
+  blob(8, 9, 7, 6, shade(PAL.rockDark, -0.3));
+  blob(8, 9, 6, 5, PAL.rock);
+  blob(6, 7, 3, 2, PAL.rockLight);
   c.fillStyle = PAL.rockDark;
-  px(c, 2, 6, 12, 9);
-  c.fillStyle = PAL.rock;
-  px(c, 3, 5, 10, 9);
-  c.fillStyle = PAL.rockLight;
-  px(c, 4, 5, 6, 3); px(c, 4, 8, 3, 2);
-  c.fillStyle = PAL.rockDark;
-  px(c, 9, 10, 4, 2); px(c, 5, 12, 3, 1);
+  px(c, 9, 10, 4, 2); px(c, 5, 12, 3, 1); px(c, 10, 5, 2, 2);
+  c.fillStyle = shade(PAL.rockLight, 0.2); px(c, 5, 6, 2, 1);
 }
 
 function boulder(c) {
@@ -230,13 +258,27 @@ function cliff(c) {
   px(c, 4, 4, 1, 6); px(c, 11, 7, 1, 7); px(c, 7, 2, 1, 4);
 }
 
+/**
+ * A ledge: the little drop you can hop down but not climb. It has to read as
+ * a height change, so it is grass, a lit lip, a shadowed rock face with
+ * vertical striations, and grass again at the bottom of the drop.
+ */
 function ledge(c) {
-  c.fillStyle = PAL.grass; px(c, 0, 0, 16, 16);
-  c.fillStyle = PAL.ledge; px(c, 0, 0, 16, 8);
-  c.fillStyle = shade(PAL.ledge, -0.25); px(c, 0, 6, 16, 3);
-  c.fillStyle = shade(PAL.ledge, 0.2); px(c, 0, 0, 16, 2);
-  c.fillStyle = PAL.grassDark;
-  for (let x = 0; x < 16; x += 4) px(c, x, 9, 2, 1);
+  grass(c, 0, 29);
+  const face = '#a68a60';
+  c.fillStyle = shade(face, 0.28); px(c, 0, 5, 16, 2);
+  c.fillStyle = face; px(c, 0, 7, 16, 5);
+  for (let x = 0; x < 16; x++) {
+    if (h(x, 0, 83) > 0.6) { c.fillStyle = shade(face, -0.16); px(c, x, 7, 1, 5); }
+  }
+  c.fillStyle = shade(face, -0.4); px(c, 0, 11, 16, 1);
+  // The shadow the drop casts on the ground under it.
+  c.fillStyle = shade(PAL.grass, -0.3); px(c, 0, 12, 16, 2);
+  c.fillStyle = shade(PAL.grass, -0.15); px(c, 0, 14, 16, 1);
+  // A pair of chevrons: the universal "you can go down here" mark.
+  c.fillStyle = shade(face, 0.4);
+  px(c, 4, 8); px(c, 5, 9); px(c, 6, 8);
+  px(c, 10, 8); px(c, 11, 9); px(c, 12, 8);
 }
 
 function bridge(c) {

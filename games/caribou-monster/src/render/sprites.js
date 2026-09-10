@@ -16,8 +16,14 @@ const PAD = 3; // left/right padding around the 10px-wide body
 const pad = (rows) => rows.map((r) => '.'.repeat(PAD) + r + '.'.repeat(SPR_W - PAD - r.length));
 
 // Rows 0..14 (head + torso). Rows 15..19 are the procedural legs.
+//
+// Proportions are deliberately chibi — the head is nine of the fifteen rows.
+// A realistic 1:6 figure at sixteen pixels reads as a smudge; the DS games
+// use a big head and a short body because at this size the face is the only
+// part a player can actually see.
 const BODY = {
   down: pad([
+    '..HHHHHH..',
     '.HHHHHHHH.',
     'HHHHHHHHHH',
     'HHHHHHHHHH',
@@ -26,7 +32,6 @@ const BODY = {
     'HSSSSSSSSH',
     '.SSSSSSSS.',
     '..SSSSSS..',
-    '....SS....',
     '..CCCCCC..',
     '.CCCCCCCC.',
     'SCCCCCCCCS',
@@ -35,6 +40,7 @@ const BODY = {
     '..PPPPPP..',
   ]),
   up: pad([
+    '..HHHHHH..',
     '.HHHHHHHH.',
     'HHHHHHHHHH',
     'HHHHHHHHHH',
@@ -43,7 +49,6 @@ const BODY = {
     'HHHHHHHHHH',
     '.HHHHHHHH.',
     '..HHHHHH..',
-    '....SS....',
     '..CCCCCC..',
     '.CCCCCCCC.',
     'SCCCCCCCCS',
@@ -55,12 +60,12 @@ const BODY = {
     '..HHHHHH..',
     '.HHHHHHHH.',
     '.HHHHHHHH.',
+    '.HHHHHHHH.',
     '.HSSSSSHH.',
     '.HESSSSHH.',
     '.HSSSSSHH.',
     '..SSSSSS..',
     '...SSSS...',
-    '....SS....',
     '..CCCCCC..',
     '.CCCCCCCC.',
     '.SCCCCCCC.',
@@ -72,17 +77,20 @@ const BODY = {
 
 // Long hair adds volume behind the head and over the shoulders.
 const LONG_HAIR = {
-  down: [[PAD, 6], [PAD, 7], [PAD, 8], [PAD, 9], [PAD + 9, 6], [PAD + 9, 7], [PAD + 9, 8], [PAD + 9, 9]],
-  up: [[PAD, 8], [PAD, 9], [PAD, 10], [PAD + 9, 8], [PAD + 9, 9], [PAD + 9, 10],
-       [PAD + 1, 8], [PAD + 8, 8]],
-  side: [[PAD + 7, 6], [PAD + 8, 6], [PAD + 8, 7], [PAD + 8, 8], [PAD + 8, 9], [PAD + 7, 9]],
+  down: [[PAD, 5], [PAD, 6], [PAD, 7], [PAD, 8], [PAD, 9],
+         [PAD + 9, 5], [PAD + 9, 6], [PAD + 9, 7], [PAD + 9, 8], [PAD + 9, 9]],
+  up: [[PAD, 8], [PAD, 9], [PAD, 10], [PAD, 11],
+       [PAD + 9, 8], [PAD + 9, 9], [PAD + 9, 10], [PAD + 9, 11],
+       [PAD + 1, 9], [PAD + 8, 9]],
+  side: [[PAD + 7, 5], [PAD + 8, 5], [PAD + 8, 6], [PAD + 8, 7],
+         [PAD + 8, 8], [PAD + 8, 9], [PAD + 7, 9]],
 };
 
-// A cap: brim points the way the character faces.
+// A cap: brim points the way the character faces, and sits on the brow.
 const HAT = {
-  down: { crown: [[PAD, 0, 10, 3]], brim: [[PAD - 1, 3, 12, 1], [PAD, 4, 10, 1]] },
-  up: { crown: [[PAD, 0, 10, 3]], brim: [[PAD, 3, 10, 1]] },
-  side: { crown: [[PAD + 1, 0, 8, 3]], brim: [[PAD - 2, 3, 10, 1]] },
+  down: { crown: [[PAD, 0, 10, 4]], brim: [[PAD - 1, 4, 12, 1]] },
+  up: { crown: [[PAD, 0, 10, 4]], brim: [[PAD, 4, 10, 1]] },
+  side: { crown: [[PAD + 1, 0, 8, 4]], brim: [[PAD - 2, 4, 10, 1]] },
 };
 
 function legRects(dir, frame) {
@@ -160,6 +168,10 @@ export function buildCharSheet(key, look) {
       c.fillRect(PAD + 7, 9, 2, 5);
       c.fillStyle = shade(look.skin, -0.18);
       c.fillRect(PAD + 8, 6, 1, 2);
+      // A highlight on the crown, which is most of the sprite now.
+      c.fillStyle = shade(look.hair, 0.22);
+      c.fillRect(PAD + 2, 1, 3, 1);
+      c.fillRect(PAD + 1, 2, 2, 1);
 
       if (look.hat) {
         const spec = HAT[dir];
