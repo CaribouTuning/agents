@@ -168,6 +168,8 @@ SCRIPTS.rival3 = async (ctx) => {
   ctx.exclaim(cass);
   await ctx.wait(0.4);
   await speak(ctx, CASS.third.approach);
+  // She notices if you are not on your own.
+  if (ctx.linked()) await speak(ctx, ctx.fill(CASS.linked));
   await speak(ctx, CASS.third.pre);
 
   const t = rivalTeam(st, 'rival_3');
@@ -273,6 +275,7 @@ SCRIPTS.charmFound = async (ctx) => {
     await ctx.ask('Well?', ['...It is warm.']);
   }
   await speak(ctx, ROWAN.callTwist);
+  if (ctx.linked()) await speak(ctx, ctx.fill(ROWAN.callLinked));
   await ctx.wait(0.3);
   await speak(ctx, ROWAN.callConfession);
   ctx.setFlag(FLAGS.KNOWS_TWIST);

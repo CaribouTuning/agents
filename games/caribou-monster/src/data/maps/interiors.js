@@ -30,6 +30,12 @@ const PLAYER_HOUSE = defineMap('player_house', {
             'Eat something before you go back out. Champions still have to eat.'],
         },
         {
+          when: { linked: true },
+          lines: ['Is {partner} with you? Out there, I mean. Right now.',
+            'Good. I worry considerably less when there are two of you.',
+            'Tell them they are welcome here any time. Tell them I said that.'],
+        },
+        {
           when: { joined: true },
           lines: ['Tam came round to tell me you had joined the circuit before you did.',
             'I do not mind. He was very excited and you are very busy.',
@@ -354,6 +360,12 @@ const OREBURGH_HOUSE2 = defineMap('oreburgh_house2', {
       id: 'ah2_girl', x: 6, y: 4, look: 'lass', name: 'Resident', movement: 'still', facing: 'down',
       dialogue: [
         {
+          when: { linked: true },
+          lines: ['You are linked up right now, are you not. With {partner}.',
+            'I can always tell. People walk differently when somebody else is in the world.',
+            'My cousin does it every weekend. They battle, they trade, they argue about\nwho carried.'],
+        },
+        {
           when: { joined: true },
           lines: ['Two trainers can link up out on the routes, you know. My cousin does it every weekend.',
             'They count for the world ranking now, the link matches. Properly sanctioned.',
@@ -472,6 +484,14 @@ const OREBURGH_HALL = defineMap('oreburgh_hall', {
             ['I file for the Sinnoh Battle Wire. Everything in this building goes out on the feed.',
               '{titles} title so far. I would like to be the one who writes about the next.'],
           ],
+        },
+        {
+          when: { all: [{ linked: true }, { joined: true }] },
+          lines: ['You are linked with {partner}. I saw it on the board.',
+            'Sanctioned link matches count for the ranking.',
+            'Which means I have to write them up like anything else.',
+            'Two names from the same town on the same feed.',
+            'That is a story, and you know it.'],
         },
         {
           when: { joined: true },

@@ -97,6 +97,26 @@ picked you. And you were four hours faster than the people who wrote the plan.
 Nobody dies and nothing is bittersweet. It is the game you remember, written for
 someone who has since read some books.
 
+### When there are two of you
+
+The story is written for one player, but the world notices when it is not one
+player. `worldSnapshot` takes the network's own snapshot, so `when: { linked:
+true }` is a condition like any other and `{partner}` is a slot like any other —
+and both are filled with whoever is actually connected, right now, by name.
+
+Your mum asks whether they are out there with you and says she worries
+considerably less when there are two. The postman complains about the double
+round and then admits he does not mind. Tam is beside himself. The Wire's
+reporter points out that two names from the same town on the same feed is a
+story. Cass, standing in front of Oreburgh Gate, objects to the arithmetic:
+"Two of you. Against one of me. In what world is that the fair version." And
+when Rowan calls about the charm, the first thing he asks is whether you are
+alone, because he was.
+
+`tools/coop.mjs` proves it with two real browser clients: the same NPC, asked
+alone and asked linked, has to say something different — and has to name the
+partner in one case and not the other.
+
 ### The journal
 
 A Pokémon game tells you what to do next by having somebody say it once, out

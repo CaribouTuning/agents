@@ -65,7 +65,8 @@ function fakeCtx(state, opts = {}) {
     openCircuit: () => {}, resumeTournament: () => {},
     askNickname: async () => {},
     journal: (id) => { journalIds.push(id); record(state, id); },
-    fill: (lines) => lines.map((l) => l.replace(/\{starter\}/g, 'Turtwig')),
+    fill: (lines) => lines.map((l) => l.replace(/\{starter\}/g, 'Turtwig').replace(/\{partner\}/g, 'Robin')),
+    linked: () => !!opts.linked,
   };
   return ctx;
 }
@@ -114,8 +115,18 @@ function freshState() {
     'the second meeting should introduce her circuit rating');
   check(!!st.flags[FLAGS.BEAT_RIVAL_2], 'the second rival flag should be set');
 
+  // Linked: she has to notice the other player is standing there.
+  const c3linked = fakeCtx(st, { battles: [true], linked: true });
+  await SCRIPTS.rival3(c3linked);
+  check(/Robin/.test(c3linked.said.join(' ')),
+    'Cass should name the other trainer when the two of you are linked');
+  st.flags[FLAGS.BEAT_RIVAL_3] = false;
+  st.inventory.items.hyperpotion = 0;
+
   const c3 = fakeCtx(st, { battles: [true] });
   await SCRIPTS.rival3(c3);
+  check(!/Robin/.test(c3.said.join(' ')),
+    'Cass should not mention a partner who is not there');
   check(!!st.flags[FLAGS.BEAT_RIVAL_3], 'the third rival flag should be set');
   check((st.inventory.items.hyperpotion || 0) === 3, 'she should hand over her potions');
   const third = c3.said.join(' ');
@@ -144,6 +155,14 @@ function freshState() {
     'the reveal must include Rowan\'s own failed attempt');
   check(/wanted in/i.test(said),
     'the reveal must explain why the door refused him');
+
+  // And the call acknowledges the second trainer when there is one.
+  const st2 = freshState();
+  st2.flags[FLAGS.BEAT_COMMANDER] = true;
+  const linkedCall = fakeCtx(st2, { answers: [0], linked: true });
+  await SCRIPTS.charmFound(linkedCall);
+  check(/Robin/.test(linkedCall.said.join(' ')),
+    'Rowan should ask after the other trainer when the two of you are linked');
 
   // It fires once.
   const again = fakeCtx(st, { answers: [0] });

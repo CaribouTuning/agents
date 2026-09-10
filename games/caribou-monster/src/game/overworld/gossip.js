@@ -20,7 +20,12 @@ import { caughtCount, seenCount } from '../pokedex.js';
  * Everything an NPC is allowed to know. Built once per conversation so a long
  * exchange cannot contradict itself halfway through.
  */
-export function worldSnapshot(state) {
+/**
+ * `link` is the network's own snapshot, passed in rather than imported, so this
+ * module stays pure and the tests can ask "what would they say if the two of
+ * you were playing together right now" without standing up a transport.
+ */
+export function worldSnapshot(state, link = null) {
   const c = state.circuit || {};
   const rows = c.pros ? standings(c, state.player.name) : [];
   const top = rows[0] || null;
@@ -77,6 +82,10 @@ export function worldSnapshot(state) {
     beatRival: h2h.w > h2h.l,
     headline: c.news && c.news.length ? c.news[0].headline : null,
     activeEvent: c.active ? (getTournament(c.active.id) || {}).short : null,
+
+    // Whether somebody else is out there in the same world right now, and who.
+    linked: !!(link && link.connected && link.partner),
+    partner: (link && link.partner && link.partner.name) || 'your partner',
   };
 }
 
@@ -96,7 +105,7 @@ export const CLAUSES = Object.freeze([
   'flag', 'notFlag',
   'badges', 'maxBadges', 'caught', 'party', 'leadLevel', 'starter',
   'joined', 'rank', 'titles', 'streak', 'hype', 'respect',
-  'champion', 'beatRival', 'inEvent', 'topTen',
+  'champion', 'beatRival', 'inEvent', 'topTen', 'linked',
 ]);
 const CLAUSE_SET = new Set(CLAUSES);
 export function isKnownClause(k) { return CLAUSE_SET.has(k); }
@@ -141,6 +150,7 @@ export function matches(when, s) {
       case 'beatRival': if (s.beatRival !== v) return false; break;
       case 'inEvent': if (!!s.activeEvent !== v) return false; break;
       case 'topTen': if ((s.place == null || s.place > 10) === v) return false; break;
+      case 'linked': if (s.linked !== v) return false; break;
 
       default: return false;   // an unknown clause never silently passes
     }
@@ -154,7 +164,7 @@ const SLOTS = new Set([
   'player', 'starter', 'lead', 'leadLevel', 'badges', 'caught', 'seen',
   'champion', 'championTag', 'topPro', 'topProTag', 'rank', 'cp', 'rating', 'place', 'titles',
   'lastTitle', 'streak', 'rival', 'rivalRating', 'rivalLead', 'event', 'headline',
-  'hype', 'respect',
+  'hype', 'respect', 'partner',
 ]);
 
 export function isKnownSlot(name) { return SLOTS.has(name); }
@@ -182,6 +192,7 @@ export function fill(line, s) {
       case 'streak': return String(s.streak);
       case 'hype': return String(s.hype);
       case 'respect': return String(s.respect);
+      case 'partner': return s.partner;
       case 'rival': return s.rival;
       case 'rivalRating': return String(s.rivalRating);
       case 'rivalLead': return s.rivalLead;
@@ -193,7 +204,7 @@ export function fill(line, s) {
 }
 
 /** Fills a single string against the live world. Used for signs and notices. */
-export function fillText(text, state) { return fill(text, worldSnapshot(state)); }
+export function fillText(text, state, link = null) { return fill(text, worldSnapshot(state, link)); }
 
 // ---- resolution -------------------------------------------------------------
 
@@ -208,9 +219,9 @@ export function fillText(text, state) { return fill(text, worldSnapshot(state));
  * specific (latest-game) entry first and leave an unconditional one last.
  * `turn` rotates pooled remarks so talking to someone twice is not a repeat.
  */
-export function resolveDialogue(dialogue, state, turn = 0) {
+export function resolveDialogue(dialogue, state, turn = 0, link = null) {
   if (!dialogue) return null;
-  const s = worldSnapshot(state);
+  const s = worldSnapshot(state, link);
   const flat = Array.isArray(dialogue) && dialogue.every((d) => typeof d === 'string');
   if (flat) return dialogue.map((l) => fill(l, s));
 

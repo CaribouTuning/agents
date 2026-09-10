@@ -93,7 +93,13 @@ const waitIdle = async (limit = 40) => {
 // Walks toward a tile with short directional holds, re-checking as it goes.
 // More robust than fixed durations, and it fails loudly rather than silently
 // wandering off.
-const walkTo = async (tx, ty, limit = 14) => {
+const PERPENDICULAR = {
+  ArrowLeft: ['ArrowUp', 'ArrowDown'], ArrowRight: ['ArrowUp', 'ArrowDown'],
+  ArrowUp: ['ArrowLeft', 'ArrowRight'], ArrowDown: ['ArrowLeft', 'ArrowRight'],
+};
+
+const walkTo = async (tx, ty, limit = 16) => {
+  let stuck = 0;
   for (let i = 0; i < limit; i++) {
     const w = await where();
     if (!w) return false;
@@ -106,9 +112,22 @@ const walkTo = async (tx, ty, limit = 14) => {
     // A single-tile move gets a short hold. A long one used to overshoot and
     // then oscillate around the target until the attempt budget ran out.
     await hold(key, dist === 1 ? 170 : 150 + dist * 240);
-    const after = await where();
-    if (`${after.x},${after.y},${after.map}` === before) return false;  // stuck
+    let after = await where();
     if (after.map !== w.map) return true;                              // warped
+
+    if (`${after.x},${after.y},${after.map}` === before) {
+      // Blocked. Towns have NPCs that wander into doorways, and giving up on
+      // the first bump made every walk in this suite a coin toss. Sidestep and
+      // carry on; only a repeatedly immovable wall is a real failure.
+      if (++stuck > 3) return false;
+      for (const side of PERPENDICULAR[key]) {
+        await hold(side, 170);
+        after = await where();
+        if (`${after.x},${after.y},${after.map}` !== before) break;
+      }
+      continue;
+    }
+    stuck = 0;
   }
   return false;
 };
@@ -203,6 +222,11 @@ await page.evaluate(() => {
   const g = window.CARIBOU;
   g.state.flags.beatCommander = true;
   delete g.state.inventory.items.auroracharm;
+  // This section is testing the story, not survival. Oreburgh Gate rolls wild
+  // encounters, and a level-5 starter loses them and blacks out to the heal
+  // point halfway through the scene — which reads as a broken door.
+  g.debugGive(4, 45);
+  g.state.repelSteps = 9999;
   g.overworld.world.load('oreburgh_gate', 12, 3, 'up');
 });
 await wait(500);
@@ -359,15 +383,19 @@ check('the bracket starts a real battle against the pro', inBattle.screen === 'B
 check('a circuit match is flagged as a no-blackout battle', !!inBattle.noBlackout);
 await page.screenshot({ path: path.join(OUT, '06-circuit-battle.png') });
 
-// Play it out. A level-5 starter against a level-14 pro loses, which is the
-// case worth proving: a sanctioned loss must not send the player home.
-for (let i = 0; i < 500; i++) {
-  const name = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
-  if (name !== 'BattleScreen') break;
-  await page.keyboard.press('KeyZ');
-  await wait(90);
-}
-await wait(1200);
+// Force the loss rather than grinding the turns out. Whether the engine can
+// finish a battle is battletest's job (400 of them, with a determinism check);
+// what this suite is for is the case worth proving here — that a sanctioned
+// loss does not send the player home, and that the run settles afterwards.
+await page.evaluate(() => {
+  const s = window.CARIBOU.screens.top;
+  if (s.constructor.name === 'BattleScreen') {
+    s.battle.over = true;
+    s.battle.result = 'lose';
+    s._finish();
+  }
+});
+await wait(1600);
 const after = await page.evaluate(() => {
   const g = window.CARIBOU;
   const c = g.state.circuit;
@@ -386,11 +414,11 @@ check('losing a sanctioned match does not send the player home',
 check('the press filed a story', after.news > 0, `${after.news} stories`);
 await page.screenshot({ path: path.join(OUT, '07-circuit-after.png') });
 
-// Whatever the result, the run must settle and the press conference must open.
-for (let i = 0; i < 12; i++) {
-  const name = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
-  if (name === 'PressScreen') break;
-  await tap('KeyZ', 1, 400);
+// A lost round ends the run, so it must settle straight into the press.
+for (let i = 0; i < 16; i++) {
+  const n = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
+  if (n === 'PressScreen') break;
+  await tap('KeyZ', 1, 350);
 }
 const press = await page.evaluate(() => ({
   screen: window.CARIBOU.screens.top.constructor.name,

@@ -160,7 +160,10 @@ export class OverworldScreen extends Screen {
     audio.sfx('select');
 
     // Signs are templated too, so a noticeboard can carry a live standing.
-    if (target.type === 'sign') { this.say(fillText(target.sign.text, this.game.state)); return; }
+    if (target.type === 'sign') {
+      this.say(fillText(target.sign.text, this.game.state, net.snapshot()));
+      return;
+    }
     if (target.type === 'flavour') { this.say(target.text); return; }
     if (target.type === 'pc') { this.game.openPC(); return; }
     if (target.type === 'item') { this._pickUp(target.entity); return; }
@@ -203,11 +206,12 @@ export class OverworldScreen extends Screen {
     // what lets a pooled remark rotate instead of repeating.
     e.talkCount = (e.talkCount || 0) + 1;
 
-    let lines = resolveDialogue(d.dialogue, this.game.state, e.talkCount - 1);
+    const link = net.snapshot();
+    let lines = resolveDialogue(d.dialogue, this.game.state, e.talkCount - 1, link);
     // The older `dialogueAfter` shape still works; conditional dialogue is
     // simply the general case of it.
     if (d.dialogueAfter && this.game.state.flags[d.dialogueAfter.flag]) {
-      lines = resolveDialogue(d.dialogueAfter.lines, this.game.state, e.talkCount - 1);
+      lines = resolveDialogue(d.dialogueAfter.lines, this.game.state, e.talkCount - 1, link);
     }
     if (!lines || !lines.length) lines = ['...'];
     const speaker = d.name || null;
@@ -221,8 +225,8 @@ export class OverworldScreen extends Screen {
     if (t.id === 'cave_commander') { this.runScript('commander', e); return; }
 
     if (this.game.state.flags[`beat_${t.id}`]) {
-      const after = resolveDialogue(e.data.after || [t.defeat], this.game.state, e.talkCount || 0)
-        || [t.defeat];
+      const after = resolveDialogue(e.data.after || [t.defeat], this.game.state,
+        e.talkCount || 0, net.snapshot()) || [t.defeat];
       e.talkCount = (e.talkCount || 0) + 1;
       this.say(after.join('\f'), { speaker: t.name });
       return;
@@ -430,7 +434,11 @@ export class OverworldScreen extends Screen {
 
       // Fills {starter}, {player} and friends in a block of story lines, so
       // the bible can name the Pokémon the player actually chose.
-      fill: (lines) => lines.map((l) => fillText(l, st)),
+      fill: (lines) => lines.map((l) => fillText(l, st, net.snapshot())),
+      linked: () => {
+        const snap = net.snapshot();
+        return !!(snap.connected && snap.partner);
+      },
 
       askNickname: (mon) => new Promise((resolve) => {
         screen.game.openNickname(mon, () => resolve());

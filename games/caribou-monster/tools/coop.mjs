@@ -228,6 +228,35 @@ if (code) {
 
   await A.screenshot({ path: path.join(OUT, 'coop-05-battle-turn.png') });
 
+  // --- the world notices there are two of you -------------------------------
+  // Written as "mostly single player, with real nods": when a partner is
+  // actually connected, NPCs name them. This is the only place that can be
+  // proved, because it needs two real clients.
+  {
+    const alone = await A.evaluate(() => {
+      const g = window.CARIBOU;
+      const mum = g.mapsForTest.MAPS.player_house.npcs.find((n) => n.id === 'ph_mom');
+      return g.gossipForTest.resolveDialogue(mum.dialogue, g.state, 0, null).join(' ');
+    });
+    const together = await A.evaluate(() => {
+      const g = window.CARIBOU;
+      const mum = g.mapsForTest.MAPS.player_house.npcs.find((n) => n.id === 'ph_mom');
+      return g.gossipForTest.resolveDialogue(
+        mum.dialogue, g.state, 0, g.netForTest.snapshot()).join(' ');
+    });
+    const partnerName = await A.evaluate(() => {
+      const p = window.CARIBOU.netForTest.snapshot().partner;
+      return p ? p.name : null;
+    });
+    check('the client can see its partner by name', !!partnerName, partnerName);
+    check('an NPC says something different when a partner is connected',
+      together !== alone, together.slice(0, 90));
+    check('and names the partner', !!partnerName && together.includes(partnerName),
+      together.slice(0, 90));
+    check('and does not name them when playing alone',
+      !!partnerName && !alone.includes(partnerName), alone.slice(0, 90));
+  }
+
   // --- ranked link play ----------------------------------------------------
   // A finished link battle counts towards the world ranking; an abandoned one
   // must not. Register A on the circuit first so there is something to move.

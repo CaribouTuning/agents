@@ -139,9 +139,18 @@ const STAGES = [
 const fired = new Map();          // "map/npc" -> Set of branch indices seen
 let spoken = 0;
 
-for (const [label, build] of STAGES) {
+// Every stage is asked twice: alone, and with the other player in the world.
+// Without this half the co-op lines would be branches nothing ever reaches.
+const LINKS = [
+  ['', null],
+  [' + linked', { connected: true, partner: { name: 'Robin' } }],
+];
+
+for (const [stageLabel, build] of STAGES) {
+ for (const [linkLabel, link] of LINKS) {
+  const label = stageLabel + linkLabel;
   const st = build();
-  const snap = worldSnapshot(st);
+  const snap = worldSnapshot(st, link);
   check(!!snap.champion, `[${label}] snapshot has no champion`);
 
   for (const map of Object.values(MAPS)) {
@@ -152,7 +161,7 @@ for (const [label, build] of STAGES) {
         const tag = `${map.id}/${npc.id}.${key}`;
         // Ask several times so pooled remarks all get exercised.
         for (let turn = 0; turn < 4; turn++) {
-          const lines = resolveDialogue(d, st, turn);
+          const lines = resolveDialogue(d, st, turn, link);
           check(!!lines && lines.length > 0, `[${label}] ${tag} said nothing`);
           if (!lines) continue;
           spoken++;
@@ -171,6 +180,7 @@ for (const [label, build] of STAGES) {
       }
     }
   }
+ }
 }
 console.log(`  spoke ${spoken} conversations across ${STAGES.length} career stages`);
 

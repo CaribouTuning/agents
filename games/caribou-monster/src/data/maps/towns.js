@@ -54,6 +54,12 @@ export const TWINLEAF = defineMap('twinleaf', {
           ],
         },
         {
+          when: { all: [{ linked: true }, { joined: true }] },
+          lines: ['TWO of you? {partner} is out there RIGHT NOW as well?',
+            'That is a link-up. That is a real sanctioned link-up.',
+            'You have to battle. You have to. I will wait here. I have nothing else on.'],
+        },
+        {
           when: { topTen: true },
           pool: [
             ['You are number {place} in the world! Number {place}!',
@@ -161,6 +167,12 @@ export const TWINLEAF = defineMap('twinleaf', {
           lines: ['Two letters for you this week, both from Oreburgh.',
             'One is from the Battle Hall. The other is a child asking for your autograph.',
             'That is how it starts. Next it will be sacks of them.'],
+        },
+        {
+          when: { linked: true },
+          lines: ['Two of you on the road at once. I have seen {partner} go past this week.',
+            'That is double the post and I am not being paid double.',
+            'I do not mind. It is nice, having two of you at it.'],
         },
         {
           when: { joined: true },
@@ -349,6 +361,12 @@ export const OREBURGH = defineMap('oreburgh', {
           when: { topTen: true },
           lines: ['You are number {place} in the world and you still walk to the Center like the rest of us.',
             'Stay like that. The ones who stop walking get strange.'],
+        },
+        {
+          when: { linked: true },
+          lines: ['You and {partner} keep passing each other in the street.',
+            'Neither of you looks where you are going. Both of you look at the other one.',
+            'Trainers heal free here, by the way. Both of you. Nobody has ever suggested stopping.'],
         },
         {
           when: { badges: 1 },

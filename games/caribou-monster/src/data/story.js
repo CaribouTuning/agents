@@ -95,6 +95,14 @@ export const CASS = {
     ],
   },
 
+  // Said when the other player is in the world too. Cass has opinions about
+  // being outnumbered.
+  linked: [
+    'Cass: And you have got {partner} with you. Of course you have.',
+    'Cass: Two of you. Against one of me. In what world is that the fair version.',
+    'Cass: ...Go on then. Both of you. I will wait.',
+  ],
+
   // After the Everlight. She is at the Battle Hall, and for once she is not
   // keeping score.
   after: [
@@ -151,6 +159,12 @@ export const ROWAN = {
     'Prof. Rowan: Then they left it where a trainer would find it, and waited.',
     'Prof. Rowan: The commander did not lose to you. She stepped aside.',
   ],
+  // If the two of you are out there together, he says so.
+  callLinked: [
+    'Prof. Rowan: Is {partner} with you?',
+    'Prof. Rowan: Good. Do not go in there on your own. I did that.',
+  ],
+
   callConfession: [
     'Prof. Rowan: ...I should tell you the rest.',
     'Prof. Rowan: I stood in front of that seam thirty-one years ago.',
