@@ -79,9 +79,9 @@ SCRIPTS.starter = async (ctx) => {
 /**
  * Bandit lets himself in.
  *
- * Only for the player who is Sammy — he is her dog, and the whole point of
- * him is that he chose one particular person. Matthew hears about him from
- * his Mum instead, and sees him trotting along behind her on a link.
+ * Only for the player who is Sammy — she is her dog, and the whole point of
+ * her is that she chose one particular person. Matthew hears about her from
+ * his Mum instead, and sees her trotting along behind Sammy on a link.
  */
 async function banditJoins(ctx) {
   const st = ctx.state;
@@ -93,6 +93,7 @@ async function banditJoins(ctx) {
   const dog = createMonster(BANDIT.species, BANDIT.level, {
     nickname: BANDIT.nickname,
     friendship: BANDIT.friendship,
+    gender: BANDIT.gender,
   });
   dog.ot = st.player.name;
   dog.otId = st.player.id;

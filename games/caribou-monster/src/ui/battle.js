@@ -14,6 +14,11 @@ import {
   rowHighlight,
 } from './kit.js';
 import { renderMonster } from '../render/monsterart.js';
+
+// Platinum's sprites are 80x80 and this screen is 192 logical pixels tall,
+// which is the DS's own screen height. Drawing them at anything else is
+// throwing away the reason for having them.
+const MON = 80;
 import { NicknameScreen } from './naming.js';
 import { drawChar, lookFor } from '../render/sprites.js';
 import { drawBackChip } from './controls.js';
@@ -849,19 +854,21 @@ export class BattleScreen extends Screen {
     const foe = activeOf(foeSide);
     const me = activeOf(mySide);
 
-    // Enemy trainer sprite stands in until the first monster is out.
+    // Drawn at the sprites' own 80px, not scaled down to fit: the logical
+    // screen is 192 tall, exactly like the DS's, so native size IS the right
+    // size and every pixel of the artwork survives.
     if (foe) {
       const art = getSpecies(foe.species).art;
-      const img = renderMonster(art, { size: 52, shiny: foe.shiny });
-      const sx = W - 74 - 26 + this._shakeOffset(this.foeSide) + (1 - this.slide[this.foeSide]) * 60;
-      const sy = H * 0.42 + 6 - 46 + this.faintDrop[this.foeSide] * 34;
+      const img = renderMonster(art, { size: MON, shiny: foe.shiny });
+      const sx = W - 74 - MON / 2 + this._shakeOffset(this.foeSide) + (1 - this.slide[this.foeSide]) * 60;
+      const sy = H * 0.42 + 12 - MON + this.faintDrop[this.foeSide] * 34;
       this._drawSprite(ctx, img, sx, sy, this.flash[this.foeSide], this.faintDrop[this.foeSide]);
     }
     if (me) {
       const art = getSpecies(me.species).art;
-      const img = renderMonster(art, { size: 64, back: true, shiny: me.shiny });
-      const sx = 46 - 32 + this._shakeOffset(this.mySide) - (1 - this.slide[this.mySide]) * 80;
-      const sy = H * 0.66 - 56 + this.faintDrop[this.mySide] * 40;
+      const img = renderMonster(art, { size: MON, back: true, shiny: me.shiny });
+      const sx = 46 - MON / 2 + this._shakeOffset(this.mySide) - (1 - this.slide[this.mySide]) * 80;
+      const sy = H * 0.66 + 8 - MON + this.faintDrop[this.mySide] * 40;
       this._drawSprite(ctx, img, sx, sy, this.flash[this.mySide], this.faintDrop[this.mySide]);
     }
     if (this.ballAnim) this._drawBall(ctx, W, H);
@@ -1173,7 +1180,7 @@ export class BattleScreen extends Screen {
     const p = Math.min(1, e.t / 3.2);
     const freq = 2 + p * 22;
     const showNew = e.done || (Math.sin(e.t * freq) > 0 && p > 0.25);
-    const img = renderMonster(showNew ? to : from, { size: 64, shiny: e.mon.shiny });
+    const img = renderMonster(showNew ? to : from, { size: MON, shiny: e.mon.shiny });
     const glow = 0.25 + Math.abs(Math.sin(e.t * freq)) * 0.55 * p;
     ctx.globalAlpha = glow;
     for (let r = 40; r > 0; r -= 8) {

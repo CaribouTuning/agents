@@ -556,9 +556,9 @@ export class OverworldScreen extends Screen {
     this._drawNetBadge(ctx, W);
 
     if (this.showcase) {
-      const img = renderMonster(getSpecies(this.showcase.species).art, { size: 64 });
-      const bx = W / 2 - 32, by = H / 2 - 70;
-      window9(ctx, bx - 6, by - 6, 76, 76);
+      const img = renderMonster(getSpecies(this.showcase.species).art, { size: 80 });
+      const bx = W / 2 - 40, by = H / 2 - 78;
+      window9(ctx, bx - 6, by - 6, 92, 92);
       ctx.drawImage(img, Math.round(bx), Math.round(by));
     }
 

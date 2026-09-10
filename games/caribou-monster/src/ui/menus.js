@@ -260,7 +260,7 @@ export class PartyScreen extends Screen {
         frame: sel ? PAL.uiSelect : PAL.uiFrame,
       });
       const big = i === 0;
-      const img = renderMonster(getSpecies(m.species).art, { size: big ? 30 : 18, shiny: m.shiny });
+      const img = renderMonster(getSpecies(m.species).art, { size: big ? 32 : 16, shiny: m.shiny });
       ctx.drawImage(img, r.x + 3, r.y + (big ? 3 : 1));
       const tx = r.x + (big ? 36 : 23);
       label(ctx, displayName(m), tx, r.y + 3, { color: isFainted(m) ? PAL.uiShadow : PAL.uiText });
@@ -296,7 +296,7 @@ export class PartyScreen extends Screen {
     const sp = getSpecies(mon.species);
     window9(ctx, 2, 2, W - 4, H - 4);
 
-    const img = renderMonster(sp.art, { size: 56, shiny: mon.shiny });
+    const img = renderMonster(sp.art, { size: 64, shiny: mon.shiny });
     ctx.drawImage(img, 8, 16);
     label(ctx, displayName(mon), 8, 6);
     genderMark(ctx, mon.gender, 8 + displayName(mon).length * 6 + 2, 6);
@@ -723,7 +723,7 @@ export class DexScreen extends Screen {
       labelDim(ctx, 'No data.', px + 8, 24);
       return;
     }
-    const img = renderMonster(sp.art, { size: 48 });
+    const img = renderMonster(sp.art, { size: 64 });
     ctx.drawImage(img, px + 6, 18);
     label(ctx, sp.name, px + 58, 18);
     let cx = px + 58;

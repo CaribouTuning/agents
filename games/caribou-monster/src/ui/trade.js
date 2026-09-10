@@ -172,7 +172,7 @@ export class TradeScreen extends Screen {
       return;
     }
     const sp = getSpecies(mon.species);
-    const img = renderMonster(sp.art, { size: 34, shiny: mon.shiny });
+    const img = renderMonster(sp.art, { size: 32, shiny: mon.shiny });
     ctx.drawImage(img, x + 3, y + 12);
     label(ctx, displayName(mon), x + 40, y + 14);
     genderMark(ctx, mon.gender, x + 42 + displayName(mon).length * 6, y + 14);

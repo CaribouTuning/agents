@@ -345,33 +345,34 @@ export const BANDIT = {
   nickname: 'Bandit',
   level: 5,
   friendship: 200,
+  gender: 'F',
 
   // In the lab, once the starter is chosen, if it is Sammy holding the phone.
   arrives: [
     '*Something scratches at the lab door. Twice. Then harder.*',
     'Prof. Rowan: That will be the Houndour.',
-    'Prof. Rowan: He has been sitting outside since you went in.\fHe followed you up the hill.',
-    'Sammy: That is Bandit. He is not mine exactly. He just lives at our house.',
-    'Prof. Rowan: I have been doing this forty years.\fHe is yours exactly.',
+    'Prof. Rowan: She has been sitting outside since you went in.\fShe followed you up the hill.',
+    'Sammy: That is Bandit. She is not mine exactly. She just lives at our house.',
+    'Prof. Rowan: I have been doing this forty years.\fShe is yours exactly.',
     'Prof. Rowan: A Pokémon that picks a person has already made the decision.\fThe paperwork only ever catches up.',
   ],
   joined: [
     '*Bandit walks straight past the Professor, sits on your foot, and looks up.*',
-    'Prof. Rowan: Yes. Well. Take him with you, then.',
+    'Prof. Rowan: Yes. Well. Take her with you, then.',
   ],
   // Matthew's version: Bandit is next door's, and Bandit likes Matthew more
   // than Matthew has ever admitted to liking Bandit.
   matthewMum: [
     'Mum: That Houndour was on our step again this morning.',
-    'Mum: I said no. Then I gave him the end of the bacon.\fThat is how these arrangements start.',
-    'Mum: He is Sammy\u2019s, really. Everyone knows it but the two of them.',
+    'Mum: I said no. Then I gave her the end of the bacon.\fThat is how these arrangements start.',
+    'Mum: She is Sammy\u2019s, really. Everyone knows it but the two of them.',
   ],
   // The line the walking partner gives back when you talk to him.
   talk: [
-    'Bandit shoves his whole head under your hand.',
+    'Bandit shoves her whole head under your hand.',
     'Bandit is chewing something. You decide not to ask what.',
     'Bandit looks up at you, then back down the road, then at you again.',
     'Bandit has found a stick considerably larger than Bandit.',
-    'Bandit leans his entire weight against your leg and closes his eyes.',
+    'Bandit leans her entire weight against your leg and closes her eyes.',
   ],
 };

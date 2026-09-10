@@ -112,7 +112,7 @@ export class TitleScreen extends Screen {
     }
 
     // The legendary stands on the ridge.
-    const img = renderMonster(getSpecies(DIALGA).art, { size: 56 });
+    const img = renderMonster(getSpecies(DIALGA).art, { size: 80 });
     ctx.globalAlpha = 0.92;
     ctx.drawImage(img, Math.round(W - 78), Math.round(H - 100 + Math.sin(this.t * 0.9) * 1.5));
     ctx.globalAlpha = 1;

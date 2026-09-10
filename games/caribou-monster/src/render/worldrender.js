@@ -197,7 +197,7 @@ function drawShadow(ctx, sx, groundY, lift) {
  * moving rather than sliding, and a ground shadow so it is standing on the
  * map instead of floating over it.
  */
-const PARTNER_SIZE = 20;
+const PARTNER_SIZE = 24;
 
 function drawPartner(ctx, world, e, camera) {
   const sp = getSpecies(e.mon.species);

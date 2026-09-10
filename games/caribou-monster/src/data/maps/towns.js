@@ -101,7 +101,7 @@ export const TWINLEAF = defineMap('twinleaf', {
               'That is a RIVALRY. That is what that is. I am writing it down.'],
             ['Is that a HOUNDOUR? An actual Houndour, just walking about?',
               'They are supposed to be really hard to get near. My book says so.',
-              'He is not even on a lead. He just... goes where you go.'],
+              'She is not even on a lead. She just... goes where you go.'],
             ['When {buddy} links up with you, come and find me first.',
               'I want to see it. A real link-up. Two trainers, one world.',
               'I will not get in the way. I will stand exactly here.'],

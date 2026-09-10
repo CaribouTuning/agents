@@ -66,7 +66,7 @@ const PLAYER_HOUSE = defineMap('player_house', {
           lines: ['Professor Rowan came by looking for you. Something about a Pokémon she wants you to have.',
             '{buddy} was called down as well, so do not dawdle.\fGo on. I already packed your bag.',
             'And that Houndour was on our step again this morning.',
-            'I said no. Then I gave him the end of the bacon.\fThat is how these arrangements start.'],
+            'I said no. Then I gave her the end of the bacon.\fThat is how these arrangements start.'],
         },
       ],
       heals: true,
@@ -105,9 +105,9 @@ const RIVAL_HOUSE = defineMap('rival_house', {
         },
         {
           when: { flag: 'hasBandit' },
-          lines: ['So he went with you. Of course he did.',
-            'That dog has slept on four different doorsteps in this street and chosen exactly one person.',
-            'Do not let him near anybody\u2019s washing line. I am asking as a favour.'],
+          lines: ['So she went with you. Of course she did.',
+            'That dog has slept on four doorsteps in this street and chosen exactly one person.',
+            'Do not let her near anybody\u2019s washing line. I am asking as a favour.'],
         },
         {
           when: { linked: true },
@@ -857,7 +857,7 @@ const SANDGEM_HOUSE = defineMap('sandgem_house', {
         {
           when: { flag: 'hasBandit' },
           lines: ['There is a Houndour sitting on my step every time you come in here.',
-            'He is not begging. He is supervising. There is a difference and he knows it.'],
+            'She is not begging. She is supervising.\fThere is a difference and she knows it.'],
         },
         {
           lines: ['Sandgem is quiet, and I intend to keep it that way.',

@@ -9,6 +9,7 @@
 // data, never a hand-drawn asset.
 import { makeSurface } from './canvas.js';
 import { shade } from './palette.js';
+import { spriteAt, setFor, hasSprite } from './monstersprites.js';
 
 const cache = new Map();
 
@@ -524,6 +525,12 @@ export function renderMonster(art, { size = 48, back = false, shiny = false } = 
   const key = `${art.key}:${size}:${back ? 'b' : 'f'}:${shiny ? 's' : 'n'}`;
   if (cache.has(key)) return cache.get(key);
 
+  // The real sprite wins whenever it has finished decoding. It is not put in
+  // this cache, because `spriteAt` keeps its own — and because caching a miss
+  // here would freeze the generated art in place for the rest of the session.
+  const real = spriteAt(art.key, setFor(back, shiny), size);
+  if (real) return real;
+
   const S = size;
   const surf = makeSurface(S, S);
   const c = surf.ctx;
@@ -557,7 +564,10 @@ export function renderMonster(art, { size = 48, back = false, shiny = false } = 
   shadePass(surf, size >= 32 ? 1 : 0.7);
   outlinePass(surf, p.line);
 
-  cache.set(key, surf.canvas);
+  // Only cache the generated art for species the sprite sheets do not carry.
+  // For one that has a sprite this is a single-frame stand-in while the PNG
+  // decodes, and caching it would make that frame permanent.
+  if (!hasSprite(art.key)) cache.set(key, surf.canvas);
   return surf.canvas;
 }
 
