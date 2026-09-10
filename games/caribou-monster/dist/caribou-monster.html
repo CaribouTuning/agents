@@ -3942,7 +3942,12 @@ function typeFrame(g, text, maxLen, cursor, opts = {}) {
     audio.sfx('select');
   };
   const del = () => {
-    if (!out.text.length) { audio.sfx('deny'); return; }
+    // Backing out of an empty field means "no thanks", not "beep at me".
+    if (!out.text.length) {
+      if (opts.skip) { out.done = true; out.skipped = true; return; }
+      audio.sfx('deny');
+      return;
+    }
     out.text = out.text.slice(0, -1);
     audio.sfx('back');
   };
@@ -4494,10 +4499,13 @@ const FLAGS = {
   FOREST_GRUNT: 'forestGrunt',
   REACHED_ALDERMERE: 'reachedOreburgh',
   BEAT_RIVAL_2: 'beatRival2',
+  BEAT_RIVAL_3: 'beatRival3',
   BADGE_1: 'badge1',
   ENTERED_CAVE: 'enteredCave',
   GOT_CHARM: 'gotCharm',
   BEAT_COMMANDER: 'beatCommander',
+  KNOWS_TWIST: 'knowsTwist',
+  MARS_LATE: 'marsLate',
   EVERLIGHT_OPENED: 'everlightOpened',
   EVERLIGHT_RESOLVED: 'everlightResolved',
   CAUGHT_EVERLIGHT: 'caughtEverlight',
@@ -5112,13 +5120,17 @@ const PROS = {
     rating: 1180, rival: true,
     pool: [17, 12, 49, 6, 54, 30],
     tag: 'The Metronome',
-    bio: 'Came up through the same regional circuit as you, one season earlier.',
+    bio: 'Grew up four doors down from you in Twinleaf. Started a year earlier.',
     lines: {
-      pre: ['Same route, same year, and here we both are. Try to make it interesting.',
-        'I have watched every match you have played. All of them.'],
+      pre: ['Twinleaf to here. Neither of us has changed as much as we think.',
+        'I have watched every match you have played. All of them. Since Route 201.',
+        'One year ahead. I am still saying it. It is still true. Mostly.'],
       win: ['You are getting closer. That is not a compliment yet.',
-        'Next time bring the team you actually practise with.'],
-      lose: ['Fine. That one was yours.', 'I hate that you are good at this.'],
+        'Next time bring the team you actually practise with.',
+        'Go home and tell your mum. She will be thrilled for me.'],
+      lose: ['Fine. That one was yours.',
+        'I hate that you are good at this.',
+        'Same as Route 201. I am going to stop being surprised eventually.'],
     },
   }),
   calder: P('calder', {
@@ -5784,18 +5796,219 @@ __exports(__x, { createCircuit: () => createCircuit, serializeCircuit: () => ser
 
 };
 
+__defs['game/journal.js'] = function (__x, __req) {
+const { FLAGS } = __req('game/storyflags.js');
+// The journal.
+//
+// A Pokémon game tells you what to do next by having somebody say it once, out
+// loud, forty minutes ago. That was fine when you played it on a bus every day
+// for a month. It is not fine when you pick this up on a Tuesday having last
+// touched it three weeks earlier.
+//
+// So: every beat writes an entry, entries carry what you *learned* rather than
+// what happened, and the top of the screen always says what you are doing now.
+// Nothing here gates anything — it is a record, not a quest system.
+
+
+/**
+ * Entries in story order. `id` is what a script passes to ctx.journal().
+ * `next` is what the journal shows as the current objective while this is the
+ * latest entry — the single most useful line in the whole feature.
+ */
+const ENTRIES = [
+  {
+    id: 'gotStarter',
+    title: 'A Pokémon of my own',
+    body: [
+      'Prof. Rowan gave me a starter and a Pokédex, and said the road north\nis "the whole point".',
+      'He mentioned the Pokédex logs ambient light as well. He said not to\nworry about that part.',
+    ],
+    next: 'Head north out of Twinleaf, along Route 201.',
+  },
+  {
+    id: 'metCass',
+    title: 'Cass Wren',
+    body: [
+      'Cass from four doors down was waiting on Route 201. She started a year\nbefore me and has never once let me forget it.',
+      'She got up at seven to take the starter that beats mine. On purpose.',
+    ],
+    next: 'Follow Route 201 north, then Route 202, to Oreburgh City.',
+  },
+  {
+    id: 'cassCircuit',
+    title: 'The Battle Hall',
+    body: [
+      'Cass has been competing at the Oreburgh Battle Hall — sanctioned World\nCircuit events, with a real world ranking.',
+      'She is rated 1180. She was very keen to tell me that is "not a good\nnumber, just a real one".',
+    ],
+    next: 'Take on Roark at the Oreburgh Gym.',
+  },
+  {
+    id: 'badge1',
+    title: 'The Coal Badge',
+    body: ['Beat Roark. Oreburgh was cut out of the hillside by people who did not\ngive up, apparently, and now I have the badge to prove I am one of them.'],
+    next: 'Route 207 runs north out of the city. Team Galactic are up there.',
+  },
+  {
+    id: 'doc_survey',
+    title: 'A ninety-year-old survey',
+    body: [
+      'A quarry survey from ninety years ago records the north seam as "warm at\nall hours and in all weathers", with no explanation offered.',
+      'Someone wrote in the margin, in a different pen: "The Everlight does not\nsleep. It waits, and it is patient, and it is not alone."',
+    ],
+  },
+  {
+    id: 'doc_memo',
+    title: 'A Galactic field memo',
+    body: [
+      'Site 9 is Oreburgh Gate. Readings up 40% on the month, and the memo says\nthat is expected — "this is the whole point".',
+      'Field staff are forbidden from carrying the artefact into the chamber\napproach. Not once. Not to test it.',
+      'Signed "M."',
+    ],
+  },
+  {
+    id: 'doc_logbook',
+    title: 'A worn field logbook',
+    body: [
+      'Thirty-one years of light readings in a young hand, then this:',
+      '"I keep asking what opens it. I should be asking what it is holding shut,\nand who is holding it."',
+      'The rest of the pages are blank. The book has been kept anyway.',
+    ],
+  },
+  {
+    id: 'joinedCircuit',
+    title: 'Registered on the World Circuit',
+    body: [
+      'Signed on at the Oreburgh Battle Hall. Unranked, like everyone starts.',
+      'Rating moves both ways. Circuit Points only go up. One measures how good\nI am now, the other measures what I have done.',
+    ],
+    next: 'Enter the Oreburgh Rookie Cup — open entry.',
+  },
+  {
+    id: 'cassWarning',
+    title: 'Cass, at the mouth of the Gate',
+    body: [
+      'She stood in the way and told me not to go in. She has been up there\ntwice this week and there are more of them each time.',
+      'Then she made me beat her for the privilege, gave me three Hyper Potions,\nand said if I am not out in a day she is coming in after me.',
+    ],
+    next: 'Go into Oreburgh Gate and find out what Galactic are doing.',
+  },
+  {
+    id: 'beatMars',
+    title: 'Commander Mars',
+    body: [
+      'Beat her. She said "we will not make that mistake twice" and walked out.',
+      'She left every instrument behind. She did not even look at them.',
+    ],
+    next: 'Look for whatever Galactic were digging towards.',
+  },
+  {
+    id: 'theKey',
+    title: 'It is a key, and it is theirs',
+    body: [
+      'The Aurora Charm was warm when I picked it up. Rowan says that means it\nhad been in that rock for minutes, not centuries.',
+      'Galactic built it. They cannot use it — the door does not open for anyone\nwho wants in — so they left it where a trainer would find it.',
+      'Mars did not lose. She stepped aside.',
+      'And Rowan sent me up that road knowing all of it. He tried the door\nhimself thirty-one years ago and it would not open for him.',
+    ],
+    next: 'The seam is in the north wall of Oreburgh Gate.',
+  },
+  {
+    id: 'doorOpened',
+    title: 'The rock drew back',
+    body: ['The charm did not answer the light. The light answered the charm.'],
+    next: 'Go into the Everlight Chamber.',
+  },
+  {
+    id: 'caughtEverlight',
+    title: 'The Everlight',
+    body: [
+      'Dialga. It had its back to the door, and it had been standing that way\nfor a very long time.',
+      'It was not guarding the light. It was holding the door shut, from the\ninside, alone, and nobody had ever come to help.',
+      'It turned around and it was not surprised. It was relieved.',
+    ],
+    next: 'Prof. Rowan is waiting outside the Gate.',
+  },
+  {
+    id: 'marsLate',
+    title: 'Four hours',
+    body: [
+      'Mars got to the chamber four hours after I did.',
+      'Fourteen months of operation, two commanders, nine sites. They built the\nkey, picked the hill, and picked the trainer.',
+      'They picked me.',
+    ],
+  },
+  {
+    id: 'rowanOutside',
+    title: 'Rowan, outside the Gate',
+    body: [
+      'He had been standing there six hours. He could not go in, and he wanted\nme to understand that he tried.',
+      '"The door was never locked. It was held. From the inside."',
+      '"And you knocked."',
+    ],
+    next: 'The World Circuit is still running. Cass is at the Battle Hall.',
+  },
+];
+
+const BY_ID = new Map(ENTRIES.map((e) => [e.id, e]));
+function getEntry(id) { return BY_ID.get(id) || null; }
+
+function createJournal() { return { seen: [] }; }
+
+function reviveJournal(raw) {
+  const j = createJournal();
+  if (raw && Array.isArray(raw.seen)) j.seen = raw.seen.filter((id) => BY_ID.has(id));
+  return j;
+}
+
+function serializeJournal(j) { return { seen: [...(j ? j.seen : [])] }; }
+
+/** Records an entry. Returns true the first time, so a script can react. */
+function record(state, id) {
+  if (!BY_ID.has(id)) return false;
+  const j = state.journal || (state.journal = createJournal());
+  if (j.seen.includes(id)) return false;
+  j.seen.push(id);
+  return true;
+}
+
+/** Entries the player has, in story order. */
+function entriesFor(state) {
+  const seen = new Set(state.journal ? state.journal.seen : []);
+  return ENTRIES.filter((e) => seen.has(e.id));
+}
+
+/**
+ * What to do next: the objective from the most recent entry that carries one.
+ * Falls back to the opening instruction so the journal is never blank.
+ */
+function objective(state) {
+  const mine = entriesFor(state);
+  for (let i = mine.length - 1; i >= 0; i--) {
+    if (mine[i].next) return mine[i].next;
+  }
+  if (state.flags && state.flags[FLAGS.GOT_STARTER]) return 'Head north out of Twinleaf.';
+  return 'Go and see Prof. Rowan at the lab.';
+}
+
+__exports(__x, { ENTRIES: () => ENTRIES, getEntry: () => getEntry, createJournal: () => createJournal, reviveJournal: () => reviveJournal, serializeJournal: () => serializeJournal, record: () => record, entriesFor: () => entriesFor, objective: () => objective });
+
+};
+
 __defs['game/state.js'] = function (__x, __req) {
 const { createInventory, addItem } = __req('game/inventory.js');
 const { createDex, recordSeen, recordCaught } = __req('game/pokedex.js');
 const { createFlags, setFlag, getFlag, FLAGS, storyProgress } = __req('game/storyflags.js');
 const { createMonster, healFully, isFainted, reviveMonster, serializeMonster, displayName } = __req('game/monster.js');
 const { createCircuit, serializeCircuit, reviveCircuit } = __req('game/circuit/circuit.js');
+const { createJournal, serializeJournal, reviveJournal } = __req('game/journal.js');
 // The player's entire game state.
 //
 // Deliberately one plain object graph: it is what the save layer writes, what
 // the debug menu inspects, and what a future cloud backend would sync. Two
 // co-op players each own a completely separate GameState — only the room and
 // the shared story milestones are common.
+
 
 
 
@@ -5835,6 +6048,8 @@ function createGameState(opts = {}) {
     stats: { battlesWon: 0, caught: 0, steps: 0 },
     // The World Circuit career runs alongside the badge quest.
     circuit: createCircuit(),
+    // What the player has worked out so far, and what they are doing next.
+    journal: createJournal(),
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false },
   };
 }
@@ -5962,6 +6177,7 @@ function serializeState(st) {
     stats: { ...st.stats },
     settings: { ...st.settings },
     circuit: serializeCircuit(st.circuit),
+    journal: serializeJournal(st.journal),
   };
 }
 
@@ -5990,6 +6206,7 @@ function deserializeState(raw) {
   Object.assign(st.stats, raw.stats || {});
   Object.assign(st.settings, raw.settings || {});
   st.circuit = reviveCircuit(raw.circuit);
+  st.journal = reviveJournal(raw.journal);
   return st;
 }
 
@@ -6918,6 +7135,10 @@ const OREBURGH = defineMap('oreburgh', {
     { x: 21, y: 11, to: 'oreburgh_hall', tx: 7, ty: 8, dir: 'up' },
     { x: 22, y: 11, to: 'oreburgh_hall', tx: 8, ty: 8, dir: 'up' },
   ],
+  events: [
+    // The survey Ines keeps talking about, left on the bench beside her.
+    { x: 20, y: 21, flag: 'doc_survey_read', script: 'docSurvey' },
+  ],
   signs: [
     { x: 3, y: 22, text: 'OREBURGH CITY\nCut from the hillside, stone by stone.' },
     { x: 26, y: 22, text: 'OREBURGH GYM\nLeader: ROARK\n"The quarry does not blink."' },
@@ -7175,6 +7396,14 @@ const ROUTE207 = defineMap('route207', {
     { id: 'r2_super', x: 2, y: 13, item: 'superpotion', qty: 1 },
     { id: 'r2_great', x: 22, y: 4, item: 'greatball', qty: 2 },
   ],
+  events: [
+    // Cass, standing in the way, one tile short of the Gate.
+    { x: 12, y: 1, flag: 'beatRival3', script: 'rival3' },
+    { x: 13, y: 1, flag: 'beatRival3', script: 'rival3' },
+    // Rowan waits out here afterwards. He could not go in. He tried.
+    { x: 12, y: 2, flag: 'rowanDebriefed', script: 'rowanAfter', requires: 'everlightResolved' },
+    { x: 13, y: 2, flag: 'rowanDebriefed', script: 'rowanAfter', requires: 'everlightResolved' },
+  ],
   npcs: [
     { id: 'r2_t1', x: 9, y: 6, look: 'youngster', trainer: 'r2_youngster', facing: 'right', sight: 4, movement: 'still' },
     { id: 'r2_t2', x: 18, y: 12, look: 'hiker', trainer: 'r2_hiker', facing: 'left', sight: 4, movement: 'still' },
@@ -7316,6 +7545,9 @@ const EVERLIGHT_CHAMBER = defineMap('everlight_chamber', {
     { x: 8, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
   ],
   events: [
+    // Rowan's own logbook, left in the chamber approach thirty-one years ago.
+    { x: 4, y: 6, flag: 'doc_logbook_read', script: 'docLogbook' },
+    { x: 11, y: 6, flag: 'doc_logbook_read', script: 'docLogbook' },
     // Standing in front of it is the encounter. It repeats until the thing is
     // caught, because a legendary you knocked out should not be gone forever.
     { x: 7, y: 4, flag: 'everlightResolved', script: 'everlightDialga', repeat: true },
@@ -7354,6 +7586,10 @@ const OREBURGH_GATE = defineMap('oreburgh_gate', {
     { id: 'sf_charm', x: 12, y: 1, item: 'auroracharm', qty: 1, story: true },
   ],
   events: [
+    // Picking the charm up is the turn. The tile under it does the work.
+    { x: 12, y: 1, flag: 'knowsTwist', script: 'charmFound', requires: 'beatCommander' },
+    // Galactic left in a hurry and left their paperwork.
+    { x: 11, y: 3, flag: 'doc_memo_read', script: 'docMemo' },
     // The seam in the rock the whole region has been talking about. It fires
     // every time you stand on it: shut without the charm, a door with it.
     { x: 12, y: 2, flag: 'everlightOpened', script: 'everlight', repeat: true },
@@ -8178,21 +8414,21 @@ add('cave_commander', {
 // The rival's starter is chosen at runtime to counter the player's, exactly
 // like the DS games. `starterOffset` picks the type-advantaged line.
 add('rival_1', {
-  name: 'Rival', cls: 'Rival', look: 'rivalBoy', ai: 1, prize: 400, rival: true,
-  intro: 'You picked yours, I picked mine. Let us find out who picked better.',
-  defeat: 'Ha! Fine. You picked better. This time.',
+  name: 'Cass Wren', cls: 'Rival', look: 'rivalGirl', ai: 1, prize: 400, rival: true,
+  intro: 'One year. That is how far ahead I am.',
+  defeat: 'That is not what a year is supposed to look like.',
   team: [mon(10, 5, ['tackle', 'growl']), 'RIVAL_STARTER:5'],
 });
 add('rival_2', {
-  name: 'Rival', cls: 'Rival', look: 'rivalBoy', ai: 2, prize: 900, rival: true,
-  intro: 'Oreburgh already? You have been busy. So have I.',
-  defeat: 'You have been busier. Noted.',
+  name: 'Cass Wren', cls: 'Rival', look: 'rivalGirl', ai: 2, prize: 900, rival: true,
+  intro: 'Badge first. Roark does not care what anyone is rated.',
+  defeat: 'You have got faster. Not better. Faster.',
   team: [mon(11, 12, ['quickattack', 'wingattack', 'growl']), mon(15, 12, ['spark', 'leer']), 'RIVAL_STARTER:13'],
 });
 add('rival_3', {
-  name: 'Rival', cls: 'Rival', look: 'rivalBoy', ai: 2, prize: 1600, rival: true,
-  intro: 'Last time was last time. Come on.',
-  defeat: 'Every single time. How.',
+  name: 'Cass Wren', cls: 'Rival', look: 'rivalGirl', ai: 3, prize: 1600, rival: true,
+  intro: 'You are going in having beaten me, or you are not going in.',
+  defeat: 'I am not going to pretend I am not annoyed about that.',
   team: [mon(11, 18, ['wingattack', 'quickattack', 'doubleteam']), mon(16, 18, ['spark', 'bite', 'leer']),
     mon(22, 17, ['quickattack', 'defensecurl']), 'RIVAL_STARTER:19'],
 });
@@ -8492,7 +8728,8 @@ class World {
     // `repeat` fires every time you stand on it, which is how a doorway that
     // is also a cutscene works — the script decides what state you are in.
     const stepEvent = this.map.events.find((ev) => ev.x === p.x && ev.y === p.y
-      && (ev.repeat || !this.state.flags[ev.flag]));
+      && (ev.repeat || !this.state.flags[ev.flag])
+      && (!ev.requires || this.state.flags[ev.requires]));
     if (stepEvent) { this.pendingEvent = stepEvent; return; }
 
     // Trainer spotted us?
@@ -8838,12 +9075,327 @@ __exports(__x, { Camera: () => Camera, drawWorld: () => drawWorld, drawLocationB
 
 };
 
+__defs['data/story.js'] = function (__x, __req) {
+
+// The story bible.
+//
+// Every line the main plot speaks lives here, so the scripts in
+// game/overworld/scripts.js are sequencing and this is writing. Two things
+// this file is trying very hard to be:
+//
+//  1. Specific. "Team Galactic is up to something" is not a story. A grunt
+//     who is annoyed that the readings went up on his shift is a story.
+//  2. Re-readable. The plot turns on one fact revealed late, and almost every
+//     scene before it is written so that it means something slightly different
+//     afterwards. Mars saying "we will not make that mistake twice" is a
+//     threat on the way in and an admission on the way out.
+
+// ---- Cass Wren -------------------------------------------------------------
+// The rival. She grew up four doors down, started a year before you, and is
+// already carrying a world ranking she is quietly proud of. She is not a brat
+// and she is not secretly kind: she is a competitor who has decided you are
+// worth keeping track of, which from her is a large compliment.
+//
+// She is the same Cass Wren who is rated 1180 on the World Circuit. One person,
+// one relationship, from a dirt road in Twinleaf to the World Finals.
+
+const CASS = {
+  name: 'Cass Wren',
+  look: 'rivalGirl',
+
+  // Route 201, minutes after you get your first Pokémon.
+  first: {
+    approach: [
+      'Cass: There you are. I have been standing here for an hour.',
+      'Cass: Rowan called my mum this morning to say you were finally coming in.',
+      'Cass: Finally. His word, not mine.',
+    ],
+    pick: [
+      'Cass: So you took the {starter}.',
+      'Cass: I took the one that beats it. Obviously. I was here at seven.',
+      'Cass: Do not make a face. You would have done the same if you got up.',
+    ],
+    pre: ['Cass: One year. That is how far ahead I am.\fLet us find out how much of a year is worth.'],
+    win: [
+      'Cass: Hm.',
+      'Cass: That is not what a year is supposed to look like.',
+      'Cass: I am going north. Oreburgh, the gym, the Hall. All of it.',
+      'Cass: Keep up and I will keep taking you seriously.',
+    ],
+    lose: [
+      'Cass: There it is. That is what a year looks like.',
+      'Cass: Go and heal up. I am not going anywhere. That is sort of the problem.',
+    ],
+  },
+
+  // Outside Oreburgh, once you have made it up the road.
+  second: {
+    approach: [
+      'Cass: You made it. I did wonder.',
+      'Cass: I have been in that grey building four times this week. The Battle Hall.',
+      'Cass: Sanctioned circuit events. A real ranking with real numbers in it.',
+      'Cass: I am 1180. That is not a good number. It is just a real one.',
+    ],
+    pre: ['Cass: Badge first, though. Roark does not care what anyone is rated.\fCome on. Same as always.'],
+    win: [
+      'Cass: You have got faster.',
+      'Cass: Not better. Faster. There is a difference and I will explain it to you one day.',
+      'Cass: Roark is Rock. You already knew that. I am telling you anyway.',
+    ],
+    lose: [
+      'Cass: Good. I was worried this was going to get boring.',
+      'Cass: Centre is the red roof. Do not go into the gym like that.',
+    ],
+  },
+
+  // Route 207, at the mouth of Oreburgh Gate, with the coats already inside.
+  third: {
+    approach: [
+      'Cass: Do not go in there.',
+      'Cass: I am not being clever. I have been up here twice this week.',
+      'Cass: There are more of them each time.',
+      'Cass: They are not looking for Pokémon. They have got instruments.',
+    ],
+    pre: [
+      'Cass: So obviously you are going in anyway.',
+      'Cass: Fine. Then you are going in having beaten me, or you are not going in.',
+    ],
+    win: [
+      'Cass: ...Right.',
+      'Cass: I am not going to pretend I am not annoyed about that.',
+      'Cass: Take this. My mum makes me carry three.',
+      'Cass: And listen — if you are not out in a day I am coming in after you.',
+      'Cass: I will be insufferable about it. You know I will.',
+    ],
+    lose: [
+      'Cass: Good. Now go home.',
+      'Cass: ...You are not going home, are you.',
+      'Cass: At least go and heal first. Please.',
+    ],
+  },
+
+  // After the Everlight. She is at the Battle Hall, and for once she is not
+  // keeping score.
+  after: [
+    'Cass: The sky went out.',
+    'Cass: Everyone in the Hall was outside on the steps looking up at nothing.',
+    'Cass: And I knew. Straight away. I did not even have to ask.',
+    'Cass: I am still going to beat you at this. The ranking is the ranking.',
+    'Cass: But I am glad it was you up there. I would not have opened it.',
+    'Cass: I would have tried to. That is the difference, is it not.',
+  ],
+};
+
+// ---- Professor Rowan --------------------------------------------------------
+// He is not a vending machine that dispenses a starter. He is a man who tried
+// this thirty years ago, failed, and has spent the time since working out why —
+// and who has just realised the answer means he has to send somebody else.
+
+const ROWAN = {
+  give: [
+    'Prof. Rowan: There you are.',
+    'Prof. Rowan: I have three young Pokémon on that table and nobody to raise them.\fTake a look.',
+  ],
+  chosen: [
+    'Prof. Rowan: Good choice. They all are.',
+    'Prof. Rowan: Take this as well. You will want to know what you are looking at out there.',
+  ],
+  // The detail that pays off two acts later, dropped as an aside nobody
+  // remembers on the first pass.
+  dex: [
+    'Prof. Rowan: It logs everything you see and everything you catch.',
+    'Prof. Rowan: It also logs ambient light. Do not worry about that part.',
+    'Prof. Rowan: An old habit of mine. The data has to go somewhere.',
+  ],
+  send: [
+    'Prof. Rowan: Oreburgh City is north, past Route 202.',
+    'Prof. Rowan: The road there is the whole point. Go and walk it.',
+  ],
+
+  // Over the Pokédex, the moment you pick up the Aurora Charm.
+  call: [
+    '*The Pokédex chirps twice. It has never done that before.*',
+    'Prof. Rowan: Do not put it down. Whatever you have just picked up, do not put it down.',
+    'Prof. Rowan: My readings went off the top of the scale about four seconds ago.',
+    'Prof. Rowan: Describe it to me.',
+  ],
+  callTwist: [
+    'Prof. Rowan: Warm. You are certain it is warm.',
+    'Prof. Rowan: Then it has not been in that rock for centuries. It has been there for minutes.',
+    'Prof. Rowan: That is not an artefact you found.',
+    'Prof. Rowan: That is a key. Galactic made it.',
+    'Prof. Rowan: The door under that hill does not open for anyone who wants in.',
+    'Prof. Rowan: They know that. They have known it for years.',
+    'Prof. Rowan: So they built a key they could not turn.',
+    'Prof. Rowan: Then they left it where a trainer would find it, and waited.',
+    'Prof. Rowan: The commander did not lose to you. She stepped aside.',
+  ],
+  callConfession: [
+    'Prof. Rowan: ...I should tell you the rest.',
+    'Prof. Rowan: I stood in front of that seam thirty-one years ago.',
+    'Prof. Rowan: Full team. Every instrument I owned.',
+    'Prof. Rowan: It did not open. I have spent three decades working out what I got wrong.',
+    'Prof. Rowan: I think what I got wrong was that I wanted in.',
+    'Prof. Rowan: You were not going up there to open anything.',
+    'Prof. Rowan: You were walking a road because an old man told you\nit was the whole point.',
+    'Prof. Rowan: I am sorry.',
+    'Prof. Rowan: That is either the kindest thing I have ever done,',
+    'Prof. Rowan: or the worst. I genuinely do not know which.',
+    'Prof. Rowan: Go carefully.',
+    'Prof. Rowan: And keep the light meter running.',
+  ],
+
+  // Outside the Gate, afterwards.
+  after: [
+    'Prof. Rowan: I have been standing out here for six hours.',
+    'Prof. Rowan: I could not go in. I want you to understand that I tried.',
+    'Prof. Rowan: Thirty-one years of readings, and the answer is that the door\nwas never locked.',
+    'Prof. Rowan: It was held. From the inside.',
+    'Prof. Rowan: Somebody was standing behind it making sure it stayed shut.',
+    'Prof. Rowan: And you knocked.',
+  ],
+  afterCaught: [
+    'Prof. Rowan: ...And it came with you.',
+    'Prof. Rowan: Of course it did.',
+    'Prof. Rowan: It has been holding that door alone since before there was\na town to hold it against.',
+    'Prof. Rowan: Look after it. That is not a professor talking.',
+  ],
+};
+
+// ---- Commander Mars ---------------------------------------------------------
+// Her first scene reads as a threat. Her last scene reveals the first one was
+// a performance, and she is much better at this than you assumed.
+
+const MARS = {
+  intro: [
+    'A figure in a long coat is standing over a seam of pale light in the rock.',
+    'Mars: The Everlight sleeps under this hill.',
+    'Mars: Galactic intends to wake it.',
+    'Mars: You are one trainer. Reconsider.',
+  ],
+  // Written to be re-read. On the way in this is a villain being beaten. On
+  // the way out it is somebody checking a box.
+  defeat: [
+    'Mars: One trainer.',
+    'Mars: Noted.',
+    'Mars: We will not make that mistake twice.',
+  ],
+  withdraw: [
+    'She does not look at her Pokémon. She looks at you, for slightly too long.',
+    'Mars: Get out of the hill, child. The instruments are expensive.',
+    'She walks out without collecting a single piece of equipment.',
+  ],
+
+  // She arrives at the chamber four hours late.
+  late: [
+    'Boots on stone, coming fast, and then stopping.',
+    'Mars: ...',
+    'Mars: Four hours.',
+    'Mars: We ran that operation for fourteen months. Two commanders. Nine sites.',
+    'Mars: We built the key. We picked the hill. We picked the trainer.',
+    'Mars: We picked YOU.',
+    'Mars: And you were four hours faster than the people who wrote the plan.',
+  ],
+  lateCaught: [
+    'She looks at the ball in your hand for a long moment.',
+    'Mars: Hm.',
+    'Mars: Do you know what the worst part is?',
+    'Mars: It would never have come out for us. Not in fourteen months.\nNot in fourteen years.',
+    'Mars: Enjoy it. Genuinely. That is not sarcasm, and I am as surprised as you are.',
+  ],
+  lateLeft: [
+    'Mars: It is still in there.',
+    'Mars: You opened the door and you left it standing there.',
+    'Mars: I do not know whether that makes you a fool,',
+    'Mars: or the only careful person I have met all year.',
+    'Mars: We will be back. Obviously we will be back.',
+  ],
+};
+
+// ---- The chamber ------------------------------------------------------------
+
+const EVERLIGHT = {
+  shut: [
+    'A seam of pale light runs up the rock face.',
+    'It is cold to the touch, and it does not move.',
+  ],
+  opening: [
+    'The seam of light is directly ahead.',
+    'The Aurora Charm in your bag has started to glow.',
+    'It is not answering the light. The light is answering it.',
+    'The rock draws back like a held breath.',
+  ],
+  firstSight: [
+    'The chamber opens out, and the light has a shape standing in it.',
+    'It has its back to the door.',
+    'It has been standing with its back to that door, you understand suddenly,\nfor a very long time.',
+    'It turns around. It does not seem surprised.',
+    'It seems relieved.',
+  ],
+  again: ['It is still here. It has not moved at all.'],
+  quiet: [
+    'The chamber is quiet now.',
+    'The light in the rock is ordinary light, and the room is just a room.',
+  ],
+  caught: [
+    'The light goes out of the rock. All at once. Everywhere.',
+    'Somewhere above you, a whole region stops seeing an aurora\nit could not explain.',
+  ],
+  declined: [
+    'It folds back into the light, unhurried.',
+    'It will be here when you are ready. It has been very patient so far.',
+  ],
+  fled: ['You back out of the chamber. It does not follow. It watches you go.'],
+};
+
+// ---- Documents --------------------------------------------------------------
+// Things lying around the world that nobody makes you read. Each one is a piece
+// of the twist, placed so that it is available *before* the reveal — the story
+// should be solvable, not just survivable.
+
+const DOCUMENTS = {
+  survey: {
+    title: 'QUARRY SURVEY — 90 YEARS OLD',
+    pages: [
+      'Seam at the north face reads warm at all hours and in all weathers.\fNo geological explanation offered. None sought.',
+      'Handwritten in the margin, in a different pen:\f"The Everlight does not sleep. It waits, and it is patient,\nand it is not alone."',
+      'The report is signed and countersigned.',
+      'Nobody appears to have asked the marginal note any questions at all.',
+    ],
+  },
+  memo: {
+    title: 'GALACTIC FIELD MEMO — SITE 9',
+    pages: [
+      'SITE 9 (OREBURGH GATE). Readings up 40% on the month.\fThis is expected. This is the whole point. Stop reporting it as an anomaly.',
+      'Reminder to all field staff: the artefact is NOT to be carried\ninto the chamber approach.',
+      'Not once. Not to test it.',
+      'If you are asked why, the answer is above your grade.\fIf you work it out on your own, keep it to yourself.',
+      '— M.',
+    ],
+  },
+  logbook: {
+    title: 'A WORN FIELD LOGBOOK',
+    pages: [
+      'The first forty pages are light readings in a young hand.\fThe dates run from thirty-one years ago.',
+      'Day 209. Full team. Every instrument. Stood there six hours.\fNothing. It does not even acknowledge me.',
+      'Day 210. Went back at dawn in case it was the hour. It was not the hour.',
+      'Day 344. I have been asking the wrong question.\fI keep asking what opens it.\fI should be asking what it is holding shut, and who is holding it.',
+      'The remaining pages are blank. The book has been kept anyway.',
+    ],
+  },
+};
+
+__exports(__x, { CASS: () => CASS, ROWAN: () => ROWAN, MARS: () => MARS, EVERLIGHT: () => EVERLIGHT, DOCUMENTS: () => DOCUMENTS });
+
+};
+
 __defs['game/overworld/scripts.js'] = function (__x, __req) {
 const { STARTER_LINES, rivalStarterBase, getTrainer } = __req('data/trainers.js');
 const { getTournament } = __req('data/circuit.js');
 const { getSpecies } = __req('data/species.js');
 const { createMonster } = __req('game/monster.js');
 const { FLAGS } = __req('game/storyflags.js');
+const { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS } = __req('data/story.js');
 // Story scripts.
 //
 // A script is an async function that receives a small `ctx` of primitives —
@@ -8856,6 +9408,12 @@ const { FLAGS } = __req('game/storyflags.js');
 
 
 
+
+// A whole block of lines from the story bible, said one page at a time.
+async function speak(ctx, lines, opts) {
+  for (const line of lines) await ctx.say(line, opts);
+}
+
 const SCRIPTS = {};
 
 // ---- Professor Rowan: choosing a starter ---------------------------------
@@ -8867,7 +9425,7 @@ SCRIPTS.starter = async (ctx) => {
     return;
   }
 
-  await ctx.say('Prof. Rowan: There you are.\fI have three young Pokémon here and nobody to raise them. Take a look.');
+  await speak(ctx, ROWAN.give);
 
   let chosen = -1;
   while (chosen < 0) {
@@ -8896,14 +9454,18 @@ SCRIPTS.starter = async (ctx) => {
 
   ctx.sfx('caught');
   await ctx.say(`${getSpecies(base).name} joined your team!`);
-  await ctx.say('Prof. Rowan: Good choice. They all are.\fTake this too — you will want to know what you are looking at out there.');
+  await ctx.askNickname(mon);
+  await speak(ctx, ROWAN.chosen);
   ctx.give('pokedex', 1);
   ctx.give('pokeball', 5);
   await ctx.say('You received the Pokédex and 5 Poké Balls!');
-  await ctx.say('Prof. Rowan: Oreburgh City is north, past Route 202.\fThe road there is the whole point. Go and walk it.');
+  // The aside that turns out to matter. Nobody remembers it the first time.
+  await speak(ctx, ROWAN.dex);
+  await speak(ctx, ROWAN.send);
 
   ctx.setFlag(FLAGS.GOT_STARTER);
   ctx.shareMilestone(FLAGS.GOT_STARTER);
+  ctx.journal('gotStarter');
 };
 
 // ---- Rival battles ---------------------------------------------------------
@@ -8930,30 +9492,34 @@ SCRIPTS.rival1 = async (ctx) => {
   const st = ctx.state;
   if (!st.flags[FLAGS.GOT_STARTER] || st.flags[FLAGS.BEAT_RIVAL_1]) return;
 
-  const rival = ctx.spawnNpc({
-    id: 'rival', look: st.player.look === 'girl' ? 'rivalBoy' : 'rivalGirl',
-    x: ctx.player.x, y: ctx.player.y - 3, dir: 'down', name: 'Rival',
+  const cass = ctx.spawnNpc({
+    id: 'rival', look: CASS.look, x: ctx.player.x, y: ctx.player.y - 3,
+    dir: 'down', name: CASS.name,
   });
   ctx.sfx('bump');
   await ctx.wait(0.35);
-  await ctx.walk(rival, 'down', 2);
-  await ctx.say('Rival: There you are! I heard the professor had one left over.\fWhich did you end up with?');
-  await ctx.say('Rival: Never mind, I can see it from here.\fCome on then. First one is for practice.');
+  await ctx.walk(cass, 'down', 2);
+  await speak(ctx, CASS.first.approach);
+  // She names your actual starter, because she got up early and picked its
+  // counter on purpose, and she wants you to know that.
+  await speak(ctx, ctx.fill(CASS.first.pick));
+  await speak(ctx, CASS.first.pre);
 
   const t = rivalTeam(st, 'rival_1');
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (!won) {
-    await ctx.say('Rival: Ha! Told you. Go patch them up and we will do it again.');
-    ctx.despawn(rival);
+    await speak(ctx, CASS.first.lose);
+    ctx.despawn(cass);
     return;
   }
-  await ctx.say('Rival: Fine. You picked better. This time.\fI am heading north. Try to keep up.');
-  await ctx.walk(rival, 'up', 4);
-  ctx.despawn(rival);
+  await speak(ctx, CASS.first.win);
+  await ctx.walk(cass, 'up', 4);
+  ctx.despawn(cass);
   ctx.setFlag(FLAGS.BEAT_RIVAL_1);
   ctx.setFlag(FLAGS.MET_RIVAL);
   ctx.setFlag(FLAGS.LEFT_TOWN);
   ctx.shareMilestone(FLAGS.LEFT_TOWN);
+  ctx.journal('metCass');
 };
 
 SCRIPTS.rival2 = async (ctx) => {
@@ -8962,25 +9528,60 @@ SCRIPTS.rival2 = async (ctx) => {
     ctx.setFlag(FLAGS.REACHED_ALDERMERE);
     return;
   }
-  const rival = ctx.spawnNpc({
-    id: 'rival', look: st.player.look === 'girl' ? 'rivalBoy' : 'rivalGirl',
-    x: ctx.player.x, y: ctx.player.y - 2, dir: 'down', name: 'Rival',
+  const cass = ctx.spawnNpc({
+    id: 'rival', look: CASS.look, x: ctx.player.x, y: ctx.player.y - 2,
+    dir: 'down', name: CASS.name,
   });
   await ctx.wait(0.3);
-  await ctx.say('Rival: Oreburgh already? You have been busy.\fSo have I. Show me.');
+  await speak(ctx, CASS.second.approach);
+  await speak(ctx, CASS.second.pre);
 
   const t = rivalTeam(st, 'rival_2');
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (won) {
-    await ctx.say('Rival: You have been busier. Noted.\fRoark is in that grey building. She does not go easy on anyone.');
+    await speak(ctx, CASS.second.win);
     ctx.setFlag(FLAGS.BEAT_RIVAL_2);
+    ctx.journal('cassCircuit');
   } else {
-    await ctx.say('Rival: Better luck next time. The Centre is right there — the red roof.');
+    await speak(ctx, CASS.second.lose);
   }
-  await ctx.walk(rival, 'up', 3);
-  ctx.despawn(rival);
+  await ctx.walk(cass, 'up', 3);
+  ctx.despawn(cass);
   ctx.setFlag(FLAGS.REACHED_ALDERMERE);
   ctx.shareMilestone(FLAGS.REACHED_ALDERMERE);
+};
+
+/**
+ * Route 207, at the mouth of the Gate. The first time she is not keeping
+ * score — she is standing in your way because she does not want you to go in.
+ */
+SCRIPTS.rival3 = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.BEAT_RIVAL_3]) return;
+
+  const cass = ctx.spawnNpc({
+    id: 'rival', look: CASS.look, x: ctx.player.x, y: ctx.player.y - 2,
+    dir: 'down', name: CASS.name,
+  });
+  ctx.exclaim(cass);
+  await ctx.wait(0.4);
+  await speak(ctx, CASS.third.approach);
+  await speak(ctx, CASS.third.pre);
+
+  const t = rivalTeam(st, 'rival_3');
+  const won = await ctx.battle({ trainer: t, kind: 'trainer' });
+  if (!won) {
+    await speak(ctx, CASS.third.lose);
+    ctx.despawn(cass);
+    return;
+  }
+  await speak(ctx, CASS.third.win);
+  ctx.give('hyperpotion', 3);
+  await ctx.say('You received 3 Hyper Potions from Cass!');
+  await ctx.walk(cass, 'down', 3);
+  ctx.despawn(cass);
+  ctx.setFlag(FLAGS.BEAT_RIVAL_3);
+  ctx.journal('cassWarning');
 };
 
 // ---- Monster Centre ---------------------------------------------------------
@@ -9026,6 +9627,7 @@ SCRIPTS.gymLeader = async (ctx, npc) => {
   }
   ctx.setFlag(`badge${t.badge}`);
   ctx.shareMilestone(`badge${t.badge}`);
+  if (t.badge === 1) ctx.journal('badge1');
   for (const line of npc.data.after || []) await ctx.say(`${t.name}: ${line}`, { speaker: t.name });
 };
 
@@ -9037,21 +9639,151 @@ SCRIPTS.commander = async (ctx, npc) => {
     for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
     return;
   }
-  await ctx.say('A figure in a long coat is standing over a seam of pale light in the rock.');
-  await ctx.say(`Mars: ${t.intro}`, { speaker: 'Mars' });
+  await speak(ctx, MARS.intro);
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (!won) return;
-  await ctx.say(`Mars: ${t.defeat}`, { speaker: 'Mars' });
-  await ctx.say('The light in the seam pulses once, slowly, like something turning over in its sleep.');
+
+  // Three short lines, and then she leaves her expensive instruments behind.
+  // On the way in that reads as a threat and an oversight. It is neither.
+  await speak(ctx, MARS.defeat, { speaker: 'Mars' });
+  await speak(ctx, MARS.withdraw);
   ctx.setFlag(FLAGS.BEAT_COMMANDER);
   ctx.shareMilestone(FLAGS.BEAT_COMMANDER);
+  ctx.journal('beatMars');
   for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
 };
 
+/**
+ * The turn. Picking up the charm is the first time anything in the game tells
+ * the player they have misread it — and it does so with a fact they were given
+ * in the first five minutes and told not to worry about.
+ */
+SCRIPTS.charmFound = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.KNOWS_TWIST]) return;
+
+  ctx.sfx('warp');
+  await ctx.wait(0.4);
+  await speak(ctx, ROWAN.call);
+  const answer = await ctx.ask('What is it like?', ['It is warm.', 'It is old.', 'It is glowing faintly.']);
+  if (answer !== 0) {
+    await ctx.say('Prof. Rowan: Yes, yes. But is it WARM. In your hand. Right now.');
+    await ctx.ask('Well?', ['...It is warm.']);
+  }
+  await speak(ctx, ROWAN.callTwist);
+  await ctx.wait(0.3);
+  await speak(ctx, ROWAN.callConfession);
+  ctx.setFlag(FLAGS.KNOWS_TWIST);
+  ctx.shareMilestone(FLAGS.KNOWS_TWIST);
+  ctx.journal('theKey');
+  ctx.autosave();
+};
+
+// ---- The Everlight ----------------------------------------------------------
+//
+// The payoff the whole region has been talking about. Four maps of NPCs, a
+// scientist reading ninety-year-old survey notes, an old man watching the
+// aurora come further south every night, and a commander who says the mountain
+// is not finished with either of you — all of it pointed at a door that did
+// not exist. This is the door.
+
+SCRIPTS.everlight = async (ctx) => {
+  const st = ctx.state;
+  if (!ctx.hasItem('auroracharm')) { await speak(ctx, EVERLIGHT.shut); return; }
+
+  if (!st.flags[FLAGS.EVERLIGHT_OPENED]) {
+    await speak(ctx, EVERLIGHT.opening.slice(0, 3));
+    ctx.sfx('warp');
+    ctx.shake(1);
+    await ctx.wait(0.9);
+    await ctx.say(EVERLIGHT.opening[3]);
+    ctx.setFlag(FLAGS.EVERLIGHT_OPENED);
+    ctx.shareMilestone(FLAGS.EVERLIGHT_OPENED);
+    ctx.journal('doorOpened');
+    ctx.autosave();
+  }
+  await ctx.warpTo('everlight_chamber', 7, 7);
+};
+
+SCRIPTS.everlightDialga = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.CAUGHT_EVERLIGHT]) { await speak(ctx, EVERLIGHT.quiet); return; }
+
+  await speak(ctx, st.flags[FLAGS.EVERLIGHT_RESOLVED] ? EVERLIGHT.again : EVERLIGHT.firstSight);
+
+  ctx.dex.seen(37);
+  await ctx.showMonster(37);
+  ctx.cry(37);
+  await ctx.wait(0.5);
+  ctx.hideMonster();
+
+  const level = Math.max(30, Math.min(55, (st.party[0] ? st.party[0].level : 30) + 6));
+  const result = await ctx.wild(37, level, {
+    name: 'The Everlight', canRun: true, monster: { friendship: 0 },
+  });
+
+  ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
+  if (result === 'caught') {
+    ctx.setFlag(FLAGS.CAUGHT_EVERLIGHT);
+    ctx.shareMilestone(FLAGS.CAUGHT_EVERLIGHT);
+    ctx.sfx('badge');
+    await speak(ctx, EVERLIGHT.caught);
+    ctx.journal('caughtEverlight');
+  } else if (result === 'run') {
+    await speak(ctx, EVERLIGHT.fled);
+  } else {
+    // Knocked out is not gone. A legendary you can permanently lose is a save
+    // file you have to restart, and nobody has ever enjoyed that.
+    await speak(ctx, EVERLIGHT.declined);
+  }
+  ctx.autosave();
+
+  // Mars arrives four hours late, and finally says what the operation was.
+  if (!st.flags[FLAGS.MARS_LATE]) {
+    ctx.setFlag(FLAGS.MARS_LATE);
+    await ctx.wait(0.5);
+    ctx.sfx('bump');
+    await speak(ctx, MARS.late, { speaker: 'Mars' });
+    await speak(ctx, st.flags[FLAGS.CAUGHT_EVERLIGHT] ? MARS.lateCaught : MARS.lateLeft);
+    ctx.journal('marsLate');
+    ctx.autosave();
+  }
+};
+
+/** Rowan is waiting outside the Gate. He could not go in. He tried. */
+SCRIPTS.rowanAfter = async (ctx) => {
+  const st = ctx.state;
+  await speak(ctx, ROWAN.after);
+  if (st.flags[FLAGS.CAUGHT_EVERLIGHT]) await speak(ctx, ROWAN.afterCaught);
+  ctx.journal('rowanOutside');
+};
+
+// ---- documents ---------------------------------------------------------------
+// Things lying around that nobody makes you read, each one a piece of the turn,
+// all of them available before the reveal. The story should be solvable, not
+// merely survivable.
+
+function readDocument(key, entryId) {
+  return async (ctx) => {
+    const doc = DOCUMENTS[key];
+    if (!doc) return;
+    await ctx.say(`*${doc.title}*`);
+    for (const page of doc.pages) await ctx.say(page);
+    ctx.journal(entryId);
+  };
+}
+
+// The journal id is passed literally rather than built from the key, so a
+// reader scanning this file — human or test — can see which entry each
+// document writes.
+SCRIPTS.docSurvey = readDocument('survey', 'doc_survey');
+SCRIPTS.docMemo = readDocument('memo', 'doc_memo');
+SCRIPTS.docLogbook = readDocument('logbook', 'doc_logbook');
+
 // ---- The World Circuit registration desk -----------------------------------
 //
-// The one door into the side story. It is also the only place a run can be
-// resumed, so a save taken mid-tournament always has somewhere to come back to.
+// The one door into the side story, and the only place a run can be resumed —
+// so a save taken mid-tournament always has somewhere to come back to.
 
 SCRIPTS.circuitDesk = async (ctx) => {
   const c = ctx.state.circuit;
@@ -9078,86 +9810,10 @@ SCRIPTS.circuitDesk = async (ctx) => {
     await ctx.say('Registrar: Registered. You start unranked, like everyone does.');
     await ctx.say('Registrar: Win matches and your rating climbs. Reach a stage in an event\nand you bank Circuit Points, which is what promotes you.');
     await ctx.say('Registrar: Rookie Cup is open entry. That is where every career starts.');
+    ctx.journal('joinedCircuit');
   }
 
   await ctx.openCircuit();
-};
-
-// ---- The Everlight ----------------------------------------------------------
-//
-// The payoff the whole region has been talking about. Four maps of NPCs, a
-// scientist reading ninety-year-old survey notes, an old man watching the
-// aurora come further south every night, and a commander who says the mountain
-// is not finished with either of you — all of it pointed at a door that did
-// not exist. This is the door.
-
-SCRIPTS.everlight = async (ctx) => {
-  const st = ctx.state;
-  const hasCharm = ctx.hasItem('auroracharm');
-
-  if (!hasCharm) {
-    await ctx.say('A seam of pale light runs up the rock face.');
-    await ctx.say('It is cold to the touch, and it does not move.');
-    return;
-  }
-
-  if (!st.flags[FLAGS.EVERLIGHT_OPENED]) {
-    await ctx.say('The seam of light is directly ahead.');
-    await ctx.say('The Aurora Charm in your bag has started to glow.');
-    ctx.sfx('warp');
-    ctx.shake(1);
-    await ctx.wait(0.8);
-    await ctx.say('The light answers it.\fThe rock draws back like a held breath.');
-    ctx.setFlag(FLAGS.EVERLIGHT_OPENED);
-    ctx.shareMilestone(FLAGS.EVERLIGHT_OPENED);
-    ctx.autosave();
-  }
-  await ctx.warpTo('everlight_chamber', 7, 7);
-};
-
-SCRIPTS.everlightDialga = async (ctx) => {
-  const st = ctx.state;
-  if (st.flags[FLAGS.CAUGHT_EVERLIGHT]) {
-    await ctx.say('The chamber is quiet now.');
-    await ctx.say('The light in the rock is ordinary light, and the room is just a room.');
-    return;
-  }
-
-  if (!st.flags[FLAGS.EVERLIGHT_RESOLVED]) {
-    await ctx.say('The chamber opens out, and the light has a shape in it.');
-    await ctx.say('Something enormous is standing very still at the centre of the room.');
-    await ctx.say('It has been standing there, you understand suddenly, for a very long time.');
-  } else {
-    await ctx.say('It is still here. It has not moved at all.');
-  }
-
-  ctx.dex.seen(37);
-  await ctx.showMonster(37);
-  await ctx.say('DIALGA: ...');
-  ctx.hideMonster();
-
-  const level = Math.max(30, Math.min(55, (st.party[0] ? st.party[0].level : 30) + 6));
-  const result = await ctx.wild(37, level, {
-    name: 'The Everlight', canRun: true, monster: { friendship: 0 },
-  });
-
-  if (result === 'caught') {
-    ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
-    ctx.setFlag(FLAGS.CAUGHT_EVERLIGHT);
-    ctx.shareMilestone(FLAGS.CAUGHT_EVERLIGHT);
-    ctx.sfx('badge');
-    await ctx.say('The light goes out of the rock, all at once, everywhere.');
-    await ctx.say('Somewhere above you, a whole region stops seeing an aurora it could not explain.');
-    ctx.autosave();
-    return;
-  }
-
-  // Knocked out, or you ran. Either way it is still here tomorrow — a
-  // legendary you can permanently lose is a save file you have to restart.
-  ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
-  ctx.autosave();
-  if (result === 'run') await ctx.say('You back out of the chamber. It does not follow.');
-  else await ctx.say('It folds back into the light, unhurried.\fIt will be here when you are ready.');
 };
 
 function scriptFor(name) { return SCRIPTS[name] || null; }
@@ -10218,6 +10874,7 @@ const { recordSeen, recordCaught } = __req('game/pokedex.js');
 const { awardBadge, healParty, setStoryFlag, progress } = __req('game/state.js');
 const { scriptFor } = __req('game/overworld/scripts.js');
 const { resolveDialogue, fillText } = __req('game/overworld/gossip.js');
+const { record: recordJournal, getEntry } = __req('game/journal.js');
 const { renderMonster } = __req('render/monsterart.js');
 const { musicFor } = __req('data/music.js');
 const { net } = __req('net/NetworkManager.js');
@@ -10227,6 +10884,7 @@ const { net } = __req('net/NetworkManager.js');
 // Cutscenes are written as async functions (see game/overworld/scripts.js).
 // This screen supplies the primitives they await, and blocks player input for
 // as long as one is running.
+
 
 
 
@@ -10638,6 +11296,25 @@ class OverworldScreen extends Screen {
       give: (itemId, qty) => addItem(st.inventory, itemId, qty),
 
       hasItem: (itemId) => (st.inventory.items[itemId] || 0) > 0,
+
+      cry: (speciesId) => audio.cry(speciesId),
+
+      // Records a journal entry, and flashes it so the player knows the book
+      // has something new in it without being dragged into a menu.
+      journal: (id) => {
+        if (recordJournal(st, id)) {
+          const entry = getEntry(id);
+          if (entry) screen.toast(`Journal: ${entry.title}`);
+        }
+      },
+
+      // Fills {starter}, {player} and friends in a block of story lines, so
+      // the bible can name the Pokémon the player actually chose.
+      fill: (lines) => lines.map((l) => fillText(l, st)),
+
+      askNickname: (mon) => new Promise((resolve) => {
+        screen.game.openNickname(mon, () => resolve());
+      }),
 
       // A one-shot screen kick, for a mountain opening.
       shake: (strength = 1) => { screen.shakeT = Math.max(screen.shakeT || 0, strength); },
@@ -14013,6 +14690,7 @@ class MainMenuScreen extends Screen {
     const out = [];
     if (st.flags.gotStarter) out.push({ key: 'dex', text: 'POKéDEX' });
     if (st.party.length) out.push({ key: 'party', text: 'POKéMON' });
+    if (st.flags.gotStarter) out.push({ key: 'journal', text: 'JOURNAL' });
     out.push({ key: 'bag', text: 'BAG' });
     out.push({ key: 'card', text: st.player.name.toUpperCase() });
     if (st.circuit && st.circuit.joined) out.push({ key: 'circuit', text: 'CIRCUIT' });
@@ -14044,6 +14722,7 @@ class MainMenuScreen extends Screen {
     switch (key) {
       case 'dex': g.openDex(); break;
       case 'party': g.openParty(); break;
+      case 'journal': g.openJournal(); break;
       case 'bag': g.openBag(); break;
       case 'card': g.openCard(); break;
       case 'circuit': g.openCircuit(); break;
@@ -17744,6 +18423,237 @@ __exports(__x, { CircuitScreen: () => CircuitScreen, TournamentScreen: () => Tou
 
 };
 
+__defs['ui/journal.js'] = function (__x, __req) {
+const { Screen } = __req('ui/screen.js');
+const { input } = __req('core/input.js');
+const { audio } = __req('core/audio.js');
+const { PAL, shade } = __req('render/palette.js');
+const { window9, rect, label, labelDim, drawText, drawTextCentered, drawTextRight, titleBar, rowHighlight, rule, moveCursor, LINE } = __req('ui/kit.js');
+const { drawBackChip, hintBar } = __req('ui/controls.js');
+const { entriesFor, objective } = __req('game/journal.js');
+// The journal screen.
+//
+// Two panes: what I am doing now, and everything I have worked out. The
+// objective at the top is the single most useful line in the game for anyone
+// picking it up again after a fortnight — which, for a game two people play on
+// their phones in the evening, is most sessions.
+
+
+
+
+
+
+
+
+const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
+
+/**
+ * Hard line breaks in the story text were authored for a 33-character dialogue
+ * box. The journal is a different width, so they are flattened and the text is
+ * re-wrapped to fit here — otherwise every paragraph reads ragged.
+ */
+function wrap(str, maxChars) {
+  const out = [];
+  let line = '';
+  for (const word of String(str).replace(/\s+/g, ' ').trim().split(' ')) {
+    if (!line.length) { line = word; continue; }
+    if (line.length + 1 + word.length > maxChars) { out.push(line); line = word; }
+    else line += ' ' + word;
+  }
+  if (line.length) out.push(line);
+  return out;
+}
+
+class JournalScreen extends Screen {
+  constructor(game) {
+    super(game);
+    this.index = 0;
+    this.scroll = 0;
+    this.reading = null;
+    this.readScroll = 0;
+  }
+
+  get entries() {
+    // Newest first: what just happened is what you came here for.
+    return entriesFor(this.game.state).slice().reverse();
+  }
+
+  _panel() {
+    const { width: W, height: H } = this.game.display;
+    return { x: 3, y: 32, w: W - 6, h: H - 32 - 13 };
+  }
+
+  _rowH() { return LINE + 2; }
+  _rows() { return Math.max(2, Math.floor((this._panel().h - 8) / this._rowH())); }
+
+  _rects() {
+    const p = this._panel();
+    const rows = this._rows();
+    const items = this.entries;
+    const out = [];
+    for (let i = 0; i < rows && i + this.scroll < items.length; i++) {
+      out.push({ x: p.x + 3, y: p.y + 4 + i * this._rowH(), w: p.w - 6, h: this._rowH(), index: i + this.scroll });
+    }
+    return out;
+  }
+
+  hint() {
+    if (this.reading) return 'A / B: close   ▲▼: scroll';
+    return this.entries.length ? 'A: read   ▲▼: browse   B: back' : 'B: back';
+  }
+
+  update(dt, isTop) {
+    if (!isTop) return;
+    if (this.reading) {
+      const lines = this._articleLines();
+      const view = this._articleRows();
+      if (input.repeated('up')) this.readScroll = Math.max(0, this.readScroll - 1);
+      if (input.repeated('down')) this.readScroll = Math.min(Math.max(0, lines.length - view), this.readScroll + 1);
+      if (input.pressed('a') || input.pressed('b') || input.consumeTap()) {
+        audio.sfx('back'); this.reading = null;
+      }
+      return;
+    }
+
+    const items = this.entries;
+    const rows = this._rows();
+    const tap = input.consumeTap();
+    if (tap) {
+      for (const r of this._rects()) {
+        if (hit(tap, r.x, r.y, r.w, r.h)) {
+          this.index = r.index; audio.sfx('select'); this._open(); return;
+        }
+      }
+    }
+    if (items.length) {
+      if (input.repeated('up')) {
+        const m = moveCursor(this.index, items.length, -1, rows, this.scroll);
+        this.index = m.index; this.scroll = m.scroll; audio.sfx('cursor');
+      }
+      if (input.repeated('down')) {
+        const m = moveCursor(this.index, items.length, 1, rows, this.scroll);
+        this.index = m.index; this.scroll = m.scroll; audio.sfx('cursor');
+      }
+      if (input.pressed('a')) { audio.sfx('select'); this._open(); }
+    }
+    if (input.pressed('b') || input.pressed('start')) { audio.sfx('back'); this.game.screens.pop(); }
+  }
+
+  _open() {
+    const e = this.entries[this.index];
+    if (e) { this.reading = e; this.readScroll = 0; }
+  }
+
+  _articleBox() {
+    const { width: W, height: H } = this.game.display;
+    return { x: 5, y: 8, w: W - 10, h: H - 22 };
+  }
+
+  _articleRows() {
+    return Math.max(2, Math.floor((this._articleBox().h - 26) / 9));
+  }
+
+  _articleLines() {
+    if (!this.reading) return [];
+    const chars = Math.floor((this._articleBox().w - 18) / 6);
+    const out = [];
+    for (const para of this.reading.body) {
+      out.push(...wrap(para, chars));
+      out.push('');
+    }
+    if (this.reading.next) {
+      out.push('NEXT:');
+      out.push(...wrap(this.reading.next, chars));
+    }
+    while (out.length && out[out.length - 1] === '') out.pop();
+    return out;
+  }
+
+  render(ctx) {
+    const { width: W, height: H } = this.game.display;
+    const accent = '#8a6a3a';
+    rect(ctx, 0, 0, W, H, shade(accent, -0.68));
+    for (let y = 0; y < H; y += 6) rect(ctx, 0, y, W, 3, shade(accent, -0.62));
+
+    titleBar(ctx, 0, 0, W, 'JOURNAL', { color: shade(accent, -0.1), h: 13 });
+    drawBackChip(ctx, W - 46, 0);
+
+    // What I am doing now.
+    const chars = Math.floor((W - 20) / 6);
+    window9(ctx, 3, 15, W - 6, 16, { bg: PAL.uiBgAlt, shadow: false });
+    labelDim(ctx, 'NOW', 8, 19);
+    drawText(ctx, objective(this.game.state).replace(/\s+/g, ' ').slice(0, chars - 6),
+      30, 19, { color: PAL.uiText });
+
+    const p = this._panel();
+    window9(ctx, p.x, p.y, p.w, p.h, { shadow: false });
+
+    const items = this.entries;
+    if (!items.length) {
+      labelDim(ctx, 'Nothing written down yet.', p.x + 8, p.y + 10);
+      hintBar(ctx, W, H, this.hint());
+      if (this.reading) this._renderArticle(ctx, W, H);
+      return;
+    }
+
+    const rows = this._rows();
+    const maxChars = Math.floor((p.w - 24) / 6);
+    for (const r of this._rects()) {
+      const e = items[r.index];
+      const sel = r.index === this.index;
+      if (sel) rowHighlight(ctx, r.x, r.y, r.w, r.h, PAL.uiSelect);
+      // Newest at the top, numbered in story order so the shape of the run
+      // is visible at a glance.
+      const n = items.length - r.index;
+      drawTextRight(ctx, String(n), r.x + 18, r.y + 2,
+        { color: sel ? shade(PAL.uiSelect, 0.65) : PAL.uiTextDim });
+      drawText(ctx, e.title.slice(0, maxChars), r.x + 24, r.y + 2,
+        { color: sel ? PAL.uiTextLight : PAL.uiText });
+      if (e.next) {
+        drawTextRight(ctx, '→', r.x + r.w - 6, r.y + 2,
+          { color: sel ? PAL.uiTextLight : PAL.uiTextDim });
+      }
+    }
+    if (this.scroll > 0) drawText(ctx, '▲', p.x + p.w - 11, p.y + 1, { color: PAL.uiTextDim });
+    if (this.scroll + rows < items.length) {
+      drawText(ctx, '▼', p.x + p.w - 11, p.y + 3 + rows * this._rowH() - 8, { color: PAL.uiTextDim });
+    }
+
+    hintBar(ctx, W, H, this.hint());
+    if (this.reading) this._renderArticle(ctx, W, H);
+  }
+
+  _renderArticle(ctx, W, H) {
+    const e = this.reading;
+    const b = this._articleBox();
+    rect(ctx, 0, 0, W, H, 'rgba(0,0,0,0.55)');
+    window9(ctx, b.x, b.y, b.w, b.h);
+    const chars = Math.floor((b.w - 18) / 6);
+    titleBar(ctx, b.x + 3, b.y + 3, b.w - 6, e.title.toUpperCase().slice(0, chars), {
+      color: '#8a6a3a', h: 11,
+    });
+    rule(ctx, b.x + 7, b.y + 17, b.w - 14);
+
+    const lines = this._articleLines();
+    const view = this._articleRows();
+    let y = b.y + 21;
+    for (let i = 0; i < view && i + this.readScroll < lines.length; i++) {
+      const line = lines[i + this.readScroll];
+      if (line === 'NEXT:') drawText(ctx, line, b.x + 8, y + i * 9, { color: PAL.uiSelect });
+      else labelDim(ctx, line, b.x + 8, y + i * 9);
+    }
+    if (this.readScroll > 0) drawText(ctx, '▲', b.x + b.w - 12, b.y + 20, { color: PAL.uiTextDim });
+    if (this.readScroll + view < lines.length) {
+      drawText(ctx, '▼', b.x + b.w - 12, b.y + b.h - 12, { color: PAL.uiTextDim });
+    }
+    void drawTextCentered; void label;
+  }
+}
+
+__exports(__x, { JournalScreen: () => JournalScreen });
+
+};
+
 __defs['core/storage.js'] = function (__x, __req) {
 
 // Thin wrapper over localStorage so the save layer never touches the
@@ -18121,6 +19031,8 @@ const { DebugScreen } = __req('ui/debug.js');
 const { CircuitScreen, TournamentScreen, PressScreen } = __req('ui/circuit.js');
 const { resolveDialogue, worldSnapshot } = __req('game/overworld/gossip.js');
 const { NicknameScreen } = __req('ui/naming.js');
+const { JournalScreen } = __req('ui/journal.js');
+const journalApi = __req('game/journal.js');
 const { createGameState, healParty, setStoryFlag } = __req('game/state.js');
 const { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } = __req('game/monster.js');
 const { createBattle } = __req('game/battle/engine.js');
@@ -18140,6 +19052,8 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
+
 
 
 
@@ -18195,6 +19109,7 @@ class Game {
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
     this.gossipForTest = { resolveDialogue, worldSnapshot };
+    this.journalForTest = journalApi;
     // The World Circuit career. It reads and writes state.circuit, so it is
     // rebuilt cheaply rather than serialized.
     this.career = new Career(this);
@@ -18348,6 +19263,7 @@ class Game {
   openPC() { this.screens.push(new PCScreen(this)); }
   openMultiplayer() { this.screens.push(new MultiplayerScreen(this)); }
   openCircuit(opts) { return this.screens.push(new CircuitScreen(this, opts)); }
+  openJournal() { return this.screens.push(new JournalScreen(this)); }
   /** Opens the nickname keyboard for a Pokémon. Used after a catch. */
   openNickname(mon, onDone) { return this.screens.push(new NicknameScreen(this, mon, onDone)); }
   openPress() {

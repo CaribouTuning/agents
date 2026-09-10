@@ -25,6 +25,8 @@ import { DebugScreen } from './ui/debug.js';
 import { CircuitScreen, TournamentScreen, PressScreen } from './ui/circuit.js';
 import { resolveDialogue, worldSnapshot } from './game/overworld/gossip.js';
 import { NicknameScreen } from './ui/naming.js';
+import { JournalScreen } from './ui/journal.js';
+import * as journalApi from './game/journal.js';
 import { createGameState, healParty, setStoryFlag } from './game/state.js';
 import { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } from './game/monster.js';
 import { createBattle } from './game/battle/engine.js';
@@ -58,6 +60,7 @@ class Game {
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
     this.gossipForTest = { resolveDialogue, worldSnapshot };
+    this.journalForTest = journalApi;
     // The World Circuit career. It reads and writes state.circuit, so it is
     // rebuilt cheaply rather than serialized.
     this.career = new Career(this);
@@ -211,6 +214,7 @@ class Game {
   openPC() { this.screens.push(new PCScreen(this)); }
   openMultiplayer() { this.screens.push(new MultiplayerScreen(this)); }
   openCircuit(opts) { return this.screens.push(new CircuitScreen(this, opts)); }
+  openJournal() { return this.screens.push(new JournalScreen(this)); }
   /** Opens the nickname keyboard for a Pokémon. Used after a catch. */
   openNickname(mon, onDone) { return this.screens.push(new NicknameScreen(this, mon, onDone)); }
   openPress() {

@@ -44,6 +44,7 @@ export class MainMenuScreen extends Screen {
     const out = [];
     if (st.flags.gotStarter) out.push({ key: 'dex', text: 'POKéDEX' });
     if (st.party.length) out.push({ key: 'party', text: 'POKéMON' });
+    if (st.flags.gotStarter) out.push({ key: 'journal', text: 'JOURNAL' });
     out.push({ key: 'bag', text: 'BAG' });
     out.push({ key: 'card', text: st.player.name.toUpperCase() });
     if (st.circuit && st.circuit.joined) out.push({ key: 'circuit', text: 'CIRCUIT' });
@@ -75,6 +76,7 @@ export class MainMenuScreen extends Screen {
     switch (key) {
       case 'dex': g.openDex(); break;
       case 'party': g.openParty(); break;
+      case 'journal': g.openJournal(); break;
       case 'bag': g.openBag(); break;
       case 'card': g.openCard(); break;
       case 'circuit': g.openCircuit(); break;

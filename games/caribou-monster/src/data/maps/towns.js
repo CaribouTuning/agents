@@ -219,6 +219,10 @@ export const OREBURGH = defineMap('oreburgh', {
     { x: 21, y: 11, to: 'oreburgh_hall', tx: 7, ty: 8, dir: 'up' },
     { x: 22, y: 11, to: 'oreburgh_hall', tx: 8, ty: 8, dir: 'up' },
   ],
+  events: [
+    // The survey Ines keeps talking about, left on the bench beside her.
+    { x: 20, y: 21, flag: 'doc_survey_read', script: 'docSurvey' },
+  ],
   signs: [
     { x: 3, y: 22, text: 'OREBURGH CITY\nCut from the hillside, stone by stone.' },
     { x: 26, y: 22, text: 'OREBURGH GYM\nLeader: ROARK\n"The quarry does not blink."' },

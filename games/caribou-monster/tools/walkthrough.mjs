@@ -73,14 +73,17 @@ check('game starts in the player house', (await where()).map === 'player_house')
 // Clears whatever is on screen and waits until the player can move again.
 // Phases used to run into each other: a dialogue box left open from the last
 // step silently ate the next phase's walking, which reads as a broken feature.
-const waitIdle = async (limit = 30) => {
+const waitIdle = async (limit = 40) => {
   for (let i = 0; i < limit; i++) {
-    const busy = await page.evaluate(() => {
+    const state = await page.evaluate(() => {
       const g = window.CARIBOU;
-      return !!g.overworld.script || g.dialogueForTest.visible || g.screens.busy
-        || g.screens.top.constructor.name !== 'OverworldScreen';
+      return {
+        screen: g.screens.top.constructor.name,
+        busy: !!g.overworld?.script || g.dialogueForTest.visible || g.screens.busy,
+      };
     });
-    if (!busy) return true;
+    if (state.screen === 'NicknameScreen') { await page.keyboard.press('KeyX'); await wait(160); continue; }
+    if (!state.busy && state.screen === 'OverworldScreen') return true;
     await page.keyboard.press('KeyZ');
     await wait(150);
   }
@@ -137,12 +140,17 @@ await walkTo(6, 3);
 await hold('ArrowUp', 220);
 await wait(300);
 // Advance until the cutscene actually ends, rather than guessing a count.
-for (let i = 0; i < 60; i++) {
-  const done = await page.evaluate(() => {
+for (let i = 0; i < 90; i++) {
+  const s2 = await page.evaluate(() => {
     const g = window.CARIBOU;
-    return !g.dialogueForTest.visible && !g.overworld.script;
+    return {
+      screen: g.screens.top.constructor.name,
+      done: !g.dialogueForTest.visible && !g.overworld.script,
+    };
   });
-  if (done && i > 2) break;
+  // The professor now asks you to name it, which is a keyboard, not a page.
+  if (s2.screen === 'NicknameScreen') { await page.keyboard.press('KeyX'); await wait(170); continue; }
+  if (s2.done && i > 2) break;
   await page.keyboard.press('KeyZ');
   await wait(170);
 }
@@ -277,7 +285,11 @@ if (inside.map === 'everlight_chamber') {
 // actually fight a round. This is the only test that proves the side story
 // connects to the real battle system rather than simulating one.
 console.log('\n--- world circuit ---');
-await waitIdle();
+const idle = await waitIdle(60);
+check('the world is idle before the circuit section', idle, await page.evaluate(() => {
+  const g = window.CARIBOU;
+  return `${g.screens.top.constructor.name} script=${!!g.overworld?.script} dlg=${g.dialogueForTest.visible}`;
+}));
 await page.evaluate(() => {
   const g = window.CARIBOU;
   g.overworld.world.load('oreburgh_hall', 7, 8, 'up');
@@ -286,7 +298,13 @@ await wait(500);
 check('the Battle Hall is enterable', (await where()).map === 'oreburgh_hall');
 
 await waitIdle();
-await walkTo(7, 6);
+const reached = await walkTo(7, 6);
+const deskState = await page.evaluate(() => {
+  const g = window.CARIBOU; const p = g.overworld.world.player;
+  return { at: `${p.x},${p.y}`, party: g.state.party.length, reachedDesk: true };
+});
+check('the player reaches the registration desk', reached && deskState.at === '7,6',
+  `${deskState.at} party=${deskState.party}`);
 await page.evaluate(() => { window.CARIBOU.overworld.world.player.dir = 'up'; });
 await wait(150);
 

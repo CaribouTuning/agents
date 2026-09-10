@@ -99,6 +99,9 @@ export const EVERLIGHT_CHAMBER = defineMap('everlight_chamber', {
     { x: 8, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
   ],
   events: [
+    // Rowan's own logbook, left in the chamber approach thirty-one years ago.
+    { x: 4, y: 6, flag: 'doc_logbook_read', script: 'docLogbook' },
+    { x: 11, y: 6, flag: 'doc_logbook_read', script: 'docLogbook' },
     // Standing in front of it is the encounter. It repeats until the thing is
     // caught, because a legendary you knocked out should not be gone forever.
     { x: 7, y: 4, flag: 'everlightResolved', script: 'everlightDialga', repeat: true },
@@ -137,6 +140,10 @@ export const OREBURGH_GATE = defineMap('oreburgh_gate', {
     { id: 'sf_charm', x: 12, y: 1, item: 'auroracharm', qty: 1, story: true },
   ],
   events: [
+    // Picking the charm up is the turn. The tile under it does the work.
+    { x: 12, y: 1, flag: 'knowsTwist', script: 'charmFound', requires: 'beatCommander' },
+    // Galactic left in a hurry and left their paperwork.
+    { x: 11, y: 3, flag: 'doc_memo_read', script: 'docMemo' },
     // The seam in the rock the whole region has been talking about. It fires
     // every time you stand on it: shut without the charm, a door with it.
     { x: 12, y: 2, flag: 'everlightOpened', script: 'everlight', repeat: true },

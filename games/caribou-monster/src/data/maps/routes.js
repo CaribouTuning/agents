@@ -108,6 +108,14 @@ export const ROUTE207 = defineMap('route207', {
     { id: 'r2_super', x: 2, y: 13, item: 'superpotion', qty: 1 },
     { id: 'r2_great', x: 22, y: 4, item: 'greatball', qty: 2 },
   ],
+  events: [
+    // Cass, standing in the way, one tile short of the Gate.
+    { x: 12, y: 1, flag: 'beatRival3', script: 'rival3' },
+    { x: 13, y: 1, flag: 'beatRival3', script: 'rival3' },
+    // Rowan waits out here afterwards. He could not go in. He tried.
+    { x: 12, y: 2, flag: 'rowanDebriefed', script: 'rowanAfter', requires: 'everlightResolved' },
+    { x: 13, y: 2, flag: 'rowanDebriefed', script: 'rowanAfter', requires: 'everlightResolved' },
+  ],
   npcs: [
     { id: 'r2_t1', x: 9, y: 6, look: 'youngster', trainer: 'r2_youngster', facing: 'right', sight: 4, movement: 'still' },
     { id: 'r2_t2', x: 18, y: 12, look: 'hiker', trainer: 'r2_hiker', facing: 'left', sight: 4, movement: 'still' },

@@ -192,6 +192,23 @@ for (const [name, open] of [
   } catch (e) { console.log(`  !! ${name}: ${e.message}`); }
 }
 
+// The journal: what I am doing now, and what I have worked out.
+try {
+  await run(() => {
+    const g = window.CARIBOU;
+    for (const id of ['gotStarter', 'metCass', 'cassCircuit', 'badge1', 'doc_survey',
+      'doc_memo', 'cassWarning', 'beatMars', 'theKey']) g.journalForTest.record(g.state, id);
+    g.openJournal();
+  });
+  await shot('30d-journal');
+  await run(() => {
+    const s = window.CARIBOU.screens.top;
+    if (s && s.constructor.name === 'JournalScreen') { s.index = 0; s._open(); }
+  });
+  await shot('30e-journal-entry');
+  await run(() => window.CARIBOU.screens.pop());
+} catch (e) { console.log(`  !! journal: ${e.message}`); }
+
 // Nicknaming, the moment a caught Pokémon becomes yours.
 try {
   await run(() => {

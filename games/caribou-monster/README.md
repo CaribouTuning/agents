@@ -42,13 +42,74 @@ controls.
 | **Co-op** | Room codes, a shared overworld, link trades and link battles |
 | **Debug** | A developer menu behind OPTIONS: teleport, give monsters/items/money, set flags, force battles, inspect the network |
 
-The story runs from waking up at home through Professor Rowan's lab, the rival,
-Route 202, the first badge, and into Oreburgh Gate where Team Galactic is
-listening to something under the hill — and then into the hill itself. The
-Aurora Charm opens a seam in the rock that four maps of NPCs have been talking
-about, and what is behind it is Dialga, standing very still, and has been for a
-very long time. Decline it and it waits; a legendary you can permanently lose is
-a save file you have to restart.
+---
+
+## The story
+
+The shape is the one you remember: a starter, a rival, a road, a badge, a
+team in matching coats, and something enormous asleep under a hill. What is
+underneath it is written to be re-read.
+
+**Cass Wren** grew up four doors down. She started a year before you, got up at
+seven to take the starter that beats yours, and says "one year ahead" like it is
+a fact about the universe. She is also rated 1180 on the World Circuit — the
+same Cass Wren you will meet in the Battle Hall, and in the Sinnoh Open, and
+eventually in a final. One person, one relationship, from a dirt road in
+Twinleaf to the World Finals. The third time you meet her on the road she is not
+keeping score: she is standing in the way of Oreburgh Gate telling you not to go
+in, and when you go in anyway she gives you her mother's Hyper Potions.
+
+**Professor Rowan** is not a vending machine that dispenses a starter. He hands
+you a Pokédex and mentions, as an aside nobody remembers, that it also logs
+ambient light — "an old habit of mine, the data has to go somewhere."
+
+**The turn** happens when you pick up the Aurora Charm. It is warm. The Pokédex
+chirps twice and Rowan is on the line, because his readings just went off the
+top of the scale, and he needs to know one thing: *is it warm*. It is. Then it
+has been in that rock for minutes, not centuries. It is not an artefact you
+found — it is a key, and Galactic built it, because the door does not open for
+anyone who wants in. They left it where a trainer would find it and they waited.
+Mars did not lose to you. She stepped aside.
+
+And Rowan knew. He stood in front of that seam thirty-one years ago with a full
+team and every instrument he owned, and it would not open, and he has spent
+three decades working out that what he got wrong was *wanting in*. So he sent
+somebody who was only walking a road because an old man told them it was the
+whole point.
+
+Almost every scene before that reads differently afterwards. Mars leaves her
+expensive instruments behind without looking at them. Her three flat lines —
+"One trainer. Noted. We will not make that mistake twice" — are a threat on the
+way in and a box being ticked on the way out. A Galactic memo forbids field
+staff from carrying the artefact into the chamber approach: *not once, not to
+test it*, and if you work out why, keep it to yourself. The story is solvable,
+not merely survivable — every piece is findable before the reveal.
+
+Behind the door is Dialga, with its back to you, and it has been standing that
+way for a very long time. It was not guarding the light. It was holding the door
+shut from the inside, alone, and nobody had ever come to help. It turns around
+and it is not surprised. It is relieved.
+
+Mars gets there four hours late. Fourteen months of operation, two commanders,
+nine sites; they built the key, picked the hill, and picked the trainer. They
+picked you. And you were four hours faster than the people who wrote the plan.
+
+Nobody dies and nothing is bittersweet. It is the game you remember, written for
+someone who has since read some books.
+
+### The journal
+
+A Pokémon game tells you what to do next by having somebody say it once, out
+loud, forty minutes ago. That was fine on a school bus every day for a month;
+it is not fine when you pick this up on a Tuesday having last touched it three
+weeks ago.
+
+So every beat writes a journal entry — what you *worked out*, not what the
+engine did — and the top of the screen always says what you are doing now.
+`tools/storytest.mjs` runs the whole plot headlessly against a fake cutscene
+context, asserts each beat fires once and in order, and fails if a journal entry
+exists that no script ever writes (a page you could never turn to) or a script
+writes one that does not exist.
 
 ---
 
@@ -248,6 +309,7 @@ node tools/audit.mjs                   # static world audit — softlocks, warps
 node tools/circuittest.mjs             # World Circuit careers, brackets, press, saves
 node tools/dialoguetest.mjs            # every NPC branch, across fourteen career stages
 node tools/abilitytest.mjs             # every ability, proved against its own absence
+node tools/storytest.mjs               # every story beat, headless, in order
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```

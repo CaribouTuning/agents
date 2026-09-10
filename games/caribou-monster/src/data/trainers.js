@@ -124,21 +124,21 @@ add('cave_commander', {
 // The rival's starter is chosen at runtime to counter the player's, exactly
 // like the DS games. `starterOffset` picks the type-advantaged line.
 add('rival_1', {
-  name: 'Rival', cls: 'Rival', look: 'rivalBoy', ai: 1, prize: 400, rival: true,
-  intro: 'You picked yours, I picked mine. Let us find out who picked better.',
-  defeat: 'Ha! Fine. You picked better. This time.',
+  name: 'Cass Wren', cls: 'Rival', look: 'rivalGirl', ai: 1, prize: 400, rival: true,
+  intro: 'One year. That is how far ahead I am.',
+  defeat: 'That is not what a year is supposed to look like.',
   team: [mon(10, 5, ['tackle', 'growl']), 'RIVAL_STARTER:5'],
 });
 add('rival_2', {
-  name: 'Rival', cls: 'Rival', look: 'rivalBoy', ai: 2, prize: 900, rival: true,
-  intro: 'Oreburgh already? You have been busy. So have I.',
-  defeat: 'You have been busier. Noted.',
+  name: 'Cass Wren', cls: 'Rival', look: 'rivalGirl', ai: 2, prize: 900, rival: true,
+  intro: 'Badge first. Roark does not care what anyone is rated.',
+  defeat: 'You have got faster. Not better. Faster.',
   team: [mon(11, 12, ['quickattack', 'wingattack', 'growl']), mon(15, 12, ['spark', 'leer']), 'RIVAL_STARTER:13'],
 });
 add('rival_3', {
-  name: 'Rival', cls: 'Rival', look: 'rivalBoy', ai: 2, prize: 1600, rival: true,
-  intro: 'Last time was last time. Come on.',
-  defeat: 'Every single time. How.',
+  name: 'Cass Wren', cls: 'Rival', look: 'rivalGirl', ai: 3, prize: 1600, rival: true,
+  intro: 'You are going in having beaten me, or you are not going in.',
+  defeat: 'I am not going to pretend I am not annoyed about that.',
   team: [mon(11, 18, ['wingattack', 'quickattack', 'doubleteam']), mon(16, 18, ['spark', 'bite', 'leer']),
     mon(22, 17, ['quickattack', 'defensecurl']), 'RIVAL_STARTER:19'],
 });

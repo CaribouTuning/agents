@@ -9,6 +9,12 @@ import { getTournament } from '../../data/circuit.js';
 import { getSpecies } from '../../data/species.js';
 import { createMonster } from '../monster.js';
 import { FLAGS } from '../storyflags.js';
+import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS } from '../../data/story.js';
+
+// A whole block of lines from the story bible, said one page at a time.
+async function speak(ctx, lines, opts) {
+  for (const line of lines) await ctx.say(line, opts);
+}
 
 export const SCRIPTS = {};
 
@@ -21,7 +27,7 @@ SCRIPTS.starter = async (ctx) => {
     return;
   }
 
-  await ctx.say('Prof. Rowan: There you are.\fI have three young Pokémon here and nobody to raise them. Take a look.');
+  await speak(ctx, ROWAN.give);
 
   let chosen = -1;
   while (chosen < 0) {
@@ -50,14 +56,18 @@ SCRIPTS.starter = async (ctx) => {
 
   ctx.sfx('caught');
   await ctx.say(`${getSpecies(base).name} joined your team!`);
-  await ctx.say('Prof. Rowan: Good choice. They all are.\fTake this too — you will want to know what you are looking at out there.');
+  await ctx.askNickname(mon);
+  await speak(ctx, ROWAN.chosen);
   ctx.give('pokedex', 1);
   ctx.give('pokeball', 5);
   await ctx.say('You received the Pokédex and 5 Poké Balls!');
-  await ctx.say('Prof. Rowan: Oreburgh City is north, past Route 202.\fThe road there is the whole point. Go and walk it.');
+  // The aside that turns out to matter. Nobody remembers it the first time.
+  await speak(ctx, ROWAN.dex);
+  await speak(ctx, ROWAN.send);
 
   ctx.setFlag(FLAGS.GOT_STARTER);
   ctx.shareMilestone(FLAGS.GOT_STARTER);
+  ctx.journal('gotStarter');
 };
 
 // ---- Rival battles ---------------------------------------------------------
@@ -84,30 +94,34 @@ SCRIPTS.rival1 = async (ctx) => {
   const st = ctx.state;
   if (!st.flags[FLAGS.GOT_STARTER] || st.flags[FLAGS.BEAT_RIVAL_1]) return;
 
-  const rival = ctx.spawnNpc({
-    id: 'rival', look: st.player.look === 'girl' ? 'rivalBoy' : 'rivalGirl',
-    x: ctx.player.x, y: ctx.player.y - 3, dir: 'down', name: 'Rival',
+  const cass = ctx.spawnNpc({
+    id: 'rival', look: CASS.look, x: ctx.player.x, y: ctx.player.y - 3,
+    dir: 'down', name: CASS.name,
   });
   ctx.sfx('bump');
   await ctx.wait(0.35);
-  await ctx.walk(rival, 'down', 2);
-  await ctx.say('Rival: There you are! I heard the professor had one left over.\fWhich did you end up with?');
-  await ctx.say('Rival: Never mind, I can see it from here.\fCome on then. First one is for practice.');
+  await ctx.walk(cass, 'down', 2);
+  await speak(ctx, CASS.first.approach);
+  // She names your actual starter, because she got up early and picked its
+  // counter on purpose, and she wants you to know that.
+  await speak(ctx, ctx.fill(CASS.first.pick));
+  await speak(ctx, CASS.first.pre);
 
   const t = rivalTeam(st, 'rival_1');
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (!won) {
-    await ctx.say('Rival: Ha! Told you. Go patch them up and we will do it again.');
-    ctx.despawn(rival);
+    await speak(ctx, CASS.first.lose);
+    ctx.despawn(cass);
     return;
   }
-  await ctx.say('Rival: Fine. You picked better. This time.\fI am heading north. Try to keep up.');
-  await ctx.walk(rival, 'up', 4);
-  ctx.despawn(rival);
+  await speak(ctx, CASS.first.win);
+  await ctx.walk(cass, 'up', 4);
+  ctx.despawn(cass);
   ctx.setFlag(FLAGS.BEAT_RIVAL_1);
   ctx.setFlag(FLAGS.MET_RIVAL);
   ctx.setFlag(FLAGS.LEFT_TOWN);
   ctx.shareMilestone(FLAGS.LEFT_TOWN);
+  ctx.journal('metCass');
 };
 
 SCRIPTS.rival2 = async (ctx) => {
@@ -116,25 +130,60 @@ SCRIPTS.rival2 = async (ctx) => {
     ctx.setFlag(FLAGS.REACHED_ALDERMERE);
     return;
   }
-  const rival = ctx.spawnNpc({
-    id: 'rival', look: st.player.look === 'girl' ? 'rivalBoy' : 'rivalGirl',
-    x: ctx.player.x, y: ctx.player.y - 2, dir: 'down', name: 'Rival',
+  const cass = ctx.spawnNpc({
+    id: 'rival', look: CASS.look, x: ctx.player.x, y: ctx.player.y - 2,
+    dir: 'down', name: CASS.name,
   });
   await ctx.wait(0.3);
-  await ctx.say('Rival: Oreburgh already? You have been busy.\fSo have I. Show me.');
+  await speak(ctx, CASS.second.approach);
+  await speak(ctx, CASS.second.pre);
 
   const t = rivalTeam(st, 'rival_2');
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (won) {
-    await ctx.say('Rival: You have been busier. Noted.\fRoark is in that grey building. She does not go easy on anyone.');
+    await speak(ctx, CASS.second.win);
     ctx.setFlag(FLAGS.BEAT_RIVAL_2);
+    ctx.journal('cassCircuit');
   } else {
-    await ctx.say('Rival: Better luck next time. The Centre is right there — the red roof.');
+    await speak(ctx, CASS.second.lose);
   }
-  await ctx.walk(rival, 'up', 3);
-  ctx.despawn(rival);
+  await ctx.walk(cass, 'up', 3);
+  ctx.despawn(cass);
   ctx.setFlag(FLAGS.REACHED_ALDERMERE);
   ctx.shareMilestone(FLAGS.REACHED_ALDERMERE);
+};
+
+/**
+ * Route 207, at the mouth of the Gate. The first time she is not keeping
+ * score — she is standing in your way because she does not want you to go in.
+ */
+SCRIPTS.rival3 = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.BEAT_RIVAL_3]) return;
+
+  const cass = ctx.spawnNpc({
+    id: 'rival', look: CASS.look, x: ctx.player.x, y: ctx.player.y - 2,
+    dir: 'down', name: CASS.name,
+  });
+  ctx.exclaim(cass);
+  await ctx.wait(0.4);
+  await speak(ctx, CASS.third.approach);
+  await speak(ctx, CASS.third.pre);
+
+  const t = rivalTeam(st, 'rival_3');
+  const won = await ctx.battle({ trainer: t, kind: 'trainer' });
+  if (!won) {
+    await speak(ctx, CASS.third.lose);
+    ctx.despawn(cass);
+    return;
+  }
+  await speak(ctx, CASS.third.win);
+  ctx.give('hyperpotion', 3);
+  await ctx.say('You received 3 Hyper Potions from Cass!');
+  await ctx.walk(cass, 'down', 3);
+  ctx.despawn(cass);
+  ctx.setFlag(FLAGS.BEAT_RIVAL_3);
+  ctx.journal('cassWarning');
 };
 
 // ---- Monster Centre ---------------------------------------------------------
@@ -180,6 +229,7 @@ SCRIPTS.gymLeader = async (ctx, npc) => {
   }
   ctx.setFlag(`badge${t.badge}`);
   ctx.shareMilestone(`badge${t.badge}`);
+  if (t.badge === 1) ctx.journal('badge1');
   for (const line of npc.data.after || []) await ctx.say(`${t.name}: ${line}`, { speaker: t.name });
 };
 
@@ -191,21 +241,151 @@ SCRIPTS.commander = async (ctx, npc) => {
     for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
     return;
   }
-  await ctx.say('A figure in a long coat is standing over a seam of pale light in the rock.');
-  await ctx.say(`Mars: ${t.intro}`, { speaker: 'Mars' });
+  await speak(ctx, MARS.intro);
   const won = await ctx.battle({ trainer: t, kind: 'trainer' });
   if (!won) return;
-  await ctx.say(`Mars: ${t.defeat}`, { speaker: 'Mars' });
-  await ctx.say('The light in the seam pulses once, slowly, like something turning over in its sleep.');
+
+  // Three short lines, and then she leaves her expensive instruments behind.
+  // On the way in that reads as a threat and an oversight. It is neither.
+  await speak(ctx, MARS.defeat, { speaker: 'Mars' });
+  await speak(ctx, MARS.withdraw);
   ctx.setFlag(FLAGS.BEAT_COMMANDER);
   ctx.shareMilestone(FLAGS.BEAT_COMMANDER);
+  ctx.journal('beatMars');
   for (const line of npc.data.after || []) await ctx.say(`Mars: ${line}`, { speaker: 'Mars' });
 };
 
+/**
+ * The turn. Picking up the charm is the first time anything in the game tells
+ * the player they have misread it — and it does so with a fact they were given
+ * in the first five minutes and told not to worry about.
+ */
+SCRIPTS.charmFound = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.KNOWS_TWIST]) return;
+
+  ctx.sfx('warp');
+  await ctx.wait(0.4);
+  await speak(ctx, ROWAN.call);
+  const answer = await ctx.ask('What is it like?', ['It is warm.', 'It is old.', 'It is glowing faintly.']);
+  if (answer !== 0) {
+    await ctx.say('Prof. Rowan: Yes, yes. But is it WARM. In your hand. Right now.');
+    await ctx.ask('Well?', ['...It is warm.']);
+  }
+  await speak(ctx, ROWAN.callTwist);
+  await ctx.wait(0.3);
+  await speak(ctx, ROWAN.callConfession);
+  ctx.setFlag(FLAGS.KNOWS_TWIST);
+  ctx.shareMilestone(FLAGS.KNOWS_TWIST);
+  ctx.journal('theKey');
+  ctx.autosave();
+};
+
+// ---- The Everlight ----------------------------------------------------------
+//
+// The payoff the whole region has been talking about. Four maps of NPCs, a
+// scientist reading ninety-year-old survey notes, an old man watching the
+// aurora come further south every night, and a commander who says the mountain
+// is not finished with either of you — all of it pointed at a door that did
+// not exist. This is the door.
+
+SCRIPTS.everlight = async (ctx) => {
+  const st = ctx.state;
+  if (!ctx.hasItem('auroracharm')) { await speak(ctx, EVERLIGHT.shut); return; }
+
+  if (!st.flags[FLAGS.EVERLIGHT_OPENED]) {
+    await speak(ctx, EVERLIGHT.opening.slice(0, 3));
+    ctx.sfx('warp');
+    ctx.shake(1);
+    await ctx.wait(0.9);
+    await ctx.say(EVERLIGHT.opening[3]);
+    ctx.setFlag(FLAGS.EVERLIGHT_OPENED);
+    ctx.shareMilestone(FLAGS.EVERLIGHT_OPENED);
+    ctx.journal('doorOpened');
+    ctx.autosave();
+  }
+  await ctx.warpTo('everlight_chamber', 7, 7);
+};
+
+SCRIPTS.everlightDialga = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.CAUGHT_EVERLIGHT]) { await speak(ctx, EVERLIGHT.quiet); return; }
+
+  await speak(ctx, st.flags[FLAGS.EVERLIGHT_RESOLVED] ? EVERLIGHT.again : EVERLIGHT.firstSight);
+
+  ctx.dex.seen(37);
+  await ctx.showMonster(37);
+  ctx.cry(37);
+  await ctx.wait(0.5);
+  ctx.hideMonster();
+
+  const level = Math.max(30, Math.min(55, (st.party[0] ? st.party[0].level : 30) + 6));
+  const result = await ctx.wild(37, level, {
+    name: 'The Everlight', canRun: true, monster: { friendship: 0 },
+  });
+
+  ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
+  if (result === 'caught') {
+    ctx.setFlag(FLAGS.CAUGHT_EVERLIGHT);
+    ctx.shareMilestone(FLAGS.CAUGHT_EVERLIGHT);
+    ctx.sfx('badge');
+    await speak(ctx, EVERLIGHT.caught);
+    ctx.journal('caughtEverlight');
+  } else if (result === 'run') {
+    await speak(ctx, EVERLIGHT.fled);
+  } else {
+    // Knocked out is not gone. A legendary you can permanently lose is a save
+    // file you have to restart, and nobody has ever enjoyed that.
+    await speak(ctx, EVERLIGHT.declined);
+  }
+  ctx.autosave();
+
+  // Mars arrives four hours late, and finally says what the operation was.
+  if (!st.flags[FLAGS.MARS_LATE]) {
+    ctx.setFlag(FLAGS.MARS_LATE);
+    await ctx.wait(0.5);
+    ctx.sfx('bump');
+    await speak(ctx, MARS.late, { speaker: 'Mars' });
+    await speak(ctx, st.flags[FLAGS.CAUGHT_EVERLIGHT] ? MARS.lateCaught : MARS.lateLeft);
+    ctx.journal('marsLate');
+    ctx.autosave();
+  }
+};
+
+/** Rowan is waiting outside the Gate. He could not go in. He tried. */
+SCRIPTS.rowanAfter = async (ctx) => {
+  const st = ctx.state;
+  await speak(ctx, ROWAN.after);
+  if (st.flags[FLAGS.CAUGHT_EVERLIGHT]) await speak(ctx, ROWAN.afterCaught);
+  ctx.journal('rowanOutside');
+};
+
+// ---- documents ---------------------------------------------------------------
+// Things lying around that nobody makes you read, each one a piece of the turn,
+// all of them available before the reveal. The story should be solvable, not
+// merely survivable.
+
+function readDocument(key, entryId) {
+  return async (ctx) => {
+    const doc = DOCUMENTS[key];
+    if (!doc) return;
+    await ctx.say(`*${doc.title}*`);
+    for (const page of doc.pages) await ctx.say(page);
+    ctx.journal(entryId);
+  };
+}
+
+// The journal id is passed literally rather than built from the key, so a
+// reader scanning this file — human or test — can see which entry each
+// document writes.
+SCRIPTS.docSurvey = readDocument('survey', 'doc_survey');
+SCRIPTS.docMemo = readDocument('memo', 'doc_memo');
+SCRIPTS.docLogbook = readDocument('logbook', 'doc_logbook');
+
 // ---- The World Circuit registration desk -----------------------------------
 //
-// The one door into the side story. It is also the only place a run can be
-// resumed, so a save taken mid-tournament always has somewhere to come back to.
+// The one door into the side story, and the only place a run can be resumed —
+// so a save taken mid-tournament always has somewhere to come back to.
 
 SCRIPTS.circuitDesk = async (ctx) => {
   const c = ctx.state.circuit;
@@ -232,86 +412,10 @@ SCRIPTS.circuitDesk = async (ctx) => {
     await ctx.say('Registrar: Registered. You start unranked, like everyone does.');
     await ctx.say('Registrar: Win matches and your rating climbs. Reach a stage in an event\nand you bank Circuit Points, which is what promotes you.');
     await ctx.say('Registrar: Rookie Cup is open entry. That is where every career starts.');
+    ctx.journal('joinedCircuit');
   }
 
   await ctx.openCircuit();
-};
-
-// ---- The Everlight ----------------------------------------------------------
-//
-// The payoff the whole region has been talking about. Four maps of NPCs, a
-// scientist reading ninety-year-old survey notes, an old man watching the
-// aurora come further south every night, and a commander who says the mountain
-// is not finished with either of you — all of it pointed at a door that did
-// not exist. This is the door.
-
-SCRIPTS.everlight = async (ctx) => {
-  const st = ctx.state;
-  const hasCharm = ctx.hasItem('auroracharm');
-
-  if (!hasCharm) {
-    await ctx.say('A seam of pale light runs up the rock face.');
-    await ctx.say('It is cold to the touch, and it does not move.');
-    return;
-  }
-
-  if (!st.flags[FLAGS.EVERLIGHT_OPENED]) {
-    await ctx.say('The seam of light is directly ahead.');
-    await ctx.say('The Aurora Charm in your bag has started to glow.');
-    ctx.sfx('warp');
-    ctx.shake(1);
-    await ctx.wait(0.8);
-    await ctx.say('The light answers it.\fThe rock draws back like a held breath.');
-    ctx.setFlag(FLAGS.EVERLIGHT_OPENED);
-    ctx.shareMilestone(FLAGS.EVERLIGHT_OPENED);
-    ctx.autosave();
-  }
-  await ctx.warpTo('everlight_chamber', 7, 7);
-};
-
-SCRIPTS.everlightDialga = async (ctx) => {
-  const st = ctx.state;
-  if (st.flags[FLAGS.CAUGHT_EVERLIGHT]) {
-    await ctx.say('The chamber is quiet now.');
-    await ctx.say('The light in the rock is ordinary light, and the room is just a room.');
-    return;
-  }
-
-  if (!st.flags[FLAGS.EVERLIGHT_RESOLVED]) {
-    await ctx.say('The chamber opens out, and the light has a shape in it.');
-    await ctx.say('Something enormous is standing very still at the centre of the room.');
-    await ctx.say('It has been standing there, you understand suddenly, for a very long time.');
-  } else {
-    await ctx.say('It is still here. It has not moved at all.');
-  }
-
-  ctx.dex.seen(37);
-  await ctx.showMonster(37);
-  await ctx.say('DIALGA: ...');
-  ctx.hideMonster();
-
-  const level = Math.max(30, Math.min(55, (st.party[0] ? st.party[0].level : 30) + 6));
-  const result = await ctx.wild(37, level, {
-    name: 'The Everlight', canRun: true, monster: { friendship: 0 },
-  });
-
-  if (result === 'caught') {
-    ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
-    ctx.setFlag(FLAGS.CAUGHT_EVERLIGHT);
-    ctx.shareMilestone(FLAGS.CAUGHT_EVERLIGHT);
-    ctx.sfx('badge');
-    await ctx.say('The light goes out of the rock, all at once, everywhere.');
-    await ctx.say('Somewhere above you, a whole region stops seeing an aurora it could not explain.');
-    ctx.autosave();
-    return;
-  }
-
-  // Knocked out, or you ran. Either way it is still here tomorrow — a
-  // legendary you can permanently lose is a save file you have to restart.
-  ctx.setFlag(FLAGS.EVERLIGHT_RESOLVED);
-  ctx.autosave();
-  if (result === 'run') await ctx.say('You back out of the chamber. It does not follow.');
-  else await ctx.say('It folds back into the light, unhurried.\fIt will be here when you are ready.');
 };
 
 export function scriptFor(name) { return SCRIPTS[name] || null; }

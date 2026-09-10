@@ -265,7 +265,8 @@ export class World {
     // `repeat` fires every time you stand on it, which is how a doorway that
     // is also a cutscene works — the script decides what state you are in.
     const stepEvent = this.map.events.find((ev) => ev.x === p.x && ev.y === p.y
-      && (ev.repeat || !this.state.flags[ev.flag]));
+      && (ev.repeat || !this.state.flags[ev.flag])
+      && (!ev.requires || this.state.flags[ev.requires]));
     if (stepEvent) { this.pendingEvent = stepEvent; return; }
 
     // Trainer spotted us?

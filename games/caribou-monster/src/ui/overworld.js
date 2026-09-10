@@ -24,6 +24,7 @@ import { recordSeen, recordCaught } from '../game/pokedex.js';
 import { awardBadge, healParty, setStoryFlag, progress } from '../game/state.js';
 import { scriptFor } from '../game/overworld/scripts.js';
 import { resolveDialogue, fillText } from '../game/overworld/gossip.js';
+import { record as recordJournal, getEntry } from '../game/journal.js';
 import { renderMonster } from '../render/monsterart.js';
 import { musicFor } from '../data/music.js';
 import { net } from '../net/NetworkManager.js';
@@ -415,6 +416,25 @@ export class OverworldScreen extends Screen {
       give: (itemId, qty) => addItem(st.inventory, itemId, qty),
 
       hasItem: (itemId) => (st.inventory.items[itemId] || 0) > 0,
+
+      cry: (speciesId) => audio.cry(speciesId),
+
+      // Records a journal entry, and flashes it so the player knows the book
+      // has something new in it without being dragged into a menu.
+      journal: (id) => {
+        if (recordJournal(st, id)) {
+          const entry = getEntry(id);
+          if (entry) screen.toast(`Journal: ${entry.title}`);
+        }
+      },
+
+      // Fills {starter}, {player} and friends in a block of story lines, so
+      // the bible can name the Pokémon the player actually chose.
+      fill: (lines) => lines.map((l) => fillText(l, st)),
+
+      askNickname: (mon) => new Promise((resolve) => {
+        screen.game.openNickname(mon, () => resolve());
+      }),
 
       // A one-shot screen kick, for a mountain opening.
       shake: (strength = 1) => { screen.shakeT = Math.max(screen.shakeT || 0, strength); },

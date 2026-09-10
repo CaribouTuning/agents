@@ -81,7 +81,12 @@ export function typeFrame(g, text, maxLen, cursor, opts = {}) {
     audio.sfx('select');
   };
   const del = () => {
-    if (!out.text.length) { audio.sfx('deny'); return; }
+    // Backing out of an empty field means "no thanks", not "beep at me".
+    if (!out.text.length) {
+      if (opts.skip) { out.done = true; out.skipped = true; return; }
+      audio.sfx('deny');
+      return;
+    }
     out.text = out.text.slice(0, -1);
     audio.sfx('back');
   };
