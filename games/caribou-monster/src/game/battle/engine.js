@@ -13,6 +13,7 @@ import { makeRng } from '../../core/rng.js';
 import { getMove } from '../../data/moves.js';
 import { typeMultiplier, effectivenessText } from '../../data/types.js';
 import * as ability from './abilities.js';
+import * as weather from './weather.js';
 import { onLevelUp, onWonBattle, onFainted } from '../friendship.js';
 import { getSpecies } from '../../data/species.js';
 import { getItem } from '../../data/items.js';
@@ -73,6 +74,10 @@ export function createBattle(cfg) {
     over: false,
     result: null,                        // 'win' | 'lose' | 'run' | 'caught' | 'draw'
     caught: null,
+    // The sky. A wild battle can start under one (a sandstorm on a desert
+    // route, say); everything else starts clear.
+    weather: cfg.weather || null,
+    weatherTurns: cfg.weather ? cfg.weatherTurns || weather.DEFAULT_TURNS : 0,
     canRun: cfg.canRun !== false,
     canCatch: cfg.kind === 'wild',
     battleLocation: cfg.location || null,
@@ -99,6 +104,11 @@ export function effectiveStat(battle, sideIdx, key, viewer = null) {
   const blind = viewer && ability.ignoresBoosts(viewer);
   v = Math.floor(v * (blind ? 1 : stage(side.boosts[key] || 0)));
   v = Math.floor(v * ability.defenseStatMultiplier(mon, key));
+  if (battle.weather) {
+    const sky = activeWeather(battle);
+    v = Math.floor(v * weather.statMultiplier(sky, key, typesOf(mon)));
+    v = Math.floor(v * ability.weatherStatMultiplier(mon, key, sky));
+  }
   if (key === 'atk' && mon.status === 'BRN') v = Math.floor(v / 2);
   if (key === 'spe' && mon.status === 'PAR') v = Math.floor(v / 4);
   return Math.max(1, v);
@@ -125,6 +135,23 @@ export function resolveTurn(battle, actions) {
   const out = [];
   const E = ev(out);
   battle.turn++;
+
+  // The leads never went through a switch, so their entry abilities have not
+  // fired. Doing it on the first turn rather than in createBattle keeps the
+  // events in the stream the UI plays, instead of happening before it exists.
+  if (!battle.opened) {
+    battle.opened = true;
+    for (let i = 0; i < 2; i++) {
+      const mon = activeOf(battle.sides[i]);
+      if (!mon || isFainted(mon)) continue;
+      ability.onSwitchIn(battle, i, abilityCtx(battle, i, out, mon));
+      const summoned = ability.summonsWeather(mon);
+      if (summoned && battle.weather !== summoned) {
+        out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability}!` });
+        setWeather(battle, summoned, weather.DEFAULT_TURNS, out);
+      }
+    }
+  }
 
   for (const s of battle.sides) { s.volatile.flinch = false; }
 
@@ -229,6 +256,12 @@ function doSwitch(battle, sideIdx, index, out) {
   out.push({ t: 'sendout', side: sideIdx, index });
   out.push({ t: 'text', s: `${side.isPlayer ? 'Go!' : `${side.name} sent out`} ${displayName(target)}!` });
   ability.onSwitchIn(battle, sideIdx, abilityCtx(battle, sideIdx, out, target));
+  // Drizzle, Sand Stream and Snow Warning bring their own sky with them.
+  const summoned = ability.summonsWeather(target);
+  if (summoned && battle.weather !== summoned) {
+    out.push({ t: 'text', s: `${displayName(target)}'s ${target.ability}!` });
+    setWeather(battle, summoned, weather.DEFAULT_TURNS, out);
+  }
 }
 
 function doItem(battle, sideIdx, action, out) {
@@ -441,7 +474,9 @@ function doMove(battle, sideIdx, action, out) {
     const accMod = accStage((side.boosts.acc || 0) - (foeSide.boosts.eva || 0));
     const chance = (used.acc / 100) * accMod
       * ability.accuracyMultiplier(user, used)
-      / ability.evasionMultiplier(target, foeSide);
+      * weather.accuracyMultiplier(activeWeather(battle), used.id)
+      / ability.evasionMultiplier(target, foeSide)
+      / ability.weatherEvasion(target, activeWeather(battle));
     // The roll is spent either way: No Guard must not shift the shared stream.
     const missed = battle.rng() >= chance;
     if (missed && !ability.neverMisses(user, target)) {
@@ -591,6 +626,7 @@ export function computeDamage(battle, sideIdx, move, opts = {}) {
   dmg = Math.floor(dmg * ability.versusMultiplier(user, target));
   dmg = Math.floor(dmg * ability.damageDealtMultiplier(user, eff));
   dmg = Math.floor(dmg * ability.damageTakenMultiplier(target, user, move, eff));
+  dmg = Math.floor(dmg * weather.damageMultiplier(activeWeather(battle), move.type));
   if (crit) dmg = Math.floor(dmg * ability.critMultiplier(user));
   if (user.status === 'BRN' && physical && !ability.ignoresBurnDrop(user)) dmg = Math.floor(dmg * 0.5);
   // Damage roll: 85%..100%. A peek uses the average roll so the AI's
@@ -745,7 +781,10 @@ function applyStatusMove(battle, sideIdx, move, out) {
       break;
     case 'heal': {
       if (user.hp >= maxHp(user)) { out.push({ t: 'text', s: 'But it failed!' }); break; }
-      user.hp = Math.min(maxHp(user), user.hp + Math.floor(maxHp(user) * fx.fraction));
+      // Synthesis and its cousins read the sky: two thirds in sun, a quarter
+      // in anything that blocks it.
+      const frac = weather.healFraction(activeWeather(battle), fx.fraction, move.id);
+      user.hp = Math.min(maxHp(user), user.hp + Math.floor(maxHp(user) * frac));
       out.push({ t: 'sfx', s: 'heal' });
       out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp });
       out.push({ t: 'text', s: `${displayName(user)} regained health!` });
@@ -758,6 +797,11 @@ function applyStatusMove(battle, sideIdx, move, out) {
       user.statusCounter = 2;
       out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp });
       out.push({ t: 'text', s: `${displayName(user)} slept and became healthy!` });
+      break;
+    }
+    case 'weather': {
+      if (battle.weather === fx.weather) { out.push({ t: 'text', s: 'But it failed!' }); break; }
+      setWeather(battle, fx.weather, weather.DEFAULT_TURNS, out);
       break;
     }
     case 'focus':
@@ -774,6 +818,31 @@ function applyStatusMove(battle, sideIdx, move, out) {
       out.push({ t: 'text', s: 'But nothing happened!' });
   }
   void foeSide;
+}
+
+/**
+ * The weather in play, or null.
+ *
+ * Cloud Nine and Air Lock suppress it without clearing it: the storm is still
+ * running its clock, nothing can feel it while they are on the field, and it
+ * is there again when they leave.
+ */
+export function activeWeather(battle) {
+  if (!battle.weather) return null;
+  for (const side of battle.sides) {
+    const mon = activeOf(side);
+    if (mon && !isFainted(mon) && ability.suppressesWeather(mon)) return null;
+  }
+  return battle.weather;
+}
+
+export function setWeather(battle, kind, turns, out) {
+  const info = weather.WEATHER[kind];
+  if (!info) return;
+  battle.weather = kind;
+  battle.weatherTurns = turns;
+  out.push({ t: 'weather', weather: kind });
+  out.push({ t: 'text', s: info.start });
 }
 
 export function applyStatus(battle, sideIdx, fx, out) {
@@ -811,6 +880,10 @@ export function applyStatus(battle, sideIdx, fx, out) {
   if (immune) { out.push({ t: 'text', s: "It doesn't affect it..." }); return; }
   if (ability.immuneToStatus(mon, fx.status, fx.from)) {
     out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} prevents that!` });
+    return;
+  }
+  if (ability.statusProofIn(mon, activeWeather(battle))) {
+    out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} kept it safe!` });
     return;
   }
 
@@ -875,10 +948,72 @@ function endOfTurn(battle, out) {
       }
     }
   }
+  weatherEndOfTurn(battle, out);
+
   for (const s of battle.sides) {
     s.volatile.firstTurn = false;
     s.volatile.tookPhysical = 0;
     s.volatile.tookSpecial = 0;
+  }
+}
+
+/**
+ * The sandstorm bites, the hail falls, and the clock runs down.
+ *
+ * Runs after everything else in the turn so a Pokémon that survived on one
+ * hit point still gets taken by the storm, which is how the games do it and
+ * is the whole reason weather is a threat rather than a stat buff.
+ */
+function weatherEndOfTurn(battle, out) {
+  const active = activeWeather(battle);
+  if (active) {
+    for (let i = 0; i < 2; i++) {
+      const mon = activeOf(battle.sides[i]);
+      if (!mon || isFainted(mon)) continue;
+      if (ability.noIndirectDamage(mon)) continue;
+      if (ability.shrugsOffWeather(mon, active)) continue;
+      if (!weather.chipsAway(active, typesOf(mon))) continue;
+      const dmg = Math.max(1, Math.floor(maxHp(mon) / 16));
+      mon.hp = Math.max(0, mon.hp - dmg);
+      out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp, shake: true });
+      out.push({ t: 'text', s: weather.chipText(active, displayName(mon)) });
+    }
+    // Hydration washes a status off, and Solar Power charges what it costs.
+    for (let i = 0; i < 2; i++) {
+      const mon = activeOf(battle.sides[i]);
+      if (!mon || isFainted(mon)) continue;
+      if (mon.status && ability.curesStatusIn(mon, active)) {
+        mon.status = null; mon.statusCounter = 0; mon.badPoison = false;
+        out.push({ t: 'status', side: i, status: null });
+        out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} washed it clean!` });
+      }
+      if (ability.burnsInWeather(mon, active) && !ability.noIndirectDamage(mon)) {
+        const cost = Math.max(1, Math.floor(maxHp(mon) / 8));
+        mon.hp = Math.max(0, mon.hp - cost);
+        out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp, shake: true });
+        out.push({ t: 'text', s: `${displayName(mon)} is scorched by ${mon.ability}!` });
+      }
+    }
+    // Ice Body and Rain Dish read the same sky and give it back.
+    for (let i = 0; i < 2; i++) {
+      const mon = activeOf(battle.sides[i]);
+      if (!mon || isFainted(mon)) continue;
+      const heal = ability.weatherHealing(mon, active);
+      if (!heal || mon.hp >= maxHp(mon)) continue;
+      mon.hp = Math.min(maxHp(mon), mon.hp + Math.max(1, Math.floor(maxHp(mon) * heal)));
+      out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp });
+      out.push({ t: 'text', s: `${displayName(mon)} is soothed by ${mon.ability}!` });
+    }
+  }
+
+  // The clock runs even while something is suppressing the weather.
+  if (battle.weather) {
+    battle.weatherTurns--;
+    if (battle.weatherTurns <= 0) {
+      out.push({ t: 'text', s: weather.WEATHER[battle.weather].end });
+      out.push({ t: 'weather', weather: null });
+      battle.weather = null;
+    }
   }
 }
 

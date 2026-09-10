@@ -331,6 +331,7 @@ node tools/dialoguetest.mjs            # every NPC branch, across fourteen caree
 node tools/abilitytest.mjs             # every ability, proved against its own absence
 node tools/storytest.mjs               # every story beat, headless, in order
 node tools/savetest.mjs                # save round trip, migration, and refusal
+node tools/weathertest.mjs             # sun, rain, sand and hail, each against its absence
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```

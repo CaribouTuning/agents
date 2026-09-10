@@ -236,6 +236,31 @@ export const ABILITIES = {
   Unaware: { describe: 'Ignores the foe’s stat changes.', ignoresBoosts: true },
   'Mold Breaker': { describe: 'Moves land regardless of the foe’s ability.', ignoresAbility: true },
 
+  // ---- weather -------------------------------------------------------------
+
+  Drizzle: { describe: 'Summons rain on entry.', summons: 'rain' },
+  'Sand Stream': { describe: 'Summons a sandstorm on entry.', summons: 'sand' },
+  'Snow Warning': { describe: 'Summons hail on entry.', summons: 'hail' },
+
+  Chlorophyll: { describe: 'Doubles its Speed in sunshine.', speedIn: { sun: 2 } },
+  'Swift Swim': { describe: 'Doubles its Speed in rain.', speedIn: { rain: 2 } },
+  'Solar Power': {
+    describe: 'Sunshine raises its Sp. Atk, and burns it away.',
+    specialIn: { sun: 1.5 },
+    burnsIn: ['sun'],
+  },
+  'Flower Gift': { describe: 'Sunshine raises its Attack and Sp. Def.', attackIn: { sun: 1.5 }, defenseIn: { sun: 1.5 } },
+
+  'Sand Veil': { describe: 'Harder to hit in a sandstorm.', evadeIn: { sand: 1.25 }, weatherProof: ['sand'] },
+  'Snow Cloak': { describe: 'Harder to hit in hail.', evadeIn: { hail: 1.25 }, weatherProof: ['hail'] },
+  'Ice Body': { describe: 'Hail heals it instead of hurting it.', healsIn: { hail: 1 / 16 }, weatherProof: ['hail'] },
+  'Rain Dish': { describe: 'Rain slowly heals it.', healsIn: { rain: 1 / 16 } },
+  Hydration: { describe: 'Rain washes away its status problems.', curesIn: ['rain'] },
+  'Leaf Guard': { describe: 'Sunshine keeps status problems off it.', statusProofIn: ['sun'] },
+
+  'Cloud Nine': { describe: 'Nothing on the field feels the weather.', suppressesWeather: true },
+  'Air Lock': { describe: 'Nothing on the field feels the weather.', suppressesWeather: true },
+
   // ---- reactions -----------------------------------------------------------
 
   'Serene Grace': { describe: 'Added effects happen twice as often.', secondaryMultiplier: 2 },
@@ -294,23 +319,7 @@ export const INERT_ABILITIES = {
   'Cute Charm': 'no infatuation status',
   Oblivious: 'no infatuation status',
 
-  // No weather. Adding one is a real feature, not an ability; until it
-  // exists these would all be lies on the summary screen.
-  Chlorophyll: 'no weather system',
-  'Flower Gift': 'no weather system',
-  'Swift Swim': 'no weather system',
-  Drizzle: 'no weather system',
-  'Sand Stream': 'no weather system',
-  'Snow Warning': 'no weather system',
-  'Sand Veil': 'no weather system',
-  'Snow Cloak': 'no weather system',
-  'Ice Body': 'no weather system',
-  Hydration: 'no weather system',
-  'Leaf Guard': 'no weather system',
-  'Solar Power': 'no weather system',
-  'Cloud Nine': 'no weather system',
-  'Air Lock': 'no weather system',
-  'Forecast': 'no weather system',
+  Forecast: 'rewriting a Pokémon\u2019s own types mid-battle is a mechanic this engine does not have',
 
   // Single battles only, so a redirect has nothing to redirect from.
   'Lightning Rod': 'redirection only matters in double battles',
@@ -596,6 +605,62 @@ export function contactChanceOf(target, attacker) {
 export function aftermathFraction(target, attacker) {
   const a = seenAbility(target, attacker);
   return (a && a.aftermath) || 0;
+}
+
+// ---- weather ---------------------------------------------------------------
+
+export function summonsWeather(mon) {
+  const a = abilityOf(mon);
+  return (a && a.summons) || null;
+}
+
+export function suppressesWeather(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.suppressesWeather);
+}
+
+/** Everything an ability does to a stat because of the sky. */
+export function weatherStatMultiplier(mon, key, sky) {
+  const a = abilityOf(mon);
+  if (!a || !sky) return 1;
+  let m = 1;
+  if (key === 'spe' && a.speedIn && a.speedIn[sky]) m *= a.speedIn[sky];
+  if (key === 'spa' && a.specialIn && a.specialIn[sky]) m *= a.specialIn[sky];
+  if (key === 'atk' && a.attackIn && a.attackIn[sky]) m *= a.attackIn[sky];
+  if (key === 'spd' && a.defenseIn && a.defenseIn[sky]) m *= a.defenseIn[sky];
+  return m;
+}
+
+export function weatherEvasion(mon, sky) {
+  const a = abilityOf(mon);
+  return (a && a.evadeIn && a.evadeIn[sky]) || 1;
+}
+
+/** Sand Veil and Snow Cloak are also simply not bothered by their own storm. */
+export function shrugsOffWeather(mon, sky) {
+  const a = abilityOf(mon);
+  return !!(a && a.weatherProof && a.weatherProof.includes(sky));
+}
+
+export function weatherHealing(mon, sky) {
+  const a = abilityOf(mon);
+  return (a && a.healsIn && a.healsIn[sky]) || 0;
+}
+
+export function curesStatusIn(mon, sky) {
+  const a = abilityOf(mon);
+  return !!(a && a.curesIn && a.curesIn.includes(sky));
+}
+
+export function statusProofIn(mon, sky) {
+  const a = abilityOf(mon);
+  return !!(a && a.statusProofIn && a.statusProofIn.includes(sky));
+}
+
+/** Solar Power's own cost: the sun powers it up and wears it down. */
+export function burnsInWeather(mon, sky) {
+  const a = abilityOf(mon);
+  return !!(a && a.burnsIn && a.burnsIn.includes(sky));
 }
 
 export { isFainted, typesOf };

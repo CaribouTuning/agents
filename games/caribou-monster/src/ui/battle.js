@@ -28,7 +28,7 @@ import { getSpecies } from '../data/species.js';
 import { getMove } from '../data/moves.js';
 import { getItem } from '../data/items.js';
 import {
-  activeOf, resolveTurn, needsSwitch, forceSwitch, hpFraction,
+  activeOf, resolveTurn, needsSwitch, forceSwitch, hpFraction, activeWeather,
 } from '../game/battle/engine.js';
 import { chooseAiAction, chooseAiSwitch } from '../game/battle/ai.js';
 import {
@@ -155,6 +155,7 @@ export class BattleScreen extends Screen {
   update(dt, isTop) {
     if (!isTop) return;
     this.introT += dt;
+    this.t = (this.t || 0) + dt;
     for (let i = 0; i < 2; i++) {
       if (this.shake[i] > 0) this.shake[i] = Math.max(0, this.shake[i] - dt * 4);
       if (this.flash[i] > 0) this.flash[i] = Math.max(0, this.flash[i] - dt * 5);
@@ -805,6 +806,7 @@ export class BattleScreen extends Screen {
   render(ctx) {
     const { width: W, height: H } = this.game.display;
     this._drawBackdrop(ctx, W, H);
+    this._drawWeather(ctx, W, H);
     this._drawCombatants(ctx, W, H);
     this._drawHuds(ctx, W, H);
 
@@ -887,6 +889,66 @@ export class BattleScreen extends Screen {
       this._drawSprite(ctx, img, sx, sy, this.flash[this.mySide], this.faintDrop[this.mySide]);
     }
     if (this.ballAnim) this._drawBall(ctx, W, H);
+  }
+
+  /**
+   * The sky, over the backdrop and behind the fighters.
+   *
+   * Rain and hail fall, sand blows sideways, and sun is a warm wash with a
+   * slow shimmer — all driven off the animation clock rather than stored
+   * particles, so it costs nothing and cannot drift between two linked
+   * clients that are watching the same battle.
+   */
+  _drawWeather(ctx, W, H) {
+    const sky = activeWeather(this.battle);
+    if (!sky) return;
+    const t = this.t || 0;
+
+    if (sky === 'sun') {
+      ctx.save();
+      ctx.globalAlpha = 0.10 + Math.sin(t * 1.4) * 0.03;
+      ctx.fillStyle = '#ffd870';
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+      return;
+    }
+
+    ctx.save();
+    if (sky === 'sand') {
+      ctx.globalAlpha = 0.11;
+      ctx.fillStyle = '#d8b878';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = '#c8a058';
+      for (let i = 0; i < 60; i++) {
+        const y = (i * 37) % H;
+        const x = ((i * 97) + t * 260) % (W + 40) - 20;
+        ctx.fillRect(Math.round(x), y, 5, 1);
+      }
+    } else if (sky === 'rain') {
+      ctx.globalAlpha = 0.09;
+      ctx.fillStyle = '#3a5a90';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#a8c8f0';
+      for (let i = 0; i < 70; i++) {
+        const x = ((i * 53) - t * 60) % (W + 30);
+        const y = ((i * 71) + t * 420) % (H + 20) - 10;
+        ctx.fillRect(Math.round(x), Math.round(y), 1, 5);
+      }
+    } else if (sky === 'hail') {
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = '#a8d8f0';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = '#eaf6ff';
+      for (let i = 0; i < 46; i++) {
+        const x = ((i * 61) + Math.sin((t + i) * 2) * 6) % (W + 20) - 10;
+        const y = ((i * 83) + t * 200) % (H + 16) - 8;
+        ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+      }
+    }
+    ctx.restore();
   }
 
   _drawSprite(ctx, img, x, y, flash, drop) {

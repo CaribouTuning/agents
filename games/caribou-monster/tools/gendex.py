@@ -159,6 +159,12 @@ VARIABLE = {
     'guillotine': 'ohko', 'horndrill': 'ohko', 'fissure': 'ohko', 'sheercold': 'ohko',
     'counter': 'counter', 'mirrorcoat': 'mirrorcoat', 'metalburst': 'metalburst',
 }
+# The four moves that set weather. veekun files these under an effect this
+# generator has no general mapping for, so they are named.
+WEATHER_MOVES = {
+    'sunnyday': 'sun', 'raindance': 'rain', 'sandstorm': 'sand', 'hail': 'hail',
+}
+
 # Depend on stockpiling, held items or party state this engine does not model.
 DROP_MOVES = {'bide', 'present', 'naturalgift', 'fling', 'trumpcard', 'spitup', 'beatup'}
 
@@ -518,6 +524,8 @@ for mid in sorted(used_moves | platinum_moves):
     })
     if move_out[-1]['id'] in VARIABLE:
         move_out[-1]['variable'] = VARIABLE[move_out[-1]['id']]
+    if move_out[-1]['id'] in WEATHER_MOVES:
+        move_out[-1]['effect'] = {'kind': 'weather', 'weather': WEATHER_MOVES[move_out[-1]['id']]}
 
 for m in move_out:
     if m['power'] == 0 and m['cls'] != 'status' and 'variable' not in m:

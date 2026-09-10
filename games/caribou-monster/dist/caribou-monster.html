@@ -7329,7 +7329,7 @@ add({ id: 'detect', name: 'Detect', type: 'Fighting', power: 0, acc: 0, pp: 5, c
 add({ id: 'bonerush', name: 'Bone Rush', type: 'Ground', power: 25, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: [], tm: -1 });
 add({ id: 'lockon', name: 'Lock-On', type: 'Normal', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
 add({ id: 'outrage', name: 'Outrage', type: 'Dragon', power: 120, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
-add({ id: 'sandstorm', name: 'Sandstorm', type: 'Rock', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 37 });
+add({ id: 'sandstorm', name: 'Sandstorm', type: 'Rock', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'weather', weather: 'sand' }, flags: [], tm: 37 });
 add({ id: 'gigadrain', name: 'Giga Drain', type: 'Grass', power: 75, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'drain', fraction: 0.5 }, flags: [], tm: 19 });
 add({ id: 'endure', name: 'Endure', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 4, crit: 0, effect: null, flags: [], tm: 58 });
 add({ id: 'charm', name: 'Charm', type: 'Fairy', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'atk', stages: -2 }, flags: [], tm: -1 });
@@ -7367,8 +7367,8 @@ add({ id: 'moonlight', name: 'Moonlight', type: 'Fairy', power: 0, acc: 0, pp: 5
 add({ id: 'hiddenpower', name: 'Hidden Power', type: 'Normal', power: 60, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: 10 });
 add({ id: 'crosschop', name: 'Cross Chop', type: 'Fighting', power: 100, acc: 80, pp: 5, cls: 'physical', priority: 0, crit: 1, effect: null, flags: ['contact'], tm: -1 });
 add({ id: 'twister', name: 'Twister', type: 'Dragon', power: 40, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.2 }, flags: [], tm: -1 });
-add({ id: 'raindance', name: 'Rain Dance', type: 'Water', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 18 });
-add({ id: 'sunnyday', name: 'Sunny Day', type: 'Fire', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 11 });
+add({ id: 'raindance', name: 'Rain Dance', type: 'Water', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: { kind: 'weather', weather: 'rain' }, flags: [], tm: 18 });
+add({ id: 'sunnyday', name: 'Sunny Day', type: 'Fire', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: { kind: 'weather', weather: 'sun' }, flags: [], tm: 11 });
 add({ id: 'crunch', name: 'Crunch', type: 'Dark', power: 80, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1, chance: 0.2 }, flags: ['bite', 'contact'], tm: -1 });
 add({ id: 'mirrorcoat', name: 'Mirror Coat', type: 'Psychic', power: 0, acc: 100, pp: 20, cls: 'special', priority: -5, crit: 0, effect: null, flags: [], tm: -1, variable: 'mirrorcoat' });
 add({ id: 'psychup', name: 'Psych Up', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 77 });
@@ -7383,7 +7383,7 @@ add({ id: 'uproar', name: 'Uproar', type: 'Normal', power: 90, acc: 100, pp: 10,
 add({ id: 'stockpile', name: 'Stockpile', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
 add({ id: 'swallow', name: 'Swallow', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.25 }, flags: [], tm: -1 });
 add({ id: 'heatwave', name: 'Heat Wave', type: 'Fire', power: 95, acc: 90, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: [], tm: -1 });
-add({ id: 'hail', name: 'Hail', type: 'Ice', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 7 });
+add({ id: 'hail', name: 'Hail', type: 'Ice', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'weather', weather: 'hail' }, flags: [], tm: 7 });
 add({ id: 'torment', name: 'Torment', type: 'Dark', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 41 });
 add({ id: 'flatter', name: 'Flatter', type: 'Dark', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF' }, flags: [], tm: -1 });
 add({ id: 'willowisp', name: 'Will-O-Wisp', type: 'Fire', power: 0, acc: 85, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN' }, flags: [], tm: 61 });
@@ -16245,6 +16245,31 @@ const ABILITIES = {
   Unaware: { describe: 'Ignores the foe’s stat changes.', ignoresBoosts: true },
   'Mold Breaker': { describe: 'Moves land regardless of the foe’s ability.', ignoresAbility: true },
 
+  // ---- weather -------------------------------------------------------------
+
+  Drizzle: { describe: 'Summons rain on entry.', summons: 'rain' },
+  'Sand Stream': { describe: 'Summons a sandstorm on entry.', summons: 'sand' },
+  'Snow Warning': { describe: 'Summons hail on entry.', summons: 'hail' },
+
+  Chlorophyll: { describe: 'Doubles its Speed in sunshine.', speedIn: { sun: 2 } },
+  'Swift Swim': { describe: 'Doubles its Speed in rain.', speedIn: { rain: 2 } },
+  'Solar Power': {
+    describe: 'Sunshine raises its Sp. Atk, and burns it away.',
+    specialIn: { sun: 1.5 },
+    burnsIn: ['sun'],
+  },
+  'Flower Gift': { describe: 'Sunshine raises its Attack and Sp. Def.', attackIn: { sun: 1.5 }, defenseIn: { sun: 1.5 } },
+
+  'Sand Veil': { describe: 'Harder to hit in a sandstorm.', evadeIn: { sand: 1.25 }, weatherProof: ['sand'] },
+  'Snow Cloak': { describe: 'Harder to hit in hail.', evadeIn: { hail: 1.25 }, weatherProof: ['hail'] },
+  'Ice Body': { describe: 'Hail heals it instead of hurting it.', healsIn: { hail: 1 / 16 }, weatherProof: ['hail'] },
+  'Rain Dish': { describe: 'Rain slowly heals it.', healsIn: { rain: 1 / 16 } },
+  Hydration: { describe: 'Rain washes away its status problems.', curesIn: ['rain'] },
+  'Leaf Guard': { describe: 'Sunshine keeps status problems off it.', statusProofIn: ['sun'] },
+
+  'Cloud Nine': { describe: 'Nothing on the field feels the weather.', suppressesWeather: true },
+  'Air Lock': { describe: 'Nothing on the field feels the weather.', suppressesWeather: true },
+
   // ---- reactions -----------------------------------------------------------
 
   'Serene Grace': { describe: 'Added effects happen twice as often.', secondaryMultiplier: 2 },
@@ -16303,23 +16328,7 @@ const INERT_ABILITIES = {
   'Cute Charm': 'no infatuation status',
   Oblivious: 'no infatuation status',
 
-  // No weather. Adding one is a real feature, not an ability; until it
-  // exists these would all be lies on the summary screen.
-  Chlorophyll: 'no weather system',
-  'Flower Gift': 'no weather system',
-  'Swift Swim': 'no weather system',
-  Drizzle: 'no weather system',
-  'Sand Stream': 'no weather system',
-  'Snow Warning': 'no weather system',
-  'Sand Veil': 'no weather system',
-  'Snow Cloak': 'no weather system',
-  'Ice Body': 'no weather system',
-  Hydration: 'no weather system',
-  'Leaf Guard': 'no weather system',
-  'Solar Power': 'no weather system',
-  'Cloud Nine': 'no weather system',
-  'Air Lock': 'no weather system',
-  'Forecast': 'no weather system',
+  Forecast: 'rewriting a Pokémon\u2019s own types mid-battle is a mechanic this engine does not have',
 
   // Single battles only, so a redirect has nothing to redirect from.
   'Lightning Rod': 'redirection only matters in double battles',
@@ -16607,9 +16616,154 @@ function aftermathFraction(target, attacker) {
   return (a && a.aftermath) || 0;
 }
 
+// ---- weather ---------------------------------------------------------------
+
+function summonsWeather(mon) {
+  const a = abilityOf(mon);
+  return (a && a.summons) || null;
+}
+
+function suppressesWeather(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.suppressesWeather);
+}
+
+/** Everything an ability does to a stat because of the sky. */
+function weatherStatMultiplier(mon, key, sky) {
+  const a = abilityOf(mon);
+  if (!a || !sky) return 1;
+  let m = 1;
+  if (key === 'spe' && a.speedIn && a.speedIn[sky]) m *= a.speedIn[sky];
+  if (key === 'spa' && a.specialIn && a.specialIn[sky]) m *= a.specialIn[sky];
+  if (key === 'atk' && a.attackIn && a.attackIn[sky]) m *= a.attackIn[sky];
+  if (key === 'spd' && a.defenseIn && a.defenseIn[sky]) m *= a.defenseIn[sky];
+  return m;
+}
+
+function weatherEvasion(mon, sky) {
+  const a = abilityOf(mon);
+  return (a && a.evadeIn && a.evadeIn[sky]) || 1;
+}
+
+/** Sand Veil and Snow Cloak are also simply not bothered by their own storm. */
+function shrugsOffWeather(mon, sky) {
+  const a = abilityOf(mon);
+  return !!(a && a.weatherProof && a.weatherProof.includes(sky));
+}
+
+function weatherHealing(mon, sky) {
+  const a = abilityOf(mon);
+  return (a && a.healsIn && a.healsIn[sky]) || 0;
+}
+
+function curesStatusIn(mon, sky) {
+  const a = abilityOf(mon);
+  return !!(a && a.curesIn && a.curesIn.includes(sky));
+}
+
+function statusProofIn(mon, sky) {
+  const a = abilityOf(mon);
+  return !!(a && a.statusProofIn && a.statusProofIn.includes(sky));
+}
+
+/** Solar Power's own cost: the sun powers it up and wears it down. */
+function burnsInWeather(mon, sky) {
+  const a = abilityOf(mon);
+  return !!(a && a.burnsIn && a.burnsIn.includes(sky));
+}
 
 
-__exports(__x, { ABILITIES: () => ABILITIES, INERT_ABILITIES: () => INERT_ABILITIES, abilityOf: () => abilityOf, abilityName: () => abilityName, abilityDescription: () => abilityDescription, onSwitchIn: () => onSwitchIn, onSwitchOut: () => onSwitchOut, onEndOfTurn: () => onEndOfTurn, onStatused: () => onStatused, onFlinch: () => onFlinch, immuneToType: () => immuneToType, onImmune: () => onImmune, preventsFlinch: () => preventsFlinch, blocksSecondary: () => blocksSecondary, protectsStat: () => protectsStat, noRecoil: () => noRecoil, ignoresBurnDrop: () => ignoresBurnDrop, alwaysFlees: () => alwaysFlees, extraPpCost: () => extraPpCost, attackMultiplier: () => attackMultiplier, ignoresAbility: () => ignoresAbility, blocksCrit: () => blocksCrit, critBonus: () => critBonus, critMultiplier: () => critMultiplier, stabMultiplier: () => stabMultiplier, damageTakenMultiplier: () => damageTakenMultiplier, damageDealtMultiplier: () => damageDealtMultiplier, defenseStatMultiplier: () => defenseStatMultiplier, accuracyMultiplier: () => accuracyMultiplier, evasionMultiplier: () => evasionMultiplier, neverMisses: () => neverMisses, blocksMove: () => blocksMove, immuneToStatus: () => immuneToStatus, sleepTicks: () => sleepTicks, secondaryChance: () => secondaryChance, ignoresBoosts: () => ignoresBoosts, noIndirectDamage: () => noIndirectDamage, usesHeldItem: () => usesHeldItem, drainBackfires: () => drainBackfires, versusMultiplier: () => versusMultiplier, contactReaction: () => contactReaction, contactChanceOf: () => contactChanceOf, aftermathFraction: () => aftermathFraction, isFainted: () => isFainted, typesOf: () => typesOf });
+
+__exports(__x, { ABILITIES: () => ABILITIES, INERT_ABILITIES: () => INERT_ABILITIES, abilityOf: () => abilityOf, abilityName: () => abilityName, abilityDescription: () => abilityDescription, onSwitchIn: () => onSwitchIn, onSwitchOut: () => onSwitchOut, onEndOfTurn: () => onEndOfTurn, onStatused: () => onStatused, onFlinch: () => onFlinch, immuneToType: () => immuneToType, onImmune: () => onImmune, preventsFlinch: () => preventsFlinch, blocksSecondary: () => blocksSecondary, protectsStat: () => protectsStat, noRecoil: () => noRecoil, ignoresBurnDrop: () => ignoresBurnDrop, alwaysFlees: () => alwaysFlees, extraPpCost: () => extraPpCost, attackMultiplier: () => attackMultiplier, ignoresAbility: () => ignoresAbility, blocksCrit: () => blocksCrit, critBonus: () => critBonus, critMultiplier: () => critMultiplier, stabMultiplier: () => stabMultiplier, damageTakenMultiplier: () => damageTakenMultiplier, damageDealtMultiplier: () => damageDealtMultiplier, defenseStatMultiplier: () => defenseStatMultiplier, accuracyMultiplier: () => accuracyMultiplier, evasionMultiplier: () => evasionMultiplier, neverMisses: () => neverMisses, blocksMove: () => blocksMove, immuneToStatus: () => immuneToStatus, sleepTicks: () => sleepTicks, secondaryChance: () => secondaryChance, ignoresBoosts: () => ignoresBoosts, noIndirectDamage: () => noIndirectDamage, usesHeldItem: () => usesHeldItem, drainBackfires: () => drainBackfires, versusMultiplier: () => versusMultiplier, contactReaction: () => contactReaction, contactChanceOf: () => contactChanceOf, aftermathFraction: () => aftermathFraction, summonsWeather: () => summonsWeather, suppressesWeather: () => suppressesWeather, weatherStatMultiplier: () => weatherStatMultiplier, weatherEvasion: () => weatherEvasion, shrugsOffWeather: () => shrugsOffWeather, weatherHealing: () => weatherHealing, curesStatusIn: () => curesStatusIn, statusProofIn: () => statusProofIn, burnsInWeather: () => burnsInWeather, isFainted: () => isFainted, typesOf: () => typesOf });
+
+};
+
+__defs['game/battle/weather.js'] = function (__x, __req) {
+
+// Weather.
+//
+// Fifteen abilities in the Pokédex were marked "no weather system" and did
+// nothing, four moves that exist in the move table did nothing, and the type
+// chart had no way to say "Fire is weaker in the rain". This is that system.
+//
+// The four kinds are the series' own, and so are their rules:
+//
+//   sun    Fire x1.5, Water x0.5. Solar Beam needs no charge; Synthesis and
+//          friends heal two thirds instead of a half.
+//   rain   Water x1.5, Fire x0.5. Thunder never misses; healing drops to a
+//          quarter.
+//   sand   Rock, Ground and Steel are unharmed; everything else loses a
+//          sixteenth of its health each turn. Rock's Sp. Def rises by half.
+//   hail   Ice is unharmed; everything else loses a sixteenth each turn.
+//
+// Every rule is a pure function of (weather, thing) so the battle engine
+// stays readable and none of this has to know about the engine's shape.
+
+const WEATHER = {
+  sun: { name: 'sun', start: 'The sunlight turned harsh!', end: 'The sunlight faded.', tick: 'The sunlight is strong.' },
+  rain: { name: 'rain', start: 'It started to rain!', end: 'The rain stopped.', tick: 'Rain continues to fall.' },
+  sand: { name: 'sand', start: 'A sandstorm kicked up!', end: 'The sandstorm subsided.', tick: 'The sandstorm rages.' },
+  hail: { name: 'hail', start: 'It started to hail!', end: 'The hail stopped.', tick: 'Hail continues to fall.' },
+};
+
+const DEFAULT_TURNS = 5;
+
+/** What a move's damage is multiplied by in this weather. */
+function damageMultiplier(weather, moveType) {
+  if (weather === 'sun') {
+    if (moveType === 'Fire') return 1.5;
+    if (moveType === 'Water') return 0.5;
+  } else if (weather === 'rain') {
+    if (moveType === 'Water') return 1.5;
+    if (moveType === 'Fire') return 0.5;
+  }
+  return 1;
+}
+
+/** Sandstorm gives Rock types half again their Special Defence. */
+function statMultiplier(weather, key, types) {
+  if (weather === 'sand' && key === 'spd' && types.includes('Rock')) return 1.5;
+  return 1;
+}
+
+const SAFE_FROM = { sand: ['Rock', 'Ground', 'Steel'], hail: ['Ice'] };
+
+/** True when the weather itself hurts this Pokémon at the end of the turn. */
+function chipsAway(weather, types) {
+  const safe = SAFE_FROM[weather];
+  return !!safe && !types.some((t) => safe.includes(t));
+}
+
+function chipText(weather, name) {
+  return weather === 'sand' ? `${name} is buffeted by the sandstorm!` : `${name} is pelted by hail!`;
+}
+
+/** Accuracy multiplier: Thunder cannot miss in rain, and is poor in sun. */
+function accuracyMultiplier(weather, moveId) {
+  if (moveId === 'thunder') {
+    if (weather === 'rain') return Infinity;      // never misses
+    if (weather === 'sun') return 0.5;
+  }
+  if (moveId === 'blizzard' && weather === 'hail') return Infinity;
+  return 1;
+}
+
+/** Weather-sensitive healing: two thirds in sun, a quarter in rain or ash. */
+function healFraction(weather, base, moveId) {
+  if (!['synthesis', 'moonlight', 'morningsun'].includes(moveId)) return base;
+  if (weather === 'sun') return 2 / 3;
+  if (weather === 'rain' || weather === 'sand' || weather === 'hail') return 0.25;
+  return base;
+}
+
+/** Weather Ball takes the weather's type, and hits twice as hard in it. */
+function weatherBall(weather) {
+  const byWeather = { sun: 'Fire', rain: 'Water', sand: 'Rock', hail: 'Ice' };
+  const type = byWeather[weather];
+  return type ? { type, power: 100 } : { type: 'Normal', power: 50 };
+}
+
+__exports(__x, { WEATHER: () => WEATHER, DEFAULT_TURNS: () => DEFAULT_TURNS, damageMultiplier: () => damageMultiplier, statMultiplier: () => statMultiplier, chipsAway: () => chipsAway, chipText: () => chipText, accuracyMultiplier: () => accuracyMultiplier, healFraction: () => healFraction, weatherBall: () => weatherBall });
 
 };
 
@@ -16618,6 +16772,7 @@ const { makeRng } = __req('core/rng.js');
 const { getMove } = __req('data/moves.js');
 const { typeMultiplier, effectivenessText } = __req('data/types.js');
 const ability = __req('game/battle/abilities.js');
+const weather = __req('game/battle/weather.js');
 const { onLevelUp, onWonBattle, onFainted } = __req('game/friendship.js');
 const { getSpecies } = __req('data/species.js');
 const { getItem } = __req('data/items.js');
@@ -16633,6 +16788,7 @@ const { maxHp, statValue, displayName, typesOf, isFainted, gainExp, expYield, aw
 //     the battle object. Give two clients the same seed and the same pair of
 //     actions and they produce byte-identical results — which is what makes
 //     networked PvP possible without a referee server.
+
 
 
 
@@ -16695,6 +16851,10 @@ function createBattle(cfg) {
     over: false,
     result: null,                        // 'win' | 'lose' | 'run' | 'caught' | 'draw'
     caught: null,
+    // The sky. A wild battle can start under one (a sandstorm on a desert
+    // route, say); everything else starts clear.
+    weather: cfg.weather || null,
+    weatherTurns: cfg.weather ? cfg.weatherTurns || weather.DEFAULT_TURNS : 0,
     canRun: cfg.canRun !== false,
     canCatch: cfg.kind === 'wild',
     battleLocation: cfg.location || null,
@@ -16721,6 +16881,11 @@ function effectiveStat(battle, sideIdx, key, viewer = null) {
   const blind = viewer && ability.ignoresBoosts(viewer);
   v = Math.floor(v * (blind ? 1 : stage(side.boosts[key] || 0)));
   v = Math.floor(v * ability.defenseStatMultiplier(mon, key));
+  if (battle.weather) {
+    const sky = activeWeather(battle);
+    v = Math.floor(v * weather.statMultiplier(sky, key, typesOf(mon)));
+    v = Math.floor(v * ability.weatherStatMultiplier(mon, key, sky));
+  }
   if (key === 'atk' && mon.status === 'BRN') v = Math.floor(v / 2);
   if (key === 'spe' && mon.status === 'PAR') v = Math.floor(v / 4);
   return Math.max(1, v);
@@ -16747,6 +16912,23 @@ function resolveTurn(battle, actions) {
   const out = [];
   const E = ev(out);
   battle.turn++;
+
+  // The leads never went through a switch, so their entry abilities have not
+  // fired. Doing it on the first turn rather than in createBattle keeps the
+  // events in the stream the UI plays, instead of happening before it exists.
+  if (!battle.opened) {
+    battle.opened = true;
+    for (let i = 0; i < 2; i++) {
+      const mon = activeOf(battle.sides[i]);
+      if (!mon || isFainted(mon)) continue;
+      ability.onSwitchIn(battle, i, abilityCtx(battle, i, out, mon));
+      const summoned = ability.summonsWeather(mon);
+      if (summoned && battle.weather !== summoned) {
+        out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability}!` });
+        setWeather(battle, summoned, weather.DEFAULT_TURNS, out);
+      }
+    }
+  }
 
   for (const s of battle.sides) { s.volatile.flinch = false; }
 
@@ -16851,6 +17033,12 @@ function doSwitch(battle, sideIdx, index, out) {
   out.push({ t: 'sendout', side: sideIdx, index });
   out.push({ t: 'text', s: `${side.isPlayer ? 'Go!' : `${side.name} sent out`} ${displayName(target)}!` });
   ability.onSwitchIn(battle, sideIdx, abilityCtx(battle, sideIdx, out, target));
+  // Drizzle, Sand Stream and Snow Warning bring their own sky with them.
+  const summoned = ability.summonsWeather(target);
+  if (summoned && battle.weather !== summoned) {
+    out.push({ t: 'text', s: `${displayName(target)}'s ${target.ability}!` });
+    setWeather(battle, summoned, weather.DEFAULT_TURNS, out);
+  }
 }
 
 function doItem(battle, sideIdx, action, out) {
@@ -17063,7 +17251,9 @@ function doMove(battle, sideIdx, action, out) {
     const accMod = accStage((side.boosts.acc || 0) - (foeSide.boosts.eva || 0));
     const chance = (used.acc / 100) * accMod
       * ability.accuracyMultiplier(user, used)
-      / ability.evasionMultiplier(target, foeSide);
+      * weather.accuracyMultiplier(activeWeather(battle), used.id)
+      / ability.evasionMultiplier(target, foeSide)
+      / ability.weatherEvasion(target, activeWeather(battle));
     // The roll is spent either way: No Guard must not shift the shared stream.
     const missed = battle.rng() >= chance;
     if (missed && !ability.neverMisses(user, target)) {
@@ -17213,6 +17403,7 @@ function computeDamage(battle, sideIdx, move, opts = {}) {
   dmg = Math.floor(dmg * ability.versusMultiplier(user, target));
   dmg = Math.floor(dmg * ability.damageDealtMultiplier(user, eff));
   dmg = Math.floor(dmg * ability.damageTakenMultiplier(target, user, move, eff));
+  dmg = Math.floor(dmg * weather.damageMultiplier(activeWeather(battle), move.type));
   if (crit) dmg = Math.floor(dmg * ability.critMultiplier(user));
   if (user.status === 'BRN' && physical && !ability.ignoresBurnDrop(user)) dmg = Math.floor(dmg * 0.5);
   // Damage roll: 85%..100%. A peek uses the average roll so the AI's
@@ -17367,7 +17558,10 @@ function applyStatusMove(battle, sideIdx, move, out) {
       break;
     case 'heal': {
       if (user.hp >= maxHp(user)) { out.push({ t: 'text', s: 'But it failed!' }); break; }
-      user.hp = Math.min(maxHp(user), user.hp + Math.floor(maxHp(user) * fx.fraction));
+      // Synthesis and its cousins read the sky: two thirds in sun, a quarter
+      // in anything that blocks it.
+      const frac = weather.healFraction(activeWeather(battle), fx.fraction, move.id);
+      user.hp = Math.min(maxHp(user), user.hp + Math.floor(maxHp(user) * frac));
       out.push({ t: 'sfx', s: 'heal' });
       out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp });
       out.push({ t: 'text', s: `${displayName(user)} regained health!` });
@@ -17380,6 +17574,11 @@ function applyStatusMove(battle, sideIdx, move, out) {
       user.statusCounter = 2;
       out.push({ t: 'hp', side: sideIdx, uid: user.uid, hp: user.hp });
       out.push({ t: 'text', s: `${displayName(user)} slept and became healthy!` });
+      break;
+    }
+    case 'weather': {
+      if (battle.weather === fx.weather) { out.push({ t: 'text', s: 'But it failed!' }); break; }
+      setWeather(battle, fx.weather, weather.DEFAULT_TURNS, out);
       break;
     }
     case 'focus':
@@ -17396,6 +17595,31 @@ function applyStatusMove(battle, sideIdx, move, out) {
       out.push({ t: 'text', s: 'But nothing happened!' });
   }
   void foeSide;
+}
+
+/**
+ * The weather in play, or null.
+ *
+ * Cloud Nine and Air Lock suppress it without clearing it: the storm is still
+ * running its clock, nothing can feel it while they are on the field, and it
+ * is there again when they leave.
+ */
+function activeWeather(battle) {
+  if (!battle.weather) return null;
+  for (const side of battle.sides) {
+    const mon = activeOf(side);
+    if (mon && !isFainted(mon) && ability.suppressesWeather(mon)) return null;
+  }
+  return battle.weather;
+}
+
+function setWeather(battle, kind, turns, out) {
+  const info = weather.WEATHER[kind];
+  if (!info) return;
+  battle.weather = kind;
+  battle.weatherTurns = turns;
+  out.push({ t: 'weather', weather: kind });
+  out.push({ t: 'text', s: info.start });
 }
 
 function applyStatus(battle, sideIdx, fx, out) {
@@ -17433,6 +17657,10 @@ function applyStatus(battle, sideIdx, fx, out) {
   if (immune) { out.push({ t: 'text', s: "It doesn't affect it..." }); return; }
   if (ability.immuneToStatus(mon, fx.status, fx.from)) {
     out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} prevents that!` });
+    return;
+  }
+  if (ability.statusProofIn(mon, activeWeather(battle))) {
+    out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} kept it safe!` });
     return;
   }
 
@@ -17497,10 +17725,72 @@ function endOfTurn(battle, out) {
       }
     }
   }
+  weatherEndOfTurn(battle, out);
+
   for (const s of battle.sides) {
     s.volatile.firstTurn = false;
     s.volatile.tookPhysical = 0;
     s.volatile.tookSpecial = 0;
+  }
+}
+
+/**
+ * The sandstorm bites, the hail falls, and the clock runs down.
+ *
+ * Runs after everything else in the turn so a Pokémon that survived on one
+ * hit point still gets taken by the storm, which is how the games do it and
+ * is the whole reason weather is a threat rather than a stat buff.
+ */
+function weatherEndOfTurn(battle, out) {
+  const active = activeWeather(battle);
+  if (active) {
+    for (let i = 0; i < 2; i++) {
+      const mon = activeOf(battle.sides[i]);
+      if (!mon || isFainted(mon)) continue;
+      if (ability.noIndirectDamage(mon)) continue;
+      if (ability.shrugsOffWeather(mon, active)) continue;
+      if (!weather.chipsAway(active, typesOf(mon))) continue;
+      const dmg = Math.max(1, Math.floor(maxHp(mon) / 16));
+      mon.hp = Math.max(0, mon.hp - dmg);
+      out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp, shake: true });
+      out.push({ t: 'text', s: weather.chipText(active, displayName(mon)) });
+    }
+    // Hydration washes a status off, and Solar Power charges what it costs.
+    for (let i = 0; i < 2; i++) {
+      const mon = activeOf(battle.sides[i]);
+      if (!mon || isFainted(mon)) continue;
+      if (mon.status && ability.curesStatusIn(mon, active)) {
+        mon.status = null; mon.statusCounter = 0; mon.badPoison = false;
+        out.push({ t: 'status', side: i, status: null });
+        out.push({ t: 'text', s: `${displayName(mon)}'s ${mon.ability} washed it clean!` });
+      }
+      if (ability.burnsInWeather(mon, active) && !ability.noIndirectDamage(mon)) {
+        const cost = Math.max(1, Math.floor(maxHp(mon) / 8));
+        mon.hp = Math.max(0, mon.hp - cost);
+        out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp, shake: true });
+        out.push({ t: 'text', s: `${displayName(mon)} is scorched by ${mon.ability}!` });
+      }
+    }
+    // Ice Body and Rain Dish read the same sky and give it back.
+    for (let i = 0; i < 2; i++) {
+      const mon = activeOf(battle.sides[i]);
+      if (!mon || isFainted(mon)) continue;
+      const heal = ability.weatherHealing(mon, active);
+      if (!heal || mon.hp >= maxHp(mon)) continue;
+      mon.hp = Math.min(maxHp(mon), mon.hp + Math.max(1, Math.floor(maxHp(mon) * heal)));
+      out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp });
+      out.push({ t: 'text', s: `${displayName(mon)} is soothed by ${mon.ability}!` });
+    }
+  }
+
+  // The clock runs even while something is suppressing the weather.
+  if (battle.weather) {
+    battle.weatherTurns--;
+    if (battle.weatherTurns <= 0) {
+      out.push({ t: 'text', s: weather.WEATHER[battle.weather].end });
+      out.push({ t: 'weather', weather: null });
+      battle.weather = null;
+    }
   }
 }
 
@@ -17614,7 +17904,7 @@ function battleChecksum(battle) {
   return h >>> 0;
 }
 
-__exports(__x, { STAGE_MULT: () => STAGE_MULT, STATUS_NAMES: () => STATUS_NAMES, STATUS_SHORT: () => STATUS_SHORT, makeSide: () => makeSide, createBattle: () => createBattle, activeOf: () => activeOf, foeIndex: () => foeIndex, effectiveStat: () => effectiveStat, hpFraction: () => hpFraction, resolveTurn: () => resolveTurn, applyItemEffect: () => applyItemEffect, catchChance: () => catchChance, computeDamage: () => computeDamage, applyStatus: () => applyStatus, applyStatChange: () => applyStatChange, needsSwitch: () => needsSwitch, forceSwitch: () => forceSwitch, battleChecksum: () => battleChecksum });
+__exports(__x, { STAGE_MULT: () => STAGE_MULT, STATUS_NAMES: () => STATUS_NAMES, STATUS_SHORT: () => STATUS_SHORT, makeSide: () => makeSide, createBattle: () => createBattle, activeOf: () => activeOf, foeIndex: () => foeIndex, effectiveStat: () => effectiveStat, hpFraction: () => hpFraction, resolveTurn: () => resolveTurn, applyItemEffect: () => applyItemEffect, catchChance: () => catchChance, computeDamage: () => computeDamage, activeWeather: () => activeWeather, setWeather: () => setWeather, applyStatus: () => applyStatus, applyStatChange: () => applyStatChange, needsSwitch: () => needsSwitch, forceSwitch: () => forceSwitch, battleChecksum: () => battleChecksum });
 
 };
 
@@ -18492,7 +18782,7 @@ const { drawBackChip } = __req('ui/controls.js');
 const { getSpecies } = __req('data/species.js');
 const { getMove } = __req('data/moves.js');
 const { getItem } = __req('data/items.js');
-const { activeOf, resolveTurn, needsSwitch, forceSwitch, hpFraction } = __req('game/battle/engine.js');
+const { activeOf, resolveTurn, needsSwitch, forceSwitch, hpFraction, activeWeather } = __req('game/battle/engine.js');
 const { chooseAiAction, chooseAiSwitch } = __req('game/battle/ai.js');
 const { maxHp, displayName, isFainted, expProgress, learnMove, knowsMove, typesOf } = __req('game/monster.js');
 const { removeItem, battleUsable } = __req('game/inventory.js');
@@ -18650,6 +18940,7 @@ class BattleScreen extends Screen {
   update(dt, isTop) {
     if (!isTop) return;
     this.introT += dt;
+    this.t = (this.t || 0) + dt;
     for (let i = 0; i < 2; i++) {
       if (this.shake[i] > 0) this.shake[i] = Math.max(0, this.shake[i] - dt * 4);
       if (this.flash[i] > 0) this.flash[i] = Math.max(0, this.flash[i] - dt * 5);
@@ -19300,6 +19591,7 @@ class BattleScreen extends Screen {
   render(ctx) {
     const { width: W, height: H } = this.game.display;
     this._drawBackdrop(ctx, W, H);
+    this._drawWeather(ctx, W, H);
     this._drawCombatants(ctx, W, H);
     this._drawHuds(ctx, W, H);
 
@@ -19382,6 +19674,66 @@ class BattleScreen extends Screen {
       this._drawSprite(ctx, img, sx, sy, this.flash[this.mySide], this.faintDrop[this.mySide]);
     }
     if (this.ballAnim) this._drawBall(ctx, W, H);
+  }
+
+  /**
+   * The sky, over the backdrop and behind the fighters.
+   *
+   * Rain and hail fall, sand blows sideways, and sun is a warm wash with a
+   * slow shimmer — all driven off the animation clock rather than stored
+   * particles, so it costs nothing and cannot drift between two linked
+   * clients that are watching the same battle.
+   */
+  _drawWeather(ctx, W, H) {
+    const sky = activeWeather(this.battle);
+    if (!sky) return;
+    const t = this.t || 0;
+
+    if (sky === 'sun') {
+      ctx.save();
+      ctx.globalAlpha = 0.10 + Math.sin(t * 1.4) * 0.03;
+      ctx.fillStyle = '#ffd870';
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+      return;
+    }
+
+    ctx.save();
+    if (sky === 'sand') {
+      ctx.globalAlpha = 0.11;
+      ctx.fillStyle = '#d8b878';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = '#c8a058';
+      for (let i = 0; i < 60; i++) {
+        const y = (i * 37) % H;
+        const x = ((i * 97) + t * 260) % (W + 40) - 20;
+        ctx.fillRect(Math.round(x), y, 5, 1);
+      }
+    } else if (sky === 'rain') {
+      ctx.globalAlpha = 0.09;
+      ctx.fillStyle = '#3a5a90';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#a8c8f0';
+      for (let i = 0; i < 70; i++) {
+        const x = ((i * 53) - t * 60) % (W + 30);
+        const y = ((i * 71) + t * 420) % (H + 20) - 10;
+        ctx.fillRect(Math.round(x), Math.round(y), 1, 5);
+      }
+    } else if (sky === 'hail') {
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = '#a8d8f0';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = '#eaf6ff';
+      for (let i = 0; i < 46; i++) {
+        const x = ((i * 61) + Math.sin((t + i) * 2) * 6) % (W + 20) - 10;
+        const y = ((i * 83) + t * 200) % (H + 16) - 8;
+        ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+      }
+    }
+    ctx.restore();
   }
 
   _drawSprite(ctx, img, x, y, flash, drop) {

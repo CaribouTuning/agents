@@ -219,7 +219,7 @@ add({ id: 'detect', name: 'Detect', type: 'Fighting', power: 0, acc: 0, pp: 5, c
 add({ id: 'bonerush', name: 'Bone Rush', type: 'Ground', power: 25, acc: 90, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'multihit', min: 2, max: 5 }, flags: [], tm: -1 });
 add({ id: 'lockon', name: 'Lock-On', type: 'Normal', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
 add({ id: 'outrage', name: 'Outrage', type: 'Dragon', power: 120, acc: 100, pp: 10, cls: 'physical', priority: 0, crit: 0, effect: null, flags: ['contact'], tm: -1 });
-add({ id: 'sandstorm', name: 'Sandstorm', type: 'Rock', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 37 });
+add({ id: 'sandstorm', name: 'Sandstorm', type: 'Rock', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'weather', weather: 'sand' }, flags: [], tm: 37 });
 add({ id: 'gigadrain', name: 'Giga Drain', type: 'Grass', power: 75, acc: 100, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'drain', fraction: 0.5 }, flags: [], tm: 19 });
 add({ id: 'endure', name: 'Endure', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 4, crit: 0, effect: null, flags: [], tm: 58 });
 add({ id: 'charm', name: 'Charm', type: 'Fairy', power: 0, acc: 100, pp: 20, cls: 'status', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'atk', stages: -2 }, flags: [], tm: -1 });
@@ -257,8 +257,8 @@ add({ id: 'moonlight', name: 'Moonlight', type: 'Fairy', power: 0, acc: 0, pp: 5
 add({ id: 'hiddenpower', name: 'Hidden Power', type: 'Normal', power: 60, acc: 100, pp: 15, cls: 'special', priority: 0, crit: 0, effect: null, flags: [], tm: 10 });
 add({ id: 'crosschop', name: 'Cross Chop', type: 'Fighting', power: 100, acc: 80, pp: 5, cls: 'physical', priority: 0, crit: 1, effect: null, flags: ['contact'], tm: -1 });
 add({ id: 'twister', name: 'Twister', type: 'Dragon', power: 40, acc: 100, pp: 20, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'flinch', chance: 0.2 }, flags: [], tm: -1 });
-add({ id: 'raindance', name: 'Rain Dance', type: 'Water', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 18 });
-add({ id: 'sunnyday', name: 'Sunny Day', type: 'Fire', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 11 });
+add({ id: 'raindance', name: 'Rain Dance', type: 'Water', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: { kind: 'weather', weather: 'rain' }, flags: [], tm: 18 });
+add({ id: 'sunnyday', name: 'Sunny Day', type: 'Fire', power: 0, acc: 0, pp: 5, cls: 'status', priority: 0, crit: 0, effect: { kind: 'weather', weather: 'sun' }, flags: [], tm: 11 });
 add({ id: 'crunch', name: 'Crunch', type: 'Dark', power: 80, acc: 100, pp: 15, cls: 'physical', priority: 0, crit: 0, effect: { kind: 'stat', target: 'foe', stat: 'def', stages: -1, chance: 0.2 }, flags: ['bite', 'contact'], tm: -1 });
 add({ id: 'mirrorcoat', name: 'Mirror Coat', type: 'Psychic', power: 0, acc: 100, pp: 20, cls: 'special', priority: -5, crit: 0, effect: null, flags: [], tm: -1, variable: 'mirrorcoat' });
 add({ id: 'psychup', name: 'Psych Up', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 77 });
@@ -273,7 +273,7 @@ add({ id: 'uproar', name: 'Uproar', type: 'Normal', power: 90, acc: 100, pp: 10,
 add({ id: 'stockpile', name: 'Stockpile', type: 'Normal', power: 0, acc: 0, pp: 20, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: -1 });
 add({ id: 'swallow', name: 'Swallow', type: 'Normal', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'heal', fraction: 0.25 }, flags: [], tm: -1 });
 add({ id: 'heatwave', name: 'Heat Wave', type: 'Fire', power: 95, acc: 90, pp: 10, cls: 'special', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN', chance: 0.1 }, flags: [], tm: -1 });
-add({ id: 'hail', name: 'Hail', type: 'Ice', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 7 });
+add({ id: 'hail', name: 'Hail', type: 'Ice', power: 0, acc: 0, pp: 10, cls: 'status', priority: 0, crit: 0, effect: { kind: 'weather', weather: 'hail' }, flags: [], tm: 7 });
 add({ id: 'torment', name: 'Torment', type: 'Dark', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: null, flags: [], tm: 41 });
 add({ id: 'flatter', name: 'Flatter', type: 'Dark', power: 0, acc: 100, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'CNF' }, flags: [], tm: -1 });
 add({ id: 'willowisp', name: 'Will-O-Wisp', type: 'Fire', power: 0, acc: 85, pp: 15, cls: 'status', priority: 0, crit: 0, effect: { kind: 'status', status: 'BRN' }, flags: [], tm: 61 });
