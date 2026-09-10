@@ -94,5 +94,8 @@ export function defineMap(id, def) {
     // come up wherever you went down, and a Secret Base's door comes out at
     // whichever wall its owner cut it into.
     stepOut: def.stepOut || null,
+    // A map you can only be put into by a cutscene — the Everlight door opens
+    // from the tunnel side and there is no warp back through it.
+    scriptEntry: !!def.scriptEntry,
   };
 }

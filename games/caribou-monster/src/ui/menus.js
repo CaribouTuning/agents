@@ -446,6 +446,7 @@ export class BagScreen extends Screen {
       this.game.escapeToHealPoint();
       return;
     }
+    if (u.kind === 'map') { this.game.openTownMap(); return; }
     if (u.kind === 'dig') {
       // Only from outdoors, and never from under the ground you are already
       // under. The kit digs down; there is nothing below the Underground.

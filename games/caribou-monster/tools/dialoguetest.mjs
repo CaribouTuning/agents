@@ -47,6 +47,27 @@ function withStarter(st) {
   return st;
 }
 
+/** The second badge, from Gardenia in Eterna — the northern branch's gate. */
+function withSecondBadge(st) {
+  st.badges = [1, 2];
+  st.flags.badge2 = true;
+  st.flags.beat_gym2_leader = true;
+  return st;
+}
+
+/** Somebody in Twinleaf has handed over a few berries. */
+function withBerries(st) {
+  st.flags.gotBerries = true;
+  return st;
+}
+
+/** The player has picked up the Aurora Charm and worked out what it means. */
+function withTwist(st) {
+  st.flags.knowsTwist = true;
+  st.flags.gotCharm = true;
+  return st;
+}
+
 function withBadge(st) {
   st.badges = [1];
   st.flags.badge1 = true;
@@ -146,6 +167,11 @@ const STAGES = [
   ['all hype, no respect', () => loudmouth(withBadge(withStarter(baseState())))],
   ['all respect, no hype', () => wellLiked(withBadge(withStarter(baseState())))],
   ['world number one', () => asChampion(withCommander(withCave(withBadge(withStarter(baseState())))))],
+  // The northern branch: berries, the second badge, and knowing what the
+  // charm is. Without these stages a third of the new region never speaks.
+  ['carrying berries', () => withBerries(withStarter(baseState()))],
+  ['second badge', () => withSecondBadge(withBadge(withStarter(baseState())))],
+  ['knows the twist', () => withTwist(withCommander(withCave(withBadge(withStarter(baseState())))))],
 ];
 
 // ---- 1. every NPC answers, at every stage ----------------------------------

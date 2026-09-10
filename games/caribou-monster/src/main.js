@@ -23,6 +23,7 @@ import { MultiplayerScreen } from './ui/multiplayer.js';
 import { TradeScreen } from './ui/trade.js';
 import { DebugScreen } from './ui/debug.js';
 import { DigScreen } from './ui/dig.js';
+import { TownMapScreen } from './ui/townmap.js';
 import { CircuitScreen, TournamentScreen, PressScreen } from './ui/circuit.js';
 import { resolveDialogue, worldSnapshot } from './game/overworld/gossip.js';
 import { NicknameScreen, TextEntryScreen } from './ui/naming.js';
@@ -248,6 +249,8 @@ class Game {
   // A wall of rock, and whatever is in it. `cfg` is already a dig from
   // game/underground/dig.js — this only owns the screen.
   openDig(dig, onFinish) { this.screens.push(new DigScreen(this, dig, onFinish)); }
+
+  openTownMap() { this.screens.push(new TownMapScreen(this)); }
 
   openTextEntry(prompt, maxLen, onDone) {
     this.screens.push(new TextEntryScreen(this, prompt, maxLen, onDone));

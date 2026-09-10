@@ -104,6 +104,8 @@ export class World {
     this.state.player.x = x;
     this.state.player.y = y;
     this.state.player.dir = dir;
+    // The Town Map only shows what you have actually walked into.
+    if (this.state.visited) this.state.visited[mapId] = true;
   }
 
   // ---- queries -------------------------------------------------------------

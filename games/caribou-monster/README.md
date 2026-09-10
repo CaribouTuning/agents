@@ -32,7 +32,7 @@ controls.
 
 | | |
 |---|---|
-| **World** | 29 maps: Twinleaf Town, Sandgem Town, Jubilife City, Oreburgh City, Routes 201–203 and 207, Oreburgh Gate, the Everlight Chamber, the Underground, a Secret Base and eighteen interiors |
+| **World** | 44 maps: Twinleaf, Sandgem, Jubilife, Oreburgh, Floaroma and Eterna; Routes 201–207; Lake Verity, the Ravaged Path, Valley Windworks, Eterna Forest, Oreburgh Gate, the Everlight Chamber, the Underground and a Secret Base — connected as a **region with a loop in it**, not a corridor |
 | **Pokémon** | 210 species with real base stats, types, natures, genders, IVs/EVs, shinies, learnsets, egg groups and evolution lines — plus nicknaming, friendship that moves, held items you can give and take, and **84 working abilities** |
 | **Moves** | 460, all data-driven, with the 17-type chart, STAB, criticals, accuracy, five status conditions, confusion, flinch and stat stages |
 | **Weather** | Sun, rain, sandstorm and hail — set by a move or walked into by an ability, with the damage, speed, accuracy, chip and healing rules that go with each |
@@ -42,8 +42,8 @@ controls.
 | **Fishing** | The Old Rod, a real bite roll, and three stretches of water with their own tables |
 | **The Underground** | A second Sinnoh under the first one: the Explorer Kit, three shafts, seams that come back, and a touch-first digging minigame |
 | **Secret Bases** | A room cut into a wall a hundred feet down, furnished with spheres, with a board on the back wall — and your partner can walk into it |
-| **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, the Oreburgh Gym and its badge |
-| **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, trainer card, save/load, EASY and NORMAL difficulty |
+| **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, and two Gyms — Roark's Coal Badge and Gardenia's Forest Badge |
+| **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, Town Map, trainer card, save/load, EASY and NORMAL difficulty |
 | **World Circuit** | A second career track: 6 sanctioned tournaments, 12 professional trainers, an Elo world ranking, Circuit Points, promotions, a press feed and post-event press conferences |
 | **Living world** | Conditional NPC dialogue: everyone reacts to your starter, badges, Pokédex, story flags, circuit rank, titles and how you talk to the press — and names the trainer who is *actually* world number one |
 | **Co-op** | Room codes, a shared overworld, link trades, link battles, the Pair Bell register, Eggs with two names on them, and each other's Secret Bases |
@@ -234,6 +234,54 @@ Pokémon, levels and fees, compatibility in both directions, the Egg odds, the
 witness, hatching, and the save round trip — including a save that names a
 species which no longer exists. The full deposit → Egg → hatch loop is also
 driven through the real UI in `tools/walkthrough.mjs`.
+
+---
+
+## The region is a region
+
+The world used to be one road. Every route left every town by its northern
+edge and arrived at the next one, and the return trip left by the *northern*
+edge too — which is geometrically impossible and is exactly why the place felt
+like a single street that kept extending upward.
+
+It is a graph now, and the graph is **derived from the doors**:
+
+```js
+// data/maps/world.js — connections are read off the warps, never authored twice
+route205  S:floaroma  N:eterna_forest  E:windworks
+jubilife  S:route202  N:route204       E:route203
+```
+
+A hand-written connection table is a second source of truth, and the moment
+somebody moves a warp the two disagree. Here there is nothing to disagree with:
+if you can walk it, it is in the graph. The one thing that cannot be derived is
+where a place *is*, so `WORLD_POS` is authored — and the audit checks the two
+against each other, which is the rule that would have caught the original bug:
+
+> `[world] jubilife leads north to route202, but route202 is at 2,11 and jubilife is at 2,10`
+
+**Jubilife is the hinge.** Three roads leave it: south to Sandgem, east to
+Oreburgh, north to Floaroma. North of Floaroma the road forks again at Route
+205 — east to the Valley Windworks, north through Eterna Forest to Eterna City
+and its Grass Gym. And then Route 206 comes back down out of Eterna and joins
+Route 207 above Oreburgh, which closes the ring:
+
+| | |
+|---|---|
+| **The short way** | Jubilife → Route 203 → Oreburgh |
+| **The long way round** | Jubilife → 204 → Ravaged Path → Floaroma → 205 → Eterna Forest → Eterna → 206 → 207 → Oreburgh |
+
+`tools/worldtest.mjs` proves that second route exists by banning every step of
+the first one and searching again. A tree of maps is a set of dead ends with a
+town on each; a ring is a place you can go round.
+
+There are side branches that lead nowhere and are worth walking anyway — Lake
+Verity west off Route 201, the Windworks east off Route 205 — because a region
+where every road is on the way to something is a corridor with extra steps.
+
+**The Town Map** (the key item finally opens something) draws this graph
+directly: real positions, real roads, and only the places you have actually
+stood in.
 
 ---
 
@@ -464,6 +512,8 @@ node tools/weathertest.mjs             # sun, rain, sand and hail, each against 
 node tools/daycaretest.mjs             # boarding, fees, Egg odds, hatching, and the save
 node tools/berrytest.mjs               # planting, growth on the clock, held berries, fishing
 node tools/undergroundtest.mjs         # the dig, the seams, the room, and what crosses the link
+node tools/worldtest.mjs               # the shape of the region: two-way roads, branches, the ring
+                                       # (also: shiny is rolled once and kept forever)
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet
 ```

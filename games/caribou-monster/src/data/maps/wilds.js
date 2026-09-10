@@ -31,8 +31,8 @@ export const ROUTE202 = defineMap('route202', {
   warps: [
     { x: 12, y: 23, to: 'sandgem', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 13, y: 23, to: 'sandgem', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'jubilife', tx: 12, ty: 1, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'jubilife', tx: 13, ty: 1, dir: 'up', edge: true },
+    { x: 12, y: 0, to: 'jubilife', tx: 15, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'jubilife', tx: 16, ty: 22, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 22, text: 'ROUTE 202\nStay on the path and you will come out the other side.' },
@@ -86,6 +86,8 @@ export const ROUTE202 = defineMap('route202', {
 // Aurora Charm, and only once Galactic has been cleared out of the Gate.
 
 export const EVERLIGHT_CHAMBER = defineMap('everlight_chamber', {
+  // The door opens from the tunnel side, by script. There is no warp in.
+  scriptEntry: true,
   name: 'Everlight Chamber', kind: 'cave', music: 'cave', darkEdges: true,
   tiles: [
     'CCCCCCCCCCCCCCC',
@@ -99,8 +101,8 @@ export const EVERLIGHT_CHAMBER = defineMap('everlight_chamber', {
     'CCCCCCCccCCCCCC',
   ],
   warps: [
-    { x: 7, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
-    { x: 8, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
+    { x: 7, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down', edge: true },
+    { x: 8, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down', edge: true },
   ],
   events: [
     // Rowan's own logbook, left in the chamber approach thirty-one years ago.
@@ -135,8 +137,8 @@ export const OREBURGH_GATE = defineMap('oreburgh_gate', {
     'CCCCCCCCCCCccCCCCCCCCCCC',
   ],
   warps: [
-    { x: 11, y: 15, to: 'route207', tx: 12, ty: 1, dir: 'down' },
-    { x: 12, y: 15, to: 'route207', tx: 13, ty: 1, dir: 'down' },
+    { x: 11, y: 15, to: 'route207', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 15, to: 'route207', tx: 13, ty: 1, dir: 'down', edge: true },
   ],
   objects: [
     { id: 'sf_escape', x: 2, y: 1, item: 'escaperope', qty: 1 },

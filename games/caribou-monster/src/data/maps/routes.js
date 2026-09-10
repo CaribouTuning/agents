@@ -16,7 +16,7 @@ export const ROUTE201 = defineMap('route201', {
     'T...LLLLL...::...LLLLL...T',
     'T...........::...........T',
     'T....""""...::....""""...T',
-    'T:::::::::::::...........T',
+    '::::::::::::::...........T',
     'T...........::...........T',
     'T....RR.....::...........T',
     'T...........::.....RR....T',
@@ -33,6 +33,7 @@ export const ROUTE201 = defineMap('route201', {
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
+    { x: 0, y: 13, to: 'lake_verity', tx: 18, ty: 7, dir: 'left', edge: true },
     { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
     { x: 13, y: 27, to: 'twinleaf', tx: 15, ty: 2, dir: 'down', edge: true },
     { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 1, dir: 'up', edge: true },
@@ -42,7 +43,7 @@ export const ROUTE201 = defineMap('route201', {
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
   ],
   objects: [
-    { id: 'r1_potion', x: 1, y: 13, item: 'potion', qty: 1 },
+    { id: 'r1_potion', x: 1, y: 11, item: 'potion', qty: 1 },
     { id: 'r1_ball', x: 20, y: 5, item: 'pokeball', qty: 3 },
   ],
   npcs: [
@@ -87,7 +88,7 @@ export const ROUTE201 = defineMap('route201', {
 export const ROUTE207 = defineMap('route207', {
   name: 'Route 207', kind: 'route', music: 'route',
   tiles: [
-    '^^^^^^^^^^^^DD^^^^^^^^^^^^',
+    '^^^^::^^^^^^DD^^^^^^^^^^^^',
     'T...........::...........T',
     'T..RRR......::......RRR..T',
     'T...........::...........T',
@@ -109,8 +110,10 @@ export const ROUTE207 = defineMap('route207', {
   warps: [
     { x: 12, y: 17, to: 'oreburgh', tx: 14, ty: 2, dir: 'down', edge: true },
     { x: 13, y: 17, to: 'oreburgh', tx: 15, ty: 2, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'oreburgh_gate', tx: 11, ty: 14, dir: 'up' },
-    { x: 13, y: 0, to: 'oreburgh_gate', tx: 12, ty: 14, dir: 'up' },
+    { x: 4, y: 0, to: 'route206', tx: 12, ty: 15, dir: 'up', edge: true },
+    { x: 5, y: 0, to: 'route206', tx: 13, ty: 15, dir: 'up', edge: true },
+    { x: 12, y: 0, to: 'oreburgh_gate', tx: 11, ty: 14, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'oreburgh_gate', tx: 12, ty: 14, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 16, text: 'ROUTE 207\nOreburgh City — Oreburgh Gate\nMind the ledges.' },
@@ -173,51 +176,47 @@ export const ROUTE207 = defineMap('route207', {
 
 export const ROUTE203 = defineMap('route203', {
   name: 'Route 203', kind: 'route', music: 'route',
+  // The road east out of Jubilife. It runs left to right rather than bottom
+  // to top, which is the whole point: before this route existed every road in
+  // the region ran north, and a region where every road runs north is a
+  // corridor with towns bolted to it.
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
-    'T...........::...........T',
-    'T....""""...::......RR....',
-    'T....""""...::...........T',
-    'T..OOO......::...........T',
-    'T..TTT......::....""""...T',
-    'T.TTTTT.....::....""""...T',
-    'T..TTT......::...........T',
-    'T...........::...........T',
-    'T:::::::::::::::.........T',
-    'T...........::..:........T',
-    'T...RR......::..:........T',
-    'T...........::..:...TTT..T',
-    'T....""""...::..:..TTTTT.T',
-    'T....""""...::..:...TTT..T',
-    'T...........::..:........T',
-    'T..LLLLLL...::..:........T',
-    'T...........::..:........T',
-    'T...........::::::.......T',
-    'T....""""...::...........T',
-    'T....""""...::.....""""..T',
-    'T...........::.....""""..T',
-    'T....S......::...........T',
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T................................T',
+    'T....""""......RR......."""".....T',
+    'T....""""..............."""".....T',
+    'T................TTT.............T',
+    'T..OOO..........TTTTT............T',
+    '::::::::::::::::.TTT.............T',
+    ':..............:::::::::::::::::::',
+    'T...............................::',
+    'T....""""......LLLLLL...........:T',
+    'T....""""...............""""....:T',
+    'T.......................""""....:T',
+    'T..RR...........TTT.............:T',
+    'T..............TTTTT......S.....:T',
+    'T...............TTT..............T',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 12, y: 0, to: 'jubilife', tx: 14, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'jubilife', tx: 15, ty: 22, dir: 'up', edge: true },
-    { x: 12, y: 23, to: 'oreburgh', tx: 14, ty: 1, dir: 'down', edge: true },
-    { x: 13, y: 23, to: 'oreburgh', tx: 15, ty: 1, dir: 'down', edge: true },
+    { x: 0, y: 6, to: 'jubilife', tx: 28, ty: 7, dir: 'left', edge: true },
+    { x: 0, y: 7, to: 'jubilife', tx: 28, ty: 8, dir: 'left', edge: true },
+    { x: 33, y: 7, to: 'oreburgh', tx: 1, ty: 8, dir: 'right', edge: true },
+    { x: 33, y: 8, to: 'oreburgh', tx: 1, ty: 9, dir: 'right', edge: true },
   ],
   objects: [
-    { id: 'r3_potion', x: 2, y: 11, item: 'potion', qty: 2 },
-    { id: 'r3_ball', x: 20, y: 20, item: 'pokeball', qty: 5 },
+    { id: 'r3_potion', x: 2, y: 2, item: 'potion', qty: 2 },
+    { id: 'r3_ball', x: 29, y: 12, item: 'pokeball', qty: 5 },
   ],
   signs: [
-    { x: 5, y: 22, text: 'ROUTE 203\nOREBURGH CITY — SOUTH\nJUBILIFE CITY — NORTH\nThe Gym in Oreburgh takes challengers.' },
+    { x: 26, y: 13, text: 'ROUTE 203\nOREBURGH CITY — EAST\nJUBILIFE CITY — WEST\nThe Gym in Oreburgh takes challengers.' },
   ],
   npcs: [
-    { id: 'r3_t1', x: 8, y: 9, look: 'youngster', trainer: 'r3_youngster', facing: 'right', sight: 4, movement: 'still' },
-    { id: 'r3_t2', x: 18, y: 15, look: 'lass', trainer: 'r3_lass', facing: 'left', sight: 4, movement: 'still' },
-    { id: 'r3_t3', x: 6, y: 19, look: 'bugCatcher', trainer: 'r3_bug', facing: 'down', sight: 3, movement: 'still' },
+    { id: 'r3_t1', x: 9, y: 3, look: 'youngster', trainer: 'r3_youngster', facing: 'down', sight: 4, movement: 'still' },
+    { id: 'r3_t2', x: 24, y: 10, look: 'lass', trainer: 'r3_lass', facing: 'up', sight: 4, movement: 'still' },
+    { id: 'r3_t3', x: 6, y: 11, look: 'bugCatcher', trainer: 'r3_bug', facing: 'right', sight: 3, movement: 'still' },
     {
-      id: 'r3_walker', x: 20, y: 6, look: 'hiker', name: 'Rambler', movement: 'lookAround', facing: 'down',
+      id: 'r3_walker', x: 21, y: 8, look: 'hiker', name: 'Rambler', movement: 'lookAround', facing: 'down',
       dialogue: [
         {
           when: { badges: 1 },
@@ -225,7 +224,7 @@ export const ROUTE203 = defineMap('route203', {
             'Rest at the Center in Oreburgh before you go up Route 207.\fWhat is up there is not friendly.'],
         },
         {
-          lines: ['Oreburgh is south. Mining town, and the Gym there is Rock-type.',
+          lines: ['Oreburgh is east. Mining town, and the Gym there is Rock-type.',
             'If you have got anything Grass or Water, bring it.',
             'If you have not, the grass on this route has both.'],
         },

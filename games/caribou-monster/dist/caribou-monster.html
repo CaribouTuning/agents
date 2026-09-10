@@ -8109,6 +8109,17 @@ function makeMoveSlot(id) {
   return { id, pp: mv.pp, ppMax: mv.pp };
 }
 
+/**
+ * How rare a shiny is: one in this many.
+ *
+ * The series' own number since Gen 6, and it is here as a named constant
+ * rather than a literal in the roll because it is the kind of thing somebody
+ * reaches for at two in the morning. Rolled once, when a Pokemon is created,
+ * and then it is part of that Pokemon forever — nothing re-rolls it, because
+ * nothing else ever looks at this number again.
+ */
+const SHINY_ODDS = 4096;
+
 function createMonster(speciesId, level, opts = {}) {
   const sp = getSpecies(speciesId);
   if (!sp) throw new Error(`unknown species ${speciesId}`);
@@ -8132,7 +8143,7 @@ function createMonster(speciesId, level, opts = {}) {
     exp: expForLevel(sp.growth, level),
     nature: opts.nature != null ? opts.nature : r.int(NATURES.length),
     gender,
-    shiny: opts.shiny != null ? opts.shiny : r.int(1024) === 0,
+    shiny: opts.shiny != null ? opts.shiny : r.int(SHINY_ODDS) === 0,
     // A species with two abilities really does get one or the other. Rolled
     // here once and stored on the monster, so it survives a save, a trade and
     // the wire — a link battle must never disagree about what a Pokémon is.
@@ -8331,7 +8342,7 @@ function partnerLine(mon, steps, extra = null) {
   return pool[Math.abs(steps) % pool.length];
 }
 
-__exports(__x, { STAT_KEYS: () => STAT_KEYS, STAT_NAMES: () => STAT_NAMES, STAT_SHORT: () => STAT_SHORT, newUid: () => newUid, movesAtLevel: () => movesAtLevel, makeMoveSlot: () => makeMoveSlot, createMonster: () => createMonster, statValue: () => statValue, maxHp: () => maxHp, allStats: () => allStats, displayName: () => displayName, speciesOf: () => speciesOf, typesOf: () => typesOf, natureOf: () => natureOf, isFainted: () => isFainted, healFully: () => healFully, restorePP: () => restorePP, expToNext: () => expToNext, expProgress: () => expProgress, gainExp: () => gainExp, expYield: () => expYield, awardEvs: () => awardEvs, knowsMove: () => knowsMove, learnMove: () => learnMove, canLearnTm: () => canLearnTm, serializeMonster: () => serializeMonster, reviveMonster: () => reviveMonster, partnerLine: () => partnerLine });
+__exports(__x, { STAT_KEYS: () => STAT_KEYS, STAT_NAMES: () => STAT_NAMES, STAT_SHORT: () => STAT_SHORT, newUid: () => newUid, movesAtLevel: () => movesAtLevel, makeMoveSlot: () => makeMoveSlot, SHINY_ODDS: () => SHINY_ODDS, createMonster: () => createMonster, statValue: () => statValue, maxHp: () => maxHp, allStats: () => allStats, displayName: () => displayName, speciesOf: () => speciesOf, typesOf: () => typesOf, natureOf: () => natureOf, isFainted: () => isFainted, healFully: () => healFully, restorePP: () => restorePP, expToNext: () => expToNext, expProgress: () => expProgress, gainExp: () => gainExp, expYield: () => expYield, awardEvs: () => awardEvs, knowsMove: () => knowsMove, learnMove: () => learnMove, canLearnTm: () => canLearnTm, serializeMonster: () => serializeMonster, reviveMonster: () => reviveMonster, partnerLine: () => partnerLine });
 
 };
 
@@ -10304,6 +10315,8 @@ function createGameState(opts = {}) {
     patches: createPatches(),
     // The Underground: where you climbed down from, and which seams are spent.
     underground: createUnderground(),
+    // Every place you have stood in. The Town Map draws only these.
+    visited: {},
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
@@ -10435,6 +10448,7 @@ function serializeState(st) {
     daycare: serializeDaycare(st.daycare),
     patches: serializePatches(st.patches),
     underground: serializeUnderground(st.underground),
+    visited: { ...st.visited },
   };
 }
 
@@ -10467,6 +10481,8 @@ function deserializeState(raw) {
   st.daycare = reviveDaycare(raw.daycare, reviveMonster);
   st.patches = revivePatches(raw.patches);
   st.underground = reviveUnderground(raw.underground);
+  st.visited = {};
+  for (const k of Object.keys(raw.visited || {})) if (typeof k === 'string') st.visited[k] = true;
   return st;
 }
 
@@ -11244,6 +11260,9 @@ function defineMap(id, def) {
     // come up wherever you went down, and a Secret Base's door comes out at
     // whichever wall its owner cut it into.
     stepOut: def.stepOut || null,
+    // A map you can only be put into by a cutscene — the Everlight door opens
+    // from the tunnel side and there is no warp back through it.
+    scriptEntry: !!def.scriptEntry,
   };
 }
 
@@ -11479,8 +11498,8 @@ const OREBURGH = defineMap('oreburgh', {
     'T..VVVVVVVV...::.....VVVVVVVV..T',
     'T..#WFFDFFW#..::.....#WJJDJJW#.T',
     'T......:......::........:......T',
-    'T.....::::::::::::::::::::.....T',
-    'T.............::..EEEEEEEE.....T',
+    '::::::::::::::::::::::::::.....T',
+    ':.............::..EEEEEEEE.....T',
     'T....*........::..EEEEEEEE.....T',
     'T.............::..#WWDDWW#.....T',
     'T..GGGGG......::.S.............T',
@@ -11495,13 +11514,13 @@ const OREBURGH = defineMap('oreburgh', {
     'T....::::::::::::::::::::::....T',
     'T.............::...............T',
     'T..S..........::..........S....T',
-    'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
     { x: 14, y: 0, to: 'route207', tx: 12, ty: 16, dir: 'up', edge: true },
     { x: 15, y: 0, to: 'route207', tx: 13, ty: 16, dir: 'up', edge: true },
-    { x: 14, y: 24, to: 'route203', tx: 12, ty: 22, dir: 'down', edge: true },
-    { x: 15, y: 24, to: 'route203', tx: 13, ty: 22, dir: 'down', edge: true },
+    { x: 0, y: 8, to: 'route203', tx: 32, ty: 7, dir: 'left', edge: true },
+    { x: 0, y: 9, to: 'route203', tx: 32, ty: 8, dir: 'left', edge: true },
     { x: 7, y: 6, to: 'oreburgh_center', tx: 6, ty: 6, dir: 'up' },
     { x: 25, y: 6, to: 'oreburgh_mart', tx: 5, ty: 5, dir: 'up' },
     { x: 5, y: 14, to: 'oreburgh_house', tx: 5, ty: 6, dir: 'up' },
@@ -11817,8 +11836,8 @@ const JUBILIFE = defineMap('jubilife', {
     'T..VVVVVVVV.::......VVVVVVVV.T',
     'T..#WFFDFFW.::......#WJJDJJW.T',
     'T.....:.....::..........:....T',
-    'T.....:::::::::::::::::::....T',
-    'T.....:.....::..........:....T',
+    'T.....::::::::::::::::::::::::',
+    'T.....:.....::..........::::::',
     'T..S..:.....::..........:....T',
     'T.....:.EEEEEEEEEEEE....:....T',
     'T.....:.EEEEEEEEEEEE....:....T',
@@ -11836,10 +11855,12 @@ const JUBILIFE = defineMap('jubilife', {
     'TTTTTTTTTTTT::::::TTTTTTTTTTTT',
   ],
   warps: [
-    { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
-    { x: 14, y: 23, to: 'route203', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 15, y: 23, to: 'route203', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'route204', tx: 12, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route204', tx: 13, ty: 22, dir: 'up', edge: true },
+    { x: 15, y: 23, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 16, y: 23, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 29, y: 7, to: 'route203', tx: 1, ty: 6, dir: 'right', edge: true },
+    { x: 29, y: 8, to: 'route203', tx: 1, ty: 7, dir: 'right', edge: true },
     { x: 7, y: 5, to: 'jubilife_center', tx: 6, ty: 6, dir: 'up' },
     { x: 24, y: 5, to: 'jubilife_mart', tx: 5, ty: 5, dir: 'up' },
     { x: 14, y: 13, to: 'jubilife_school', tx: 7, ty: 11, dir: 'up' },
@@ -11932,7 +11953,7 @@ const ROUTE201 = defineMap('route201', {
     'T...LLLLL...::...LLLLL...T',
     'T...........::...........T',
     'T....""""...::....""""...T',
-    'T:::::::::::::...........T',
+    '::::::::::::::...........T',
     'T...........::...........T',
     'T....RR.....::...........T',
     'T...........::.....RR....T',
@@ -11949,6 +11970,7 @@ const ROUTE201 = defineMap('route201', {
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
+    { x: 0, y: 13, to: 'lake_verity', tx: 18, ty: 7, dir: 'left', edge: true },
     { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
     { x: 13, y: 27, to: 'twinleaf', tx: 15, ty: 2, dir: 'down', edge: true },
     { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 1, dir: 'up', edge: true },
@@ -11958,7 +11980,7 @@ const ROUTE201 = defineMap('route201', {
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
   ],
   objects: [
-    { id: 'r1_potion', x: 1, y: 13, item: 'potion', qty: 1 },
+    { id: 'r1_potion', x: 1, y: 11, item: 'potion', qty: 1 },
     { id: 'r1_ball', x: 20, y: 5, item: 'pokeball', qty: 3 },
   ],
   npcs: [
@@ -12003,7 +12025,7 @@ const ROUTE201 = defineMap('route201', {
 const ROUTE207 = defineMap('route207', {
   name: 'Route 207', kind: 'route', music: 'route',
   tiles: [
-    '^^^^^^^^^^^^DD^^^^^^^^^^^^',
+    '^^^^::^^^^^^DD^^^^^^^^^^^^',
     'T...........::...........T',
     'T..RRR......::......RRR..T',
     'T...........::...........T',
@@ -12025,8 +12047,10 @@ const ROUTE207 = defineMap('route207', {
   warps: [
     { x: 12, y: 17, to: 'oreburgh', tx: 14, ty: 2, dir: 'down', edge: true },
     { x: 13, y: 17, to: 'oreburgh', tx: 15, ty: 2, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'oreburgh_gate', tx: 11, ty: 14, dir: 'up' },
-    { x: 13, y: 0, to: 'oreburgh_gate', tx: 12, ty: 14, dir: 'up' },
+    { x: 4, y: 0, to: 'route206', tx: 12, ty: 15, dir: 'up', edge: true },
+    { x: 5, y: 0, to: 'route206', tx: 13, ty: 15, dir: 'up', edge: true },
+    { x: 12, y: 0, to: 'oreburgh_gate', tx: 11, ty: 14, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'oreburgh_gate', tx: 12, ty: 14, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 16, text: 'ROUTE 207\nOreburgh City — Oreburgh Gate\nMind the ledges.' },
@@ -12089,51 +12113,47 @@ const ROUTE207 = defineMap('route207', {
 
 const ROUTE203 = defineMap('route203', {
   name: 'Route 203', kind: 'route', music: 'route',
+  // The road east out of Jubilife. It runs left to right rather than bottom
+  // to top, which is the whole point: before this route existed every road in
+  // the region ran north, and a region where every road runs north is a
+  // corridor with towns bolted to it.
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
-    'T...........::...........T',
-    'T....""""...::......RR....',
-    'T....""""...::...........T',
-    'T..OOO......::...........T',
-    'T..TTT......::....""""...T',
-    'T.TTTTT.....::....""""...T',
-    'T..TTT......::...........T',
-    'T...........::...........T',
-    'T:::::::::::::::.........T',
-    'T...........::..:........T',
-    'T...RR......::..:........T',
-    'T...........::..:...TTT..T',
-    'T....""""...::..:..TTTTT.T',
-    'T....""""...::..:...TTT..T',
-    'T...........::..:........T',
-    'T..LLLLLL...::..:........T',
-    'T...........::..:........T',
-    'T...........::::::.......T',
-    'T....""""...::...........T',
-    'T....""""...::.....""""..T',
-    'T...........::.....""""..T',
-    'T....S......::...........T',
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T................................T',
+    'T....""""......RR......."""".....T',
+    'T....""""..............."""".....T',
+    'T................TTT.............T',
+    'T..OOO..........TTTTT............T',
+    '::::::::::::::::.TTT.............T',
+    ':..............:::::::::::::::::::',
+    'T...............................::',
+    'T....""""......LLLLLL...........:T',
+    'T....""""...............""""....:T',
+    'T.......................""""....:T',
+    'T..RR...........TTT.............:T',
+    'T..............TTTTT......S.....:T',
+    'T...............TTT..............T',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 12, y: 0, to: 'jubilife', tx: 14, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'jubilife', tx: 15, ty: 22, dir: 'up', edge: true },
-    { x: 12, y: 23, to: 'oreburgh', tx: 14, ty: 1, dir: 'down', edge: true },
-    { x: 13, y: 23, to: 'oreburgh', tx: 15, ty: 1, dir: 'down', edge: true },
+    { x: 0, y: 6, to: 'jubilife', tx: 28, ty: 7, dir: 'left', edge: true },
+    { x: 0, y: 7, to: 'jubilife', tx: 28, ty: 8, dir: 'left', edge: true },
+    { x: 33, y: 7, to: 'oreburgh', tx: 1, ty: 8, dir: 'right', edge: true },
+    { x: 33, y: 8, to: 'oreburgh', tx: 1, ty: 9, dir: 'right', edge: true },
   ],
   objects: [
-    { id: 'r3_potion', x: 2, y: 11, item: 'potion', qty: 2 },
-    { id: 'r3_ball', x: 20, y: 20, item: 'pokeball', qty: 5 },
+    { id: 'r3_potion', x: 2, y: 2, item: 'potion', qty: 2 },
+    { id: 'r3_ball', x: 29, y: 12, item: 'pokeball', qty: 5 },
   ],
   signs: [
-    { x: 5, y: 22, text: 'ROUTE 203\nOREBURGH CITY — SOUTH\nJUBILIFE CITY — NORTH\nThe Gym in Oreburgh takes challengers.' },
+    { x: 26, y: 13, text: 'ROUTE 203\nOREBURGH CITY — EAST\nJUBILIFE CITY — WEST\nThe Gym in Oreburgh takes challengers.' },
   ],
   npcs: [
-    { id: 'r3_t1', x: 8, y: 9, look: 'youngster', trainer: 'r3_youngster', facing: 'right', sight: 4, movement: 'still' },
-    { id: 'r3_t2', x: 18, y: 15, look: 'lass', trainer: 'r3_lass', facing: 'left', sight: 4, movement: 'still' },
-    { id: 'r3_t3', x: 6, y: 19, look: 'bugCatcher', trainer: 'r3_bug', facing: 'down', sight: 3, movement: 'still' },
+    { id: 'r3_t1', x: 9, y: 3, look: 'youngster', trainer: 'r3_youngster', facing: 'down', sight: 4, movement: 'still' },
+    { id: 'r3_t2', x: 24, y: 10, look: 'lass', trainer: 'r3_lass', facing: 'up', sight: 4, movement: 'still' },
+    { id: 'r3_t3', x: 6, y: 11, look: 'bugCatcher', trainer: 'r3_bug', facing: 'right', sight: 3, movement: 'still' },
     {
-      id: 'r3_walker', x: 20, y: 6, look: 'hiker', name: 'Rambler', movement: 'lookAround', facing: 'down',
+      id: 'r3_walker', x: 21, y: 8, look: 'hiker', name: 'Rambler', movement: 'lookAround', facing: 'down',
       dialogue: [
         {
           when: { badges: 1 },
@@ -12141,7 +12161,7 @@ const ROUTE203 = defineMap('route203', {
             'Rest at the Center in Oreburgh before you go up Route 207.\fWhat is up there is not friendly.'],
         },
         {
-          lines: ['Oreburgh is south. Mining town, and the Gym there is Rock-type.',
+          lines: ['Oreburgh is east. Mining town, and the Gym there is Rock-type.',
             'If you have got anything Grass or Water, bring it.',
             'If you have not, the grass on this route has both.'],
         },
@@ -12196,8 +12216,8 @@ const ROUTE202 = defineMap('route202', {
   warps: [
     { x: 12, y: 23, to: 'sandgem', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 13, y: 23, to: 'sandgem', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'jubilife', tx: 12, ty: 1, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'jubilife', tx: 13, ty: 1, dir: 'up', edge: true },
+    { x: 12, y: 0, to: 'jubilife', tx: 15, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'jubilife', tx: 16, ty: 22, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 22, text: 'ROUTE 202\nStay on the path and you will come out the other side.' },
@@ -12251,6 +12271,8 @@ const ROUTE202 = defineMap('route202', {
 // Aurora Charm, and only once Galactic has been cleared out of the Gate.
 
 const EVERLIGHT_CHAMBER = defineMap('everlight_chamber', {
+  // The door opens from the tunnel side, by script. There is no warp in.
+  scriptEntry: true,
   name: 'Everlight Chamber', kind: 'cave', music: 'cave', darkEdges: true,
   tiles: [
     'CCCCCCCCCCCCCCC',
@@ -12264,8 +12286,8 @@ const EVERLIGHT_CHAMBER = defineMap('everlight_chamber', {
     'CCCCCCCccCCCCCC',
   ],
   warps: [
-    { x: 7, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
-    { x: 8, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down' },
+    { x: 7, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down', edge: true },
+    { x: 8, y: 8, to: 'oreburgh_gate', tx: 13, ty: 2, dir: 'down', edge: true },
   ],
   events: [
     // Rowan's own logbook, left in the chamber approach thirty-one years ago.
@@ -12300,8 +12322,8 @@ const OREBURGH_GATE = defineMap('oreburgh_gate', {
     'CCCCCCCCCCCccCCCCCCCCCCC',
   ],
   warps: [
-    { x: 11, y: 15, to: 'route207', tx: 12, ty: 1, dir: 'down' },
-    { x: 12, y: 15, to: 'route207', tx: 13, ty: 1, dir: 'down' },
+    { x: 11, y: 15, to: 'route207', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 15, to: 'route207', tx: 13, ty: 1, dir: 'down', edge: true },
   ],
   objects: [
     { id: 'sf_escape', x: 2, y: 1, item: 'escaperope', qty: 1 },
@@ -13481,6 +13503,803 @@ __exports(__x, { UNDERGROUND: () => UNDERGROUND, SECRET_BASE: () => SECRET_BASE,
 
 };
 
+__defs['data/maps/north.js'] = function (__x, __req) {
+const { defineMap } = __req('data/maps/define.js');
+// The northern branch.
+//
+// Everything in this file exists to stop the region being a corridor. Before
+// it, every road out of every town ran north into the next town, and the world
+// was a single line you walked up. Jubilife is the hinge: Route 202 leaves it
+// south, Route 203 leaves it east, and Route 204 leaves it north — and the
+// north road eventually bends back round to meet the east one, which is what
+// turns a line into a region.
+
+
+// ---------------------------------------------------------------------------
+// Route 204 — Jubilife up to the Ravaged Path.
+// ---------------------------------------------------------------------------
+const ROUTE204 = defineMap('route204', {
+  name: 'Route 204', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T....""""...::.....RR....T',
+    'T....""""...::...........T',
+    'T...........::....""""...T',
+    'T..YYYY.....::....""""...T',
+    'T..YYYY.....::...........T',
+    'T...........::...........T',
+    'T....OOO....::..YYYY.....T',
+    'T...........::..YYYY.....T',
+    'T:::::::::::::...........T',
+    'T...........::...........T',
+    'T....""""...::....~~~~...T',
+    'T....""""...::...~~~~~~..T',
+    'T...........::....~~~~...T',
+    'T..RR.......::...........T',
+    'T...........::....""""...T',
+    'T...LLLLLL..::....""""...T',
+    'T...........::...........T',
+    'T....""""...::..YYYY.....T',
+    'T....""""...::..YYYY.....T',
+    'T...........::...........T',
+    'T.........S.::...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 23, to: 'jubilife', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'jubilife', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'ravaged_path', tx: 8, ty: 10, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'ravaged_path', tx: 9, ty: 10, dir: 'up', edge: true },
+  ],
+  signs: [
+    { x: 10, y: 22, text: 'ROUTE 204\nJUBILIFE CITY — SOUTH\nFLOAROMA TOWN — NORTH, through the\nRavaged Path.' },
+  ],
+  objects: [
+    { id: 'r4_repel', x: 2, y: 12, item: 'repel', qty: 2 },
+    { id: 'r4_ether', x: 21, y: 20, item: 'ether', qty: 1 },
+  ],
+  npcs: [
+    { id: 'r4_t1', x: 8, y: 6, look: 'bugCatcher', trainer: 'r4_bug', facing: 'right', sight: 4, movement: 'still' },
+    { id: 'r4_t2', x: 18, y: 17, look: 'lass', trainer: 'r4_lass', facing: 'left', sight: 4, movement: 'still' },
+    {
+      id: 'r4_hiker', x: 6, y: 15, look: 'hiker', name: 'Marek', movement: 'lookAround', facing: 'right',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Two of you on the north road. Good.',
+            'The Ravaged Path is dark and it goes on longer than it looks.',
+            'Nicer with somebody. Most things are.'],
+        },
+        {
+          lines: ['North of here the road goes through the Ravaged Path.',
+            'It is not much of a cave. It is enough of one at night.',
+            'Floaroma is on the other side. You will smell it before you see it.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 6, max: 10,
+      table: [[396, 22], [399, 20], [401, 16], [415, 14], [403, 12], [406, 10], [265, 6]],
+      night: { min: 6, max: 10, table: [[163, 28], [41, 22], [401, 16], [399, 14], [198, 12], [434, 8]] },
+      morning: { min: 6, max: 10, table: [[396, 30], [415, 22], [399, 18], [401, 16], [403, 14]] },
+    },
+    fish: { min: 5, max: 10, table: [[129, 62], [118, 20], [339, 12], [422, 6]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// The Ravaged Path — a short, wet cave. Not a dungeon; a doorway.
+// ---------------------------------------------------------------------------
+const RAVAGED_PATH = defineMap('ravaged_path', {
+  name: 'Ravaged Path', kind: 'cave', music: 'cave',
+  tiles: [
+    'CCCCCCCCccCCCCCCCC',
+    'CccccccccccccccCCC',
+    'CccccccccccccccCCC',
+    'CCCCcccCCCcccccccC',
+    'CccccccCCCCCCcccCC',
+    'CcccccccccccccccCC',
+    'CCCcccCCCCCcccccCC',
+    'CcccccccccccccccCC',
+    'CcccCCCCCCcccccccC',
+    'CccccccccCCCCcccCC',
+    'CcccccccccccccccCC',
+    'CCCCCCCCccCCCCCCCC',
+  ],
+  warps: [
+    { x: 8, y: 11, to: 'route204', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 9, y: 11, to: 'route204', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 8, y: 0, to: 'floaroma', tx: 12, ty: 16, dir: 'up', edge: true },
+    { x: 9, y: 0, to: 'floaroma', tx: 13, ty: 16, dir: 'up', edge: true },
+  ],
+  signs: [],
+  objects: [
+    { id: 'rp_stone', x: 2, y: 5, item: 'waterstone', qty: 1 },
+  ],
+  npcs: [],
+  encounters: {
+    cave: { min: 7, max: 11, table: [[41, 40], [74, 26], [63, 14], [95, 10], [433, 10]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Floaroma Town — flowers, and the way further north.
+// ---------------------------------------------------------------------------
+const FLOAROMA = defineMap('floaroma', {
+  name: 'Floaroma Town', kind: 'town', music: 'town',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T..**..**...::...**..**..T',
+    'T..**..**...::...**..**..T',
+    'T...........::...........T',
+    'T..AAAAAAAA.::.....GGGGG.T',
+    'T..AAAAAAAA.::.....GGGGG.T',
+    'T..VVVVVVVV.::.....#WDW#.T',
+    'T..#WFFDFFW.::.......:...T',
+    'T.....:.....::.......:...T',
+    'T.....:::::::::::::::....T',
+    'T.....:.....::...........T',
+    'T..S..:..**.::..**...**..T',
+    'T.....:..**.::..**...**..T',
+    'T.....:.....::...........T',
+    'T..OOO:.....::....OOO....T',
+    'T.....:.....::...........T',
+    'T.....::::::::...........T',
+    'T...........::..........ST',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 18, to: 'ravaged_path', tx: 8, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 18, to: 'ravaged_path', tx: 9, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'route205', tx: 12, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route205', tx: 13, ty: 22, dir: 'up', edge: true },
+    { x: 7, y: 7, to: 'floaroma_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 21, y: 6, to: 'floaroma_house', tx: 5, ty: 5, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 6, w: 8, text: 'POKéMON CENTER' },
+  ],
+  signs: [
+    { x: 3, y: 11, text: 'FLOAROMA TOWN\n"Where the flowers never stop."\nThe soil here takes anything.' },
+    { x: 24, y: 17, text: 'ROUTE 205 — NORTH\nValley Windworks lies east of the road.' },
+  ],
+  objects: [],
+  healPoint: { map: 'floaroma_center', x: 6, y: 7 },
+  npcs: [
+    {
+      id: 'fl_flowergirl', x: 9, y: 12, look: 'lass', name: 'Posy', movement: 'wander', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Two of you! Plant something together in our soil.',
+            'Things grown by two people come up better. I do not know why.',
+            'I have stopped asking why about most things in this town.'],
+        },
+        {
+          when: { flag: 'gotBerries' },
+          lines: ['You have berries on you — I can tell, everybody here can.',
+            'Our soil takes anything. Put one in and come back tomorrow.'],
+        },
+        {
+          lines: ['Floaroma is built on flowers and not much else.',
+            'There is soft soil all over town. Nobody owns it. Use it.'],
+        },
+      ],
+    },
+    {
+      id: 'fl_worker', x: 18, y: 10, look: 'worker', name: 'Dorn', movement: 'still', facing: 'left',
+      dialogue: [
+        {
+          when: { badges: 1 },
+          lines: ['Badge already? Then the Windworks will not frighten you.',
+            'It is east off Route 205. Big machines, loud, worth seeing.'],
+        },
+        {
+          lines: ['The Valley Windworks is east of Route 205.',
+            'It powers half the region and it whines like a kettle all day.'],
+        },
+      ],
+    },
+  ],
+  encounters: null,
+});
+
+// ---------------------------------------------------------------------------
+// Route 205 — north out of Floaroma, with the Windworks off to the east. The
+// first road in the region that branches sideways rather than just continuing.
+// ---------------------------------------------------------------------------
+const ROUTE205 = defineMap('route205', {
+  name: 'Route 205', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T....""""...::.....RR....T',
+    'T....""""...::...........T',
+    'T...........::....YYYY...T',
+    'T..~~~~.....::....YYYY...T',
+    'T.~~~~~~....::...........T',
+    'T..~~~~.....::...........T',
+    'T...........::::::::::::::',
+    'T....""""...::...........T',
+    'T....""""...::....""""...T',
+    'T...........::....""""...T',
+    'T..YYYY.....::...........T',
+    'T..YYYY.....::.....RR....T',
+    'T...........::...........T',
+    'T....OOO....::....YYYY...T',
+    'T...........::....YYYY...T',
+    'T..LLLLLL...::...........T',
+    'T...........::....""""...T',
+    'T....""""...::....""""...T',
+    'T....""""...::...........T',
+    'T...........::...........T',
+    'T.........S.::...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 23, to: 'floaroma', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'floaroma', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'eterna_forest', tx: 9, ty: 16, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'eterna_forest', tx: 10, ty: 16, dir: 'up', edge: true },
+    { x: 25, y: 8, to: 'windworks', tx: 1, ty: 6, dir: 'right', edge: true },
+  ],
+  signs: [
+    { x: 10, y: 22, text: 'ROUTE 205\nFLOAROMA TOWN — SOUTH\nETERNA FOREST — NORTH\nVALLEY WINDWORKS — EAST' },
+  ],
+  objects: [
+    { id: 'r5_super', x: 2, y: 19, item: 'superpotion', qty: 2 },
+  ],
+  npcs: [
+    { id: 'r5_t1', x: 8, y: 10, look: 'youngster', trainer: 'r5_youngster', facing: 'right', sight: 4, movement: 'still' },
+    { id: 'r5_t2', x: 19, y: 19, look: 'bugCatcher', trainer: 'r5_bug', facing: 'up', sight: 4, movement: 'still' },
+    {
+      id: 'r5_fisher', x: 6, y: 8, look: 'sailor', name: 'Wend', movement: 'still', facing: 'up',
+      dialogue: [
+        { lines: ['The water up here runs off the mountain. Cold, and full of things.',
+          'If you have a rod, use it. If you have not, Bram in Sandgem has spares.'] },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 8, max: 12,
+      table: [[396, 20], [415, 20], [401, 16], [406, 14], [399, 12], [403, 10], [265, 8]],
+      night: { min: 8, max: 12, table: [[163, 26], [41, 22], [198, 16], [401, 14], [434, 12], [399, 10]] },
+    },
+    fish: { min: 6, max: 12, table: [[129, 58], [118, 20], [339, 14], [422, 8]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Valley Windworks — a dead end worth walking to, which is what a side branch
+// has to be if the branch is going to mean anything.
+// ---------------------------------------------------------------------------
+const WINDWORKS = defineMap('windworks', {
+  name: 'Valley Windworks', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTT',
+    'T................T',
+    'T..EEEEEE........T',
+    'T..EEEEEE...RR...T',
+    'T..VVVVVV........T',
+    'T..#WWDWW#.......T',
+    '::......:........T',
+    'T.......:........T',
+    'T..""...:....""..T',
+    'T..""...:....""..T',
+    'T.......:........T',
+    'T..OOO..:...RR...T',
+    'T.......:........T',
+    'T..S....:........T',
+    'TTTTTTTTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 0, y: 6, to: 'route205', tx: 24, ty: 8, dir: 'left', edge: true },
+    { x: 6, y: 5, to: 'windworks_in', tx: 5, ty: 6, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 4, w: 6, text: 'WINDWORKS' },
+  ],
+  signs: [
+    { x: 3, y: 13, text: 'VALLEY WINDWORKS\nGenerating for the whole region since\nbefore anyone here was born.' },
+  ],
+  objects: [
+    { id: 'ww_nugget', x: 15, y: 12, item: 'nugget', qty: 1 },
+  ],
+  npcs: [
+    { id: 'ww_t1', x: 13, y: 8, look: 'worker', trainer: 'ww_worker', facing: 'left', sight: 4, movement: 'still' },
+  ],
+  encounters: {
+    grass: {
+      min: 9, max: 13,
+      table: [[403, 30], [81, 22], [399, 18], [396, 16], [434, 14]],
+      night: { min: 9, max: 13, table: [[81, 30], [403, 24], [41, 20], [434, 16], [198, 10]] },
+    },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Eterna Forest — dark, close, and full of Bug types. The classic one.
+// ---------------------------------------------------------------------------
+const ETERNA_FOREST = defineMap('eterna_forest', {
+  name: 'Eterna Forest', kind: 'route', music: 'forest', dark: true,
+  tiles: [
+    'YYYYYYYYY::YYYYYYYY',
+    'Y.......:::.......Y',
+    'Y.""""..:.:..""""'+'.Y',
+    'Y.""""..:.:..""""'+'.Y',
+    'Y...YY..:.:..YY...Y',
+    'Y...YY..:.:..YY...Y',
+    'Y.......:.:.......Y',
+    'Y.""""..:.:..""""'+'.Y',
+    'Y.""""..:::..""""'+'.Y',
+    'Y....YYYY.YYYY....Y',
+    'Y.......:.:.......Y',
+    'Y.""""..:.:..""""'+'.Y',
+    'Y.""""..:.:..""""'+'.Y',
+    'Y...YY..:.:..YY...Y',
+    'Y...YY..:.:..YY...Y',
+    'Y.......:::.......Y',
+    'Y.""""...:...""""'+'.Y',
+    'YYYYYYYYY::YYYYYYYY',
+  ],
+  warps: [
+    { x: 9, y: 17, to: 'route205', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 10, y: 17, to: 'route205', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 9, y: 0, to: 'eterna', tx: 14, ty: 20, dir: 'up', edge: true },
+    { x: 10, y: 0, to: 'eterna', tx: 15, ty: 20, dir: 'up', edge: true },
+  ],
+  signs: [],
+  objects: [
+    { id: 'ef_ball', x: 2, y: 9, item: 'greatball', qty: 3 },
+  ],
+  npcs: [
+    { id: 'ef_t1', x: 6, y: 10, look: 'bugCatcher', trainer: 'ef_bug', facing: 'right', sight: 3, movement: 'still' },
+  ],
+  encounters: {
+    grass: {
+      min: 10, max: 14,
+      table: [[265, 28], [415, 22], [401, 18], [406, 14], [402, 10], [455, 8]],
+      night: { min: 10, max: 14, table: [[163, 26], [92, 20], [200, 18], [401, 16], [434, 12], [455, 8]] },
+    },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Eterna City — the top of the northern branch, and the corner where it turns
+// back east toward Route 206 and the road home.
+// ---------------------------------------------------------------------------
+const ETERNA = defineMap('eterna', {
+  name: 'Eterna City', kind: 'town', music: 'city',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T............................T',
+    'T..AAAAAAAA.........BBBBBBBB.T',
+    'T..AAAAAAAA.........BBBBBBBB.T',
+    'T..VVVVVVVV.........VVVVVVVV.T',
+    'T..#WFFDFFW.........#WJJDJJW.T',
+    'T.....:...................:..T',
+    'T.....:::::::::::::::::::::::.',
+    'T.....:...................:..T',
+    'T..S..:....II.........II..:..T',
+    'T.....:...................:..T',
+    'T.....:...KKKKKKKKKK......:..T',
+    'T.....:...KKKKKKKKKK......:..T',
+    'T.....:...VVVVVVVVVV......:..T',
+    'T.....:...NQNNddNNQN......:..T',
+    'T.....:...I.S....S.I......:..T',
+    'T.....:::::::::::::::::::::..T',
+    'T............................T',
+    'T..OOO....**......**.....OOO.T',
+    'T.........**......**.........T',
+    'T............::..............T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 21, to: 'eterna_forest', tx: 9, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 21, to: 'eterna_forest', tx: 10, ty: 1, dir: 'down', edge: true },
+    { x: 29, y: 7, to: 'route206', tx: 1, ty: 6, dir: 'right', edge: true },
+    { x: 7, y: 5, to: 'eterna_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 24, y: 5, to: 'eterna_mart', tx: 4, ty: 5, dir: 'up' },
+    { x: 14, y: 14, to: 'eterna_gym', tx: 7, ty: 14, dir: 'up' },
+    { x: 15, y: 14, to: 'eterna_gym', tx: 8, ty: 14, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
+    { x: 20, y: 4, w: 8, text: 'POKéMON MART' },
+    { x: 10, y: 13, w: 10, text: 'ETERNA GYM', tone: '#f8e070' },
+  ],
+  signs: [
+    { x: 3, y: 9, text: 'ETERNA CITY\n"Old before the rest of us."\nThe GYM here is Grass-type.' },
+    { x: 12, y: 15, text: 'ETERNA CITY POKéMON GYM\nLEADER: Gardenia\nThe Forest’s Own\nGrass-type. Bring fire, or bring patience.' },
+    { x: 17, y: 15, text: 'A challenger must earn the Forest Badge\nhere before the road east will let them\npast the tollgate on Route 206.' },
+  ],
+  objects: [],
+  healPoint: { map: 'eterna_center', x: 6, y: 7 },
+  npcs: [
+    {
+      id: 'et_guide', x: 16, y: 16, look: 'youngster', name: 'Gym Guide', movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'badge2' },
+          lines: ['Forest Badge! Gardenia does not give those away.',
+            'Route 206 is east. It runs south all the way back to Oreburgh.',
+            'You have walked a circle round the region. Most people never notice.'],
+        },
+        {
+          lines: ['This is the ETERNA GYM. Gardenia is Grass-type, all the way through.',
+            'Fire, Flying and Bug moves will do the work for you.',
+            'Beat her and you get the FOREST BADGE.'],
+        },
+      ],
+    },
+    {
+      id: 'et_old', x: 8, y: 18, look: 'oldMan', name: 'Hest', movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Two of you, this far north. That is a proper walk.',
+            'Take the east road home rather than back through the forest.',
+            'Different way round is a different walk. Worth it.'],
+        },
+        {
+          lines: ['Eterna was here before the roads were.',
+            'East of town the road bends south and runs all the way to Oreburgh.',
+            'You can go round rather than back. That is worth knowing.'],
+        },
+      ],
+    },
+  ],
+  encounters: null,
+});
+
+// ---------------------------------------------------------------------------
+// Route 206 — the road that closes the loop. South and east out of Eterna,
+// joining Route 207 above Oreburgh, so the region is a ring and not a tree.
+// ---------------------------------------------------------------------------
+const ROUTE206 = defineMap('route206', {
+  name: 'Route 206', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T........................T',
+    'T..""""........RR........T',
+    'T..""""..................T',
+    'T................TTT.....T',
+    'T..OOO..........TTTTT....T',
+    '::::::::::::::...TTT.....T',
+    'T............:...........T',
+    'T..""""......:....""""...T',
+    'T..""""......:....""""...T',
+    'T............:...........T',
+    'T..RR........:......LL...T',
+    'T............:...........T',
+    'T..""""......:....YYYY...T',
+    'T..""""......:....YYYY...T',
+    'T.......S....:...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 0, y: 6, to: 'eterna', tx: 28, ty: 7, dir: 'left', edge: true },
+    { x: 12, y: 16, to: 'route207', tx: 4, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 16, to: 'route207', tx: 5, ty: 1, dir: 'down', edge: true },
+  ],
+  signs: [
+    { x: 8, y: 15, text: 'ROUTE 206\nETERNA CITY — WEST\nROUTE 207 — SOUTH, then Oreburgh.\nYou have come round in a circle.' },
+  ],
+  objects: [
+    { id: 'r6_hyper', x: 21, y: 2, item: 'hyperpotion', qty: 1 },
+  ],
+  npcs: [
+    { id: 'r6_t1', x: 8, y: 9, look: 'hiker', trainer: 'r6_hiker', facing: 'right', sight: 4, movement: 'still' },
+    {
+      id: 'r6_walker', x: 19, y: 12, look: 'lass', name: 'Rin', movement: 'wander', facing: 'down',
+      dialogue: [
+        { lines: ['South from here is Route 207, and then Oreburgh.',
+          'I walked out of Jubilife going east and came back to it going west.',
+          'Took me two days and I would do it again.'] },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 11, max: 15,
+      table: [[74, 24], [396, 18], [403, 16], [415, 14], [66, 12], [95, 10], [436, 6]],
+      night: { min: 11, max: 15, table: [[41, 26], [74, 22], [163, 18], [200, 14], [434, 12], [95, 8]] },
+    },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Interiors for the northern branch.
+// ---------------------------------------------------------------------------
+
+const center = (id, town, name, nurseLine) => defineMap(id, {
+  name: 'Pokémon Center', kind: 'indoor', music: 'center', darkEdges: false,
+  tiles: [
+    '||||||||||||||',
+    '|__H_______P_|',
+    '|_xxxxx______|',
+    '|____________|',
+    '|_p________p_|',
+    '|____________|',
+    '|____________|',
+    '||||||DD||||||',
+  ],
+  warps: [
+    { x: 6, y: 7, to: town.id, tx: town.x, ty: town.y, dir: 'down' },
+    { x: 7, y: 7, to: town.id, tx: town.x, ty: town.y, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: `${id}_nurse`, x: 4, y: 1, look: 'nurse', name: 'Nurse', movement: 'still', facing: 'down',
+      script: 'heal', overCounter: true,
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: [`Welcome to ${name}. {partner} is showing as connected too.`,
+            'Shall I heal your team to full health?'],
+        },
+        { lines: [`Welcome to the ${name} Pokémon Center. Shall I heal your team to full health?`] },
+      ],
+    },
+    {
+      id: `${id}_pc`, x: 10, y: 1, look: 'clerk', name: 'Attendant', movement: 'still', facing: 'down',
+      overCounter: true,
+      dialogue: [{ lines: ['The storage system behind me holds anything your party cannot.',
+        'Walk up to the terminal and press A.'] }],
+    },
+    {
+      id: `${id}_local`, x: 9, y: 5, look: 'lass', name: 'Trainer', movement: 'wander', facing: 'down',
+      dialogue: [{ lines: nurseLine }],
+    },
+  ],
+  encounters: null,
+});
+
+const mart = (id, town, line) => defineMap(id, {
+  name: 'Poké Mart', kind: 'indoor', music: 'mart', darkEdges: false,
+  tiles: [
+    '||||||||||',
+    '|________|',
+    '|_xxxx___|',
+    '|_M____M_|',
+    '|________|',
+    '|________|',
+    '||||DD||||',
+  ],
+  warps: [
+    { x: 4, y: 6, to: town.id, tx: town.x, ty: town.y, dir: 'down' },
+    { x: 5, y: 6, to: town.id, tx: town.x, ty: town.y, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: `${id}_clerk`, x: 3, y: 1, look: 'clerk', name: 'Clerk', movement: 'still', facing: 'down',
+      script: 'shop', overCounter: true,
+      dialogue: [{ lines: ['Welcome! What can I get you?'] }],
+    },
+    {
+      id: `${id}_browser`, x: 7, y: 4, look: 'youngster', name: 'Shopper', movement: 'still', facing: 'left',
+      dialogue: [{ lines: line }],
+    },
+  ],
+  encounters: null,
+});
+
+const FLOAROMA_CENTER = center('floaroma_center', { id: 'floaroma', x: 7, y: 8 }, 'Floaroma',
+  ['Everything in this town smells of flowers. Even in here.',
+    'There is soft soil all over Floaroma. Plant something before you go north.']);
+
+const ETERNA_CENTER = center('eterna_center', { id: 'eterna', x: 7, y: 6 }, 'Eterna',
+  ['Gardenia is Grass-type and she is very good at it.',
+    'Come back here when she has finished with you. Everybody does.']);
+
+const ETERNA_MART = mart('eterna_mart', { id: 'eterna', x: 24, y: 6 },
+  ['Buy the Antidotes. The forest south of here is nothing but Bug types.',
+    'Ask me how I know.']);
+
+const FLOAROMA_HOUSE = defineMap('floaroma_house', {
+  name: 'Floaroma House', kind: 'indoor', music: 'home', darkEdges: false,
+  tiles: [
+    '||||||||||',
+    '|kk__ee_p|',
+    '|________|',
+    '|_b____v_|',
+    '|________|',
+    '|________|',
+    '||||DD||||',
+  ],
+  warps: [
+    { x: 4, y: 6, to: 'floaroma', tx: 21, ty: 7, dir: 'down' },
+    { x: 5, y: 6, to: 'floaroma', tx: 21, ty: 7, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: 'fh_gran', x: 2, y: 3, look: 'mom', name: 'Wren', movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Two of you walking together. Oh, that is lovely.',
+            'My husband and I did this road the year we met.',
+            'We argued at the Windworks and made it up in the forest.'],
+        },
+        {
+          lines: ['I have lived in Floaroma sixty years and never once gone further north.',
+            'Never needed to. Everything I wanted turned up here eventually.'],
+        },
+      ],
+    },
+  ],
+  encounters: null,
+});
+
+const WINDWORKS_IN = defineMap('windworks_in', {
+  name: 'Valley Windworks', kind: 'indoor', music: 'mart', darkEdges: false,
+  tiles: [
+    '||||||||||||',
+    '|P___ee___P|',
+    '|__________|',
+    '|_xxxx_____|',
+    '|__________|',
+    '|_p______p_|',
+    '|__________|',
+    '|||||DD|||||',
+  ],
+  warps: [
+    { x: 5, y: 7, to: 'windworks', tx: 6, ty: 6, dir: 'down' },
+    { x: 6, y: 7, to: 'windworks', tx: 6, ty: 6, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: 'wi_eng', x: 3, y: 4, look: 'scientist', name: 'Engineer', movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'knowsTwist' },
+          lines: ['You have been in Oreburgh Gate, then. I can tell.',
+            'Our meters went strange the same week. Every gauge in the building.',
+            'Whatever is under that hill, it is on the grid whether we like it or not.'],
+        },
+        {
+          lines: ['Four turbines, and they have run without stopping for thirty years.',
+            'Every light in Jubilife comes off this floor.',
+            'People never think about where it comes from. I think about nothing else.'],
+        },
+      ],
+    },
+  ],
+  encounters: null,
+});
+
+// ---------------------------------------------------------------------------
+// The Eterna Gym. Grass-type, and the second badge in the region.
+// The floor is laid out as hedgerows: the way through is a maze, which is what
+// a Gym is for — the leader is the last thing you reach, not the first.
+// ---------------------------------------------------------------------------
+const ETERNA_GYM = defineMap('eterna_gym', {
+  name: 'Eterna Gym', kind: 'indoor', music: 'gym', darkEdges: false,
+  tiles: [
+    '||||||||||||||||',
+    '|gggggggggggggg|',
+    '|gggggg!!gggggg|',
+    '|gg!!!!!!!!!!gg|',
+    '|gggggggggggggg|',
+    '|!!!!gg!!!!gg!!|',
+    '|gggggggggggggg|',
+    '|gg!!!!gggg!!gg|',
+    '|gggggggggggggg|',
+    '|!!gggg!!!!gggg|',
+    '|gggggggggggggg|',
+    '|gg!!!!gg!!!!gg|',
+    '|gggggggggggggg|',
+    '|gggg!!gggg!!gg|',
+    '|gggggggggggggg|',
+    '|||||||DD|||||||',
+  ],
+  warps: [
+    { x: 7, y: 15, to: 'eterna', tx: 14, ty: 15, dir: 'down' },
+    { x: 8, y: 15, to: 'eterna', tx: 15, ty: 15, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: 'gym2_leader', x: 7, y: 1, look: 'lass', trainer: 'gym2_leader',
+      facing: 'down', sight: 0, movement: 'still', script: 'gymLeader',
+      after: ['Come back and battle me again when you have grown. I will have grown too.'],
+      dialogue: [
+        {
+          lines: ['I am Gardenia. Everything in this room is Grass, including me, more or less.',
+            'People think Grass is the gentle one. People are wrong about a lot of things.',
+            'Take the FOREST BADGE off me if you can.'],
+        },
+      ],
+    },
+    { id: 'gym2_t1', x: 3, y: 6, look: 'lass', trainer: 'gym2_a', facing: 'right', sight: 4, movement: 'still' },
+    { id: 'gym2_t2', x: 12, y: 10, look: 'bugCatcher', trainer: 'gym2_b', facing: 'left', sight: 4, movement: 'still' },
+    {
+      id: 'gym2_guide', x: 4, y: 13, look: 'youngster', name: 'Gym Guide', movement: 'still', facing: 'right',
+      dialogue: [
+        { lines: ['Gardenia is up at the far end. You have to get through her trainers first.',
+          'Fire, Flying, Bug, Ice, Poison — any of those. Grass folds to all of them.',
+          'Do not bring anything Water. She will laugh at you, kindly, and then win.'] },
+      ],
+    },
+  ],
+  encounters: null,
+});
+
+// ---------------------------------------------------------------------------
+// Lake Verity — west off Route 201, and the first time the region asks you to
+// go sideways rather than onward. There is nothing here you need. That is what
+// makes walking to it a choice.
+// ---------------------------------------------------------------------------
+const LAKE_VERITY = defineMap('lake_verity', {
+  name: 'Lake Verity', kind: 'route', music: 'forest',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTTTT',
+    'T..................T',
+    'T....TTTTTTTT......T',
+    'T..TT........TT....T',
+    'T.T....~~~~~~..T...T',
+    'T.T..~~~~~~~~~~T...T',
+    'T.T.~~~~~~~~~~~.T..T',
+    'T...~~~~~~~~~~~~..::',
+    'T...~~~~~~~~~~~~...T',
+    'T.T..~~~~~~~~~~T...T',
+    'T.T....~~~~~~..T...T',
+    'T..TT..OOO...TT....T',
+    'T....TTTTTTTT..S...T',
+    'TTTTTTTTTTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 19, y: 7, to: 'route201', tx: 1, ty: 13, dir: 'right', edge: true },
+  ],
+  signs: [
+    { x: 15, y: 12, text: 'LAKE VERITY\nThe water has never once been measured\nall the way to the bottom.' },
+  ],
+  objects: [
+    { id: 'lv_scale', x: 3, y: 2, item: 'heartscale', qty: 2 },
+  ],
+  npcs: [
+    {
+      id: 'lv_watcher', x: 17, y: 6, look: 'oldMan', name: 'Ori', movement: 'lookAround', facing: 'left',
+      dialogue: [
+        {
+          when: { flag: 'caughtEverlight' },
+          lines: ['The lake went still the night the sky went out.',
+            'Not calm. Still. There is a difference and I have never wanted to know it.',
+            'Whatever you brought up out of that hill — it has family here.'],
+        },
+        {
+          when: { flag: 'knowsTwist' },
+          lines: ['You have the look of somebody who has worked something out.',
+            'There are three lakes in this region and something asleep in each one.',
+            'Rowan has known that for thirty years. Ask him what he did about it.'],
+        },
+        {
+          when: { linked: true },
+          lines: ['Two of you, all the way out here, for a lake.',
+            'Nothing to catch, nothing to win, nothing anybody needs.',
+            'Best kind of walk there is.'],
+        },
+        {
+          lines: ['People walk straight past the turning and go north.',
+            'This lake has been here longer than the road has.',
+            'Sit a minute. It does not ask anything of you.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: null,
+    fish: { min: 4, max: 9, table: [[129, 55], [118, 22], [339, 13], [349, 6], [422, 4]] },
+  },
+});
+
+__exports(__x, { ROUTE204: () => ROUTE204, RAVAGED_PATH: () => RAVAGED_PATH, FLOAROMA: () => FLOAROMA, ROUTE205: () => ROUTE205, WINDWORKS: () => WINDWORKS, ETERNA_FOREST: () => ETERNA_FOREST, ETERNA: () => ETERNA, ROUTE206: () => ROUTE206, FLOAROMA_CENTER: () => FLOAROMA_CENTER, ETERNA_CENTER: () => ETERNA_CENTER, ETERNA_MART: () => ETERNA_MART, FLOAROMA_HOUSE: () => FLOAROMA_HOUSE, WINDWORKS_IN: () => WINDWORKS_IN, ETERNA_GYM: () => ETERNA_GYM, LAKE_VERITY: () => LAKE_VERITY });
+
+};
+
 __defs['data/maps/index.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
 const { TWINLEAF, SANDGEM, JUBILIFE, OREBURGH } = __req('data/maps/towns.js');
@@ -13488,6 +14307,7 @@ const { ROUTE201, ROUTE203, ROUTE207 } = __req('data/maps/routes.js');
 const { ROUTE202, OREBURGH_GATE, EVERLIGHT_CHAMBER } = __req('data/maps/wilds.js');
 const { INTERIORS } = __req('data/maps/interiors.js');
 const { UNDERGROUND, SECRET_BASE } = __req('data/maps/underground.js');
+const { ROUTE204, RAVAGED_PATH, FLOAROMA, ROUTE205, WINDWORKS, ETERNA_FOREST, ETERNA, ROUTE206, LAKE_VERITY, ETERNA_GYM, FLOAROMA_CENTER, FLOAROMA_HOUSE, ETERNA_CENTER, ETERNA_MART, WINDWORKS_IN } = __req('data/maps/north.js');
 // Map registry.
 //
 // A map is: an ASCII tile grid, plus warps, NPCs, objects, signs and an
@@ -13502,10 +14322,16 @@ const { UNDERGROUND, SECRET_BASE } = __req('data/maps/underground.js');
 
 
 
+
 // The road, in the order a player walks it: Twinleaf, Route 201, Sandgem,
 // Route 202, Jubilife, Route 203, Oreburgh — then Route 207 and the Gate.
 const ALL = [TWINLEAF, ROUTE201, SANDGEM, ROUTE202, JUBILIFE, ROUTE203, OREBURGH,
-  ROUTE207, OREBURGH_GATE, EVERLIGHT_CHAMBER, UNDERGROUND, SECRET_BASE, ...INTERIORS];
+  ROUTE207, OREBURGH_GATE, EVERLIGHT_CHAMBER, UNDERGROUND, SECRET_BASE,
+  // The northern branch and the loop road: what stops the region being a line.
+  LAKE_VERITY, ROUTE204, RAVAGED_PATH, FLOAROMA, ROUTE205, WINDWORKS,
+  ETERNA_FOREST, ETERNA, ROUTE206,
+  ETERNA_GYM, FLOAROMA_CENTER, FLOAROMA_HOUSE, ETERNA_CENTER, ETERNA_MART, WINDWORKS_IN,
+  ...INTERIORS];
 
 const MAPS = {};
 for (const m of ALL) MAPS[m.id] = m;
@@ -13770,6 +14596,80 @@ function rivalStarterBase(playerBase) {
   return STARTER_LINES[(idx + 1) % 3].base;
 }
 
+// ---- the northern branch -----------------------------------------------------
+// Route 204 up through Floaroma, the Windworks, Eterna Forest and Route 206 —
+// the loop road. Levels climb as the ring turns, so coming round the long way
+// from Oreburgh is a harder walk than going up from Jubilife, which is the
+// point of having two ways round.
+
+add('r4_bug', {
+  name: 'Bug Catcher Odell', cls: 'Bug Catcher', look: 'bugCatcher', ai: 1, prize: 448,
+  intro: 'North road is the good road. Everything up here is bigger.',
+  defeat: 'Bigger is not the same as better. I know that now.',
+  team: [mon(415, 12, ['gust', 'bugbite']), mon(401, 12, ['bugbite', 'stringshot'])],
+});
+add('r4_lass', {
+  name: 'Lass Bree', cls: 'Lass', look: 'lass', ai: 1, prize: 480,
+  intro: 'Everyone goes east to Oreburgh. Nobody comes north. Their loss.',
+  defeat: 'Well. Somebody came north.',
+  team: [mon(399, 13, ['tackle', 'defensecurl', 'rollout']), mon(396, 12, ['quickattack', 'growl', 'wingattack'])],
+});
+add('r5_youngster', {
+  name: 'Youngster Calder', cls: 'Youngster', look: 'youngster', ai: 1, prize: 560,
+  intro: 'The Windworks is that way. I am this way. Deal with me first.',
+  defeat: 'Fine. Go and look at the turbines.',
+  team: [mon(403, 14, ['spark', 'leer', 'quickattack']), mon(406, 14, ['absorb', 'growth'])],
+});
+add('r5_bug', {
+  name: 'Bug Catcher Wexley', cls: 'Bug Catcher', look: 'bugCatcher', ai: 1, prize: 560,
+  intro: 'Wait until you see the forest. This is nothing. This is the garden.',
+  defeat: 'The forest will sort you out. It sorted me out.',
+  team: [mon(265, 14, ['tackle', 'stringshot']), mon(401, 15, ['bugbite', 'stringshot']), mon(415, 14, ['gust', 'bugbite'])],
+});
+add('ww_worker', {
+  name: 'Worker Fen', cls: 'Worker', look: 'worker', ai: 2, prize: 700,
+  intro: 'Thirty years these turbines have run. I am not letting a trainer stop them.',
+  defeat: 'Nobody stopped anything. Go on, have a look round.',
+  team: [mon(81, 16, ['thundershock', 'supersonic', 'spark']), mon(74, 16, ['rockthrow', 'magnitude'])],
+});
+add('ef_bug', {
+  name: 'Bug Catcher Ines', cls: 'Bug Catcher', look: 'bugCatcher', ai: 2, prize: 640,
+  intro: 'You cannot see the sky in here. That is how you know it is a proper forest.',
+  defeat: 'Follow the path. Do not follow anything else.',
+  team: [mon(406, 16, ['absorb', 'growth']), mon(455, 16, ['bite', 'growth', 'vinewhip'])],
+});
+add('r6_hiker', {
+  name: 'Hiker Bruck', cls: 'Hiker', look: 'hiker', ai: 2, prize: 880,
+  intro: 'South from here runs all the way to Oreburgh. Long road. Good road.',
+  defeat: 'Take it slowly and it will treat you well.',
+  team: [mon(74, 18, ['rockthrow', 'magnitude', 'defensecurl']), mon(66, 18, ['karatechop', 'lowkick']), mon(95, 17, ['rockthrow', 'rocktomb'])],
+});
+
+// ---- the Eterna Gym ----------------------------------------------------------
+add('gym2_a', {
+  name: 'Lass Thea', cls: 'Lass', look: 'lass', ai: 2, prize: 720,
+  intro: 'Gardenia taught me. That should worry you.',
+  defeat: 'She taught me. She did not teach me enough.',
+  team: [mon(406, 17, ['absorb', 'growth', 'sweetscent']), mon(455, 17, ['vinewhip', 'bite', 'growth'])],
+});
+add('gym2_b', {
+  name: 'Bug Catcher Norr', cls: 'Bug Catcher', look: 'bugCatcher', ai: 2, prize: 720,
+  intro: 'Grass and Bug together. Nothing gets through that. Nothing sensible.',
+  defeat: 'You were not sensible.',
+  team: [mon(415, 17, ['gust', 'bugbite']), mon(402, 18, ['bugbite', 'fury swipes'.replace(' ',''), 'sing'])],
+});
+add('gym2_leader', {
+  name: 'Gardenia', cls: 'Gym Leader', look: 'lass', ai: 3, prize: 3600, leader: true,
+  badge: 2, badgeName: 'Forest Badge', tm: 'tm08',
+  intro: 'Everything in this room grew here, including me.\nPeople think Grass is the gentle one. Show me what you think.',
+  defeat: 'Right through the hedge. That is the Forest Badge, and you earned every leaf of it.',
+  team: [
+    mon(406, 19, ['absorb', 'growth', 'sweetscent']),
+    mon(455, 19, ['vinewhip', 'bite', 'growth', 'sweetscent']),
+    mon(407, 22, ['magicalleaf', 'growth', 'poisonsting', 'sweetscent']),
+  ],
+});
+
 __exports(__x, { TRAINERS: () => TRAINERS, getTrainer: () => getTrainer, STARTER_LINES: () => STARTER_LINES, rivalStarterBase: () => rivalStarterBase });
 
 };
@@ -13889,6 +14789,8 @@ class World {
     this.state.player.x = x;
     this.state.player.y = y;
     this.state.player.dir = dir;
+    // The Town Map only shows what you have actually walked into.
+    if (this.state.visited) this.state.visited[mapId] = true;
   }
 
   // ---- queries -------------------------------------------------------------
@@ -23185,6 +24087,7 @@ class BagScreen extends Screen {
       this.game.escapeToHealPoint();
       return;
     }
+    if (u.kind === 'map') { this.game.openTownMap(); return; }
     if (u.kind === 'dig') {
       // Only from outdoors, and never from under the ground you are already
       // under. The kit digs down; there is nothing below the Underground.
@@ -25708,6 +26611,375 @@ __exports(__x, { DigScreen: () => DigScreen });
 
 };
 
+__defs['data/maps/world.js'] = function (__x, __req) {
+const { MAPS } = __req('data/maps/index.js');
+// The region, as a graph.
+//
+// Every map already knows its own doors, so the connections between maps are
+// *derived* from the warps rather than authored a second time. A hand-written
+// connection table is a second source of truth, and the moment somebody moves
+// a warp the two disagree — the map says you can go north and the graph says
+// you cannot. Here there is nothing to disagree with: if you can walk it, it
+// is in the graph.
+//
+// The one thing that cannot be derived is where a place *is*. `WORLD_POS` is
+// authored, in the region's own coordinates (x east, y south), and it is what
+// the Town Map draws and what the audit checks travel directions against.
+
+
+/**
+ * Where each outdoor place sits in Sinnoh, laid out from the region map.
+ * Twinleaf is the bottom-left corner of the world, as it is in Platinum.
+ */
+const WORLD_POS = {
+  // The south-western corner, where the game starts.
+  twinleaf:       { x: 2, y: 14, kind: 'town' },
+  lake_verity:    { x: 0, y: 13, kind: 'special' },
+  route201:       { x: 2, y: 13, kind: 'route' },
+  sandgem:        { x: 2, y: 12, kind: 'town' },
+  route202:       { x: 2, y: 11, kind: 'route' },
+  // Jubilife is the hinge of the region: three roads leave it.
+  jubilife:       { x: 2, y: 10, kind: 'city' },
+  // East, to the mining town and the mountain behind it.
+  route203:       { x: 4, y: 10, kind: 'route' },
+  oreburgh:       { x: 6, y: 10, kind: 'city' },
+  route207:       { x: 6, y: 8, kind: 'route' },
+  oreburgh_gate:  { x: 6, y: 6, kind: 'cave' },
+  everlight_chamber: { x: 6, y: 4, kind: 'special' },
+  // North, through the flower town and the forest.
+  route204:       { x: 2, y: 8, kind: 'route' },
+  ravaged_path:   { x: 2, y: 7, kind: 'cave' },
+  floaroma:       { x: 2, y: 6, kind: 'town' },
+  route205:       { x: 2, y: 4, kind: 'route' },
+  windworks:      { x: 4, y: 4, kind: 'special' },
+  eterna_forest:  { x: 2, y: 3, kind: 'forest' },
+  eterna:         { x: 2, y: 2, kind: 'city' },
+  // And the road that closes the ring, back down to Route 207.
+  route206:       { x: 4, y: 3, kind: 'route' },
+  // Underneath all of it. A Secret Base is a room off these tunnels rather
+  // than a place in the region, so it has no position on the paper at all.
+  underground:    { x: 2, y: 16, kind: 'underground' },
+};
+
+/** The four ways out of a map, and which way each moves you in the world. */
+const DIRS = {
+  north: [0, -1], south: [0, 1], west: [-1, 0], east: [1, 0],
+};
+
+/**
+ * Which edge of a map a warp sits on. A warp in the middle of a map is a
+ * door, not a way out of the region, and has no edge.
+ */
+function edgeOf(map, warp) {
+  if (warp.y <= 0) return 'north';
+  if (warp.y >= map.height - 1) return 'south';
+  if (warp.x <= 0) return 'west';
+  if (warp.x >= map.width - 1) return 'east';
+  return null;
+}
+
+/**
+ * The whole region: every outdoor map, where it is, and what it touches.
+ * Built once and cached, because nothing in it can change at runtime.
+ */
+let cached = null;
+
+function worldGraph() {
+  if (cached) return cached;
+  const nodes = {};
+  for (const [id, pos] of Object.entries(WORLD_POS)) {
+    const map = MAPS[id];
+    if (!map) continue;
+    nodes[id] = {
+      id, name: map.name, kind: pos.kind,
+      x: pos.x, y: pos.y,
+      // direction -> [map id]. A route really can have two roads north — the
+      // one over the cliffs and the one through the tunnel — and a model that
+      // only allows one silently loses the second.
+      links: { north: [], south: [], east: [], west: [] },
+      neighbours: new Set(),
+      doors: [],          // interiors reachable from here
+    };
+  }
+  for (const [id, node] of Object.entries(nodes)) {
+    const map = MAPS[id];
+    for (const w of map.warps) {
+      if (!nodes[w.to]) { node.doors.push(w.to); continue; }
+      const dir = edgeOf(map, w);
+      if (dir && !node.links[dir].includes(w.to)) node.links[dir].push(w.to);
+      node.neighbours.add(w.to);
+    }
+    node.doors = [...new Set(node.doors)];
+  }
+  cached = { nodes, ids: Object.keys(nodes) };
+  return cached;
+}
+
+/** Everywhere you can walk to from `start`, without going through a door. */
+function reachableFrom(start = 'twinleaf') {
+  const g = worldGraph();
+  if (!g.nodes[start]) return new Set();
+  const seen = new Set([start]);
+  const stack = [start];
+  while (stack.length) {
+    const id = stack.pop();
+    for (const to of g.nodes[id].neighbours) {
+      if (!g.nodes[to] || seen.has(to)) continue;
+      seen.add(to);
+      stack.push(to);
+    }
+  }
+  return seen;
+}
+
+/**
+ * How many genuinely different ways out a place has.
+ *
+ * The number this project cares about: a region where every node scores 2 is
+ * a corridor, however many maps are in it.
+ */
+function branchiness(id) {
+  const node = worldGraph().nodes[id];
+  if (!node) return 0;
+  return Object.values(node.links).filter((list) => list.length).length;
+}
+
+/** Every [direction, target] pair leaving a place, flattened. */
+function linksOf(id) {
+  const node = worldGraph().nodes[id];
+  if (!node) return [];
+  return Object.entries(node.links).flatMap(([dir, list]) => list.map((to) => [dir, to]));
+}
+
+const OPPOSITE = { north: 'south', south: 'north', east: 'west', west: 'east' };
+
+/**
+ * Whether `to` really lies `dir` of `from`.
+ *
+ * Deliberately not strict: a road may run north-east and still be the north
+ * road. What it may not do is run south while calling itself north, which is
+ * the mistake that turned this region into a single street.
+ */
+function directionHolds(dir, from, to) {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const [wx, wy] = DIRS[dir];
+  if (wy) return Math.sign(dy) === wy && Math.abs(dy) >= Math.abs(dx);
+  return Math.sign(dx) === wx && Math.abs(dx) >= Math.abs(dy);
+}
+
+/** The bounding box of the region, for anything that has to draw it. */
+function worldBounds() {
+  const g = worldGraph();
+  const xs = g.ids.map((id) => g.nodes[id].x);
+  const ys = g.ids.map((id) => g.nodes[id].y);
+  return {
+    minX: Math.min(...xs), maxX: Math.max(...xs),
+    minY: Math.min(...ys), maxY: Math.max(...ys),
+  };
+}
+
+__exports(__x, { WORLD_POS: () => WORLD_POS, DIRS: () => DIRS, edgeOf: () => edgeOf, worldGraph: () => worldGraph, reachableFrom: () => reachableFrom, branchiness: () => branchiness, linksOf: () => linksOf, OPPOSITE: () => OPPOSITE, directionHolds: () => directionHolds, worldBounds: () => worldBounds });
+
+};
+
+__defs['ui/townmap.js'] = function (__x, __req) {
+const { Screen } = __req('ui/screen.js');
+const { input } = __req('core/input.js');
+const { audio } = __req('core/audio.js');
+const { PAL, shade, rect, stroke, window9, drawText, drawTextCentered, drawTextRight } = __req('ui/kit.js');
+const { drawBackChip, getBackChip } = __req('ui/controls.js');
+const { worldGraph, worldBounds, linksOf } = __req('data/maps/world.js');
+// The Town Map.
+//
+// Not a picture of Sinnoh — a drawing of the actual map graph. Every place on
+// it is a real map at its authored world position, and every line between two
+// places is a door you can genuinely walk through, because both come out of
+// `worldGraph()` rather than out of an artist's idea of the region.
+//
+// It only shows where you have been. A map that hands you the whole region on
+// the first morning is a map that takes the region away from you.
+
+
+
+
+
+
+
+const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
+
+// A colour per kind of place, so the region reads at a glance.
+const KIND = {
+  town:        { fill: '#e8c060', label: 'Town' },
+  city:        { fill: '#e07a4a', label: 'City' },
+  route:       { fill: '#7ec46a', label: 'Route' },
+  cave:        { fill: '#8a7f74', label: 'Cave' },
+  forest:      { fill: '#3f8a3a', label: 'Forest' },
+  special:     { fill: '#6aa8e0', label: '' },
+  underground: { fill: '#6b5236', label: '' },
+};
+
+class TownMapScreen extends Screen {
+  constructor(game) {
+    super(game);
+    this.index = 0;
+    this.places = [];
+  }
+
+  onEnter() {
+    audio.sfx('select');
+    const g = worldGraph();
+    const st = this.game.state;
+    // The Underground is not part of the region above ground and would put a
+    // node in the sea, so it is left off the paper.
+    this.places = g.ids
+      .filter((id) => g.nodes[id].kind !== 'underground')
+      .filter((id) => this._visited(id) || id === st.player.map)
+      .map((id) => g.nodes[id]);
+    const here = this.places.findIndex((p) => p.id === st.player.map);
+    this.index = here >= 0 ? here : 0;
+  }
+
+  /** Somewhere counts as known once you have stood in it. */
+  _visited(id) {
+    const seen = this.game.state.visited;
+    return !!(seen && seen[id]);
+  }
+
+  get selected() { return this.places[this.index] || null; }
+
+  update(dt, isTop) {
+    if (!isTop) return;
+    const tap = input.consumeTap();
+    if (tap) {
+      const back = getBackChip();
+      if (back && hit(tap, back.x, back.y, back.w, back.h)) { this._close(); return; }
+      const L = this._layout();
+      for (let i = 0; i < this.places.length; i++) {
+        const p = this.places[i];
+        const { x, y } = this._at(L, p);
+        if (hit(tap, x - 7, y - 7, 14, 14)) { this.index = i; audio.sfx('cursor'); return; }
+      }
+      return;
+    }
+    if (input.pressed('b') || input.pressed('start')) { this._close(); return; }
+    // The cursor walks the region rather than a list: pressing right goes to
+    // the nearest place that is actually to the right.
+    for (const [btn, dx, dy] of [['left', -1, 0], ['right', 1, 0], ['up', 0, -1], ['down', 0, 1]]) {
+      if (input.repeated(btn)) this._step(dx, dy);
+    }
+  }
+
+  _step(dx, dy) {
+    const from = this.selected;
+    if (!from) return;
+    let best = -1, bestScore = Infinity;
+    this.places.forEach((p, i) => {
+      if (p === from) return;
+      const ox = p.x - from.x, oy = p.y - from.y;
+      // Must be genuinely in that direction, and closest wins.
+      if (dx && Math.sign(ox) !== dx) return;
+      if (dy && Math.sign(oy) !== dy) return;
+      if (dx && Math.abs(oy) > Math.abs(ox)) return;
+      if (dy && Math.abs(ox) > Math.abs(oy)) return;
+      const score = Math.abs(ox) + Math.abs(oy);
+      if (score < bestScore) { bestScore = score; best = i; }
+    });
+    if (best >= 0) { this.index = best; audio.sfx('cursor'); }
+  }
+
+  _close() { audio.sfx('back'); this.game.screens.pop(); }
+
+  hint() { return 'Move to look around · B closes'; }
+
+  _layout() {
+    const { width: W, height: H } = this.game.display;
+    const b = worldBounds();
+    const pad = 22;
+    const top = 16, bottom = 34;
+    const spanX = Math.max(1, b.maxX - b.minX);
+    const spanY = Math.max(1, b.maxY - b.minY);
+    const stepX = (W - pad * 2) / spanX;
+    const stepY = (H - top - bottom) / spanY;
+    return { W, H, b, pad, top, stepX, stepY };
+  }
+
+  _at(L, p) {
+    return {
+      x: Math.round(L.pad + (p.x - L.b.minX) * L.stepX),
+      y: Math.round(L.top + (p.y - L.b.minY) * L.stepY),
+    };
+  }
+
+  render(ctx) {
+    const L = this._layout();
+    const { W, H } = L;
+    rect(ctx, 0, 0, W, H, '#2f4f73');
+    for (let y = 0; y < H; y += 6) rect(ctx, 0, y, W, 3, '#2a4869');
+
+    const known = new Set(this.places.map((p) => p.id));
+
+    // Roads first, so the places sit on top of them.
+    for (const p of this.places) {
+      const a = this._at(L, p);
+      for (const [, to] of linksOf(p.id)) {
+        if (!known.has(to)) continue;
+        const q = this.places.find((n) => n.id === to);
+        if (!q) continue;
+        const b = this._at(L, q);
+        ctx.strokeStyle = '#d9c290';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    }
+
+    const hereId = this.game.state.player.map;
+    for (const p of this.places) {
+      const { x, y } = this._at(L, p);
+      const k = KIND[p.kind] || KIND.route;
+      const big = p.kind === 'city' || p.kind === 'town';
+      const r = big ? 5 : 4;
+      rect(ctx, x - r - 1, y - r - 1, r * 2 + 2, r * 2 + 2, '#20283a');
+      rect(ctx, x - r, y - r, r * 2, r * 2, k.fill);
+      if (big) rect(ctx, x - r + 1, y - r + 1, r * 2 - 2, 2, shade(k.fill, 0.35));
+      if (p.id === hereId) {
+        // You are here: a ring that blinks, the way the DS games mark it.
+        const on = Math.floor(performance.now() / 320) % 2 === 0;
+        if (on) stroke(ctx, x - r - 3, y - r - 3, r * 2 + 6, r * 2 + 6, '#ffffff', 1);
+      }
+      if (p === this.selected) stroke(ctx, x - r - 2, y - r - 2, r * 2 + 4, r * 2 + 4, '#ffd75e', 1);
+    }
+
+    drawText(ctx, 'SINNOH', 6, 4, { color: '#f8f4e4', shadow: '#1b2a40' });
+    drawTextRight(ctx, `${this.places.length} known`, W - 44, 4, { color: '#a8c4e4' });
+    drawBackChip(ctx, W - 40, 3, 'CLOSE');
+
+    // The plate along the bottom: what the cursor is on, and how to leave it.
+    const sel = this.selected;
+    window9(ctx, 3, H - 30, W - 6, 27);
+    if (sel) {
+      drawText(ctx, sel.name, 8, H - 25, { color: PAL.uiText });
+      const kind = (KIND[sel.kind] || {}).label || '';
+      if (kind) drawTextRight(ctx, kind, W - 8, H - 25, { color: PAL.uiTextDim });
+      const ways = [...new Set(linksOf(sel.id)
+        .filter(([, to]) => known.has(to))
+        .map(([dir]) => dir[0].toUpperCase() + dir.slice(1)))];
+      const line = sel.id === hereId
+        ? (ways.length ? `You are here. Roads: ${ways.join(', ')}` : 'You are here.')
+        : (ways.length ? `Roads: ${ways.join(', ')}` : 'No road you have walked.');
+      drawText(ctx, line.slice(0, Math.floor((W - 16) / 6)), 8, H - 14, { color: PAL.uiTextDim });
+    } else {
+      drawTextCentered(ctx, 'You have not been anywhere yet.', W / 2, H - 20, { color: PAL.uiTextDim });
+    }
+  }
+}
+
+__exports(__x, { TownMapScreen: () => TownMapScreen });
+
+};
+
 __defs['ui/circuit.js'] = function (__x, __req) {
 const { Screen } = __req('ui/screen.js');
 const { input } = __req('core/input.js');
@@ -27531,6 +28803,7 @@ const { MultiplayerScreen } = __req('ui/multiplayer.js');
 const { TradeScreen } = __req('ui/trade.js');
 const { DebugScreen } = __req('ui/debug.js');
 const { DigScreen } = __req('ui/dig.js');
+const { TownMapScreen } = __req('ui/townmap.js');
 const { CircuitScreen, TournamentScreen, PressScreen } = __req('ui/circuit.js');
 const { resolveDialogue, worldSnapshot } = __req('game/overworld/gossip.js');
 const { NicknameScreen, TextEntryScreen } = __req('ui/naming.js');
@@ -27558,6 +28831,7 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
 
 
 
@@ -27803,6 +29077,8 @@ class Game {
   // A wall of rock, and whatever is in it. `cfg` is already a dig from
   // game/underground/dig.js — this only owns the screen.
   openDig(dig, onFinish) { this.screens.push(new DigScreen(this, dig, onFinish)); }
+
+  openTownMap() { this.screens.push(new TownMapScreen(this)); }
 
   openTextEntry(prompt, maxLen, onDone) {
     this.screens.push(new TextEntryScreen(this, prompt, maxLen, onDone));

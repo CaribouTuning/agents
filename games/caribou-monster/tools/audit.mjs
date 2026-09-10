@@ -9,6 +9,9 @@
 // costs the player their session — and it is entirely preventable at build
 // time. Run it before shipping.
 import { MAPS } from '../src/data/maps/index.js';
+import {
+  WORLD_POS, worldGraph, reachableFrom, edgeOf, linksOf, directionHolds, OPPOSITE,
+} from '../src/data/maps/world.js';
 import { tileDef } from '../src/render/tiles.js';
 import { unrenderable } from '../src/render/font.js';
 import { objective, OBJECTIVE_MAX, ENTRIES as JOURNAL_ENTRIES } from '../src/game/journal.js';
@@ -272,6 +275,91 @@ for (const map of Object.values(MAPS)) {
       if (map.npcs.some((n) => n.x === x && n.y === y)) err(`${tag} soft soil at ${x},${y} has an NPC standing in it`);
       if (map.objects.some((o) => o.x === x && o.y === y)) err(`${tag} soft soil at ${x},${y} has an item lying in it`);
       if (map.warps.some((w) => w.x === x && w.y === y)) err(`${tag} soft soil at ${x},${y} is also a warp`);
+    }
+  }
+}
+
+// ---- the region as a whole -------------------------------------------------
+//
+// A world made of correct maps can still be a bad world. These are the checks
+// about the shape of the region rather than the contents of any one map: that
+// travel is two-way, that the geography agrees with the doors, and that the
+// place is a network rather than a corridor.
+{
+  const g = worldGraph();
+
+  for (const map of Object.values(MAPS)) {
+    if (map.kind === 'indoor') continue;
+    if (!WORLD_POS[map.id]) err(`[world] ${map.id} is an outdoor map with no world position`);
+  }
+  for (const id of Object.keys(WORLD_POS)) {
+    if (!MAPS[id]) err(`[world] world position for ${id}, which is not a map`);
+  }
+
+  for (const id of g.ids) {
+    const node = g.nodes[id];
+    for (const [dir, to] of linksOf(id)) {
+      const other = g.nodes[to];
+      if (!other) continue;
+
+      // Going somewhere has to mean you can come back the way you came.
+      const backs = linksOf(to).filter(([, t]) => t === id);
+      if (!backs.length) {
+        // A map whose only way in is a cutscene is allowed a one-way door out.
+        if (MAPS[id].scriptEntry) continue;
+        err(`[world] ${id} leads ${dir} to ${to}, but ${to} has no way back`);
+        continue;
+      }
+      if (!backs.some(([d]) => d === OPPOSITE[dir])) {
+        err(`[world] ${id} goes ${dir} to ${to}, but ${to} comes back ${backs.map(([d]) => d).join('/')} — that is not a direction, it is a knot`);
+      }
+
+      // And the geography has to agree with the door. This is the check that
+      // would have caught the region being one road that only ever went up.
+      if (!directionHolds(dir, node, other)) {
+        err(`[world] ${id} leads ${dir} to ${to}, but ${to} is at ${other.x},${other.y} and ${id} is at ${node.x},${node.y}`);
+      }
+    }
+    // Two places may not sit on the same square of the region.
+    for (const other of g.ids) {
+      if (other <= id) continue;
+      const o = g.nodes[other];
+      if (o.x === node.x && o.y === node.y) {
+        err(`[world] ${id} and ${other} are both at ${node.x},${node.y}`);
+      }
+    }
+  }
+
+  // Everywhere has to be walkable to from the start of the game.
+  const reach = reachableFrom('twinleaf');
+  const marooned = g.ids.filter((id) => !reach.has(id)
+    && g.nodes[id].kind !== 'underground'
+    && !MAPS[id].scriptEntry
+    && MAPS[id].warps.length);
+  for (const id of marooned) warn(`[world] ${id} cannot be walked to from Twinleaf`);
+
+  // And the region has to actually branch. A chain of maps is not a world,
+  // however many maps are in it.
+  const junctions = g.ids.filter((id) => Object.values(g.nodes[id].links).filter((l) => l.length).length >= 3);
+  if (junctions.length < 2) {
+    err(`[world] only ${junctions.length} place(s) have three ways out — this is a corridor, not a region`);
+  }
+  const dirsUsed = new Set();
+  for (const id of g.ids) for (const [d] of linksOf(id)) dirsUsed.add(d);
+  for (const d of ['north', 'south', 'east', 'west']) {
+    if (!dirsUsed.has(d)) err(`[world] nothing in the region leads ${d}`);
+  }
+
+  // Every warp that sits on the edge of a map must be marked as one, or the
+  // graph will quietly miss a road.
+  for (const map of Object.values(MAPS)) {
+    if (map.kind === 'indoor') continue;
+    for (const w of map.warps) {
+      const onEdge = edgeOf(map, w);
+      const target = MAPS[w.to];
+      if (onEdge && target && target.kind !== 'indoor' && !w.edge) {
+        warn(`[${map.id}] warp at ${w.x},${w.y} is on the ${onEdge} edge but is not marked edge:true`);
+      }
     }
   }
 }

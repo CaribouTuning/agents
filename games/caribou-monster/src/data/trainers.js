@@ -179,3 +179,77 @@ export function rivalStarterBase(playerBase) {
   if (idx < 0) return STARTER_LINES[0].base;
   return STARTER_LINES[(idx + 1) % 3].base;
 }
+
+// ---- the northern branch -----------------------------------------------------
+// Route 204 up through Floaroma, the Windworks, Eterna Forest and Route 206 —
+// the loop road. Levels climb as the ring turns, so coming round the long way
+// from Oreburgh is a harder walk than going up from Jubilife, which is the
+// point of having two ways round.
+
+add('r4_bug', {
+  name: 'Bug Catcher Odell', cls: 'Bug Catcher', look: 'bugCatcher', ai: 1, prize: 448,
+  intro: 'North road is the good road. Everything up here is bigger.',
+  defeat: 'Bigger is not the same as better. I know that now.',
+  team: [mon(415, 12, ['gust', 'bugbite']), mon(401, 12, ['bugbite', 'stringshot'])],
+});
+add('r4_lass', {
+  name: 'Lass Bree', cls: 'Lass', look: 'lass', ai: 1, prize: 480,
+  intro: 'Everyone goes east to Oreburgh. Nobody comes north. Their loss.',
+  defeat: 'Well. Somebody came north.',
+  team: [mon(399, 13, ['tackle', 'defensecurl', 'rollout']), mon(396, 12, ['quickattack', 'growl', 'wingattack'])],
+});
+add('r5_youngster', {
+  name: 'Youngster Calder', cls: 'Youngster', look: 'youngster', ai: 1, prize: 560,
+  intro: 'The Windworks is that way. I am this way. Deal with me first.',
+  defeat: 'Fine. Go and look at the turbines.',
+  team: [mon(403, 14, ['spark', 'leer', 'quickattack']), mon(406, 14, ['absorb', 'growth'])],
+});
+add('r5_bug', {
+  name: 'Bug Catcher Wexley', cls: 'Bug Catcher', look: 'bugCatcher', ai: 1, prize: 560,
+  intro: 'Wait until you see the forest. This is nothing. This is the garden.',
+  defeat: 'The forest will sort you out. It sorted me out.',
+  team: [mon(265, 14, ['tackle', 'stringshot']), mon(401, 15, ['bugbite', 'stringshot']), mon(415, 14, ['gust', 'bugbite'])],
+});
+add('ww_worker', {
+  name: 'Worker Fen', cls: 'Worker', look: 'worker', ai: 2, prize: 700,
+  intro: 'Thirty years these turbines have run. I am not letting a trainer stop them.',
+  defeat: 'Nobody stopped anything. Go on, have a look round.',
+  team: [mon(81, 16, ['thundershock', 'supersonic', 'spark']), mon(74, 16, ['rockthrow', 'magnitude'])],
+});
+add('ef_bug', {
+  name: 'Bug Catcher Ines', cls: 'Bug Catcher', look: 'bugCatcher', ai: 2, prize: 640,
+  intro: 'You cannot see the sky in here. That is how you know it is a proper forest.',
+  defeat: 'Follow the path. Do not follow anything else.',
+  team: [mon(406, 16, ['absorb', 'growth']), mon(455, 16, ['bite', 'growth', 'vinewhip'])],
+});
+add('r6_hiker', {
+  name: 'Hiker Bruck', cls: 'Hiker', look: 'hiker', ai: 2, prize: 880,
+  intro: 'South from here runs all the way to Oreburgh. Long road. Good road.',
+  defeat: 'Take it slowly and it will treat you well.',
+  team: [mon(74, 18, ['rockthrow', 'magnitude', 'defensecurl']), mon(66, 18, ['karatechop', 'lowkick']), mon(95, 17, ['rockthrow', 'rocktomb'])],
+});
+
+// ---- the Eterna Gym ----------------------------------------------------------
+add('gym2_a', {
+  name: 'Lass Thea', cls: 'Lass', look: 'lass', ai: 2, prize: 720,
+  intro: 'Gardenia taught me. That should worry you.',
+  defeat: 'She taught me. She did not teach me enough.',
+  team: [mon(406, 17, ['absorb', 'growth', 'sweetscent']), mon(455, 17, ['vinewhip', 'bite', 'growth'])],
+});
+add('gym2_b', {
+  name: 'Bug Catcher Norr', cls: 'Bug Catcher', look: 'bugCatcher', ai: 2, prize: 720,
+  intro: 'Grass and Bug together. Nothing gets through that. Nothing sensible.',
+  defeat: 'You were not sensible.',
+  team: [mon(415, 17, ['gust', 'bugbite']), mon(402, 18, ['bugbite', 'fury swipes'.replace(' ',''), 'sing'])],
+});
+add('gym2_leader', {
+  name: 'Gardenia', cls: 'Gym Leader', look: 'lass', ai: 3, prize: 3600, leader: true,
+  badge: 2, badgeName: 'Forest Badge', tm: 'tm08',
+  intro: 'Everything in this room grew here, including me.\nPeople think Grass is the gentle one. Show me what you think.',
+  defeat: 'Right through the hedge. That is the Forest Badge, and you earned every leaf of it.',
+  team: [
+    mon(406, 19, ['absorb', 'growth', 'sweetscent']),
+    mon(455, 19, ['vinewhip', 'bite', 'growth', 'sweetscent']),
+    mon(407, 22, ['magicalleaf', 'growth', 'poisonsting', 'sweetscent']),
+  ],
+});

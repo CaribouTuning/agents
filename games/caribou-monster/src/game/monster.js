@@ -30,6 +30,17 @@ export function makeMoveSlot(id) {
   return { id, pp: mv.pp, ppMax: mv.pp };
 }
 
+/**
+ * How rare a shiny is: one in this many.
+ *
+ * The series' own number since Gen 6, and it is here as a named constant
+ * rather than a literal in the roll because it is the kind of thing somebody
+ * reaches for at two in the morning. Rolled once, when a Pokemon is created,
+ * and then it is part of that Pokemon forever — nothing re-rolls it, because
+ * nothing else ever looks at this number again.
+ */
+export const SHINY_ODDS = 4096;
+
 export function createMonster(speciesId, level, opts = {}) {
   const sp = getSpecies(speciesId);
   if (!sp) throw new Error(`unknown species ${speciesId}`);
@@ -53,7 +64,7 @@ export function createMonster(speciesId, level, opts = {}) {
     exp: expForLevel(sp.growth, level),
     nature: opts.nature != null ? opts.nature : r.int(NATURES.length),
     gender,
-    shiny: opts.shiny != null ? opts.shiny : r.int(1024) === 0,
+    shiny: opts.shiny != null ? opts.shiny : r.int(SHINY_ODDS) === 0,
     // A species with two abilities really does get one or the other. Rolled
     // here once and stored on the monster, so it survives a save, a trade and
     // the wire — a link battle must never disagree about what a Pokémon is.

@@ -56,6 +56,8 @@ export function createGameState(opts = {}) {
     patches: createPatches(),
     // The Underground: where you climbed down from, and which seams are spent.
     underground: createUnderground(),
+    // Every place you have stood in. The Town Map draws only these.
+    visited: {},
     settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
   };
 }
@@ -187,6 +189,7 @@ export function serializeState(st) {
     daycare: serializeDaycare(st.daycare),
     patches: serializePatches(st.patches),
     underground: serializeUnderground(st.underground),
+    visited: { ...st.visited },
   };
 }
 
@@ -219,6 +222,8 @@ export function deserializeState(raw) {
   st.daycare = reviveDaycare(raw.daycare, reviveMonster);
   st.patches = revivePatches(raw.patches);
   st.underground = reviveUnderground(raw.underground);
+  st.visited = {};
+  for (const k of Object.keys(raw.visited || {})) if (typeof k === 'string') st.visited[k] = true;
   return st;
 }
 
