@@ -249,6 +249,31 @@ if (code) {
       return p ? p.name : null;
     });
     check('the client can see its partner by name', !!partnerName, partnerName);
+
+    // The pair register: a keepsake you can only get while the two of you are
+    // actually connected, which is the whole point of it.
+    const registry = await A.evaluate(async () => {
+      const g = window.CARIBOU;
+      const said = [];
+      const ctx = {
+        state: g.state,
+        say: async (t) => { said.push(String(t)); },
+        give: (id, n) => { g.state.inventory.items[id] = (g.state.inventory.items[id] || 0) + n; },
+        sfx: () => {},
+        setFlag: (k, v = true) => { g.state.flags[k] = v; },
+        journal: (id) => { g.state.journal.seen.push(id); },
+        fill: (lines) => lines.map((l) => l.replace(/\{partner\}/g,
+          (g.netForTest.snapshot().partner || {}).name || '?')),
+        linked: () => !!(g.netForTest.snapshot().partner),
+      };
+      await g.scriptsForTest.pairRegistry(ctx);
+      return { said, bell: g.state.inventory.items.pairbell || 0, flag: !!g.state.flags.pairRegistered };
+    });
+    check('a linked pair can be registered', registry.bell === 1 && registry.flag,
+      `${registry.bell} bell(s), flag ${registry.flag}`);
+    check('and the register names the partner',
+      registry.said.some((l) => partnerName && l.includes(partnerName)),
+      registry.said.join(' | ').slice(0, 100));
     check('an NPC says something different when a partner is connected',
       together !== alone, together.slice(0, 90));
     check('and names the partner', !!partnerName && together.includes(partnerName),

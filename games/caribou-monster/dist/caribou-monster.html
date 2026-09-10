@@ -2110,6 +2110,11 @@ tm(6, 'icywind', 'Icy Wind', 3000);
 tm(7, 'magnitude', 'Magnitude', 3000);
 tm(8, 'doubleteam', 'Double Team', 2000);
 
+// A pair of these exists in the world. There is no second pair.
+add('pairbell', 'Pair Bell', 'Items', 0, { kind: 'hold' },
+  'One of two. Whoever carries it, their Pokémon settle faster.',
+  { held: { kind: 'friendship', rate: 1.5 } });
+
 // ---- Key items ---------------------------------------------------------
 add('runningshoes', 'Running Shoes', 'Key Items', 0, { kind: 'key' },
   'Hold the B button to move at double speed.', { key: true });
@@ -6530,6 +6535,8 @@ __defs['game/storyflags.js'] = function (__x, __req) {
 const FLAGS = {
   GOT_STARTER: 'gotStarter',
   HAS_BANDIT: 'hasBandit',
+  PAIR_REGISTERED: 'pairRegistered',
+  SCHOOL_GIFT: 'schoolGift',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',
@@ -8165,6 +8172,14 @@ const ENTRIES = [
       'She got up at seven to take the starter that beats mine. On purpose.',
     ],
     next: 'North through Sandgem and Jubilife to Oreburgh.',
+  },
+  {
+    id: 'registered',
+    title: 'On the register',
+    body: [
+      'The clerk in the Jubilife Center writes down pairs who walk the road on\nthe same day. She wrote down both of us.',
+      'She gave me a bell and said the other one is the pair to it. There is no\nsecond pair.',
+    ],
   },
   {
     id: 'cassCircuit',
@@ -11300,6 +11315,20 @@ const JUBILIFE_CENTER = makeCenter('jubilife_center', {
   town: 'jubilife', backX: 7, backY: 6,
   greeting: 'Welcome to the Jubilife Pokémon Center — the busiest one there is.',
   extras: [{
+    id: 'jc_registrar', x: 9, y: 4, look: 'nurse', name: 'Registrar',
+    movement: 'still', facing: 'down', script: 'pairRegistry',
+    dialogue: [
+      {
+        when: { flag: 'pairRegistered' },
+        lines: ['You are both on the register. Second page, near the top.'],
+      },
+      {
+        when: { linked: true },
+        lines: ['Two of you on one link! Come here, I will write you down.'],
+      },
+      { lines: ['This desk registers LINKED PAIRS. Bring the other one.'] },
+    ],
+  }, {
     id: 'jc_traveller', x: 3, y: 5, look: 'sailor', name: 'Traveller',
     movement: 'still', facing: 'down',
     dialogue: [
@@ -11473,7 +11502,10 @@ function bandGain(value, base) {
 function adjustFriendship(mon, base) {
   if (!mon) return 0;
   const before = mon.friendship || 0;
-  const delta = base > 0 ? bandGain(before, base) : base;
+  let delta = base > 0 ? bandGain(before, base) : base;
+  // A held Pair Bell speeds the whole thing up. There are two of them in the
+  // world and they belong to two particular people.
+  if (delta > 0 && mon.heldItem === 'pairbell') delta = Math.max(delta + 1, Math.round(delta * 1.5));
   mon.friendship = Math.max(0, Math.min(FRIENDSHIP_MAX, before + delta));
   return mon.friendship - before;
 }
@@ -13204,6 +13236,36 @@ SCRIPTS.schoolGift = async (ctx) => {
   await ctx.say('You received 3 Potions and 2 Great Balls!');
   await ctx.say('Caretaker: Great Balls hold better than the plain ones.\fSave them for something you want.');
   ctx.setFlag('schoolGift');
+};
+
+/**
+ * The link registry.
+ *
+ * Two trainers who walk the same road on the same afternoon can have it
+ * written down, and the clerk gives each of them one half of a pair of bells.
+ * It only works while the two of you are actually linked, which is the point:
+ * it is a record of a thing you did together, not an item you can farm.
+ */
+SCRIPTS.pairRegistry = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.pairRegistered) {
+    await ctx.say('Registrar: You are both on the register.\fSecond page, near the top. I checked this morning.');
+    return;
+  }
+  if (!ctx.linked()) {
+    await ctx.say('Registrar: This desk registers LINKED PAIRS.');
+    await ctx.say('Registrar: Two trainers, one link, both stood in front of me.\fCome back when the pair of you are actually connected.');
+    return;
+  }
+  await ctx.say('Registrar: Two of you on one link. Lovely.');
+  await ctx.say(ctx.fill(['Registrar: Names for the register — you, and {partner}.'])[0]);
+  ctx.give('pairbell', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received a Pair Bell!');
+  await ctx.say('Registrar: There are two. Your one is the other one\u2019s pair.');
+  await ctx.say('Registrar: A Pokémon holding it settles quicker.\fSomething about knowing where it belongs.');
+  ctx.setFlag('pairRegistered');
+  ctx.journal('registered');
 };
 
 // ---- Gym leader ---------------------------------------------------------------
@@ -23365,6 +23427,7 @@ const { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } 
 const { createBattle } = __req('game/battle/engine.js');
 const { getSpecies } = __req('data/species.js');
 const { getMap, MAPS } = __req('data/maps/index.js');
+const { SCRIPTS } = __req('game/overworld/scripts.js');
 const { randomSeed } = __req('core/rng.js');
 const { saveManager } = __req('save/SaveManager.js');
 const { net } = __req('net/NetworkManager.js');
@@ -23379,6 +23442,7 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
 
 
 
@@ -23436,6 +23500,7 @@ class Game {
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
     this.gossipForTest = { resolveDialogue, worldSnapshot };
+    this.scriptsForTest = SCRIPTS;
     this.journalForTest = journalApi;
     // The World Circuit career. It reads and writes state.circuit, so it is
     // rebuilt cheaply rather than serialized.

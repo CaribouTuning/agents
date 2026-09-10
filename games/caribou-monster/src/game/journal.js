@@ -44,6 +44,14 @@ export const ENTRIES = [
     next: 'North through Sandgem and Jubilife to Oreburgh.',
   },
   {
+    id: 'registered',
+    title: 'On the register',
+    body: [
+      'The clerk in the Jubilife Center writes down pairs who walk the road on\nthe same day. She wrote down both of us.',
+      'She gave me a bell and said the other one is the pair to it. There is no\nsecond pair.',
+    ],
+  },
+  {
     id: 'cassCircuit',
     title: 'The Battle Hall',
     body: [

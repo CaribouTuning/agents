@@ -21,7 +21,10 @@ function bandGain(value, base) {
 export function adjustFriendship(mon, base) {
   if (!mon) return 0;
   const before = mon.friendship || 0;
-  const delta = base > 0 ? bandGain(before, base) : base;
+  let delta = base > 0 ? bandGain(before, base) : base;
+  // A held Pair Bell speeds the whole thing up. There are two of them in the
+  // world and they belong to two particular people.
+  if (delta > 0 && mon.heldItem === 'pairbell') delta = Math.max(delta + 1, Math.round(delta * 1.5));
   mon.friendship = Math.max(0, Math.min(FRIENDSHIP_MAX, before + delta));
   return mon.friendship - before;
 }

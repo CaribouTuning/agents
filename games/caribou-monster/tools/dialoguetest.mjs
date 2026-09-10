@@ -33,6 +33,9 @@ function withBandit(st) {
   st.player.look = 'sammy';
   st.player.name = 'Sammy';
   st.flags.hasBandit = true;
+  // The pair register is a linked-only thing, and the sweep runs each stage
+  // both alone and linked, so this stage carries it.
+  st.flags.pairRegistered = true;
   st.party = [...st.party, createMonster(228, 8)];
   return st;
 }

@@ -265,6 +265,36 @@ SCRIPTS.schoolGift = async (ctx) => {
   ctx.setFlag('schoolGift');
 };
 
+/**
+ * The link registry.
+ *
+ * Two trainers who walk the same road on the same afternoon can have it
+ * written down, and the clerk gives each of them one half of a pair of bells.
+ * It only works while the two of you are actually linked, which is the point:
+ * it is a record of a thing you did together, not an item you can farm.
+ */
+SCRIPTS.pairRegistry = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.pairRegistered) {
+    await ctx.say('Registrar: You are both on the register.\fSecond page, near the top. I checked this morning.');
+    return;
+  }
+  if (!ctx.linked()) {
+    await ctx.say('Registrar: This desk registers LINKED PAIRS.');
+    await ctx.say('Registrar: Two trainers, one link, both stood in front of me.\fCome back when the pair of you are actually connected.');
+    return;
+  }
+  await ctx.say('Registrar: Two of you on one link. Lovely.');
+  await ctx.say(ctx.fill(['Registrar: Names for the register — you, and {partner}.'])[0]);
+  ctx.give('pairbell', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received a Pair Bell!');
+  await ctx.say('Registrar: There are two. Your one is the other one\u2019s pair.');
+  await ctx.say('Registrar: A Pokémon holding it settles quicker.\fSomething about knowing where it belongs.');
+  ctx.setFlag('pairRegistered');
+  ctx.journal('registered');
+};
+
 // ---- Gym leader ---------------------------------------------------------------
 
 SCRIPTS.gymLeader = async (ctx, npc) => {

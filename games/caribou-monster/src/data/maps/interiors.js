@@ -872,6 +872,20 @@ const JUBILIFE_CENTER = makeCenter('jubilife_center', {
   town: 'jubilife', backX: 7, backY: 6,
   greeting: 'Welcome to the Jubilife Pokémon Center — the busiest one there is.',
   extras: [{
+    id: 'jc_registrar', x: 9, y: 4, look: 'nurse', name: 'Registrar',
+    movement: 'still', facing: 'down', script: 'pairRegistry',
+    dialogue: [
+      {
+        when: { flag: 'pairRegistered' },
+        lines: ['You are both on the register. Second page, near the top.'],
+      },
+      {
+        when: { linked: true },
+        lines: ['Two of you on one link! Come here, I will write you down.'],
+      },
+      { lines: ['This desk registers LINKED PAIRS. Bring the other one.'] },
+    ],
+  }, {
     id: 'jc_traveller', x: 3, y: 5, look: 'sailor', name: 'Traveller',
     movement: 'still', facing: 'down',
     dialogue: [

@@ -86,6 +86,11 @@ tm(6, 'icywind', 'Icy Wind', 3000);
 tm(7, 'magnitude', 'Magnitude', 3000);
 tm(8, 'doubleteam', 'Double Team', 2000);
 
+// A pair of these exists in the world. There is no second pair.
+add('pairbell', 'Pair Bell', 'Items', 0, { kind: 'hold' },
+  'One of two. Whoever carries it, their Pokémon settle faster.',
+  { held: { kind: 'friendship', rate: 1.5 } });
+
 // ---- Key items ---------------------------------------------------------
 add('runningshoes', 'Running Shoes', 'Key Items', 0, { kind: 'key' },
   'Hold the B button to move at double speed.', { key: true });
