@@ -97,6 +97,14 @@ const waitIdle = async (limit = 40) => {
 // Walks toward a tile with short directional holds, re-checking as it goes.
 // More robust than fixed durations, and it fails loudly rather than silently
 // wandering off.
+/** Steps toward a tile that may warp the player away mid-step. */
+const holdOrWalk = async (tx, ty) => {
+  const before = await where();
+  const key = before.x < tx ? 'ArrowRight' : before.x > tx ? 'ArrowLeft'
+    : before.y < ty ? 'ArrowDown' : 'ArrowUp';
+  await hold(key, 420);
+};
+
 const PERPENDICULAR = {
   ArrowLeft: ['ArrowUp', 'ArrowDown'], ArrowRight: ['ArrowUp', 'ArrowDown'],
   ArrowUp: ['ArrowLeft', 'ArrowRight'], ArrowDown: ['ArrowLeft', 'ArrowRight'],
@@ -266,6 +274,95 @@ for (const id of interiors) {
   check(`entering ${id} leaves the player mobile`, res.legal.length > 0,
     `at ${res.entry.x},${res.entry.y} moves: ${res.legal.join(',') || 'NONE'}`);
 }
+
+// --- the road to Hearthome, and Fantina ---
+// Gym three. Platinum moves Fantina from fifth to third, which means her
+// Ghosts arrive while most teams still have nothing that can touch them —
+// so this also checks the game says so out loud before you walk in.
+console.log('\n--- hearthome and fantina ---');
+
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.repelSteps = 9999;
+  g.state.flags.badge1 = true;
+  g.state.flags.badge2 = true;
+  g.state.badges = [1, 2];
+  g.overworld.world.load('route208', 29, 7, 'right');
+});
+await wait(500);
+await waitIdle();
+await walkTo(31, 7, 5);
+await wait(700);
+await waitIdle();
+const arrived = await where();
+check('Route 208 leads into Hearthome', arrived.map === 'hearthome',
+  `${arrived.map} ${arrived.x},${arrived.y}`);
+check('Hearthome leaves the player mobile', (await canMove()).length > 0, (await canMove()).join(','));
+
+// The guide outside the Gym has to warn about Ghosts before you go in.
+await page.evaluate(() => window.CARIBOU.overworld.world.load('hearthome', 17, 21, 'up'));
+await wait(400);
+await waitIdle();
+await tap('KeyZ', 1, 320);
+const warned = await page.evaluate(() => {
+  const d = window.CARIBOU.dialogueForTest;
+  return (d.pages || []).flat().join(' ');
+});
+check('the Gym guide warns about Ghost types', /ghost/i.test(warned), warned.slice(0, 70));
+await waitIdle();
+
+// Into the Gym, and find Fantina behind the lantern floor.
+await page.evaluate(() => window.CARIBOU.overworld.world.load('hearthome_gym', 7, 14, 'up'));
+await wait(500);
+await waitIdle();
+const gym = await where();
+check('the Gym floor is enterable', gym.map === 'hearthome_gym', `${gym.map} ${gym.x},${gym.y}`);
+check('and leaves the player mobile', (await canMove()).length > 0, (await canMove()).join(','));
+
+// The lantern pads move you somewhere else, which is the puzzle.
+await page.evaluate(() => window.CARIBOU.overworld.world.load('hearthome_gym', 7, 6, 'up'));
+await wait(400);
+await waitIdle();
+await holdOrWalk(7, 5);
+await wait(800);
+await waitIdle();
+const ported = await where();
+check('a lantern pad moves you across the floor',
+  ported.map === 'hearthome_gym' && !(ported.x === 7 && ported.y === 5),
+  `${ported.x},${ported.y}`);
+
+// Fantina herself. Her battle is not started here: popping out of a Gym
+// Leader cutscene mid-await leaves the script promise unresolved, and the
+// overworld then refuses input for the rest of the run. That trainer battles
+// work at all is proved in the circuit section, against a real opponent that
+// is allowed to finish.
+const fantina = await page.evaluate(async () => {
+  const { getTrainer } = await import('./src/data/trainers.js');
+  const { getSpecies } = await import('./src/data/species.js');
+  const { MAPS } = await import('./src/data/maps/index.js');
+  const t = getTrainer('gym3_leader');
+  const npc = MAPS.hearthome_gym.npcs.find((n) => n.trainer === 'gym3_leader');
+  return {
+    name: t.name, badge: t.badge, badgeName: t.badgeName,
+    script: npc && npc.script,
+    allGhost: t.team.every((m) => getSpecies(m.species).types.includes('Ghost')),
+    levels: t.team.map((m) => m.level),
+  };
+});
+check('Fantina stands in the Gym as a Leader battle', fantina.script === 'gymLeader', String(fantina.script));
+check('her team is all Ghost', fantina.allGhost, fantina.levels.join('/'));
+check('and she gives the Relic Badge', fantina.badge === 3 && fantina.badgeName === 'Relic Badge',
+  `${fantina.badge}: ${fantina.badgeName}`);
+
+// The spine agrees about who is next.
+const spine = await page.evaluate(async () => {
+  const c = await import('./src/data/campaign.js');
+  const st = window.CARIBOU.state;
+  return { next: c.nextGym(st).leader, third: c.gymByNumber(3).leader };
+});
+check('the campaign says Fantina is the third Gym', spine.third === 'Fantina', spine.third);
+check('and that she is who the player is looking for now', spine.next === 'Fantina', spine.next);
+await page.screenshot({ path: path.join(OUT, '08e-hearthome.png') });
 
 // --- berries and the water's edge ---
 // Planting is the one system that runs on the wall clock rather than on

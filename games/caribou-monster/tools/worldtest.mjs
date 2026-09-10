@@ -25,7 +25,9 @@ const g = worldGraph();
 
 // ---- 1. every outdoor place is on the map ----------------------------------
 {
-  const outdoor = Object.values(MAPS).filter((m) => m.kind !== 'indoor');
+  // Sub-areas — a park or a marsh behind a gate — are reached through a door
+  // rather than off a road, so they are not places on the region map.
+  const outdoor = Object.values(MAPS).filter((m) => m.kind !== 'indoor' && !m.subArea);
   const missing = outdoor.filter((m) => !WORLD_POS[m.id]);
   check(missing.length === 0, 'every outdoor map has a place in the region',
     missing.map((m) => m.id).join(', '));
@@ -150,10 +152,12 @@ console.log('\n--- doors and roads ---');
 {
   const unmarked = [];
   for (const map of Object.values(MAPS)) {
-    if (map.kind === 'indoor') continue;
+    if (map.kind === 'indoor' || map.subArea) continue;
     for (const w of map.warps) {
       const t = MAPS[w.to];
-      if (edgeOf(map, w) && t && t.kind !== 'indoor' && !w.edge) unmarked.push(`${map.id}@${w.x},${w.y}`);
+      if (edgeOf(map, w) && t && t.kind !== 'indoor' && !t.subArea && !w.edge) {
+        unmarked.push(`${map.id}@${w.x},${w.y}`);
+      }
     }
   }
   check(unmarked.length === 0, 'every road out of a map is marked as one', unmarked.join(', '));

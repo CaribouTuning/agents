@@ -32,7 +32,7 @@ controls.
 
 | | |
 |---|---|
-| **World** | 44 maps: Twinleaf, Sandgem, Jubilife, Oreburgh, Floaroma and Eterna; Routes 201–207; Lake Verity, the Ravaged Path, Valley Windworks, Eterna Forest, Oreburgh Gate, the Everlight Chamber, the Underground and a Secret Base — connected as a **region with a loop in it**, not a corridor |
+| **World** | 52 maps: Twinleaf, Sandgem, Jubilife, Oreburgh, Floaroma, Eterna and Hearthome; Routes 201–208; Mt. Coronet; Lake Verity, the Ravaged Path, Valley Windworks, Eterna Forest, Oreburgh Gate, the Everlight Chamber, the Underground and a Secret Base — connected as a **region with a loop in it**, not a corridor |
 | **Pokémon** | 210 species with real base stats, types, natures, genders, IVs/EVs, shinies, learnsets, egg groups and evolution lines — plus nicknaming, friendship that moves, held items you can give and take, and **84 working abilities** |
 | **Moves** | 460, all data-driven, with the 17-type chart, STAB, criticals, accuracy, five status conditions, confusion, flinch and stat stages |
 | **Weather** | Sun, rain, sandstorm and hail — set by a move or walked into by an ability, with the damage, speed, accuracy, chip and healing rules that go with each |
@@ -42,7 +42,8 @@ controls.
 | **Fishing** | The Old Rod, a real bite roll, and three stretches of water with their own tables |
 | **The Underground** | A second Sinnoh under the first one: the Explorer Kit, three shafts, seams that come back, and a touch-first digging minigame |
 | **Secret Bases** | A room cut into a wall a hundred feet down, furnished with spheres, with a board on the back wall — and your partner can walk into it |
-| **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, and two Gyms — Roark's Coal Badge and Gardenia's Forest Badge |
+| **Progression** | Wild encounters, catching, EXP, levelling, move learning, evolution, and three of Platinum's eight Gyms — Roark, Gardenia and Fantina |
+| **Field moves** | Cut, Rock Smash, Strength, Rock Climb, Waterfall and Surf as real gates: a badge is permission, a move is capability, and an obstacle needs both |
 | **Systems** | Party, bag with five pockets, PC boxes, Poké Mart, Pokémon Center, Pokédex, Town Map, trainer card, save/load, EASY and NORMAL difficulty |
 | **World Circuit** | A second career track: 6 sanctioned tournaments, 12 professional trainers, an Elo world ranking, Circuit Points, promotions, a press feed and post-event press conferences |
 | **Living world** | Conditional NPC dialogue: everyone reacts to your starter, badges, Pokédex, story flags, circuit rank, titles and how you talk to the press — and names the trainer who is *actually* world number one |
@@ -234,6 +235,43 @@ Pokémon, levels and fees, compatibility in both directions, the Egg odds, the
 witness, hatching, and the save round trip — including a save that names a
 species which no longer exists. The full deposit → Egg → hatch loop is also
 driven through the real UI in `tools/walkthrough.mjs`.
+
+---
+
+## The campaign spine
+
+Platinum's eight Gyms, in Platinum's order, live in `data/campaign.js` as data
+— **Fantina third, not fifth**, which is the change that makes Platinum a
+different game from Diamond and Pearl. Each entry carries the badge, its TM,
+and the field move that badge authorises, plus the 23 story beats from the
+starter to the Battle Zone.
+
+It is also the to-do list. `builtGyms()` reports what exists; the audit refuses
+to let Gyms be built out of order, or to let a Gym hand out a badge the spine
+does not agree with.
+
+**Field moves work on one rule:** a badge is permission, a move is capability,
+and an obstacle needs both. Those are different problems, solved in different
+places, so the game says which one you have hit:
+
+> *A thin tree. Something with a blade could get through it.*
+> *The Forest Badge would settle whether you are allowed.*
+
+versus
+
+> *A thin tree. Something with a blade could get through it.*
+> *Nothing in your party knows Cut.*
+
+Five obstacle tiles answer to field moves, and Surf answers to none — it has no
+tile at all, because it does not clear anything, it changes what counts as
+ground. That is why it opens half a region at once, and why it comes from the
+story rather than from a Gym.
+
+A felled tree stays felled: `World.tileAt` reports it as grass, so collision,
+rendering and the audit agree for free, and it survives a save. `tools/gatetest.mjs`
+proves both halves of the rule are separately required and separately
+explained, and that every gate in the world has a key the player can actually
+reach — the audit refuses an obstacle whose authorising Gym has not been built.
 
 ---
 
@@ -513,6 +551,7 @@ node tools/daycaretest.mjs             # boarding, fees, Egg odds, hatching, and
 node tools/berrytest.mjs               # planting, growth on the clock, held berries, fishing
 node tools/undergroundtest.mjs         # the dig, the seams, the room, and what crosses the link
 node tools/worldtest.mjs               # the shape of the region: two-way roads, branches, the ring
+node tools/gatetest.mjs                # badges, field moves, and every lock having a key
                                        # (also: shiny is rolled once and kept forever)
 node tools/walkthrough.mjs index.html /tmp/w  # scripted opening playthrough
 node tools/artcheck.html via shot.mjs  # sprite/tile contact sheet

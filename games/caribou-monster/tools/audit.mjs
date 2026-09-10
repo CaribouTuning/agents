@@ -296,6 +296,7 @@ for (const map of Object.values(MAPS)) {
 
   for (const map of Object.values(MAPS)) {
     if (map.kind === 'indoor') continue;
+    if (map.subArea) continue;
     if (!WORLD_POS[map.id]) err(`[world] ${map.id} is an outdoor map with no world position`);
   }
   for (const id of Object.keys(WORLD_POS)) {
@@ -363,7 +364,8 @@ for (const map of Object.values(MAPS)) {
     for (const w of map.warps) {
       const onEdge = edgeOf(map, w);
       const target = MAPS[w.to];
-      if (onEdge && target && target.kind !== 'indoor' && !w.edge) {
+      if (onEdge && target && target.kind !== 'indoor' && !w.edge
+        && WORLD_POS[map.id] && WORLD_POS[w.to]) {
         warn(`[${map.id}] warp at ${w.x},${w.y} is on the ${onEdge} edge but is not marked edge:true`);
       }
     }

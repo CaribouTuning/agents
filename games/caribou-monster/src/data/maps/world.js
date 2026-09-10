@@ -41,6 +41,10 @@ export const WORLD_POS = {
   eterna:         { x: 2, y: 2, kind: 'city' },
   // And the road that closes the ring, back down to Route 207.
   route206:       { x: 4, y: 3, kind: 'route' },
+  // East over the mountain, into the middle of the region.
+  mt_coronet:     { x: 8, y: 8, kind: 'cave' },
+  route208:       { x: 10, y: 8, kind: 'route' },
+  hearthome:      { x: 12, y: 8, kind: 'city' },
   // Underneath all of it. A Secret Base is a room off these tunnels rather
   // than a place in the region, so it has no position on the paper at all.
   underground:    { x: 2, y: 16, kind: 'underground' },

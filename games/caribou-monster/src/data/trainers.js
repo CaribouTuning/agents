@@ -253,3 +253,58 @@ add('gym2_leader', {
     mon(407, 22, ['magicalleaf', 'growth', 'poisonsting', 'sweetscent']),
   ],
 });
+
+// ---- Mt. Coronet, Route 208 and the Hearthome Gym ---------------------------
+// The middle of the campaign. Fantina is third in Platinum rather than fifth,
+// so her Ghosts arrive while a lot of teams still have nothing that can touch
+// them — which is the point, and why her Gym guide spells it out.
+
+add('mc_hiker', {
+  name: 'Hiker Tam', cls: 'Hiker', look: 'hiker', ai: 2, prize: 960,
+  intro: 'Bottom of Coronet. People think this is the mountain. This is the doorstep.',
+  defeat: 'Go on up, then. Mind what is up there.',
+  team: [mon(74, 20, ['rockthrow', 'magnitude', 'defensecurl']), mon(95, 20, ['rockthrow', 'rocktomb', 'harden'])],
+});
+add('r8_lass', {
+  name: 'Lass Juno', cls: 'Lass', look: 'lass', ai: 2, prize: 880,
+  intro: 'Everyone crossing this road is on their way to lose to Fantina.',
+  defeat: 'Maybe not everyone.',
+  team: [mon(406, 21, ['absorb', 'growth', 'megadrain']), mon(315, 22, ['magicalleaf', 'growth', 'poisonsting'])],
+});
+add('r8_youngster', {
+  name: 'Youngster Pike', cls: 'Youngster', look: 'youngster', ai: 2, prize: 880,
+  intro: 'I have been to the Gym. I am not going back yet. I am training out here.',
+  defeat: 'I am going to be out here a while longer.',
+  team: [mon(63, 20, ['confusion', 'teleport']), mon(403, 21, ['spark', 'quickattack', 'charge']), mon(396, 21, ['wingattack', 'quickattack'])],
+});
+
+// ---- the Hearthome Gym --------------------------------------------------------
+add('gym3_a', {
+  name: 'Lass Neve', cls: 'Lass', look: 'lass', ai: 2, prize: 1040,
+  intro: 'You cannot hit what is not really there. That is not a riddle. It is the type chart.',
+  defeat: 'You had something that could reach them. Good.',
+  team: [mon(92, 23, ['lick', 'spite', 'hypnosis']), mon(355, 23, ['astonish', 'nightshade', 'disable'])],
+});
+add('gym3_b', {
+  name: 'Youngster Odo', cls: 'Youngster', look: 'youngster', ai: 2, prize: 1040,
+  intro: 'The floor moves you. The Pokemon move you. Nothing in here stays put.',
+  defeat: 'You worked out the floor faster than I did.',
+  team: [mon(200, 24, ['astonish', 'confuseray', 'psybeam']), mon(92, 23, ['lick', 'hypnosis', 'dreameater'])],
+});
+add('gym3_c', {
+  name: 'Bug Catcher Sel', cls: 'Bug Catcher', look: 'bugCatcher', ai: 2, prize: 1040,
+  intro: 'Fantina is at the far end. If you can find the far end.',
+  defeat: 'Straight on. Or whatever the floor decides straight on means.',
+  team: [mon(355, 24, ['astonish', 'nightshade', 'willowisp']), mon(93, 24, ['lick', 'hypnosis', 'shadowball'])],
+});
+add('gym3_leader', {
+  name: 'Fantina', cls: 'Gym Leader', look: 'lass', ai: 3, prize: 4200, leader: true,
+  badge: 3, badgeName: 'Relic Badge', tm: 'tm05',
+  intro: 'Everything in this room is a Ghost, and so, on a good day, am I.\nThe floor does not agree with you about where you are. Nor do I.',
+  defeat: 'You found me twice. Nobody finds me twice. The Relic Badge is yours.',
+  team: [
+    mon(355, 24, ['astonish', 'willowisp', 'nightshade', 'disable']),
+    mon(93, 24, ['lick', 'hypnosis', 'shadowball', 'confuseray']),
+    mon(429, 26, ['shadowball', 'confuseray', 'psybeam', 'magicalleaf']),
+  ],
+});

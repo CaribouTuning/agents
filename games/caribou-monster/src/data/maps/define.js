@@ -97,5 +97,8 @@ export function defineMap(id, def) {
     // A map you can only be put into by a cutscene — the Everlight door opens
     // from the tunnel side and there is no warp back through it.
     scriptEntry: !!def.scriptEntry,
+    // Reached through a gate rather than off a road: a park or a marsh behind
+    // a building, not a place on the region map.
+    subArea: !!def.subArea,
   };
 }

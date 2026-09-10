@@ -94,7 +94,7 @@ export const ROUTE207 = defineMap('route207', {
     'T...........::...........T',
     'T....""""...::....""""...T',
     'T....""""...::....""""...T',
-    'T...........::...........T',
+    'T...........::...........:',
     'T..~~~~~....::...........T',
     'T.~~~~~~~...::..TTT......T',
     'T..~~~~~....::.TTTTT.....T',
@@ -110,6 +110,7 @@ export const ROUTE207 = defineMap('route207', {
   warps: [
     { x: 12, y: 17, to: 'oreburgh', tx: 14, ty: 2, dir: 'down', edge: true },
     { x: 13, y: 17, to: 'oreburgh', tx: 15, ty: 2, dir: 'down', edge: true },
+    { x: 25, y: 6, to: 'mt_coronet', tx: 1, ty: 6, dir: 'right', edge: true },
     { x: 4, y: 0, to: 'route206', tx: 12, ty: 15, dir: 'up', edge: true },
     { x: 5, y: 0, to: 'route206', tx: 13, ty: 15, dir: 'up', edge: true },
     { x: 12, y: 0, to: 'oreburgh_gate', tx: 11, ty: 14, dir: 'up', edge: true },

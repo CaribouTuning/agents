@@ -55,6 +55,14 @@ function withSecondBadge(st) {
   return st;
 }
 
+/** And the third, from Fantina in Hearthome, over the mountain. */
+function withThirdBadge(st) {
+  st.badges = [1, 2, 3];
+  st.flags.badge3 = true;
+  st.flags.beat_gym3_leader = true;
+  return st;
+}
+
 /** Somebody in Twinleaf has handed over a few berries. */
 function withBerries(st) {
   st.flags.gotBerries = true;
@@ -171,6 +179,7 @@ const STAGES = [
   // charm is. Without these stages a third of the new region never speaks.
   ['carrying berries', () => withBerries(withStarter(baseState()))],
   ['second badge', () => withSecondBadge(withBadge(withStarter(baseState())))],
+  ['third badge', () => withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))],
   ['knows the twist', () => withTwist(withCommander(withCave(withBadge(withStarter(baseState())))))],
 ];
 
