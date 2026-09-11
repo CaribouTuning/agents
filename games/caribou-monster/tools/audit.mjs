@@ -1346,6 +1346,60 @@ function checkGymsAgreeWithTheirLeaders() {
   }
 }
 
+// ---- the Town Map does not promise roads that are not there ---------------
+// The Town Map is a drawing of the graph, so it cannot invent a connection —
+// but it can still lie about one by where it puts things. Two places drawn
+// touching look joined whether or not a road exists, and a line drawn from
+// one place to another passes over whatever is in between. That is what the
+// player means by "there are junctions on the map that do not exist in the
+// game": they are reading the picture, and the picture is the promise.
+
+function checkThePaperTellsTheTruth() {
+  const { nodes } = worldGraph();
+  const ids = Object.keys(nodes);
+
+  // Drawn side by side, with nothing joining them.
+  for (const a of ids) {
+    for (const b of ids) {
+      if (a >= b) continue;
+      const A = nodes[a], B = nodes[b];
+      if (Math.abs(A.x - B.x) + Math.abs(A.y - B.y) !== 1) continue;
+      if (A.neighbours.has(b) || B.neighbours.has(a)) continue;
+      err(`[townmap] ` + `${a} and ${b} are drawn touching at (${A.x},${A.y})/(${B.x},${B.y}), `
+        + 'so the map promises a road that does not exist');
+    }
+  }
+
+  // A road drawn straight over the top of somewhere else, which reads as
+  // two roads meeting at a junction that nothing in the game knows about.
+  for (const a of ids) {
+    for (const [, b] of linksOf(a)) {
+      if (!nodes[b] || a >= b) continue;
+      const A = nodes[a], B = nodes[b];
+      for (const c of ids) {
+        if (c === a || c === b) continue;
+        const C = nodes[c];
+        if ((C.x - A.x) * (B.y - A.y) - (C.y - A.y) * (B.x - A.x)) continue;
+        const between = Math.min(A.x, B.x) <= C.x && C.x <= Math.max(A.x, B.x)
+          && Math.min(A.y, B.y) <= C.y && C.y <= Math.max(A.y, B.y);
+        if (between) {
+          err(`[townmap] ` + `the road ${a} to ${b} is drawn straight through ${c}, `
+            + 'which looks like a junction there');
+        }
+      }
+    }
+  }
+
+  // Two places at the same spot: one of them is invisible.
+  const taken = {};
+  for (const id of ids) {
+    const k = `${nodes[id].x},${nodes[id].y}`;
+    if (taken[k]) err(`[townmap] ` + `${id} and ${taken[k]} are both drawn at ${k}`);
+    taken[k] = id;
+  }
+}
+
+checkThePaperTellsTheTruth();
 checkGymsAgreeWithTheirLeaders();
 checkTheBadgeCurve();
 checkEveryExitIsNamed();

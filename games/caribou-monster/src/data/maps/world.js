@@ -39,8 +39,12 @@ export const WORLD_POS = {
   windworks:      { x: 4, y: 4, kind: 'special' },
   eterna_forest:  { x: 2, y: 3, kind: 'forest' },
   eterna:         { x: 2, y: 2, kind: 'city' },
-  // And the road that closes the ring, back down to Route 207.
-  route206:       { x: 4, y: 3, kind: 'route' },
+  // And the road that closes the ring, back down to Route 207. It leaves
+  // Eterna due east and then runs almost straight south, which is what the
+  // paper has to show: at (4,3) it was drawn touching Valley Windworks with
+  // no road between the two, and a place you can see touching another place
+  // is a place the player expects to be able to walk to.
+  route206:       { x: 5, y: 2, kind: 'route' },
   // East over the mountain, into the middle of the region.
   mt_coronet:     { x: 8, y: 8, kind: 'cave' },
   route208:       { x: 10, y: 8, kind: 'route' },
