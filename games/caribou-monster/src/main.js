@@ -22,6 +22,7 @@ import { ShopScreen } from './ui/shop.js';
 import { MultiplayerScreen } from './ui/multiplayer.js';
 import { TradeScreen } from './ui/trade.js';
 import { DebugScreen } from './ui/debug.js';
+import { getBackChip } from './ui/controls.js';
 import { DigScreen } from './ui/dig.js';
 import { TownMapScreen } from './ui/townmap.js';
 import { CircuitScreen, TournamentScreen, PressScreen } from './ui/circuit.js';
@@ -67,6 +68,9 @@ class Game {
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
     this.gossipForTest = { resolveDialogue, worldSnapshot };
+    // So the menu suite can ask where the BACK chip actually got drawn,
+    // rather than guessing at a coordinate.
+    this.controlsForTest = { backChip: getBackChip };
     this.clockForTest = { forceHour, currentPhase, shiftHours };
     this.scriptsForTest = SCRIPTS;
     this.journalForTest = journalApi;

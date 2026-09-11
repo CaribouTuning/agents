@@ -1,6 +1,7 @@
 // The LINK screen: create or join a room, see who is connected, and read an
 // honest account of what the current transport can and cannot do.
 import { Screen } from './screen.js';
+import { drawBackChip } from './controls.js';
 import { input } from '../core/input.js';
 import { audio } from '../core/audio.js';
 import { PAL, shade } from '../render/palette.js';
@@ -233,6 +234,8 @@ export class MultiplayerScreen extends Screen {
       label(ctx, o.text, box.x + 12, y, { color: o.k === 'back' ? PAL.uiTextDim : PAL.uiText });
     });
     drawTextRight(ctx, 'LINK', W - 6, 8, { color: '#9ee0a0', shadow: PAL.black });
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 
   _renderJoin(ctx, W, H) {

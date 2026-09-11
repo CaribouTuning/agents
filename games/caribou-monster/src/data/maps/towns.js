@@ -26,8 +26,15 @@ export const TWINLEAF = defineMap('twinleaf', {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 14, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true },
-    { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true },
+    // Shut until Rowan has handed a Pokemon over. You can wander the whole
+    // town, go in every house and talk to everybody — the one thing you
+    // cannot do is walk into tall grass with nothing to send out.
+    { x: 14, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true,
+      requires: 'gotStarter',
+      refuse: 'There is tall grass past the sign, and nothing in your bag but a\nphone.\fGo and see Professor Rowan first.' },
+    { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true,
+      requires: 'gotStarter',
+      refuse: 'There is tall grass past the sign, and nothing in your bag but a\nphone.\fGo and see Professor Rowan first.' },
     { x: 5, y: 13, to: 'player_house', tx: 5, ty: 6, dir: 'up' },
     { x: 22, y: 13, to: 'rival_house', tx: 5, ty: 6, dir: 'up' },
     { x: 6, y: 6, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },

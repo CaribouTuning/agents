@@ -116,6 +116,15 @@ function landingEdge(map, x, y) {
   return d.length ? d[0][0] : null;
 }
 
+// Flags the story actually sets: the fixed table, a `beat_<trainer>` per
+// trainer, and a `badge<n>` per badge. A `when: { flag: ... }` naming anything
+// else is a branch that can never fire.
+const KNOWN_FLAGS = new Set([
+  ...Object.values(FLAGS),
+  ...Object.keys(TRAINERS).map((id) => `beat_${id}`),
+  ...Array.from({ length: 8 }, (_, i) => `badge${i + 1}`),
+]);
+
 const key = (p) => `${p.x},${p.y}`;
 const neighbours = (p) => Object.values(DIRS).map(([dx, dy]) => ({ x: p.x + dx, y: p.y + dy }));
 
@@ -231,6 +240,15 @@ for (const map of Object.values(MAPS)) {
     const src = at(map, w.x, w.y);
     if (!src) { err(`${tag} warp at ${w.x},${w.y} is outside the map`); continue; }
     if (src.solid) err(`${tag} warp at ${w.x},${w.y} sits on a solid '${src.name}'`);
+    // A gated warp names a flag. A typo there is a door that never opens.
+    if (w.requires) {
+      if (!KNOWN_FLAGS.has(w.requires)) {
+        err(`${tag} warp at ${w.x},${w.y} waits on unknown flag "${w.requires}"`);
+      }
+      if (!w.refuse) {
+        warn(`${tag} warp at ${w.x},${w.y} is gated but says nothing when it refuses`);
+      }
+    }
     if (!seen.has(key(w))) warn(`${tag} warp at ${w.x},${w.y} is unreachable from ${ref.x},${ref.y}`);
     const dest = MAPS[w.to];
     if (!dest) { err(`${tag} warp at ${w.x},${w.y} targets unknown map ${w.to}`); continue; }
@@ -539,14 +557,6 @@ function checkLine(tag, line) {
   if (line.length > 99) warn(`${tag} has a ${line.length}-character line; it will split across two pages in portrait`);
 }
 
-// Flags the story actually sets: the fixed table, a `beat_<trainer>` per
-// trainer, and a `badge<n>` per badge. A `when: { flag: ... }` naming anything
-// else is a branch that can never fire.
-const KNOWN_FLAGS = new Set([
-  ...Object.values(FLAGS),
-  ...Object.keys(TRAINERS).map((id) => `beat_${id}`),
-  ...Array.from({ length: 8 }, (_, i) => `badge${i + 1}`),
-]);
 const SPECIES_NAMES = new Set(Object.values(SPECIES).map((sp) => sp.name));
 
 function checkCondition(tag, when) {

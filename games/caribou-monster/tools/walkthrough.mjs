@@ -965,6 +965,78 @@ const verity = await page.evaluate(async () => {
 check('the Lake Verity raid waits for Lake Valor', verity.count > 0 && verity.requires,
   JSON.stringify(verity));
 
+// --- the opening cannot be walked out of ---
+// The bug this covers: leave the house without a Pokemon, walk onto the
+// route, get spotted, and the battle opens with nothing to send out and no
+// way forward. Two independent defences, both checked here.
+console.log('\n--- the opening holds ---');
+
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.flags.gotStarter = false;
+  g.state.party.length = 0;
+  g.overworld.world.load('twinleaf', 14, 2, 'up');
+});
+await wait(400);
+await waitIdle();
+await walkTo(14, 0, 6);
+await wait(700);
+const stopped = await where();
+check('you cannot leave Twinleaf without a Pokémon', stopped.map === 'twinleaf',
+  `${stopped.map} ${stopped.x},${stopped.y}`);
+const told = await page.evaluate(() => {
+  const d = window.CARIBOU.dialogueForTest;
+  return (d.pages || []).flat().join(' ');
+});
+check('and it says why rather than just bouncing you', /Rowan|grass/i.test(String(told)),
+  String(told).slice(0, 60));
+for (let i = 0; i < 8; i++) {
+  if (!await page.evaluate(() => window.CARIBOU.dialogueForTest.visible)) break;
+  await tap('KeyZ', 1, 140);
+}
+await waitIdle();
+check('and the player can still move afterwards', (await canMove()).length > 0,
+  (await canMove()).join(','));
+
+// Second defence: even standing in front of a trainer with an empty party,
+// nothing starts.
+const noFight = await page.evaluate(() => {
+  const g = window.CARIBOU, w = g.overworld.world;
+  g.state.party.length = 0;
+  return { canBattle: w.canBattle(), seeing: !!w._trainerSeeing(w.player.x, w.player.y) };
+});
+check('an empty party cannot be dragged into a battle',
+  noFight.canBattle === false && noFight.seeing === false, JSON.stringify(noFight));
+
+// And the gate opens the moment the flag is set.
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.flags.gotStarter = true;
+  g.debugGive(387, 5);
+  g.overworld.world.load('twinleaf', 14, 2, 'up');
+});
+await wait(400);
+await waitIdle();
+await walkTo(14, 0, 6);
+await wait(800);
+await waitIdle();
+const through = await where();
+check('and with a Pokémon the same road is open', through.map === 'route201',
+  `${through.map} ${through.x},${through.y}`);
+check('landing at the BOTTOM of Route 201, not the top', through.y > 20, String(through.y));
+
+// The bug the player actually reported: Route 201 north used to arrive at
+// the top of Sandgem, past the town.
+await page.evaluate(() => window.CARIBOU.overworld.world.load('route201', 12, 2, 'up'));
+await wait(400);
+await waitIdle();
+await walkTo(12, 0, 6);
+await wait(800);
+await waitIdle();
+const intoTown = await where();
+check('Route 201 north arrives at the BOTTOM of Sandgem',
+  intoTown.map === 'sandgem' && intoTown.y > 12, `${intoTown.map} ${intoTown.x},${intoTown.y}`);
+
 // --- test mode ---
 // The console is how the rest of this game is going to be exercised, so it
 // gets driven here the way a player would drive it rather than only being

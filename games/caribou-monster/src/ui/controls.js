@@ -12,6 +12,7 @@ let layout = null;
 let hidden = false;
 let fadeAt = 0;
 let backChip = null;
+let exitChip = null;
 // The pad only swallows touches on frames where it was actually drawn.
 // Otherwise its regions stay live under screens that hide it (the title,
 // character creation) and silently eat taps on whatever is there instead.
@@ -23,9 +24,10 @@ export function setControlsHidden(v) { hidden = v; }
 
 // A small BACK affordance for screens that have no D-pad on show. Registered
 // as a hit target so a thumb can reach it, and drawn by `drawBackChip`.
-export function setBackChip(rect) { backChip = rect; }
-export function beginControlsFrame() { padDrawn = false; backChip = null; }
-export function getBackChip() { return backChip; }
+export function setBackChip(rect) { backChip = rect; exitChip = null; }
+export function setExitChip(rect) { exitChip = rect; backChip = null; }
+export function beginControlsFrame() { padDrawn = false; backChip = null; exitChip = null; }
+export function getBackChip() { return backChip || exitChip; }
 
 export function computeLayout(W, H, portrait) {
   const pad = portrait ? 10 : 8;
@@ -84,13 +86,18 @@ export function hitTest(px, py) {
 }
 
 // Checked before the gamepad so a BACK chip always wins over an overlap.
-export function hitBack(px, py) {
-  if (!backChip) return false;
-  const b = backChip;
-  return px >= b.x - 4 && px <= b.x + b.w + 4 && py >= b.y - 4 && py <= b.y + b.h + 4;
+function inChip(c, px, py) {
+  return !!c && px >= c.x - 4 && px <= c.x + c.w + 4 && py >= c.y - 4 && py <= c.y + c.h + 4;
 }
 
-input.hitTest = (x, y) => (hitBack(x, y) ? 'b' : hitTest(x, y));
+export function hitBack(px, py) { return inChip(backChip, px, py); }
+export function hitExit(px, py) { return inChip(exitChip, px, py); }
+
+input.hitTest = (x, y) => {
+  if (hitExit(x, y)) return 'exit';
+  if (hitBack(x, y)) return 'b';
+  return hitTest(x, y);
+};
 
 // ---- drawing -------------------------------------------------------------
 
@@ -182,9 +189,13 @@ export function drawControls(ctx, opts = {}) {
   void fadeAt;
 }
 
-export function drawBackChip(ctx, x, y, text = 'BACK') {
+/**
+ * The BACK chip. `exit: true` registers it as its own virtual button rather
+ * than as B — for screens where B is already spoken for.
+ */
+export function drawBackChip(ctx, x, y, text = 'BACK', opts = {}) {
   const w = text.length * 6 + 10, h = 13;
-  setBackChip({ x, y, w, h });
+  (opts.exit ? setExitChip : setBackChip)({ x, y, w, h });
   ctx.save();
   ctx.globalAlpha = 0.9;
   ctx.fillStyle = shade(PAL.uiFrame, -0.1);

@@ -2,7 +2,10 @@
 // gamepad (phones). Everything downstream reads logical buttons only, so
 // no screen or system ever needs to know which one the player used.
 
-export const BUTTONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select'];
+// `exit` is not a physical button. It is the virtual one behind the BACK
+// chip on screens where B already means something else — backspace, on the
+// typing screens — so a thumb still has a way off them.
+export const BUTTONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select', 'exit'];
 
 const KEY_MAP = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',

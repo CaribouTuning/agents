@@ -111,6 +111,8 @@ export class MainMenuScreen extends Screen {
       const snap = net.snapshot();
       drawText(ctx, '●', x + w - 12, y + 5 + 4 * LINE, { color: snap.connected ? '#48c04a' : '#d8493f' });
     }
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, this.game.display.width - 52, 2);
   }
 }
 
@@ -572,6 +574,8 @@ export class BagScreen extends Screen {
       if (line) labelDim(ctx, line, 8, y);
     }
     drawTextRight(ctx, money(this.game.state.inventory.money), W - 8, H - 12, { color: PAL.uiText });
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }
 
@@ -673,6 +677,8 @@ export class TrainerCardScreen extends Screen {
       if (has) drawTextCentered(ctx, '★', bx + 8, by + 4, { color: shade(PAL.uiHighlight, -0.5) });
     }
     drawTextRight(ctx, `${badgeCount(st)}/8`, W - 14, H - 34, { color: PAL.uiText });
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }
 
@@ -762,6 +768,8 @@ export class DexScreen extends Screen {
     } else {
       labelDim(ctx, 'A: read entry', px + 8, 72);
     }
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }
 
@@ -838,6 +846,8 @@ export class OptionsScreen extends Screen {
       if (r.value) drawTextRight(ctx, r.value, W - 14, y, { color: PAL.uiSelect });
     });
     labelDim(ctx, 'Difficulty affects wild levels, AI and rewards.', 10, H - 14);
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }
 
@@ -907,5 +917,7 @@ export class SaveScreen extends Screen {
       label(ctx, this.ok ? `${st.player.name} saved the game.` : 'Saving failed — storage is unavailable.',
         14, H - 24, { color: this.ok ? PAL.uiText : PAL.uiDanger });
     }
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }

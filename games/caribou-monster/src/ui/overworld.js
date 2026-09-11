@@ -5,7 +5,7 @@
 // This screen supplies the primitives they await, and blocks player input for
 // as long as one is running.
 import { Screen, FADE } from './screen.js';
-import { World, DIRS } from '../game/overworld/world.js';
+import { World, DIRS, opposite } from '../game/overworld/world.js';
 import { Camera, drawWorld, drawLocationBanner, drawGuideBar } from '../render/worldrender.js';
 import { drawControls, hintBar, computeLayout } from './controls.js';
 import { dialogue } from './dialogue.js';
@@ -320,11 +320,40 @@ export class OverworldScreen extends Screen {
     });
   }
 
+  /**
+   * A gated warp turning the player away. The step back matters: without it
+   * the player is left standing on the warp tile and every subsequent frame
+   * re-triggers the refusal.
+   */
+  _refuseWarp(warp) {
+    const w = this.world;
+    const back = opposite[w.player.dir] || 'down';
+    const [dx, dy] = DIRS[back];
+    const bx = w.player.x + dx, by = w.player.y + dy;
+    if (w.canEnter(w.player, bx, by, back)) {
+      w.player.x = bx; w.player.y = by;
+      w.state.player.x = bx; w.state.player.y = by;
+    }
+    w.player.dir = back;
+    w.state.player.dir = back;
+    audio.sfx('bump');
+    this.say(warp.refuse || 'You should not go this way yet.');
+  }
+
   _handleWorldEvents() {
     const w = this.world;
     if (this.script) return;
 
     if (w.pendingWarp) { const warp = w.pendingWarp; w.pendingWarp = null; this._doWarp(warp); return; }
+    // A door the story has not opened yet. Say why, and step the player back
+    // off it so they are not standing on a warp that will refuse them again
+    // on the next frame.
+    if (w.pendingBlocked) {
+      const warp = w.pendingBlocked;
+      w.pendingBlocked = null;
+      this._refuseWarp(warp);
+      return;
+    }
     if (w.pendingEncounter) {
       const enc = w.pendingEncounter;
       w.pendingEncounter = null;

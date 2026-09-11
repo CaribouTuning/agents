@@ -63,6 +63,7 @@ export class World {
     this.pendingEncounter = null;
     this.pendingLadder = null;
     this.pendingWarp = null;
+    this.pendingBlocked = null;
     this.pendingTrainer = null;
     this.pendingEvent = null;
     this.stepsSinceEncounter = 0;
@@ -387,7 +388,18 @@ export class World {
 
     // Warp?
     const warp = this.warpAt(p.x, p.y);
-    if (warp) { this.pendingWarp = warp; return; }
+    if (warp) {
+      // A warp can be shut until the story opens it. This is how the game
+      // says "not yet" without walling a road off with scenery: the door is
+      // visibly there, somebody tells you why you are not going through it,
+      // and the moment the flag flips it is a door again.
+      if (warp.requires && !this.state.flags[warp.requires]) {
+        this.pendingBlocked = warp;
+        return;
+      }
+      this.pendingWarp = warp;
+      return;
+    }
 
     // Scripted step event? Most fire once and set their flag; one marked
     // `repeat` fires every time you stand on it, which is how a doorway that
@@ -406,7 +418,7 @@ export class World {
     const table = this.map.encounters
       && (def.tall ? this.map.encounters.grass : (this.map.kind === 'cave' ? this.map.encounters.cave : null));
     const now = this._tableForNow(table);
-    if (now && this.encounterCooldown <= 0) this._rollEncounter(now);
+    if (now && this.encounterCooldown <= 0 && this.canBattle()) this._rollEncounter(now);
   }
 
   /**
@@ -438,7 +450,20 @@ export class World {
     this.pendingEncounter = { species, level };
   }
 
+  /**
+   * Whether the player has anything that could take the field.
+   *
+   * Without this a trainer will happily start a battle against an empty
+   * party, and the battle screen then waits forever for a Pokemon that is
+   * never coming. Checked here rather than in the battle screen because the
+   * right answer is for the battle never to start.
+   */
+  canBattle() {
+    return (this.state.party || []).some((m) => m && !m.isEgg && m.hp > 0);
+  }
+
   _trainerSeeing(px, py) {
+    if (!this.canBattle()) return null;
     for (const e of this.entities) {
       const t = e.data && e.data.trainer;
       if (!t || !e.visible) continue;

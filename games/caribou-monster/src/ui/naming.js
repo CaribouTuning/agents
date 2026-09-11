@@ -137,6 +137,10 @@ export class NicknameScreen extends Screen {
   update(dt, isTop) {
     if (!isTop) return;
     this.t += dt;
+    // B is backspace on this screen, so the chip is the way out for a thumb.
+    // Tapping it accepts whatever has been typed; with nothing typed that is
+    // the same as skipping, which is what the caption says it does.
+    if (input.pressed('exit')) { this._finish(!this.text.trim()); return; }
     const g = keyGrid(this.game.display, this._top());
     const r = typeFrame(g, this.text, 10, this, { skip: true });
     this.text = r.text; this.kx = r.kx; this.ky = r.ky;
@@ -181,7 +185,8 @@ export class NicknameScreen extends Screen {
 
     drawKeyGrid(ctx, keyGrid(this.game.display, top), this.kx, this.ky, { skip: true });
     label(ctx, 'SKIP keeps the species name.', 8, H - 11, { color: '#9ab8ff' });
-    void drawText; void drawBackChip;
+    drawBackChip(ctx, W - 46, 2, 'DONE', { exit: true });
+    void drawText;
   }
 }
 
@@ -209,6 +214,14 @@ export class TextEntryScreen extends Screen {
   update(dt, isTop) {
     if (!isTop) return;
     this.t += dt;
+    // B deletes a character here, so without this chip a phone had no way
+    // off this screen at all.
+    if (input.pressed('exit')) {
+      audio.sfx('back');
+      this.game.screens.pop();
+      if (this.onDone) this.onDone(null);
+      return;
+    }
     const g = keyGrid(this.game.display, this._top());
     const r = typeFrame(g, this.text, this.maxLen, this, { skip: true });
     this.text = r.text; this.kx = r.kx; this.ky = r.ky;
@@ -236,6 +249,6 @@ export class TextEntryScreen extends Screen {
 
     drawKeyGrid(ctx, keyGrid(this.game.display, top), this.kx, this.ky, { skip: true });
     label(ctx, `${this.text.length}/${this.maxLen}`, 8, H - 11, { color: '#9ab8ff' });
-    void drawBackChip;
+    drawBackChip(ctx, W - 52, 2, 'CANCEL', { exit: true });
   }
 }
