@@ -183,6 +183,13 @@ export class World {
     // one field move with no obstacle tile of its own: it does not clear
     // anything, it changes what counts as ground.
     if (def.water && !def.field && entity.kind === 'player' && canUse(this.state, 'surf')) return true;
+    // A door the story has not opened yet. Treated as solid so the player
+    // bumps it rather than stepping onto it and being pushed back off — a
+    // shove is a worse feeling and a messier piece of code.
+    if (entity.kind === 'player') {
+      const w = this.warpAt(x, y);
+      if (w && w.requires && !this.state.flags[w.requires]) return false;
+    }
     if (def.solid) return false;
     if (this.entityAt(x, y, entity)) return false;
     if (entity.kind === 'player' && this.remoteAt(x, y)) return false;
@@ -196,7 +203,13 @@ export class World {
     entity.dir = dirName;
     const [dx, dy] = DIRS[dirName];
     const nx = entity.x + dx, ny = entity.y + dy;
-    if (!this.canEnter(entity, nx, ny, dirName)) return false;
+    if (!this.canEnter(entity, nx, ny, dirName)) {
+      if (entity.kind === 'player') {
+        const w = this.warpAt(nx, ny);
+        if (w && w.requires && !this.state.flags[w.requires]) this.pendingBlocked = w;
+      }
+      return false;
+    }
 
     const def = this.defAt(nx, ny);
     let tx = nx, ty = ny, hop = 0;
@@ -395,18 +408,8 @@ export class World {
 
     // Warp?
     const warp = this.warpAt(p.x, p.y);
-    if (warp) {
-      // A warp can be shut until the story opens it. This is how the game
-      // says "not yet" without walling a road off with scenery: the door is
-      // visibly there, somebody tells you why you are not going through it,
-      // and the moment the flag flips it is a door again.
-      if (warp.requires && !this.state.flags[warp.requires]) {
-        this.pendingBlocked = warp;
-        return;
-      }
-      this.pendingWarp = warp;
-      return;
-    }
+    // A gated warp is refused at `canEnter`, so anything reached here is open.
+    if (warp) { this.pendingWarp = warp; return; }
 
     // Scripted step event? Most fire once and set their flag; one marked
     // `repeat` fires every time you stand on it, which is how a doorway that

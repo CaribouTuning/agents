@@ -39,6 +39,13 @@ export const ROUTE201 = defineMap('route201', {
     { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 16, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 16, dir: 'up', edge: true },
   ],
+  // Cass is waiting a few tiles up the road, exactly as she said she would
+  // be. This is the first rival battle, and it needs a Pokemon to exist at
+  // all — `requires` makes that a precondition rather than a crash.
+  events: [
+    { x: 12, y: 23, flag: 'beatRival1', requires: 'gotStarter', script: 'rival1' },
+    { x: 13, y: 23, flag: 'beatRival1', requires: 'gotStarter', script: 'rival1' },
+  ],
   signs: [
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
   ],

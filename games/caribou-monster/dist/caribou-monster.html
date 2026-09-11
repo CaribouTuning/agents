@@ -369,7 +369,10 @@ __defs['core/input.js'] = function (__x, __req) {
 // gamepad (phones). Everything downstream reads logical buttons only, so
 // no screen or system ever needs to know which one the player used.
 
-const BUTTONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select'];
+// `exit` is not a physical button. It is the virtual one behind the BACK
+// chip on screens where B already means something else — backspace, on the
+// typing screens — so a thumb still has a way off them.
+const BUTTONS = ['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select', 'exit'];
 
 const KEY_MAP = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
@@ -2410,6 +2413,8 @@ add('oldrod', 'Old Rod', 'Key Items', 0, { kind: 'rod' },
   'An old fishing rod. Use it at the water’s edge.', { key: true });
 add('explorerkit', 'Explorer Kit', 'Key Items', 0, { kind: 'dig' },
   'A bag of digging tools. Use it outdoors to go under Sinnoh.', { key: true });
+add('secretpotion', 'Secret Potion', 'Key Items', 0, { kind: 'story' },
+  'A Celestic remedy for headaches nothing else touches. Smells appalling.', { key: true });
 add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
   'A cold, faintly glowing charm. It hums near old stone.', { key: true });
 add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
@@ -2828,6 +2833,7 @@ let layout = null;
 let hidden = false;
 let fadeAt = 0;
 let backChip = null;
+let exitChip = null;
 // The pad only swallows touches on frames where it was actually drawn.
 // Otherwise its regions stay live under screens that hide it (the title,
 // character creation) and silently eat taps on whatever is there instead.
@@ -2839,9 +2845,10 @@ function setControlsHidden(v) { hidden = v; }
 
 // A small BACK affordance for screens that have no D-pad on show. Registered
 // as a hit target so a thumb can reach it, and drawn by `drawBackChip`.
-function setBackChip(rect) { backChip = rect; }
-function beginControlsFrame() { padDrawn = false; backChip = null; }
-function getBackChip() { return backChip; }
+function setBackChip(rect) { backChip = rect; exitChip = null; }
+function setExitChip(rect) { exitChip = rect; backChip = null; }
+function beginControlsFrame() { padDrawn = false; backChip = null; exitChip = null; }
+function getBackChip() { return backChip || exitChip; }
 
 function computeLayout(W, H, portrait) {
   const pad = portrait ? 10 : 8;
@@ -2900,13 +2907,18 @@ function hitTest(px, py) {
 }
 
 // Checked before the gamepad so a BACK chip always wins over an overlap.
-function hitBack(px, py) {
-  if (!backChip) return false;
-  const b = backChip;
-  return px >= b.x - 4 && px <= b.x + b.w + 4 && py >= b.y - 4 && py <= b.y + b.h + 4;
+function inChip(c, px, py) {
+  return !!c && px >= c.x - 4 && px <= c.x + c.w + 4 && py >= c.y - 4 && py <= c.y + c.h + 4;
 }
 
-input.hitTest = (x, y) => (hitBack(x, y) ? 'b' : hitTest(x, y));
+function hitBack(px, py) { return inChip(backChip, px, py); }
+function hitExit(px, py) { return inChip(exitChip, px, py); }
+
+input.hitTest = (x, y) => {
+  if (hitExit(x, y)) return 'exit';
+  if (hitBack(x, y)) return 'b';
+  return hitTest(x, y);
+};
 
 // ---- drawing -------------------------------------------------------------
 
@@ -2998,9 +3010,13 @@ function drawControls(ctx, opts = {}) {
   void fadeAt;
 }
 
-function drawBackChip(ctx, x, y, text = 'BACK') {
+/**
+ * The BACK chip. `exit: true` registers it as its own virtual button rather
+ * than as B — for screens where B is already spoken for.
+ */
+function drawBackChip(ctx, x, y, text = 'BACK', opts = {}) {
   const w = text.length * 6 + 10, h = 13;
-  setBackChip({ x, y, w, h });
+  (opts.exit ? setExitChip : setBackChip)({ x, y, w, h });
   ctx.save();
   ctx.globalAlpha = 0.9;
   ctx.fillStyle = shade(PAL.uiFrame, -0.1);
@@ -3022,7 +3038,7 @@ function hintBar(ctx, W, H, text) {
   drawTextCentered(ctx, text, W / 2, H - 9, { color: PAL.uiTextLight });
 }
 
-__exports(__x, { setControlsHidden: () => setControlsHidden, setBackChip: () => setBackChip, beginControlsFrame: () => beginControlsFrame, getBackChip: () => getBackChip, computeLayout: () => computeLayout, getLayout: () => getLayout, hitTest: () => hitTest, hitBack: () => hitBack, drawControls: () => drawControls, drawBackChip: () => drawBackChip, hintBar: () => hintBar });
+__exports(__x, { setControlsHidden: () => setControlsHidden, setBackChip: () => setBackChip, setExitChip: () => setExitChip, beginControlsFrame: () => beginControlsFrame, getBackChip: () => getBackChip, computeLayout: () => computeLayout, getLayout: () => getLayout, hitTest: () => hitTest, hitBack: () => hitBack, hitExit: () => hitExit, drawControls: () => drawControls, drawBackChip: () => drawBackChip, hintBar: () => hintBar });
 
 };
 
@@ -6826,6 +6842,10 @@ class NicknameScreen extends Screen {
   update(dt, isTop) {
     if (!isTop) return;
     this.t += dt;
+    // B is backspace on this screen, so the chip is the way out for a thumb.
+    // Tapping it accepts whatever has been typed; with nothing typed that is
+    // the same as skipping, which is what the caption says it does.
+    if (input.pressed('exit')) { this._finish(!this.text.trim()); return; }
     const g = keyGrid(this.game.display, this._top());
     const r = typeFrame(g, this.text, 10, this, { skip: true });
     this.text = r.text; this.kx = r.kx; this.ky = r.ky;
@@ -6870,7 +6890,8 @@ class NicknameScreen extends Screen {
 
     drawKeyGrid(ctx, keyGrid(this.game.display, top), this.kx, this.ky, { skip: true });
     label(ctx, 'SKIP keeps the species name.', 8, H - 11, { color: '#9ab8ff' });
-    void drawText; void drawBackChip;
+    drawBackChip(ctx, W - 46, 2, 'DONE', { exit: true });
+    void drawText;
   }
 }
 
@@ -6898,6 +6919,14 @@ class TextEntryScreen extends Screen {
   update(dt, isTop) {
     if (!isTop) return;
     this.t += dt;
+    // B deletes a character here, so without this chip a phone had no way
+    // off this screen at all.
+    if (input.pressed('exit')) {
+      audio.sfx('back');
+      this.game.screens.pop();
+      if (this.onDone) this.onDone(null);
+      return;
+    }
     const g = keyGrid(this.game.display, this._top());
     const r = typeFrame(g, this.text, this.maxLen, this, { skip: true });
     this.text = r.text; this.kx = r.kx; this.ky = r.ky;
@@ -6925,7 +6954,7 @@ class TextEntryScreen extends Screen {
 
     drawKeyGrid(ctx, keyGrid(this.game.display, top), this.kx, this.ky, { skip: true });
     label(ctx, `${this.text.length}/${this.maxLen}`, 8, H - 11, { color: '#9ab8ff' });
-    void drawBackChip;
+    drawBackChip(ctx, W - 52, 2, 'CANCEL', { exit: true });
   }
 }
 
@@ -7292,6 +7321,7 @@ const LOOKS = {
   gruntF: makeLook({ hair: '#20242e', shirt: '#2b3450', pants: '#20242e', longHair: true, boots: '#101420', outlineColor: '#080a12' }),
   leaderRock: makeLook({ hair: '#8a5a30', shirt: '#a86840', pants: '#5a4a3a', boots: '#3a2a1a' }),
   oldMan: makeLook({ hair: '#d0d0d8', shirt: '#8a9aa8', pants: '#5a6070', boots: '#4a4a52' }),
+  oldWoman: makeLook({ hair: '#e0e0e8', shirt: '#b08aa8', pants: '#6a5a70', longHair: true, boots: '#4a4a52' }),
   kid: makeLook({ hair: '#4a3020', shirt: '#f0d060', pants: '#68a048', boots: '#8a5a30' }),
   sailor: makeLook({ hair: '#20304a', shirt: '#f0f0f8', pants: '#2b3450', hat: '#f0f0f8', boots: '#20283a' }),
   scientist: makeLook({ hair: '#3a3a48', shirt: '#f4f4f8', pants: '#8a9aa8', boots: '#4a4a52' }),
@@ -7331,6 +7361,9 @@ const PLAYERS = [
     look: 'matthew',
     label: 'MATTHEW',
     buddy: 'Sammy',
+    // The left-hand house in Twinleaf. Which house is whose is fixed, so
+    // the town reads the same whichever of them is holding the phone.
+    house: 'matthew_house',
     blurb: 'Twinleaf. Never sits still.',
   },
   {
@@ -7339,6 +7372,8 @@ const PLAYERS = [
     look: 'sammy',
     label: 'SAMMY',
     buddy: 'Matthew',
+    // The right-hand house, and Bandit sleeps on its step.
+    house: 'sammy_house',
     blurb: 'Twinleaf. Reddish-blonde. Reads the room.',
   },
 ];
@@ -7370,7 +7405,26 @@ function isKnownPlayer(state) {
     || playerByName(state && state.player && state.player.name));
 }
 
-__exports(__x, { PLAYERS: () => PLAYERS, playerByLook: () => playerByLook, playerByName: () => playerByName, buddyOf: () => buddyOf, isKnownPlayer: () => isKnownPlayer });
+/** The record for whoever is holding the phone, defaulting to Matthew. */
+function playerOf(state) {
+  return playerByLook(state && state.player && state.player.look)
+    || playerByName(state && state.player && state.player.name)
+    || PLAYERS[0];
+}
+
+/** The other one's record — the partner the world talks about. */
+function buddyPlayerOf(state) {
+  const me = playerOf(state);
+  return PLAYERS.find((p) => p.key !== me.key) || PLAYERS[1];
+}
+
+/** Your own front door. */
+function houseOf(state) { return playerOf(state).house; }
+
+/** Theirs. */
+function buddyHouseOf(state) { return buddyPlayerOf(state).house; }
+
+__exports(__x, { PLAYERS: () => PLAYERS, playerByLook: () => playerByLook, playerByName: () => playerByName, buddyOf: () => buddyOf, isKnownPlayer: () => isKnownPlayer, playerOf: () => playerOf, buddyPlayerOf: () => buddyPlayerOf, houseOf: () => houseOf, buddyHouseOf: () => buddyHouseOf });
 
 };
 
@@ -7584,6 +7638,11 @@ const FLAGS = {
   LOST_TOWER: 'lostTower',
   MET_LOOKER: 'metLooker',
   GALACTIC_HQ: 'galacticHQ',
+  LAKE_VALOR: 'lakeValor',
+  PSYDUCKS: 'psyducks',
+  CELESTIC: 'celestic',
+  CELESTIC_READ: 'celesticRead',
+  LAKE_VERITY: 'lakeVerity',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',
@@ -7607,7 +7666,7 @@ const FLAGS = {
 const SHARED_MILESTONES = [
   FLAGS.GOT_STARTER, FLAGS.LEFT_TOWN, FLAGS.ENTERED_FOREST, FLAGS.FOREST_GRUNT,
   FLAGS.REACHED_ALDERMERE, FLAGS.BADGE_1, FLAGS.ENTERED_CAVE, FLAGS.BEAT_COMMANDER,
-  FLAGS.GALACTIC_HQ,
+  FLAGS.GALACTIC_HQ, FLAGS.LAKE_VALOR, FLAGS.CELESTIC, FLAGS.LAKE_VERITY,
   FLAGS.CAUGHT_EVERLIGHT,
 ];
 
@@ -9336,6 +9395,39 @@ const ENTRIES = [
     next: 'Get to the lakes before they finish.',
   },
   {
+    id: 'lakeValor',
+    title: 'There is no water',
+    body: [
+      'I walked up to Lake Valor expecting a lake. It is a bowl of cracked mud\nfour hundred feet deep with grass coming up in it.',
+      'Something went through me while I stood in it. Not a sound. A pressure,\nonce, like a held breath let go a long way underground.',
+      'Whatever was asleep in that lake is awake, and it is not there any more.',
+      'A ranger gave me Surf and said there was nothing left to sail on.',
+    ],
+    next: 'Two lakes left. Get to one of them first.',
+  },
+  {
+    id: 'celestic',
+    title: 'The wall in Celestic',
+    body: [
+      'Two grey coats had been stood at the Celestic shrine since Tuesday, not\nstealing anything. Reading. Taking notes off a thousand-year-old wall.',
+      'The elder stood in front of them the whole time and would not move first.\nNinety-one years old.',
+      'I moved them on for her, and she let me in to look at what they had been\nreading.',
+      'Three figures at three waters. Above them a fourth, larger, with no face\ndrawn on it. Behind all four, the world rolled up like a sheet being\ntaken off a bed.',
+    ],
+    next: 'They are not trying to rule anything. They are trying to start again.',
+  },
+  {
+    id: 'lakeVerity',
+    title: 'Four minutes',
+    body: [
+      'Lake Verity still has water in it. That is the only good thing I can say\nabout the state I found it in.',
+      'There were lorries on the shore and Mars was already getting into one.\nShe told me I was four minutes late and she was not wrong.',
+      'I beat her. She drove off anyway. She said it genuinely does not matter\nwhether I win these, and I think she believes it.',
+      'The one that lived in this lake is in a box on a lorry going to Veilstone.',
+    ],
+    next: 'One lake left. Acuity, past the mountain, in the snow.',
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [
@@ -10709,6 +10801,7 @@ __exports(__x, { FIELD_MOVES: () => FIELD_MOVES, FIELD_IDS: () => FIELD_IDS, til
 
 __defs['game/state.js'] = function (__x, __req) {
 const { createInventory, addItem } = __req('game/inventory.js');
+const { PLAYERS, playerByLook, playerByName } = __req('game/players.js');
 const { createDex, recordSeen, recordCaught } = __req('game/pokedex.js');
 const { createFlags, setFlag, getFlag, FLAGS, storyProgress } = __req('game/storyflags.js');
 const { createMonster, healFully, isFainted, reviveMonster, serializeMonster, displayName } = __req('game/monster.js');
@@ -10735,18 +10828,23 @@ const { serializeCleared, reviveCleared } = __req('game/fieldmoves.js');
 
 
 
+
 const MAX_PARTY = 6;
 const BOX_COUNT = 8;
 const BOX_SIZE = 30;
 
 function createGameState(opts = {}) {
+  // You wake up in your own house, and which one that is depends on which
+  // of the two you picked: the left-hand house in Twinleaf is Matthew's and
+  // the right-hand one is Sammy's, always, whoever is holding the phone.
+  const home = (playerByLook(opts.look) || playerByName(opts.name) || PLAYERS[0]).house;
   return {
     version: 1,
     player: {
       name: opts.name || 'Matthew',
       look: opts.look || 'boy',
       id: opts.id || Math.floor(Math.random() * 65536),
-      map: 'player_house',
+      map: home,
       x: 5, y: 5, dir: 'down',
       running: false,
     },
@@ -10762,7 +10860,7 @@ function createGameState(opts = {}) {
     difficulty: opts.difficulty || 'easy',
     playTimeMs: 0,
     startedAt: Date.now(),
-    lastHealPoint: { map: 'player_house', x: 5, y: 6 },
+    lastHealPoint: { map: home, x: 5, y: 6 },
     repelSteps: 0,
     starterBase: null,
     stats: { battlesWon: 0, caught: 0, steps: 0 },
@@ -10779,7 +10877,7 @@ function createGameState(opts = {}) {
     visited: {},
     // Trees cut down, rocks smashed, walls climbed: obstacles stay cleared.
     cleared: {},
-    settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
+    settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true, testMode: false },
   };
 }
 
@@ -11008,6 +11106,19 @@ class TitleScreen extends Screen {
     this.starT = Array.from({ length: 26 }, () => ({
       x: Math.random(), y: Math.random() * 0.6, s: 0.2 + Math.random() * 0.8,
     }));
+  }
+
+  /**
+   * The durable store answering after the first paint. CONTINUE appears
+   * (or, on a genuinely fresh save, stays away) without the boot having had
+   * to wait for the network. The cursor is kept on whatever the player was
+   * already pointing at rather than jumping under their thumb.
+   */
+  setSave(meta) {
+    const wasOn = this.options[this.index] && this.options[this.index].key;
+    this.saveMeta = meta || null;
+    const again = this.options.findIndex((o) => o.key === wasOn);
+    this.index = again >= 0 ? again : 0;
   }
 
   get options() {
@@ -11767,10 +11878,17 @@ const TWINLEAF = defineMap('twinleaf', {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 14, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true },
-    { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true },
-    { x: 5, y: 13, to: 'player_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 22, y: 13, to: 'rival_house', tx: 5, ty: 6, dir: 'up' },
+    // Shut until Rowan has handed a Pokemon over. You can wander the whole
+    // town, go in every house and talk to everybody — the one thing you
+    // cannot do is walk into tall grass with nothing to send out.
+    { x: 14, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true,
+      requires: 'gotStarter',
+      refuse: 'There is tall grass past the sign, and nothing in your bag but a\nphone.\fGo and see Professor Rowan first.' },
+    { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true,
+      requires: 'gotStarter',
+      refuse: 'There is tall grass past the sign, and nothing in your bag but a\nphone.\fGo and see Professor Rowan first.' },
+    { x: 5, y: 13, to: 'matthew_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 22, y: 13, to: 'sammy_house', tx: 5, ty: 6, dir: 'up' },
     { x: 6, y: 6, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
   ],
   labels: [
@@ -11781,6 +11899,62 @@ const TWINLEAF = defineMap('twinleaf', {
     { x: 26, y: 17, text: 'ROUTE 201 — NORTH\nTall grass ahead. Wild Pokémon live in it.\nDo not walk in without a Pokémon.' },
   ],
   npcs: [
+    // The other one. In single player they are stood outside their own front
+    // door, because they live there and because they were waiting for you.
+    // The moment the link comes up they stop being an NPC and start being a
+    // person, so `soloOnly` takes them off the map.
+    {
+      id: 'tw_buddy', x: 21, y: 15, look: 'buddy', name: '{buddy}',
+      movement: 'lookAround', facing: 'left', soloOnly: true,
+      dialogue: [
+        {
+          when: { flag: 'badge5' },
+          lines: ['Five badges. FIVE. And you came home.',
+            'I know exactly why you came home and it is not for the badges.',
+            'Go on then. Say hello to your mum before you say hello to me.'],
+        },
+        {
+          when: { flag: 'badge1' },
+          lines: ['You got the Coal Badge and I found out from Tam. TAM.',
+            'Next time you ring me first. I mean it. I will be insufferable about it.',
+            'Come here. ...Right. Off you go.'],
+        },
+        {
+          when: { flag: 'gotStarter' },
+          lines: ['Rowan gave you one as well, then.',
+            'Route 201 is straight up past the sign.',
+            'I have been three times already and I have not gone in yet,\nbecause I said I would wait.',
+            'I did say I would wait. I am saying it again so you notice.'],
+        },
+        {
+          lines: ['There you are. I have been stood on this step for an hour.',
+            'Rowan wants us both at the lab. BOTH of us, she was specific.',
+            'Do not go on ahead. We are doing this bit together.'],
+        },
+      ],
+    },
+    // Bandit. Sammy's dog, and she has opinions about who she belongs to.
+    {
+      id: 'tw_bandit', x: 22, y: 16, species: 228, name: 'Bandit',
+      movement: 'lookAround', facing: 'up',
+      dialogue: [
+        {
+          when: { all: [{ flag: 'hasBandit' }, { playing: 'matthew' }] },
+          lines: ['Bandit: *She is already at the gate, looking back at you.*',
+            '*Then back at Sammy’s door, to check. Then at you again.*'],
+        },
+        {
+          when: { playing: 'sammy' },
+          lines: ['Bandit: *She hits you at knee height before you have finished\nshutting the door.*',
+            '*She is not going to be talked out of coming.*'],
+        },
+        {
+          lines: ['Bandit: *She looks past you, at the other house, and then back.*',
+            '*She is Sammy’s dog and she has never pretended otherwise.*',
+            '*She lets you scratch her ears anyway.*'],
+        },
+      ],
+    },
     {
       // Tam is the town's circuit superfan. Whoever is actually top of the
       // world ranking is who he has posters of — including, eventually, you.
@@ -11951,7 +12125,10 @@ const TWINLEAF = defineMap('twinleaf', {
       ],
     },
   ],
-  healPoint: { map: 'player_house', x: 5, y: 6 },
+  // No town-level heal point: the two houses carry their own, and which one
+  // is yours depends on which of them you are. `state.lastHealPoint` is set
+  // from the player record when the game starts.
+
 });
 
 const OREBURGH = defineMap('oreburgh', {
@@ -12440,8 +12617,15 @@ const ROUTE201 = defineMap('route201', {
     { x: 0, y: 13, to: 'lake_verity', tx: 18, ty: 7, dir: 'left', edge: true },
     { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
     { x: 13, y: 27, to: 'twinleaf', tx: 15, ty: 2, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 1, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 1, dir: 'up', edge: true },
+    { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 16, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 16, dir: 'up', edge: true },
+  ],
+  // Cass is waiting a few tiles up the road, exactly as she said she would
+  // be. This is the first rival battle, and it needs a Pokemon to exist at
+  // all — `requires` makes that a precondition rather than a crash.
+  events: [
+    { x: 12, y: 23, flag: 'beatRival1', requires: 'gotStarter', script: 'rival1' },
+    { x: 13, y: 23, flag: 'beatRival1', requires: 'gotStarter', script: 'rival1' },
   ],
   signs: [
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
@@ -12843,8 +13027,8 @@ __defs['data/maps/interiors.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
 
 
-const PLAYER_HOUSE = defineMap('player_house', {
-  name: 'Home', kind: 'indoor', music: 'home', darkEdges: false,
+const MATTHEW_HOUSE = defineMap('matthew_house', {
+  name: "Matthew's House", kind: 'indoor', music: 'home', darkEdges: false,
   tiles: [
     '||||||||||||',
     '|k_v____bb_|',
@@ -12871,6 +13055,14 @@ const PLAYER_HOUSE = defineMap('player_house', {
           lines: ['They read your name out on the results sheet. Out loud. In the shop.',
             'The {lastTitle}. I had to go and sit down.',
             'Eat something before you go back out. Champions still have to eat.'],
+        },
+        {
+          // Sammy, in Matthew's kitchen. She is here often enough that this
+          // is not a special occasion for anybody but Matthew.
+          when: { playing: 'sammy' },
+          lines: ['Sammy! He is not here, he went haring off to the lab ten minutes ago.',
+            'He will have forgotten something. He always forgets something.',
+            'Take him this and do not tell him I asked you to.'],
         },
         {
           when: { linked: true },
@@ -12915,11 +13107,11 @@ const PLAYER_HOUSE = defineMap('player_house', {
       heals: true,
     },
   ],
-  healPoint: { map: 'player_house', x: 5, y: 6 },
+  healPoint: { map: 'matthew_house', x: 5, y: 6 },
 });
 
-const RIVAL_HOUSE = defineMap('rival_house', {
-  name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
+const SAMMY_HOUSE = defineMap('sammy_house', {
+  name: "Sammy's House", kind: 'indoor', music: 'home', darkEdges: false,
   tiles: [
     '||||||||||||',
     '|kk_____bb_|',
@@ -12931,9 +13123,40 @@ const RIVAL_HOUSE = defineMap('rival_house', {
     '|||||D||||||',
   ],
   warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 22, ty: 14, dir: 'down' }],
+  healPoint: { map: 'sammy_house', x: 5, y: 6 },
   npcs: [
     {
-      id: 'rh_parent', x: 7, y: 4, look: 'oldMan', name: 'Neighbour', movement: 'still', facing: 'down',
+      id: 'sh_parent', x: 3, y: 4, look: 'oldWoman', name: "Sammy's Mum", movement: 'still', facing: 'down',
+      heals: true,
+      dialogue: [
+        {
+          // Matthew, at his girlfriend's door, with her dog at his heel.
+          when: { all: [{ flag: 'hasBandit' }, { playing: 'matthew' }] },
+          lines: ['So Bandit went with you two. She has never once done as she was told.',
+            'She chose Sammy the day she turned up and she has not wavered since.',
+            'Look after our girl. Both of ours, come to that.'],
+        },
+        {
+          // Talking to her own daughter.
+          when: { playing: 'sammy' },
+          lines: ['There she is. Boots off, please, I do not care how urgent it is.',
+            'Matthew came knocking at some appalling hour asking if you were up.',
+            'You were not up. I told him you were up. Go on.'],
+        },
+        {
+          when: { linked: true },
+          lines: ['Both of you, in my kitchen, at once. This is the best day I have had.',
+            'Sit down. Neither of you has eaten.'],
+        },
+        {
+          lines: ['Matthew. Come in, come in — she is not here, she is at the lab.',
+            'You could have rung. You never ring. You just appear at the door.',
+            'I do not mind. It is very nearly charming.'],
+        },
+      ],
+    },
+    {
+      id: 'sh_neighbour', x: 8, y: 4, look: 'oldMan', name: 'Neighbour', movement: 'still', facing: 'down',
       dialogue: [
         {
           when: { flag: 'beatRival2' },
@@ -13839,7 +14062,7 @@ const JUBILIFE_HOUSE2 = defineMap('jubilife_house2', {
 
 
 const INTERIORS = [
-  PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB,
+  MATTHEW_HOUSE, SAMMY_HOUSE, ROWAN_LAB,
   SANDGEM_CENTER, SANDGEM_MART, SANDGEM_DAYCARE,
   JUBILIFE_CENTER, JUBILIFE_MART, JUBILIFE_SCHOOL, JUBILIFE_HOUSE, JUBILIFE_HOUSE2,
   OREBURGH_CENTER, OREBURGH_MART, OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2,
@@ -14730,6 +14953,12 @@ const LAKE_VERITY = defineMap('lake_verity', {
   warps: [
     { x: 19, y: 7, to: 'route201', tx: 1, ty: 13, dir: 'right', edge: true },
   ],
+  // The second lake. It only happens once Valor has gone, which is what
+  // `requires` is for — walk in before that and it is just a lake.
+  events: [
+    { x: 17, y: 7, flag: 'lakeVerity', requires: 'lakeValor', script: 'lakeVerity' },
+    { x: 17, y: 8, flag: 'lakeVerity', requires: 'lakeValor', script: 'lakeVerity' },
+  ],
   signs: [
     { x: 15, y: 12, text: 'LAKE VERITY\nThe water has never once been measured\nall the way to the bottom.' },
   ],
@@ -14943,12 +15172,14 @@ const HEARTHOME = defineMap('hearthome', {
     'T........VVVVVVVV................T',
     'T........#WWDDWW#................T',
     'T................................T',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
     { x: 0, y: 12, to: 'route208', tx: 30, ty: 7, dir: 'left', edge: true },
     { x: 12, y: 0, to: 'route209', tx: 12, ty: 21, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'route209', tx: 13, ty: 21, dir: 'up', edge: true },
+    { x: 12, y: 27, to: 'route212', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 27, to: 'route212', tx: 13, ty: 1, dir: 'down', edge: true },
     { x: 7, y: 5, to: 'hearthome_center', tx: 6, ty: 6, dir: 'up' },
     { x: 25, y: 5, to: 'hearthome_mart', tx: 4, ty: 5, dir: 'up' },
     { x: 13, y: 12, to: 'contest_hall', tx: 7, ty: 9, dir: 'up' },
@@ -15649,6 +15880,8 @@ const ROUTE210 = defineMap('route210', {
     { x: 12, y: 21, to: 'solaceon', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 13, y: 21, to: 'solaceon', tx: 13, ty: 1, dir: 'down', edge: true },
     { x: 0, y: 7, to: 'route215', tx: 30, ty: 8, dir: 'left', edge: true },
+    { x: 12, y: 0, to: 'route210_north', tx: 12, ty: 18, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route210_north', tx: 13, ty: 18, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 19, text: 'ROUTE 210\nSOLACEON TOWN — SOUTH\nROUTE 215 — WEST, toward Veilstone.\nThe fog is permanent. Mind the trainers.' },
@@ -16162,6 +16395,1010 @@ __exports(__x, { ROUTE209: () => ROUTE209, LOST_TOWER: () => LOST_TOWER, LOST_TO
 
 };
 
+__defs['data/maps/south.js'] = function (__x, __req) {
+const { defineMap } = __req('data/maps/define.js');
+// The wet south: the marsh road, the town built on stilts beside it, and the
+// lake Team Galactic get to first.
+//
+// This is where the campaign stops being a tour of Gyms. Lake Valor is the
+// first time the player arrives somewhere and finds that the thing they came
+// to see is already gone.
+
+
+// ---------------------------------------------------------------------------
+// Route 212 — Hearthome south into the wet country. It rains here too.
+// ---------------------------------------------------------------------------
+const ROUTE212 = defineMap('route212', {
+  name: 'Route 212', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T....""""...::.....RR....T',
+    'T....""""...::...........T',
+    'T...........::....YYYY...T',
+    'T..~~~~.....::....YYYY...T',
+    'T.~~~~~~....::...........T',
+    'T..~~~~.....::...........T',
+    'T...........::...........T',
+    'T....""""...::....""""...T',
+    'T....""""...::....""""...T',
+    'T...........::...........T',
+    'T..RR.......::.......RR..T',
+    'T...........::...........T',
+    'T....OOO....::....YYYY...T',
+    'T...........::....YYYY...T',
+    'T..LLLLLL...::...........T',
+    'T...........::....""""...T',
+    'T....""""...::....""""...T',
+    'T....""""...::...........T',
+    'T.........S.::...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 0, to: 'hearthome', tx: 12, ty: 26, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'hearthome', tx: 13, ty: 26, dir: 'up', edge: true },
+    { x: 12, y: 21, to: 'pastoria', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 21, to: 'pastoria', tx: 13, ty: 1, dir: 'down', edge: true },
+  ],
+  signs: [
+    { x: 10, y: 20, text: 'ROUTE 212\nHEARTHOME CITY — NORTH\nPASTORIA CITY — SOUTH\nThe ground stops being ground somewhere\nalong here.' },
+  ],
+  objects: [
+    { id: 'r12_max', x: 2, y: 18, item: 'maxpotion', qty: 1 },
+    { id: 'r12_ball', x: 21, y: 3, item: 'ultraball', qty: 2 },
+  ],
+  npcs: [
+    { id: 'r12_t1', x: 8, y: 10, look: 'lass', trainer: 'r12_lass', facing: 'right', sight: 4, movement: 'still' },
+    { id: 'r12_t2', x: 19, y: 18, look: 'sailor', trainer: 'r12_sailor', facing: 'up', sight: 4, movement: 'still' },
+    {
+      id: 'r12_walker', x: 6, y: 13, look: 'hiker', name: 'Corr', movement: 'lookAround', facing: 'right',
+      dialogue: [
+        {
+          when: { flag: 'galacticHQ' },
+          lines: ['You have been in that Veilstone building. It is all over your face.',
+            'Then you will want to know: a lorry of grey coats\nwent down this road on Tuesday.',
+            'Heading for the lake. Nobody stopped them.',
+            'Nobody ever does.'],
+        },
+        {
+          lines: ['South is Pastoria. Built on stilts, most of it, and for good reason.',
+            'The marsh beside it has things in it nobody has finished counting.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 22, max: 26,
+      table: [[194, 22], [418, 20], [453, 18], [278, 14], [400, 12], [193, 8], [451, 6]],
+      night: { min: 22, max: 26, table: [[194, 24], [92, 20], [453, 18], [431, 14], [41, 14], [451, 10]] },
+    },
+    fish: { min: 15, max: 24, table: [[129, 40], [118, 22], [418, 22], [194, 16]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Pastoria City — a town on stilts with a Water Gym and a marsh next door.
+// ---------------------------------------------------------------------------
+const PASTORIA = defineMap('pastoria', {
+  name: 'Pastoria City', kind: 'town', music: 'city',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
+    'T...........::...............T',
+    'T..AAAAAAAA.::......EEEEEE...T',
+    'T..AAAAAAAA.::......EEEEEE...T',
+    'T..VVVVVVVV.::......VVVVVV...T',
+    'T..#WFFDFFW.::......#WWDWW...T',
+    'T.....:.....::..........:....T',
+    'T.....::::::::::::::::::::::::',
+    'T.....:.....::..........:....T',
+    'T..S..:.....::..........:....T',
+    'T.....:..KKKKKKKKKK.....:....T',
+    'T.....:..KKKKKKKKKK.....:....T',
+    'T.....:..VVVVVVVVVV.....:....T',
+    'T.....:..NQNNddNNQN.....:....T',
+    'T.....:..I.S....S.I.....:....T',
+    'T.....::::::::::::::::::::...T',
+    'T...........::...............T',
+    'T..~~~~~....::....~~~~~~~~...T',
+    'T.~~~~~~~...::...~~~~~~~~~~..T',
+    'T..~~~~~....::....~~~~~~~~...T',
+    'T...........::...............T',
+    'T..S........::..............ST',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 0, to: 'route212', tx: 12, ty: 20, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route212', tx: 13, ty: 20, dir: 'up', edge: true },
+    { x: 12, y: 22, to: 'route213', tx: 2, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 22, to: 'route213', tx: 3, ty: 1, dir: 'down', edge: true },
+    { x: 29, y: 7, to: 'route214', tx: 1, ty: 18, dir: 'right', edge: true },
+    { x: 7, y: 5, to: 'pastoria_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 23, y: 5, to: 'great_marsh', tx: 8, ty: 14, dir: 'up' },
+    { x: 13, y: 13, to: 'pastoria_gym', tx: 7, ty: 14, dir: 'up' },
+    { x: 14, y: 13, to: 'pastoria_gym', tx: 8, ty: 14, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
+    { x: 20, y: 4, w: 6, text: 'GREAT MARSH' },
+    { x: 9, y: 12, w: 10, text: 'PASTORIA GYM', tone: '#f8e070' },
+  ],
+  signs: [
+    { x: 3, y: 9, text: 'PASTORIA CITY\n"Half of it is on stilts and the other half\nregrets not being."' },
+    { x: 11, y: 14, text: 'PASTORIA CITY POKéMON GYM\nLEADER: Crasher Wake\nThe Torrential Tag-Team\nWater-type. He announces himself. Loudly.' },
+    { x: 16, y: 14, text: 'The Gym floor floods and drains on a\ntimer. Read the water, not the map.' },
+    { x: 3, y: 21, text: 'The Great Marsh is a nature reserve.\nYou get thirty minutes and a bag of balls.' },
+    { x: 28, y: 21, text: 'ROUTE 214 — EAST\nVEILSTONE CITY, the long way round.\nVALOR LAKEFRONT on the way.' },
+  ],
+  objects: [],
+  healPoint: { map: 'pastoria_center', x: 6, y: 7 },
+  npcs: [
+    {
+      id: 'pa_guide', x: 16, y: 15, look: 'youngster', name: 'Gym Guide', movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'badge5' },
+          lines: ['The Fen Badge! Wake shouts about everything but he does not hand those out.',
+            'East is Route 214 and the Valor Lakefront.',
+            'Something is going on up there. People have been turned back.'],
+        },
+        {
+          lines: ['This is the PASTORIA GYM. Crasher Wake is Water-type and very loud about it.',
+            'Grass and Electric moves are what get through Water.',
+            'And watch the floor. It floods on a timer and he knows the timer.'],
+        },
+      ],
+    },
+    {
+      id: 'pa_ranger', x: 22, y: 9, look: 'worker', name: 'Marsh Warden', movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Two of you? Go in together. Half an hour each, same marsh.',
+            'People see completely different things in there on the same afternoon.',
+            'Compare notes after. That is most of the fun of it.'],
+        },
+        {
+          lines: ['The Great Marsh is a reserve. Thirty minutes, a bag of balls, no battling.',
+            'There are things in there that are not anywhere else in Sinnoh.',
+            'And a good deal of mud. Mostly mud, if I am honest.'],
+        },
+      ],
+    },
+    {
+      id: 'pa_local', x: 8, y: 20, look: 'oldMan', name: 'Wend', movement: 'lookAround', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'lakeValor' },
+          lines: ['You saw what they did to the lake, then.',
+            'My father fished that water. His father fished that water.',
+            'And they emptied it in an afternoon because they wanted what was in it.'],
+        },
+        {
+          when: { flag: 'galacticHQ' },
+          lines: ['There were grey coats on the lakefront road all last week.',
+            'They had a lorry with no plates and they would not say a word to anybody.',
+            'The road up there is closed now. Closed by who, is what I want to know.'],
+        },
+        {
+          lines: ['Whole town is on stilts. Has to be. The water comes up every spring.',
+            'You get used to living above the thing that could take your house.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: null,
+    fish: { min: 18, max: 28, table: [[129, 34], [118, 22], [418, 22], [194, 14], [278, 8]] },
+  },
+});
+
+/**
+ * The Great Marsh. A reserve rather than a route: nothing to battle, a lot to
+ * catch, and things that live nowhere else in the region.
+ */
+const GREAT_MARSH = defineMap('great_marsh', {
+  subArea: true,
+  name: 'Great Marsh', kind: 'route', music: 'forest',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTT',
+    'T""""""~~~~""""""T',
+    'T""""""~~~~""""""T',
+    'T""""~~~~~~~~""""T',
+    'T""~~~~""""~~~~""T',
+    'T""~~""""""""~~""T',
+    'T""~~""~~~~""~~""T',
+    'T""~~""~~~~""~~""T',
+    'T""~~""""""""~~""T',
+    'T""~~~~""""~~~~""T',
+    'T""""~~~~~~~~""""T',
+    'T""""""~~~~""""""T',
+    'T""""""""""""""""T',
+    'T""""""""""""""""T',
+    'T.......::.......T',
+    'TTTTTTTT::TTTTTTTT',
+  ],
+  warps: [
+    { x: 8, y: 15, to: 'pastoria', tx: 23, ty: 6, dir: 'down' },
+    { x: 9, y: 15, to: 'pastoria', tx: 23, ty: 6, dir: 'down' },
+  ],
+  signs: [],
+  objects: [],
+  npcs: [],
+  encounters: {
+    grass: {
+      min: 24, max: 28,
+      table: [[194, 20], [193, 16], [55, 14], [453, 12], [114, 12], [451, 10], [278, 10], [357, 6]],
+      night: { min: 24, max: 28, table: [[194, 22], [193, 18], [92, 16], [451, 14], [114, 12], [55, 10], [431, 8]] },
+    },
+    fish: { min: 20, max: 30, table: [[129, 30], [194, 26], [118, 20], [418, 16], [55, 8]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Crasher Wake's Gym. The floor is water and walkway, and the walkway is
+// narrow, because a Water Gym should make you commit to a route.
+// ---------------------------------------------------------------------------
+const PASTORIA_GYM = defineMap('pastoria_gym', {
+  name: 'Pastoria Gym', kind: 'indoor', music: 'gym', darkEdges: false,
+  tiles: [
+    '||||||||||||||||',
+    '|gggggggggggggg|',
+    '|g~~~~~~~~~~~~g|',
+    '|g~gggggggggg~g|',
+    '|g~g~~~~~~~~g~g|',
+    '|g~g~gggggg~g~g|',
+    '|g~g~g~g~~g~g~g|',
+    '|g~ggg~gg~g~g~g|',
+    '|g~g~g~gg~g~g~g|',
+    '|g~g~g~~~~g~g~g|',
+    '|g~g~gggggg~g~g|',
+    '|g~g~~~~~~~~g~g|',
+    '|g~gggggggggg~g|',
+    '|g~~~~~g~~~~~~g|',
+    '|gggggggggggggg|',
+    '|||||||DD|||||||',
+  ],
+  warps: [
+    { x: 7, y: 15, to: 'pastoria', tx: 13, ty: 14, dir: 'down' },
+    { x: 8, y: 15, to: 'pastoria', tx: 14, ty: 14, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: 'gym5_leader', x: 7, y: 7, look: 'sailor', trainer: 'gym5_leader',
+      facing: 'down', sight: 0, movement: 'still', script: 'gymLeader',
+      after: ['COME BACK ANY TIME! I mean that at this volume!'],
+      dialogue: [
+        {
+          lines: ['I AM CRASHER WAKE! You have heard of me! Everybody has heard of me!',
+            'I shout because the marsh is loud and I got into the habit.',
+            'Water does not crash into you. Water gets underneath you and waits.',
+            'COME AND TAKE THE FEN BADGE!'],
+        },
+      ],
+    },
+    { id: 'gym5_t1', x: 1, y: 5, look: 'sailor', trainer: 'gym5_a', facing: 'down', sight: 4, movement: 'still' },
+    { id: 'gym5_t2', x: 14, y: 9, look: 'youngster', trainer: 'gym5_b', facing: 'up', sight: 4, movement: 'still' },
+    { id: 'gym5_t3', x: 5, y: 3, look: 'lass', trainer: 'gym5_c', facing: 'right', sight: 4, movement: 'still' },
+  ],
+  encounters: null,
+});
+
+// ---------------------------------------------------------------------------
+// Route 213 — the beach south of Pastoria. A dead end until Surf, and worth
+// the walk regardless, which is the whole argument for side branches.
+// ---------------------------------------------------------------------------
+const ROUTE213 = defineMap('route213', {
+  name: 'Route 213', kind: 'route', music: 'route',
+  tiles: [
+    'TT::TTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T.............................',
+    'T....""""...........RR........',
+    'T...."""".....................',
+    'T.............................',
+    'Tsssssssssssssssssssssssssssss',
+    'Tsssssssssssssssssssssssssssss',
+    'Tss~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    'Ts~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    'T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    'T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 2, y: 0, to: 'pastoria', tx: 12, ty: 21, dir: 'up', edge: true },
+    { x: 3, y: 0, to: 'pastoria', tx: 13, ty: 21, dir: 'up', edge: true },
+  ],
+  signs: [
+    { x: 20, y: 2, text: 'ROUTE 213\nThe sand goes on for miles and the water\ngoes on further. Nothing that way yet.' },
+  ],
+  objects: [
+    { id: 'r13_scale', x: 25, y: 3, item: 'heartscale', qty: 3 },
+    { id: 'r13_star', x: 6, y: 6, item: 'starpiece', qty: 1 },
+  ],
+  npcs: [
+    { id: 'r13_t1', x: 12, y: 3, look: 'sailor', trainer: 'r13_sailor', facing: 'down', sight: 4, movement: 'still' },
+    {
+      id: 'r13_beach', x: 18, y: 6, look: 'lass', name: 'Sela', movement: 'wander', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Two of you on the beach. Nobody comes down here.',
+            'It goes nowhere, that is why. You cannot get across the water.',
+            'Best place in Sinnoh to sit and not go anywhere, though.'],
+        },
+        {
+          lines: ['This beach does not lead anywhere. Not without something to ride.',
+            'People come, look at the water, and walk back up. Every day.',
+            'I quite like that about it.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 24, max: 28,
+      table: [[278, 30], [418, 24], [400, 18], [194, 14], [453, 8], [451, 6]],
+      night: { min: 24, max: 28, table: [[278, 26], [418, 22], [92, 18], [194, 16], [451, 10], [41, 8]] },
+    },
+    fish: { min: 20, max: 32, table: [[129, 30], [118, 22], [418, 20], [278, 16], [55, 12]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Route 214 — Pastoria east and north to the Valor Lakefront, and on to
+// Veilstone. It closes a second ring: the whole east of the region is now a
+// circuit rather than a spur.
+// ---------------------------------------------------------------------------
+const ROUTE214 = defineMap('route214', {
+  name: 'Route 214', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T....""""...::.....RR....T',
+    'T....""""...::...........T',
+    'T...........::....YYYY...T',
+    'T..RR.......::....YYYY...T',
+    'T...........::...........T',
+    'T....OOO....::...........T',
+    'T...........::....""""...T',
+    'T..LLLLLL...::....""""...T',
+    'T...........::...........T',
+    'T....""""...::.......RR..T',
+    'T....""""...::...........T',
+    'T...........::....YYYY...T',
+    'T..YYYY.....::....YYYY...T',
+    'T..YYYY.....::...........T',
+    'T...........::...........T',
+    'T.........S.::...........T',
+    '::::::::::::::...........T',
+    'T...........::...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 0, y: 18, to: 'pastoria', tx: 28, ty: 7, dir: 'left', edge: true },
+    { x: 12, y: 0, to: 'valor_lakefront', tx: 12, ty: 14, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'valor_lakefront', tx: 13, ty: 14, dir: 'up', edge: true },
+  ],
+  signs: [
+    { x: 10, y: 17, text: 'ROUTE 214\nPASTORIA CITY — WEST\nVALOR LAKEFRONT — NORTH\nThe lake road has been busy lately.' },
+  ],
+  objects: [
+    { id: 'r14_revive', x: 21, y: 2, item: 'maxrevive', qty: 1 },
+  ],
+  npcs: [
+    { id: 'r14_t1', x: 8, y: 12, look: 'hiker', trainer: 'r14_hiker', facing: 'right', sight: 4, movement: 'still' },
+    { id: 'r14_t2', x: 19, y: 6, look: 'lass', trainer: 'r14_lass', facing: 'down', sight: 4, movement: 'still' },
+    {
+      id: 'r14_turned', x: 6, y: 4, look: 'worker', name: 'Ost', movement: 'still', facing: 'right',
+      dialogue: [
+        {
+          when: { flag: 'lakeValor' },
+          lines: ['They have gone. Whole lot of them, overnight.',
+            'And the lake is still empty. That is the part nobody wants to say.'],
+        },
+        {
+          lines: ['They turned me back at the lakefront. Grey coats, no badges, no names.',
+            'Said it was a survey. There is no survey. I work for the water board.',
+            'I would know about a survey.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 24, max: 28,
+      table: [[449, 22], [66, 18], [453, 16], [431, 14], [451, 12], [74, 10], [194, 8]],
+      night: { min: 24, max: 28, table: [[92, 22], [449, 20], [453, 18], [431, 16], [451, 14], [41, 10]] },
+    },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Valor Lakefront, and the lake itself. Getting here late is the point.
+// ---------------------------------------------------------------------------
+const VALOR_LAKEFRONT = defineMap('valor_lakefront', {
+  name: 'Valor Lakefront', kind: 'route', music: 'forest',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T..YYYY.....::.....YYYY..T',
+    'T..YYYY.....::.....YYYY..T',
+    'T...........::...........T',
+    'T....""""...::....""""...T',
+    'T....""""...::....""""...T',
+    'T...........::...........T',
+    'T..AAAAA....::....RR.....T',
+    'T..AAAAA....::...........T',
+    'T..VVVVV....::...........T',
+    'T..#WDW#....::....OOO....T',
+    'T....:......::...........T',
+    'T....::::::::::..........T',
+    'T...........::...........T',
+    'T.........S.::...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 16, to: 'route214', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 16, to: 'route214', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'lake_valor', tx: 11, ty: 17, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'lake_valor', tx: 12, ty: 17, dir: 'up', edge: true },
+    { x: 5, y: 11, to: 'lakefront_center', tx: 6, ty: 6, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 10, w: 5, text: 'RESORT' },
+  ],
+  signs: [
+    { x: 10, y: 15, text: 'VALOR LAKEFRONT\nLAKE VALOR — NORTH\nROUTE 214 — SOUTH\nThe lake is the deepest water in Sinnoh.\nNobody has been to the bottom of it.' },
+  ],
+  objects: [],
+  healPoint: { map: 'lakefront_center', x: 6, y: 7 },
+  npcs: [
+    {
+      id: 'vl_turned', x: 17, y: 12, look: 'scientist', name: 'Ivo', movement: 'still', facing: 'left',
+      dialogue: [
+        {
+          when: { flag: 'lakeValor' },
+          lines: ['I measured that lake every month for nine years.',
+            'It was four hundred feet deep on the first of the month.',
+            'It is a field now. There is grass coming up in it.'],
+        },
+        {
+          when: { flag: 'galacticHQ' },
+          lines: ['They are up there now. You can hear the machinery from here if the wind drops.',
+            'I have called everyone I can think of. Nobody has jurisdiction over a lake.'],
+        },
+        {
+          lines: ['Deepest water in the region and nobody has ever touched the bottom.',
+            'Something lives down there. Every story this region has says so.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 25, max: 29,
+      table: [[449, 20], [431, 18], [453, 16], [451, 14], [66, 12], [194, 12], [193, 8]],
+      night: { min: 25, max: 29, table: [[92, 22], [431, 20], [449, 16], [451, 14], [41, 14], [355, 14]] },
+    },
+  },
+});
+
+/**
+ * Lake Valor. The player arrives after it has already happened, which is the
+ * only way this scene works — Team Galactic are not a threat you head off,
+ * they are a thing that has been happening while you earned badges.
+ */
+const LAKE_VALOR = defineMap('lake_valor', {
+  name: 'Lake Valor', kind: 'route', music: 'forest',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTTTTTTTT',
+    'TT....................TT',
+    'TT..""""........""""..TT',
+    'TT..""""........""""..TT',
+    'TT....................TT',
+    'TT...;;;;;;;;;;;;;;...TT',
+    'TT...;;;;;;;;;;;;;;...TT',
+    'TT...;;;;;;;;;;;;;;...TT',
+    'TT...;;;;;;;;;;;;;;...TT',
+    'TT...;;;;;;;;;;;;;;...TT',
+    'TT...;;;;;;;;;;;;;;...TT',
+    'TT...;;;;;;;;;;;;;;...TT',
+    'TT...;;;;;;;;;;;;;;...TT',
+    'TT....................TT',
+    'TT..""""........""""..TT',
+    'TT..""""........""""..TT',
+    'TT....................TT',
+    'TTTTTTTTTTT..TTTTTTTTTTT',
+    'TTTTTTTTTTT::TTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 11, y: 18, to: 'valor_lakefront', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 18, to: 'valor_lakefront', tx: 13, ty: 1, dir: 'down', edge: true },
+  ],
+  events: [
+    // Standing on the empty lakebed is the scene. It fires once.
+    { x: 11, y: 12, flag: 'lakeValor', script: 'lakeValor' },
+    { x: 12, y: 12, flag: 'lakeValor', script: 'lakeValor' },
+  ],
+  signs: [],
+  objects: [],
+  npcs: [],
+  encounters: {
+    grass: {
+      min: 26, max: 30,
+      table: [[194, 30], [451, 22], [449, 20], [453, 16], [431, 12]],
+      night: { min: 26, max: 30, table: [[194, 28], [92, 22], [451, 20], [449, 18], [355, 12]] },
+    },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Interiors for the south.
+// ---------------------------------------------------------------------------
+const southCenter = (id, town, place, extra) => defineMap(id, {
+  name: 'Pokémon Center', kind: 'indoor', music: 'center', darkEdges: false,
+  tiles: [
+    '||||||||||||||',
+    '|__H_______P_|',
+    '|_xxxxx______|',
+    '|____________|',
+    '|_p________p_|',
+    '|____________|',
+    '|____________|',
+    '||||||DD||||||',
+  ],
+  warps: [
+    { x: 6, y: 7, to: town.id, tx: town.x, ty: town.y, dir: 'down' },
+    { x: 7, y: 7, to: town.id, tx: town.x, ty: town.y, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: `${id}_nurse`, x: 4, y: 1, look: 'nurse', name: 'Nurse', movement: 'still', facing: 'down',
+      script: 'heal', overCounter: true,
+      dialogue: [
+        { when: { linked: true }, lines: [`Welcome to ${place}. {partner} is on the link as well.`, 'Shall I heal your team to full health?'] },
+        { lines: [`Welcome to the ${place} Pokémon Center. Shall I heal your team to full health?`] },
+      ],
+    },
+    {
+      id: `${id}_pc`, x: 10, y: 1, look: 'clerk', name: 'Attendant', movement: 'still', facing: 'down',
+      overCounter: true,
+      dialogue: [{ lines: ['The storage system behind me holds anything your party cannot.', 'Walk up to the terminal and press A.'] }],
+    },
+    { id: `${id}_local`, x: 9, y: 5, look: 'lass', name: 'Trainer', movement: 'wander', facing: 'down', dialogue: extra },
+  ],
+  encounters: null,
+});
+
+const PASTORIA_CENTER = southCenter('pastoria_center', { id: 'pastoria', x: 7, y: 6 }, 'Pastoria', [
+  {
+    when: { flag: 'badge5' },
+    lines: ['You beat Wake? He is still shouting about it, I expect.',
+      'He shouts when he wins as well. It is not a mood, it is a volume.'],
+  },
+  {
+    lines: ['Wake floods his own Gym floor. On purpose. On a timer.',
+      'I fell in twice and he apologised at a hundred decibels both times.'],
+  },
+]);
+
+const LAKEFRONT_CENTER = southCenter('lakefront_center', { id: 'valor_lakefront', x: 5, y: 12 }, 'the Lakefront', [
+  {
+    when: { flag: 'lakeValor' },
+    lines: ['Nobody has checked in since it happened. Not one booking.',
+      'People do not come to look at where a lake used to be.'],
+  },
+  {
+    when: { flag: 'galacticHQ' },
+    lines: ['We are full of people who came to see the lake and cannot get to it.',
+      'The road is closed. Nobody will say who closed it.'],
+  },
+  {
+    lines: ['Resort hotel, this. People come for the water.',
+      'Deepest lake in Sinnoh and you can see straight down thirty feet.'],
+  },
+]);
+
+__exports(__x, { ROUTE212: () => ROUTE212, PASTORIA: () => PASTORIA, GREAT_MARSH: () => GREAT_MARSH, PASTORIA_GYM: () => PASTORIA_GYM, ROUTE213: () => ROUTE213, ROUTE214: () => ROUTE214, VALOR_LAKEFRONT: () => VALOR_LAKEFRONT, LAKE_VALOR: () => LAKE_VALOR, PASTORIA_CENTER: () => PASTORIA_CENTER, LAKEFRONT_CENTER: () => LAKEFRONT_CENTER });
+
+};
+
+__defs['data/maps/highlands.js'] = function (__x, __req) {
+const { defineMap } = __req('data/maps/define.js');
+// The highlands: the fog road north of Solaceon, the oldest town in Sinnoh,
+// and the shrine the whole myth is written on.
+//
+// Celestic is where the story stops being about a company doing something
+// suspicious and starts being about what they think they are doing. The
+// mural on the shrine wall says it in pictures a thousand years older than
+// anybody who has ever worn a grey coat.
+
+
+// ---------------------------------------------------------------------------
+// Route 210 north — the permanent fog, and the Psyduck sitting in it.
+//
+// The road narrows to two tiles between the pines. That neck is the gate:
+// a line of Psyduck with headaches sits in it and will not be reasoned with
+// until somebody turns up holding the one thing that helps.
+// ---------------------------------------------------------------------------
+const ROUTE210_NORTH = defineMap('route210_north', {
+  name: 'Route 210', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'T...........::...........T',
+    'T....""""...::....""""...T',
+    'T....""""...::....""""...T',
+    'T...........::...........T',
+    'TYYYYYYYYYYY::YYYYYYYYYYYT',
+    'TYYYYYYYYYYY::YYYYYYYYYYYT',
+    'T...........::...........T',
+    'T..RR.......::.......RR..T',
+    'T....""""...::....""""...T',
+    'T....""""...::....""""...T',
+    'T...........::...........T',
+    'T..YYYY.....::.....YYYY..T',
+    'T..YYYY.....::.....YYYY..T',
+    'T...........::...........T',
+    'T....OOO....::...........T',
+    'T...........::...........T',
+    'T.........S.::...........T',
+    'T...........::...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 19, to: 'route210', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 19, to: 'route210', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'celestic', tx: 12, ty: 20, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'celestic', tx: 13, ty: 20, dir: 'up', edge: true },
+  ],
+  signs: [
+    { x: 10, y: 17, text: 'ROUTE 210 — NORTH\nCELESTIC TOWN, through the fog.\nThe road narrows. Mind what is sitting in it.' },
+  ],
+  objects: [
+    { id: 'r10n_ether', x: 7, y: 16, item: 'ether', qty: 1 },
+    { id: 'r10n_fullheal', x: 21, y: 11, item: 'fullheal', qty: 2 },
+  ],
+  npcs: [
+    // The neck. Four of them, filling both lanes, going nowhere.
+    {
+      id: 'psy1', species: 54, x: 12, y: 6, name: 'Psyduck', movement: 'still', facing: 'down',
+      script: 'psyducks', goneWhen: 'psyducks',
+      dialogue: [{ lines: ['Psyduck: ...Psy. Psy-yi-yi.'] }],
+    },
+    { id: 'psy2', species: 54, x: 13, y: 6, name: 'Psyduck', movement: 'still', facing: 'down', goneWhen: 'psyducks',
+      dialogue: [{ lines: ['Psyduck: Psy... psy... *It has both hands on its head.*'] }] },
+    { id: 'psy3', species: 54, x: 11, y: 7, name: 'Psyduck', movement: 'still', facing: 'down', goneWhen: 'psyducks',
+      dialogue: [{ lines: ['Psyduck: *It does not appear to have noticed you at all.*'] }] },
+    { id: 'psy4', species: 54, x: 14, y: 7, name: 'Psyduck', movement: 'still', facing: 'down', goneWhen: 'psyducks',
+      dialogue: [{ lines: ['Psyduck: PSY. *Everything nearby flinches.*'] }] },
+    { id: 'r10n_t1', x: 8, y: 10, look: 'hiker', trainer: 'r10n_hiker', facing: 'right', sight: 4, movement: 'still' },
+    { id: 'r10n_t2', x: 18, y: 13, look: 'lass', trainer: 'r10n_lass', facing: 'left', sight: 4, movement: 'still' },
+    {
+      id: 'r10n_warden', x: 9, y: 8, look: 'oldMan', name: 'Ferrin', movement: 'lookAround', facing: 'right',
+      dialogue: [
+        {
+          when: { flag: 'psyducks' },
+          lines: ['You got them moving. I have been trying that for eleven days.',
+            'Celestic is up there. Small place. Older than everywhere else put together.'],
+        },
+        {
+          when: { flag: 'lakeValor' },
+          lines: ['You have been down at Valor. It is on your boots and it is on your face.',
+            'The Psyduck started their headaches the same morning the lake went.',
+            'Something big woke up and every psychic thing in Sinnoh felt it.'],
+        },
+        {
+          lines: ['Road is shut. Not by anybody — by ducks.',
+            'Four of them, all with headaches, all in the narrow bit.',
+            'There is a medicine for it. Celestic has it, and Celestic is the other side.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 26, max: 30,
+      table: [[55, 22], [431, 18], [307, 16], [114, 14], [441, 12], [66, 10], [396, 8]],
+      night: { min: 26, max: 30, table: [[55, 24], [198, 20], [431, 16], [92, 14], [441, 14], [396, 12]] },
+    },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Celestic Town — a bowl in the highlands with a shrine cut into the back of
+// it. Two houses, a Centre, and a thousand-year-old wall.
+// ---------------------------------------------------------------------------
+const CELESTIC = defineMap('celestic', {
+  name: 'Celestic Town', kind: 'town', music: 'city',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T^^^^^^^^^^IIII^^^^^^^^^^T',
+    'T^^^^^^^^^^IDDI^^^^^^^^^^T',
+    'T...........::...........T',
+    'T..AAAAA....::....AAAAA..T',
+    'T..AAAAA....::....AAAAA..T',
+    'T..VVVVV....::....VVVVV..T',
+    'T..#WDW#....::....#WDW#..T',
+    'T....:......::......:....T',
+    'T....::::::::::::::::....T',
+    'T...........::...........T',
+    'T.S.........::.........S.T',
+    '::::::::::::::...........T',
+    'T...........::...........T',
+    'T..,,,,.....::.....,,,,..T',
+    'T..,,,,.....::.....,,,,..T',
+    'T...........::...........T',
+    'T..~~~~~....::....~~~~~..T',
+    'T..~~~~~....::....~~~~~..T',
+    'T...........::...........T',
+    'T.........S.::...........T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 12, y: 21, to: 'route210_north', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 21, to: 'route210_north', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 0, y: 12, to: 'route211', tx: 24, ty: 8, dir: 'left', edge: true },
+    { x: 12, y: 2, to: 'celestic_ruins', tx: 7, ty: 10, dir: 'up' },
+    { x: 13, y: 2, to: 'celestic_ruins', tx: 8, ty: 10, dir: 'up' },
+    { x: 5, y: 7, to: 'celestic_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 20, y: 7, to: 'celestic_house', tx: 5, ty: 5, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 6, w: 5, text: 'POKéMON CENTER' },
+    { x: 18, y: 6, w: 5, text: 'ELDER' },
+  ],
+  signs: [
+    { x: 2, y: 11, text: 'CELESTIC TOWN\n"Where the myth was written down first."\nPopulation: fewer than the mural has figures.' },
+    { x: 23, y: 11, text: 'The shrine is not a tourist attraction.\nThe elder decides who goes in. She has\nnever once said no, but she decides.' },
+    { x: 10, y: 20, text: 'ROUTE 210 — SOUTH, through the fog.\nROUTE 211 — WEST, toward the mountain.' },
+  ],
+  objects: [
+    { id: 'cel_stone', x: 4, y: 19, item: 'oddkeystone', qty: 1 },
+  ],
+  healPoint: { map: 'celestic_center', x: 6, y: 7 },
+  npcs: [
+    // Two grey coats stood in the shrine doorway, which is how the town found
+    // out that Team Galactic read history books.
+    {
+      id: 'cel_grunt1', x: 12, y: 3, look: 'grunt', name: 'Galactic Grunt', movement: 'still', facing: 'down',
+      trainer: 'celestic_grunt1', script: 'celesticGrunt', goneWhen: 'celestic',
+      dialogue: [{ lines: ['Grunt: The wall in there is a schematic. Nobody in this town knows that.'] }],
+    },
+    {
+      id: 'cel_grunt2', x: 13, y: 3, look: 'gruntF', name: 'Galactic Grunt', movement: 'still', facing: 'down',
+      goneWhen: 'celestic',
+      dialogue: [{ lines: ['Grunt: We are not stealing anything. We are reading.', 'Grunt: You cannot arrest somebody for reading.'] }],
+    },
+    {
+      id: 'cel_local', x: 8, y: 13, look: 'oldWoman', name: 'Nell', movement: 'lookAround', facing: 'right',
+      dialogue: [
+        {
+          when: { flag: 'celestic' },
+          lines: ['You moved them on. Nobody here could have.',
+            'The elder wants you. She has wanted somebody for about forty years.'],
+        },
+        {
+          lines: ['Two of them in grey have been stood at the shrine since Tuesday.',
+            'Not doing anything. Just looking at the wall and writing.',
+            'That is worse, somehow. I would rather they smashed it.'],
+        },
+      ],
+    },
+    {
+      id: 'cel_kid', x: 17, y: 19, look: 'youngster', name: 'Pell', movement: 'wander', facing: 'down',
+      dialogue: [
+        {
+          when: { linked: true },
+          lines: ['Two of you! Nobody comes here. Nobody ever comes here.',
+            'Are you together-together? Nell says you can tell by the walking.'],
+        },
+        {
+          lines: ['My gran says the mural is a map. My dad says it is a warning.',
+            'They have been arguing about it my whole life and neither will go and look.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    fish: { min: 20, max: 30, table: [[129, 34], [54, 26], [55, 16], [118, 14], [55, 10]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// The shrine. One room, one wall, and everything the campaign is about.
+// ---------------------------------------------------------------------------
+const CELESTIC_RUINS = defineMap('celestic_ruins', {
+  subArea: true,
+  name: 'Celestic Shrine', kind: 'cave', music: 'cave', darkEdges: false,
+  tiles: [
+    'CCCCCCCCCCCCCCCC',
+    'CccccccccccccccC',
+    'Cc!cccccccccc!cC',
+    'CccccIIIIIIccccC',
+    'CccccI;;;;IccccC',
+    'CccccI;SS;IccccC',
+    'CccccI;II;IccccC',
+    'CccccI;;;;IccccC',
+    'CccccII;;IIccccC',
+    'CccccccccccccccC',
+    'CCCCCCCccCCCCCCC',
+    'CCCCCCCccCCCCCCC',
+  ],
+  warps: [
+    { x: 7, y: 11, to: 'celestic', tx: 12, ty: 3, dir: 'down' },
+    { x: 8, y: 11, to: 'celestic', tx: 13, ty: 3, dir: 'down' },
+  ],
+  signs: [
+    {
+      x: 7, y: 5,
+      text: 'THE MURAL — LEFT HALF\nThree small figures at three waters. Above\nthem a fourth, larger, with no face drawn.',
+    },
+    {
+      x: 8, y: 5,
+      text: 'THE MURAL — RIGHT HALF\nThe same four, and the world behind them\nrolled up like a sheet being taken off a bed.',
+    },
+  ],
+  objects: [],
+  npcs: [
+    {
+      id: 'cel_elder', x: 6, y: 4, look: 'oldWoman', name: 'Elder Carolina', movement: 'still', facing: 'right',
+      script: 'celesticElder',
+      dialogue: [{ lines: ['Elder: Stand where you are and look at it properly first.'] }],
+    },
+  ],
+  encounters: null,
+});
+
+// ---------------------------------------------------------------------------
+// Route 211 — Celestic west, toward the far side of Mt. Coronet.
+// ---------------------------------------------------------------------------
+const ROUTE211 = defineMap('route211', {
+  name: 'Route 211', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T........................T',
+    'T..YYYY..........YYYY....T',
+    'T..YYYY..........YYYY....T',
+    'T........................T',
+    'T....""""......""""......T',
+    'T....""""......""""......T',
+    'T........................T',
+    'T:::::::::::::::::::::::::',
+    'T........................T',
+    'T..RR............RR......T',
+    'T........................T',
+    'T....""""......""""......T',
+    'T....""""......""""......T',
+    'T.........S..............T',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 25, y: 8, to: 'celestic', tx: 1, ty: 12, dir: 'right', edge: true },
+  ],
+  signs: [
+    { x: 10, y: 14, text: 'ROUTE 211\nCELESTIC TOWN — EAST.\nThe mountain door is west, and it is shut\nfrom the inside.' },
+  ],
+  objects: [
+    { id: 'r11_ether', x: 4, y: 1, item: 'ether', qty: 1 },
+  ],
+  npcs: [
+    { id: 'r11_t1', x: 7, y: 5, look: 'hiker', trainer: 'r11_hiker', facing: 'down', sight: 4, movement: 'still' },
+    { id: 'r11_t2', x: 17, y: 12, look: 'youngster', trainer: 'r11_youngster', facing: 'up', sight: 4, movement: 'still' },
+    {
+      id: 'r11_watcher', x: 4, y: 9, look: 'clerk', name: 'Ines', movement: 'lookAround', facing: 'left',
+      dialogue: [
+        {
+          when: { flag: 'celestic' },
+          lines: ['The elder let you look at the wall. She does not do that often.',
+            'West is the mountain\'s other door. It has been bolted since I was small.',
+            'It will not be bolted much longer. They have been carrying things in for a month.'],
+        },
+        {
+          lines: ['I walk up to the mountain door and back, twice a day, for the exercise.',
+            'Lately there are lorries doing the same walk, and they are not doing it for the exercise.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 27, max: 31,
+      table: [[74, 20], [95, 18], [307, 16], [67, 14], [441, 12], [436, 12], [111, 8]],
+      night: { min: 27, max: 31, table: [[74, 22], [95, 20], [41, 18], [198, 14], [441, 14], [436, 12]] },
+    },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Interiors.
+// ---------------------------------------------------------------------------
+const CELESTIC_CENTER = defineMap('celestic_center', {
+  name: 'Pokémon Center', kind: 'indoor', music: 'center', darkEdges: false,
+  tiles: [
+    '||||||||||||||',
+    '|__H_______P_|',
+    '|_xxxxx______|',
+    '|____________|',
+    '|_p________p_|',
+    '|____________|',
+    '|____________|',
+    '||||||DD||||||',
+  ],
+  warps: [
+    { x: 6, y: 7, to: 'celestic', tx: 5, ty: 8, dir: 'down' },
+    { x: 7, y: 7, to: 'celestic', tx: 5, ty: 8, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: 'celestic_center_nurse', x: 4, y: 1, look: 'nurse', name: 'Nurse', movement: 'still', facing: 'down',
+      script: 'heal', overCounter: true,
+      dialogue: [
+        { when: { linked: true }, lines: ['Welcome to Celestic. {partner} is on the link as well.', 'Shall I heal your team to full health?'] },
+        { lines: ['Welcome to the Celestic Pokémon Center. Shall I heal your team to full health?'] },
+      ],
+    },
+    {
+      id: 'celestic_center_pc', x: 10, y: 1, look: 'clerk', name: 'Attendant', movement: 'still', facing: 'down',
+      overCounter: true,
+      dialogue: [{ lines: ['The storage system behind me holds anything your party cannot.', 'Walk up to the terminal and press A.'] }],
+    },
+    {
+      id: 'celestic_center_local', x: 9, y: 5, look: 'hiker', name: 'Trainer', movement: 'wander', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'celestic' },
+          lines: ['Word went round the town in about four minutes.',
+            'Somebody finally stood in front of the shrine instead of writing about it.'],
+        },
+        {
+          lines: ['Four houses and a shrine. That is the whole town.',
+            'People act like that means nothing happens here. Something happened here first.'],
+        },
+      ],
+    },
+  ],
+  encounters: null,
+});
+
+const CELESTIC_HOUSE = defineMap('celestic_house', {
+  name: "Elder's House", kind: 'indoor', music: 'town', darkEdges: false,
+  tiles: [
+    '||||||||||',
+    '|_k_e__b_|',
+    '|_k______|',
+    '|________|',
+    '|_p____p_|',
+    '|________|',
+    '||||DD||||',
+  ],
+  warps: [
+    { x: 4, y: 6, to: 'celestic', tx: 20, ty: 8, dir: 'down' },
+    { x: 5, y: 6, to: 'celestic', tx: 20, ty: 8, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: 'cel_house_keeper', x: 7, y: 3, look: 'oldWoman', name: 'Rell', movement: 'lookAround', facing: 'left',
+      dialogue: [
+        {
+          when: { flag: 'celestic' },
+          lines: ['She went straight back up to the shrine, of course she did.',
+            'Ninety-one years old and she takes that path like it owes her money.'],
+        },
+        {
+          lines: ['The elder is not in. The elder is never in.',
+            'She is at the shrine, standing in front of two people in grey coats,',
+            'and she has been there since Tuesday, and she will not move first.'],
+        },
+      ],
+    },
+  ],
+  encounters: null,
+});
+
+__exports(__x, { ROUTE210_NORTH: () => ROUTE210_NORTH, CELESTIC: () => CELESTIC, CELESTIC_RUINS: () => CELESTIC_RUINS, ROUTE211: () => ROUTE211, CELESTIC_CENTER: () => CELESTIC_CENTER, CELESTIC_HOUSE: () => CELESTIC_HOUSE });
+
+};
+
 __defs['data/maps/index.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
 const { TWINLEAF, SANDGEM, JUBILIFE, OREBURGH } = __req('data/maps/towns.js');
@@ -16172,11 +17409,15 @@ const { UNDERGROUND, SECRET_BASE } = __req('data/maps/underground.js');
 const { ROUTE204, RAVAGED_PATH, FLOAROMA, ROUTE205, WINDWORKS, ETERNA_FOREST, ETERNA, ROUTE206, LAKE_VERITY, ETERNA_GYM, FLOAROMA_CENTER, FLOAROMA_HOUSE, ETERNA_CENTER, ETERNA_MART, WINDWORKS_IN } = __req('data/maps/north.js');
 const { MT_CORONET_SOUTH, ROUTE208, HEARTHOME, HEARTHOME_GYM, HEARTHOME_CENTER, HEARTHOME_MART, CONTEST_HALL, AMITY_SQUARE } = __req('data/maps/central.js');
 const { ROUTE209, LOST_TOWER, LOST_TOWER_2, LOST_TOWER_3, SOLACEON, SOLACEON_RUINS, ROUTE210, ROUTE215, VEILSTONE, VEILSTONE_GYM, SOLACEON_CENTER, SOLACEON_HOUSE, VEILSTONE_CENTER, VEILSTONE_STORE, GALACTIC_WAREHOUSE, GALACTIC_HQ } = __req('data/maps/east.js');
+const { ROUTE212, PASTORIA, GREAT_MARSH, PASTORIA_GYM, ROUTE213, ROUTE214, VALOR_LAKEFRONT, LAKE_VALOR, PASTORIA_CENTER, LAKEFRONT_CENTER } = __req('data/maps/south.js');
+const { ROUTE210_NORTH, CELESTIC, CELESTIC_RUINS, ROUTE211, CELESTIC_CENTER, CELESTIC_HOUSE } = __req('data/maps/highlands.js');
 // Map registry.
 //
 // A map is: an ASCII tile grid, plus warps, NPCs, objects, signs and an
 // encounter table. `defineMap` validates the grid at load so a mis-typed
 // row is a loud error at boot instead of a mysterious hole in the world.
+
+
 
 
 
@@ -16205,6 +17446,11 @@ const ALL = [TWINLEAF, ROUTE201, SANDGEM, ROUTE202, JUBILIFE, ROUTE203, OREBURGH
   ROUTE209, LOST_TOWER, LOST_TOWER_2, LOST_TOWER_3, SOLACEON, SOLACEON_RUINS,
   ROUTE210, ROUTE215, VEILSTONE, VEILSTONE_GYM, SOLACEON_CENTER, SOLACEON_HOUSE,
   VEILSTONE_CENTER, VEILSTONE_STORE, GALACTIC_WAREHOUSE, GALACTIC_HQ,
+  // The wet south, and the lake they got to first.
+  ROUTE212, PASTORIA, GREAT_MARSH, PASTORIA_GYM, ROUTE213, ROUTE214,
+  VALOR_LAKEFRONT, LAKE_VALOR, PASTORIA_CENTER, LAKEFRONT_CENTER,
+  // Up through the fog to the oldest town in Sinnoh, and the shrine in it.
+  ROUTE210_NORTH, CELESTIC, CELESTIC_RUINS, ROUTE211, CELESTIC_CENTER, CELESTIC_HOUSE,
   ...INTERIORS];
 
 const MAPS = {};
@@ -16662,6 +17908,47 @@ add('r15_hiker', {
   ],
 });
 
+add('lv_mars', {
+  name: 'Commander Mars', cls: 'Galactic Commander', look: 'gruntF', ai: 4, prize: 3200,
+  intro: 'Four minutes. You were four minutes late. I am going to keep saying it.',
+  defeat: 'That changed nothing and I want you to sit with that.',
+  team: [mon(431, 34, ['fakeout', 'furyswipes', 'hypnosis']), mon(198, 34, ['pursuit', 'feintattack', 'torment']),
+    mon(429, 36, ['confuseray', 'psybeam', 'shadowball'])],
+});
+
+// ---- the fog road and the highlands ---------------------------------------
+add('r10n_hiker', {
+  name: 'Hiker Doran', cls: 'Hiker', look: 'hiker', ai: 3, prize: 1120,
+  intro: 'I can hear you. I cannot see you. That is how this road works.',
+  defeat: 'Fought you blind and lost. That tracks.',
+  team: [mon(74, 28, ['rockthrow', 'magnitude', 'rollout']), mon(95, 30, ['rockthrow', 'bind', 'screech'])],
+});
+add('r10n_lass', {
+  name: 'Lass Peri', cls: 'Lass', look: 'lass', ai: 3, prize: 960,
+  intro: 'The fog is fine. The fog is lovely. Everyone else is wrong about the fog.',
+  defeat: 'Fine. It is a bit much.',
+  team: [mon(441, 29, ['peck', 'mirrormove', 'featherdance']), mon(55, 30, ['confusion', 'watergun', 'disable'])],
+});
+add('celestic_grunt1', {
+  name: 'Galactic Grunt', cls: 'Galactic', look: 'grunt', ai: 3, prize: 1520,
+  intro: 'That wall is a thousand years of somebody writing down what we are going to do.',
+  defeat: 'It is still going to happen. We are just late.',
+  team: [mon(431, 32, ['fakeout', 'furyswipes', 'hypnosis']), mon(198, 32, ['pursuit', 'feintattack', 'torment']),
+    mon(453, 32, ['revenge', 'mudslap', 'poisonsting'])],
+});
+add('r11_hiker', {
+  name: 'Hiker Sable', cls: 'Hiker', look: 'hiker', ai: 3, prize: 1200,
+  intro: 'I walk to the mountain door and back. Twice a day. For the legs.',
+  defeat: 'Legs are fine. Everything else took a knock.',
+  team: [mon(95, 31, ['rockthrow', 'bind', 'screech']), mon(74, 31, ['magnitude', 'rollout', 'rocktomb'])],
+});
+add('r11_youngster', {
+  name: 'Youngster Bly', cls: 'Youngster', look: 'youngster', ai: 3, prize: 1000,
+  intro: 'Nobody comes this way except lorries and me.',
+  defeat: 'And now you. That is three things.',
+  team: [mon(396, 30, ['quickattack', 'wingattack', 'doubleteam']), mon(307, 31, ['confusion', 'detect', 'lightscreen'])],
+});
+
 // ---- the Galactic buildings -----------------------------------------------------
 add('gw_grunt', {
   name: 'Galactic Grunt', cls: 'Galactic', look: 'grunt', ai: 2, prize: 1280,
@@ -16723,6 +18010,72 @@ add('gym4_leader', {
   ],
 });
 
+// ---- the wet south ------------------------------------------------------------
+// Levels in the low thirties: this is the stretch where a team that has been
+// coasting on a starter stops coasting.
+
+add('r12_lass', {
+  name: 'Lass Fen', cls: 'Lass', look: 'lass', ai: 3, prize: 1680,
+  intro: 'The ground round here is not ground. Mind your footing.',
+  defeat: 'You are all right on the mud, then.',
+  team: [mon(194, 32, ['watergun', 'mudshot', 'slam']), mon(418, 32, ['aquajet', 'quickattack', 'pursuit'])],
+});
+add('r12_sailor', {
+  name: 'Sailor Bosch', cls: 'Sailor', look: 'sailor', ai: 3, prize: 1760,
+  intro: 'I have worked this water twenty years. I know what is under it.',
+  defeat: 'Most of it. I know most of what is under it.',
+  team: [mon(418, 32, ['aquajet', 'watergun', 'pursuit']), mon(55, 33, ['watergun', 'confusion', 'furyswipes'])],
+});
+add('r13_sailor', {
+  name: 'Sailor Orl', cls: 'Sailor', look: 'sailor', ai: 3, prize: 1840,
+  intro: 'Nothing down this beach but sand and me.',
+  defeat: 'Now there is sand and me and a bad mood.',
+  team: [mon(278, 33, ['wingattack', 'watergun', 'supersonic']), mon(418, 33, ['aquajet', 'pursuit', 'swift'])],
+});
+add('r14_hiker', {
+  name: 'Hiker Vosk', cls: 'Hiker', look: 'hiker', ai: 3, prize: 1920,
+  intro: 'They turned me back at the lakefront. I am in a mood about it.',
+  defeat: 'Now I am in a worse one. Go on, see for yourself.',
+  team: [mon(449, 34, ['bite', 'sandtomb', 'dig']), mon(67, 34, ['karatechop', 'seismictoss', 'lowkick'])],
+});
+add('r14_lass', {
+  name: 'Lass Iri', cls: 'Lass', look: 'lass', ai: 3, prize: 1880,
+  intro: 'There is machinery running up at the lake. You can hear it from here.',
+  defeat: 'Listen for it. You will not un-hear it.',
+  team: [mon(431, 34, ['fakeout', 'furyswipes', 'hypnosis']), mon(451, 34, ['poisonsting', 'bite', 'pinmissile'])],
+});
+
+// ---- the Pastoria Gym -----------------------------------------------------------
+add('gym5_a', {
+  name: 'Sailor Dree', cls: 'Sailor', look: 'sailor', ai: 3, prize: 1800,
+  intro: 'Wake trained me. I am half as loud and about a third as good.',
+  defeat: 'Both of those numbers were generous.',
+  team: [mon(418, 33, ['aquajet', 'watergun', 'swift']), mon(194, 33, ['mudshot', 'watergun', 'slam'])],
+});
+add('gym5_b', {
+  name: 'Youngster Kell', cls: 'Youngster', look: 'youngster', ai: 3, prize: 1800,
+  intro: 'The floor floods in about a minute. I would not stand there.',
+  defeat: 'Told you about the floor.',
+  team: [mon(55, 34, ['watergun', 'confusion', 'furyswipes']), mon(278, 33, ['wingattack', 'watergun'])],
+});
+add('gym5_c', {
+  name: 'Lass Bree', cls: 'Lass', look: 'lass', ai: 3, prize: 1800,
+  intro: 'Grass or Electric. That is what you want and I am telling you anyway.',
+  defeat: 'You had Electric. Everybody has Electric.',
+  team: [mon(194, 34, ['mudshot', 'watergun', 'slam']), mon(453, 34, ['revenge', 'mudslap', 'poisonsting'])],
+});
+add('gym5_leader', {
+  name: 'Crasher Wake', cls: 'Gym Leader', look: 'sailor', ai: 3, prize: 6000, leader: true,
+  badge: 5, badgeName: 'Fen Badge', tm: 'tm06',
+  intro: 'I AM CRASHER WAKE! Water does not crash into you — water gets underneath\nyou and waits! COME AND TAKE THE FEN BADGE!',
+  defeat: 'HA! You got underneath ME! That is the Fen Badge and you have earned it!',
+  team: [
+    mon(195, 34, ['mudshot', 'watergun', 'yawn', 'slam']),
+    mon(419, 35, ['aquajet', 'crunch', 'swift', 'pursuit']),
+    mon(55, 37, ['surf', 'confusion', 'furyswipes', 'screech']),
+  ],
+});
+
 __exports(__x, { TRAINERS: () => TRAINERS, getTrainer: () => getTrainer, STARTER_LINES: () => STARTER_LINES, rivalStarterBase: () => rivalStarterBase });
 
 };
@@ -16737,12 +18090,14 @@ const { getTrainer } = __req('data/trainers.js');
 const { weightedPick } = __req('core/rng.js');
 const { TILE } = __req('render/canvas.js');
 const { currentPhase } = __req('game/clock.js');
+const { buddyPlayerOf } = __req('game/players.js');
 // The overworld simulation.
 //
 // Grid-based like the games it is modelled on: an entity always occupies a
 // whole tile and animates between tiles. Everything downstream — collision,
 // encounters, trainer sight, the camera — is simple and predictable because
 // of that, and it is what makes the movement feel right rather than floaty.
+
 
 
 
@@ -16802,6 +18157,7 @@ class World {
     this.pendingEncounter = null;
     this.pendingLadder = null;
     this.pendingWarp = null;
+    this.pendingBlocked = null;
     this.pendingTrainer = null;
     this.pendingEvent = null;
     this.stepsSinceEncounter = 0;
@@ -16832,7 +18188,24 @@ class World {
 
     for (const npc of this.map.npcs) {
       if (npc.trainer && this.state.flags[`beat_${npc.trainer}`] && npc.removeAfter) continue;
-      this.entities.push(makeEntity({ ...npc, kind: 'npc' }));
+      // Two general switches, so a scene can put somebody in the road and
+      // then take them out of it without the map needing two copies.
+      // `goneWhen` is somebody who leaves; `onlyWhen` is somebody who
+      // has not turned up yet.
+      if (npc.goneWhen && this.state.flags[npc.goneWhen]) continue;
+      if (npc.onlyWhen && !this.state.flags[npc.onlyWhen]) continue;
+      // The other protagonist. When the link is up they are a real player
+      // walking around, so the stand-in has to get out of the way; when it
+      // is not, they are here, because they live here.
+      if (npc.soloOnly && this.linkedNow()) continue;
+      // And a stand-in has to look like whoever you are NOT playing.
+      const look = npc.look === 'buddy' ? buddyPlayerOf(this.state).look : npc.look;
+      const e = makeEntity({ ...npc, look, kind: 'npc' });
+      // An NPC that is a Pokemon rather than a person — the Psyduck sitting
+      // in the fog road. It draws from the same artwork the walking partner
+      // uses, so there is no second sprite pipeline to keep in step.
+      if (npc.species) e.mon = { species: npc.species, shiny: false };
+      this.entities.push(e);
     }
     for (const obj of this.map.objects) {
       if (this.state.flags[`item_${obj.id}`]) continue;
@@ -16903,6 +18276,13 @@ class World {
     // one field move with no obstacle tile of its own: it does not clear
     // anything, it changes what counts as ground.
     if (def.water && !def.field && entity.kind === 'player' && canUse(this.state, 'surf')) return true;
+    // A door the story has not opened yet. Treated as solid so the player
+    // bumps it rather than stepping onto it and being pushed back off — a
+    // shove is a worse feeling and a messier piece of code.
+    if (entity.kind === 'player') {
+      const w = this.warpAt(x, y);
+      if (w && w.requires && !this.state.flags[w.requires]) return false;
+    }
     if (def.solid) return false;
     if (this.entityAt(x, y, entity)) return false;
     if (entity.kind === 'player' && this.remoteAt(x, y)) return false;
@@ -16916,7 +18296,13 @@ class World {
     entity.dir = dirName;
     const [dx, dy] = DIRS[dirName];
     const nx = entity.x + dx, ny = entity.y + dy;
-    if (!this.canEnter(entity, nx, ny, dirName)) return false;
+    if (!this.canEnter(entity, nx, ny, dirName)) {
+      if (entity.kind === 'player') {
+        const w = this.warpAt(nx, ny);
+        if (w && w.requires && !this.state.flags[w.requires]) this.pendingBlocked = w;
+      }
+      return false;
+    }
 
     const def = this.defAt(nx, ny);
     let tx = nx, ty = ny, hop = 0;
@@ -17115,6 +18501,7 @@ class World {
 
     // Warp?
     const warp = this.warpAt(p.x, p.y);
+    // A gated warp is refused at `canEnter`, so anything reached here is open.
     if (warp) { this.pendingWarp = warp; return; }
 
     // Scripted step event? Most fire once and set their flag; one marked
@@ -17134,7 +18521,7 @@ class World {
     const table = this.map.encounters
       && (def.tall ? this.map.encounters.grass : (this.map.kind === 'cave' ? this.map.encounters.cave : null));
     const now = this._tableForNow(table);
-    if (now && this.encounterCooldown <= 0) this._rollEncounter(now);
+    if (now && this.encounterCooldown <= 0 && this.canBattle()) this._rollEncounter(now);
   }
 
   /**
@@ -17166,7 +18553,27 @@ class World {
     this.pendingEncounter = { species, level };
   }
 
+  /**
+   * Whether the player has anything that could take the field.
+   *
+   * Without this a trainer will happily start a battle against an empty
+   * party, and the battle screen then waits forever for a Pokemon that is
+   * never coming. Checked here rather than in the battle screen because the
+   * right answer is for the battle never to start.
+   */
+  /** Whether the other player is actually here, on the wire, right now. */
+  linkedNow() {
+    const snap = this.state && this.state.link;
+    if (snap) return !!(snap.connected && snap.partner);
+    return !!(this.remotes && this.remotes.size);
+  }
+
+  canBattle() {
+    return (this.state.party || []).some((m) => m && !m.isEgg && m.hp > 0);
+  }
+
   _trainerSeeing(px, py) {
+    if (!this.canBattle()) return null;
     for (const e of this.entities) {
       const t = e.data && e.data.trainer;
       if (!t || !e.visible) continue;
@@ -17503,6 +18910,8 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
   for (const e of world.entities) {
     if (!e.visible) continue;
     if (e.kind === 'item') { drawables.push({ e, sortY: e.y, item: true }); continue; }
+    // An NPC that is a Pokemon draws through the partner path.
+    if (e.mon) { drawables.push({ e, sortY: e.y, partner: true }); continue; }
     drawables.push({ e, sortY: e.y });
   }
   for (const r of world.remotesHere()) drawables.push({ e: r, sortY: r.y, remote: true });
@@ -18624,8 +20033,36 @@ SCRIPTS.starter = async (ctx) => {
   ctx.shareMilestone(FLAGS.GOT_STARTER);
   ctx.journal('gotStarter');
 
+  await cassTakesHers(ctx, base);
   await banditJoins(ctx);
 };
+
+/**
+ * Cass, taking the one that beats yours, while you are stood there.
+ *
+ * She has been in the lab the whole time — she got up at seven, which she
+ * will tell you about for the rest of the game. Watching her do it is the
+ * difference between a rival and a line of dialogue claiming there is one.
+ */
+async function cassTakesHers(ctx, playerBase) {
+  const hers = rivalStarterBase(playerBase);
+  const mine = getSpecies(playerBase);
+  const theirs = getSpecies(hers);
+
+  await ctx.wait(0.4);
+  await ctx.say(`Cass: Right. That is the ${mine.name} gone, then.`, { speaker: 'Cass Wren' });
+  await ctx.say('Cass: I have been sat on that bench since seven waiting to see which\none you would take.');
+  await ctx.showMonster(hers);
+  ctx.cry(hers);
+  await ctx.say(`Cass: So I will have the ${theirs.name}. The ${theirs.types.join('/')} type.`);
+  await ctx.say(`Cass: ${theirs.name} beats ${mine.name}. That is the entire reason.\fI am not going to pretend it is anything else.`);
+  ctx.hideMonster();
+  ctx.dex.seen(hers);
+  await ctx.say('Prof. Rowan: Cass. It is a Pokémon, not a chess piece.', { speaker: 'Prof. Rowan' });
+  await ctx.say('Cass: It can be both.', { speaker: 'Cass Wren' });
+  await ctx.say('Cass: North gate. Twenty minutes. Do not make me stand there for an hour.');
+  ctx.setFlag(FLAGS.MET_RIVAL);
+}
 
 /**
  * Bandit lets himself in.
@@ -19768,7 +21205,183 @@ SCRIPTS.saturn = async (ctx, npc) => {
   ctx.journal('galacticHQ');
   ctx.sfx('badge');
   await ctx.say('Saturn: Go to Pastoria. Go anywhere. It changes nothing —\fbut you will feel better for having gone.');
+
+  // He empties a drawer at you on the way past. It is the only thing in this
+  // building anybody in Sinnoh will ever need, and he does not know that.
+  await ctx.say('Saturn: And take this out of my drawer. Somebody in Celestic sends it every\nmonth and I have never once wanted it.');
+  ctx.give('secretpotion', 1);
+  ctx.sfx('buy');
+  await ctx.say('You received the SECRET POTION!');
   void npc;
+};
+
+// ---- Lake Valor ------------------------------------------------------------
+//
+// The player arrives after it has already happened. That is the whole scene:
+// Team Galactic are not a threat you head off, they are a thing that has been
+// going on while you were earning badges, and this is where that lands.
+
+SCRIPTS.lakeValor = async (ctx) => {
+  const st = ctx.state;
+  ctx.sfx('warp');
+  await ctx.wait(0.6);
+  await ctx.say('*You come out of the trees expecting water.*');
+  await ctx.say('*There is no water.*');
+  await ctx.wait(0.5);
+  await ctx.say('The deepest lake in Sinnoh is a bowl of cracked mud four hundred feet\ndeep, and it is completely dry, and there is grass coming up in it.');
+  await ctx.say('There are tyre tracks. A lot of tyre tracks.');
+
+  if (st.flags.galacticHQ) {
+    await ctx.say('Saturn said they were already at the first one.\fHe said it the way you would mention a train being on time.');
+  }
+
+  ctx.shake(1.2);
+  await ctx.wait(0.7);
+  await ctx.say('*Something goes through you. Not a sound — a pressure, once, like a\nheld breath let go a long way underground.*');
+  await ctx.say('*Whatever was asleep in this lake is awake now, and it is not here.*');
+
+  // The Lakefront ranger has been waiting at the road for somebody to come
+  // down and say what they saw.
+  await ctx.say('Ranger: You went up. Nobody has been allowed up for a week.');
+  await ctx.say('Ranger: My family has worked this water for four generations.\fI have nothing to do. There is nothing to work.');
+  await ctx.say('Ranger: Take this. It is no use to me now. There is nothing to sail on.');
+  ctx.give('hm03', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received HM03!');
+  await ctx.say('Ranger: Surf. Teach it to something that can carry you.', { speaker: 'Ranger' });
+  await ctx.say('Ranger: The lakes are what this region is. If they are taking the lakes,\nthey are taking the region.');
+  await ctx.say('Ranger: Go and be somewhere they are not finished with yet.');
+
+  ctx.setFlag('lakeValor', true);
+  ctx.shareMilestone('lakeValor');
+  ctx.journal('lakeValor');
+  ctx.autosave();
+};
+
+// ---------------------------------------------------------------------------
+// The fog road, the shrine, and the wall with the whole plot on it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Four Psyduck with headaches, sitting in the narrowest part of Route 210.
+ *
+ * The gate is the Secret Potion, which Saturn shrugs at you in Veilstone on
+ * his way out — so the road opens because of something that happened two
+ * towns back, not because a door decided to be open.
+ */
+SCRIPTS.psyducks = async (ctx) => {
+  await ctx.say('*Four Psyduck are sitting in the road with their hands on their heads.*');
+  await ctx.say('*None of them are going to move on their own.*');
+
+  if (!ctx.hasItem('secretpotion')) {
+    await ctx.say('*You have nothing that would help, and shoving a Psyduck with a headache\nis how people end up asleep in a ditch.*');
+    await ctx.say('*Somebody said Celestic makes a remedy for this. Celestic is the far side\nof the ducks.*');
+    return;
+  }
+
+  await ctx.say('*You still have the Secret Potion Saturn shrugged at you in Veilstone.*');
+  await ctx.say('*It smells appalling. The nearest Psyduck opens one eye.*');
+  ctx.sfx('heal');
+  await ctx.wait(0.6);
+  await ctx.say('Psyduck: ...Psy?');
+  await ctx.say('*One by one they get up and wander off into the fog, entirely unbothered,\nas though none of this had ever been happening.*');
+  ctx.setFlag('psyducks', true);
+  ctx.autosave();
+  await ctx.say('The road north is clear.');
+};
+
+/**
+ * Two grey coats in the shrine doorway. Beating the one who talks clears both
+ * and opens the room behind them.
+ */
+SCRIPTS.celesticGrunt = async (ctx, npc) => {
+  const t = getTrainer('celestic_grunt1');
+  await ctx.say('Grunt: You do not want to be here. Nothing here is being taken.', { speaker: 'Galactic Grunt' });
+  await ctx.say('Grunt: We are copying a wall. That is all this is. Copying a wall.');
+  if (ctx.state.flags.lakeValor) {
+    await ctx.say('Grunt: You were at Valor. Everyone who was has that face.\fThen you know we are not making any of this up.');
+  }
+  await ctx.say('Grunt: Elder. Step aside.');
+  await ctx.say('Elder: No.', { speaker: 'Elder Carolina' });
+  await ctx.say('Elder: I have been stood here since Tuesday and you have not managed it yet.');
+  await ctx.say('Grunt: Fine. YOU, then, since she will not be moved.');
+
+  const won = await ctx.battle({ trainer: t, kind: 'trainer' });
+  if (!won) return;
+
+  await ctx.say(`Grunt: ${t.defeat}`, { speaker: 'Galactic Grunt' });
+  await ctx.say('*The pair of them go down the road without hurrying, which is somehow\nthe worst part of it.*');
+  await ctx.say('Elder: Forty years I have wanted somebody to do that.', { speaker: 'Elder Carolina' });
+  await ctx.say('Elder: Come up to the shrine. You have earned the wall.');
+  ctx.setFlag('celestic', true);
+  ctx.shareMilestone('celestic');
+  ctx.journal('celestic');
+  ctx.sfx('badge');
+  ctx.autosave();
+  void npc;
+};
+
+/** Elder Carolina, in front of the mural, explaining what it is. */
+SCRIPTS.celesticElder = async (ctx) => {
+  const st = ctx.state;
+  if (!st.flags.celestic) {
+    await ctx.say('Elder: Not while they are stood in my doorway.', { speaker: 'Elder Carolina' });
+    return;
+  }
+  if (st.flags.celesticRead) {
+    await ctx.say('Elder: Read it again. It says the same thing. That is rather the point.', { speaker: 'Elder Carolina' });
+    return;
+  }
+  await ctx.say('Elder: Everyone calls it a legend because it is old. Old is not the same\nas made up.', { speaker: 'Elder Carolina' });
+  await ctx.say('Elder: Three waters. Three small ones asleep in them, one to a lake.\fKnowledge, emotion, willpower. That is what they are for.');
+  await ctx.say('Elder: And above them the fourth. No face. Nobody has ever drawn it a face\nbecause nobody agreed what it was looking at.');
+  await ctx.say('Elder: The three are not its servants. They are its locks.');
+  await ctx.wait(0.5);
+  await ctx.say('Elder: Those two in grey worked that out about a month ago.');
+  await ctx.say('Elder: They are not robbers, child. They want to take the locks off.');
+  if (st.flags.knowsTwist) {
+    await ctx.say('Elder: You have been under Oreburgh. Then you have seen what it looks like\nwhen the world is asked to hold still.');
+  }
+  await ctx.say('Elder: Whatever is behind that door, they think the world would be better\nmade again without any of us in it.');
+  await ctx.say('Elder: They are quite sincere. That is the frightening part.');
+  ctx.setFlag('celesticRead', true);
+  ctx.autosave();
+};
+
+/**
+ * Lake Verity, after Valor. This one you get to in time to watch, which is
+ * worse — Mars is already leaving and there is nothing to stop.
+ */
+SCRIPTS.lakeVerity = async (ctx) => {
+  const st = ctx.state;
+  ctx.sfx('warp');
+  await ctx.wait(0.5);
+  await ctx.say('*There are lorries on the shore of Lake Verity. There is a lake, still,\nwhich is more than Valor has.*');
+  await ctx.say('*Nobody is stopping you. Nobody is looking at you.*');
+
+  const t = getTrainer('lv_mars');
+  await ctx.say('Mars: Oh, it is YOU. Honestly, at this point you are practically staff.',
+    { speaker: 'Mars' });
+  await ctx.say('Mars: You are four minutes late, by the way. Four. We were quick.');
+  await ctx.say('Mars: The small one that lives here is in a box on that lorry\fand the lorry is going to Veilstone, and you are going to be four\nminutes late for that as well.');
+  if (st.flags.celestic) {
+    await ctx.say('Mars: You have been to the shrine. Good. Then you can stop pretending\nnot to understand what this is for.');
+  }
+  await ctx.say('Mars: I am not going to explain it. I am going to beat you and drive off.');
+
+  const won = await ctx.battle({ trainer: t, kind: 'trainer' });
+  if (!won) return;
+
+  await ctx.say(`Mars: ${t.defeat}`, { speaker: 'Mars' });
+  await ctx.say('Mars: Fine. FINE. It does not matter, that is the thing about it,\fit genuinely does not matter whether you win these.');
+  await ctx.say('*She gets into the lorry. The lorry leaves. The lake sits there being\na lake, with nothing in it.*');
+  await ctx.wait(0.6);
+  await ctx.say('*Two down. Acuity is the far north, past the mountain, in the snow.*');
+
+  ctx.setFlag('lakeVerity', true);
+  ctx.shareMilestone('lakeVerity');
+  ctx.journal('lakeVerity');
+  ctx.autosave();
 };
 
 function scriptFor(name) { return SCRIPTS[name] || null; }
@@ -19782,7 +21395,7 @@ const { RANKS, getPro, RIVAL_PRO, getTournament } = __req('data/circuit.js');
 const { standings, currentRank, headToHead } = __req('game/circuit/circuit.js');
 const { displayName } = __req('game/monster.js');
 const { getSpecies } = __req('data/species.js');
-const { buddyOf } = __req('game/players.js');
+const { buddyOf, playerOf } = __req('game/players.js');
 const { caughtCount, seenCount } = __req('game/pokedex.js');
 // What the world is saying right now.
 //
@@ -19877,6 +21490,10 @@ function worldSnapshot(state, link = null) {
     // lets the world talk about Sammy while Matthew plays alone, and then
     // notice when both of them are actually here.
     buddy: buddyOf(state),
+    // Which of the two is holding the phone, so a line can be written to
+    // one of them specifically — a mum talking to her own child reads very
+    // differently from the same mum talking to their partner.
+    playing: playerOf(state).key,
     alone: !(link && link.connected && link.partner),
   };
 }
@@ -19897,7 +21514,7 @@ const CLAUSES = Object.freeze([
   'flag', 'notFlag',
   'badges', 'maxBadges', 'caught', 'party', 'leadLevel', 'starter',
   'joined', 'rank', 'titles', 'streak', 'hype', 'respect',
-  'champion', 'beatRival', 'inEvent', 'topTen', 'linked', 'alone',
+  'champion', 'beatRival', 'inEvent', 'topTen', 'linked', 'alone', 'playing',
 ]);
 const CLAUSE_SET = new Set(CLAUSES);
 function isKnownClause(k) { return CLAUSE_SET.has(k); }
@@ -19944,6 +21561,7 @@ function matches(when, s) {
       case 'topTen': if ((s.place == null || s.place > 10) === v) return false; break;
       case 'linked': if (s.linked !== v) return false; break;
       case 'alone': if (s.alone !== v) return false; break;
+      case 'playing': if (s.playing !== v) return false; break;
 
       default: return false;   // an unknown clause never silently passes
     }
@@ -21199,11 +22817,28 @@ class OverworldScreen extends Screen {
     });
   }
 
+  /**
+   * A gated door turning the player away. They bumped it rather than stepped
+   * onto it, so there is nothing to undo — just the reason why.
+   */
+  _refuseWarp(warp) {
+    this.say(warp.refuse || 'You should not go this way yet.');
+  }
+
   _handleWorldEvents() {
     const w = this.world;
     if (this.script) return;
 
     if (w.pendingWarp) { const warp = w.pendingWarp; w.pendingWarp = null; this._doWarp(warp); return; }
+    // A door the story has not opened yet. Say why, and step the player back
+    // off it so they are not standing on a warp that will refuse them again
+    // on the next frame.
+    if (w.pendingBlocked) {
+      const warp = w.pendingBlocked;
+      w.pendingBlocked = null;
+      this._refuseWarp(warp);
+      return;
+    }
     if (w.pendingEncounter) {
       const enc = w.pendingEncounter;
       w.pendingEncounter = null;
@@ -25937,6 +27572,9 @@ class MainMenuScreen extends Screen {
     out.push({ key: 'link', text: 'LINK' });
     out.push({ key: 'save', text: 'SAVE' });
     out.push({ key: 'options', text: 'OPTIONS' });
+    // The only way into test mode on a phone. There is no keyboard there to
+    // press the desktop shortcut with.
+    if (this.game.debugEnabled) out.push({ key: 'debug', text: 'TEST MODE' });
     out.push({ key: 'close', text: 'CLOSE' });
     return out;
   }
@@ -25969,6 +27607,7 @@ class MainMenuScreen extends Screen {
       case 'link': g.openMultiplayer(); break;
       case 'save': g.openSave(); break;
       case 'options': g.openOptions(); break;
+      case 'debug': g.openDebug(); break;
       default: g.screens.pop();
     }
   }
@@ -25993,6 +27632,8 @@ class MainMenuScreen extends Screen {
       const snap = net.snapshot();
       drawText(ctx, '●', x + w - 12, y + 5 + 4 * LINE, { color: snap.connected ? '#48c04a' : '#d8493f' });
     }
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, this.game.display.width - 52, 2);
   }
 }
 
@@ -26454,6 +28095,8 @@ class BagScreen extends Screen {
       if (line) labelDim(ctx, line, 8, y);
     }
     drawTextRight(ctx, money(this.game.state.inventory.money), W - 8, H - 12, { color: PAL.uiText });
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }
 
@@ -26555,6 +28198,8 @@ class TrainerCardScreen extends Screen {
       if (has) drawTextCentered(ctx, '★', bx + 8, by + 4, { color: shade(PAL.uiHighlight, -0.5) });
     }
     drawTextRight(ctx, `${badgeCount(st)}/8`, W - 14, H - 34, { color: PAL.uiText });
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }
 
@@ -26644,6 +28289,8 @@ class DexScreen extends Screen {
     } else {
       labelDim(ctx, 'A: read entry', px + 8, 72);
     }
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }
 
@@ -26663,7 +28310,7 @@ class OptionsScreen extends Screen {
       { key: 'music', label: 'MUSIC', value: s.music ? 'ON' : 'OFF' },
       { key: 'sfx', label: 'SOUND', value: s.sfx ? 'ON' : 'OFF' },
       { key: 'guide', label: 'GUIDE BAR', value: s.guide === false ? 'OFF' : 'ON' },
-      { key: 'debug', label: 'DEBUG MENU', value: this.game.debugEnabled ? 'ON' : 'OFF' },
+      { key: 'debug', label: 'TEST MODE', value: this.game.debugEnabled ? 'ON' : 'OFF' },
       { key: 'back', label: 'BACK', value: '' },
     ];
   }
@@ -26695,7 +28342,11 @@ class OptionsScreen extends Screen {
       case 'music': s.music = !s.music; this.game.applySettings(); break;
       case 'sfx': s.sfx = !s.sfx; this.game.applySettings(); break;
       case 'guide': s.guide = s.guide === false; break;
-      case 'debug': this.game.debugEnabled = !this.game.debugEnabled; break;
+      case 'debug':
+        this.game.debugEnabled = !this.game.debugEnabled;
+        // Remembered, so it is on next time the artifact is opened.
+        this.game.state.settings.testMode = this.game.debugEnabled;
+        break;
       case 'back': this.game.screens.pop(); return;
       default: break;
     }
@@ -26716,6 +28367,8 @@ class OptionsScreen extends Screen {
       if (r.value) drawTextRight(ctx, r.value, W - 14, y, { color: PAL.uiSelect });
     });
     labelDim(ctx, 'Difficulty affects wild levels, AI and rewards.', 10, H - 14);
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }
 
@@ -26785,6 +28438,8 @@ class SaveScreen extends Screen {
       label(ctx, this.ok ? `${st.player.name} saved the game.` : 'Saving failed — storage is unavailable.',
         14, H - 24, { color: this.ok ? PAL.uiText : PAL.uiDanger });
     }
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 }
 
@@ -27278,6 +28933,7 @@ __exports(__x, { ShopScreen: () => ShopScreen });
 
 __defs['ui/multiplayer.js'] = function (__x, __req) {
 const { Screen } = __req('ui/screen.js');
+const { drawBackChip } = __req('ui/controls.js');
 const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
 const { PAL, shade } = __req('render/palette.js');
@@ -27286,6 +28942,7 @@ const { net } = __req('net/NetworkManager.js');
 const { normaliseRoomCode } = __req('net/protocol.js');
 // The LINK screen: create or join a room, see who is connected, and read an
 // honest account of what the current transport can and cannot do.
+
 
 
 
@@ -27517,6 +29174,8 @@ class MultiplayerScreen extends Screen {
       label(ctx, o.text, box.x + 12, y, { color: o.k === 'back' ? PAL.uiTextDim : PAL.uiText });
     });
     drawTextRight(ctx, 'LINK', W - 6, 8, { color: '#9ee0a0', shadow: PAL.black });
+    // A thumb needs something to aim at: on a phone there is no B key.
+    drawBackChip(ctx, W - 52, 2);
   }
 
   _renderJoin(ctx, W, H) {
@@ -27820,6 +29479,301 @@ class TradeScreen extends Screen {
 }
 
 __exports(__x, { TradeScreen: () => TradeScreen });
+
+};
+
+__defs['game/testmode.js'] = function (__x, __req) {
+const { MAPS } = __req('data/maps/index.js');
+const { SPECIES_LIST, getSpecies } = __req('data/species.js');
+const { ITEMS } = __req('data/items.js');
+const { BEATS, GYMS } = __req('data/campaign.js');
+const { FLAGS } = __req('game/storyflags.js');
+const { tileDef } = __req('render/tiles.js');
+const { debugGive, debugGiveItem, healParty, awardBadge } = __req('game/state.js');
+// Test mode: a command console and a chapter jump.
+//
+// The reason this exists is simple — without it the only way to look at
+// anything in the back half of the game is to play the front half again.
+// That makes the late content effectively untestable, by me or by anybody
+// else.
+//
+// The interpreter is deliberately kept out of the UI so it can be unit
+// tested without a browser: `runCommand` takes a game-shaped object and a
+// line of text and returns what to print. The screen in ui/admin.js is a
+// thin wrapper around it.
+
+
+
+
+
+
+
+
+/** Every flag the game knows about, for `/flag` completion and validation. */
+const KNOWN_FLAGS = Object.values(FLAGS);
+
+/**
+ * A spot on a map that the player can legitimately stand on.
+ *
+ * `/warp somewhere` with no coordinates has to land the player somewhere
+ * real. Preferring the heal point, then a door, then the first walkable
+ * tile means a warp never drops anybody inside a tree.
+ */
+function spawnPointFor(mapId) {
+  const map = MAPS[mapId];
+  if (!map) return null;
+  if (map.healPoint && map.healPoint.map === mapId) {
+    return { x: map.healPoint.x, y: map.healPoint.y };
+  }
+  for (const other of Object.values(MAPS)) {
+    for (const w of other.warps) {
+      if (w.to !== mapId) continue;
+      const d = tileDef(map.tiles[w.ty] && map.tiles[w.ty][w.tx]);
+      if (d && !d.solid) return { x: w.tx, y: w.ty };
+    }
+  }
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      const d = tileDef(map.tiles[y][x]);
+      if (d && !d.solid && !d.water) return { x, y };
+    }
+  }
+  return null;
+}
+
+/**
+ * Everything true at a given story beat.
+ *
+ * Derived from the campaign spine rather than written out again, so a
+ * chapter can never drift from the story it is meant to be a snapshot of.
+ * Jumping to a beat sets every beat before it too — the game is a line and
+ * arriving in the middle of it with the earlier flags unset is not a state
+ * the game was ever in.
+ */
+function chapterState(flag) {
+  const idx = BEATS.findIndex((b) => b.flag === flag);
+  if (idx < 0) return null;
+  const upTo = BEATS.slice(0, idx + 1);
+  const flags = {};
+  for (const b of upTo) flags[b.flag] = true;
+  // Badges are their own list as well as flags, and the two have to agree.
+  const badges = GYMS.filter((g) => flags[`badge${g.n}`]).map((g) => g.n);
+  return { flags, badges, where: BEATS[idx].where, text: BEATS[idx].text };
+}
+
+/** The chapters that have somewhere to stand — the ones built so far. */
+function playableChapters() {
+  return BEATS.filter((b) => MAPS[b.where]);
+}
+
+function ok(text) { return { ok: true, text }; }
+function no(text) { return { ok: false, text }; }
+
+/** Resolve a species by dex number or by name, case-insensitively. */
+function findSpecies(token) {
+  if (/^\d+$/.test(token)) return getSpecies(Number(token)) || null;
+  const want = token.toLowerCase();
+  return SPECIES_LIST.find((s) => s.name.toLowerCase() === want)
+    || SPECIES_LIST.find((s) => s.name.toLowerCase().startsWith(want))
+    || null;
+}
+
+const HM_IDS = ['hm01', 'hm02', 'hm03', 'hm04', 'hm05', 'hm06', 'hm07', 'hm08']
+  .filter((id) => ITEMS[id]);
+
+const COMMANDS = [
+  ['/help', 'this list'],
+  ['/where', 'what map you are on'],
+  ['/warp <map> [x y]', 'go anywhere'],
+  ['/maps [text]', 'list map names'],
+  ['/chapter <beat>', 'jump to a point in the story'],
+  ['/chapters', 'list the story beats'],
+  ['/give <item> [n]', 'put an item in the bag'],
+  ['/items [text]', 'list item ids'],
+  ['/mon <name|dex> [lv]', 'add a Pokémon to the party'],
+  ['/shiny', 'make the lead Pokémon shiny'],
+  ['/level <n>', 'set the whole party to a level'],
+  ['/heal', 'heal the party'],
+  ['/badge [n]', 'award a badge, or the next one'],
+  ['/badges', 'award all eight'],
+  ['/hms', 'every HM, so every obstacle answers'],
+  ['/money <n>', 'set the wallet'],
+  ['/flag <name> [off]', 'set or clear a story flag'],
+  ['/flags [text]', 'list flags and their state'],
+  ['/dex', 'fill in the Pokédex'],
+];
+
+/**
+ * Run one console line.
+ *
+ * `game` needs `state`, and — for anything that moves the player — an
+ * `overworld.world.load(map, x, y, dir)`. Commands that need the world say
+ * so rather than throwing when it is absent, which is what lets the unit
+ * test drive the whole interpreter with a bare state object.
+ */
+function runCommand(game, line) {
+  const raw = String(line || '').trim();
+  if (!raw) return no('');
+  const parts = raw.replace(/^\//, '').split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+  const args = parts.slice(1);
+  const st = game.state;
+
+  switch (cmd) {
+    case 'help':
+      return ok(COMMANDS.map(([c, d]) => `${c} — ${d}`).join('\n'));
+
+    case 'where': {
+      const p = st.player;
+      const m = MAPS[p.map];
+      return ok(`${m ? m.name : p.map} (${p.map}) at ${p.x},${p.y}`);
+    }
+
+    case 'maps': {
+      const f = (args[0] || '').toLowerCase();
+      const ids = Object.keys(MAPS).filter((id) => !f || id.includes(f));
+      if (!ids.length) return no(`no map matches "${f}"`);
+      return ok(`${ids.length} map(s):\n${ids.join(', ')}`);
+    }
+
+    case 'warp': {
+      if (!args[0]) return no('which map? try /maps');
+      const id = args[0].toLowerCase();
+      if (!MAPS[id]) return no(`no such map: ${id}`);
+      let x = Number(args[1]);
+      let y = Number(args[2]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        const spot = spawnPointFor(id);
+        if (!spot) return no(`${id} has nowhere to stand`);
+        x = spot.x; y = spot.y;
+      }
+      if (!game.overworld || !game.overworld.world) return no('not in the world yet');
+      game.overworld.world.load(id, x, y, 'down');
+      return ok(`warped to ${MAPS[id].name} at ${x},${y}`);
+    }
+
+    case 'chapters':
+      return ok(playableChapters().map((b) => `${b.flag} — ${b.text}`).join('\n'));
+
+    case 'chapter': {
+      if (!args[0]) return no('which beat? try /chapters');
+      const snap = chapterState(args[0]);
+      if (!snap) return no(`no such beat: ${args[0]}`);
+      Object.assign(st.flags, snap.flags);
+      st.badges = snap.badges.slice();
+      // A chapter is useless without a team that can survive it.
+      if (!st.party.length) debugGive(st, 387, 5);
+      const level = Math.max(5, 8 + snap.badges.length * 6);
+      for (const m of st.party) if (!m.isEgg) m.level = Math.max(m.level, level);
+      for (const id of HM_IDS) debugGiveItem(st, id, 1);
+      healParty(st);
+      if (MAPS[snap.where] && game.overworld && game.overworld.world) {
+        const spot = spawnPointFor(snap.where);
+        if (spot) game.overworld.world.load(snap.where, spot.x, spot.y, 'down');
+      }
+      return ok(`chapter: ${snap.text}\n${snap.badges.length} badge(s), party at Lv${level}`);
+    }
+
+    case 'give': {
+      if (!args[0]) return no('which item? try /items');
+      const id = args[0].toLowerCase();
+      if (!ITEMS[id]) return no(`no such item: ${id}`);
+      const n = Math.max(1, Number(args[1]) || 1);
+      debugGiveItem(st, id, n);
+      return ok(`${n}x ${ITEMS[id].name}`);
+    }
+
+    case 'items': {
+      const f = (args[0] || '').toLowerCase();
+      const ids = Object.keys(ITEMS).filter((id) => !f || id.includes(f));
+      if (!ids.length) return no(`no item matches "${f}"`);
+      return ok(`${ids.length} item(s):\n${ids.join(', ')}`);
+    }
+
+    case 'mon': {
+      if (!args[0]) return no('which Pokémon?');
+      const sp = findSpecies(args[0]);
+      if (!sp) return no(`no such Pokémon: ${args[0]}`);
+      const lv = Math.min(100, Math.max(1, Number(args[1]) || 5));
+      debugGive(st, sp.id, lv);
+      return ok(`${sp.name} Lv${lv} joined`);
+    }
+
+    case 'shiny': {
+      const lead = st.party.find((m) => m && !m.isEgg);
+      if (!lead) return no('no Pokémon to make shiny');
+      lead.shiny = true;
+      return ok(`${lead.nickname || getSpecies(lead.species).name} is shiny`);
+    }
+
+    case 'level': {
+      const lv = Math.min(100, Math.max(1, Number(args[0]) || 0));
+      if (!lv) return no('what level?');
+      for (const m of st.party) if (!m.isEgg) m.level = lv;
+      healParty(st);
+      return ok(`party set to Lv${lv}`);
+    }
+
+    case 'heal':
+      healParty(st);
+      return ok('party healed');
+
+    case 'badge': {
+      const n = Number(args[0]) || st.badges.length + 1;
+      const gym = GYMS.find((g) => g.n === n);
+      if (!gym) return no(`there is no badge ${n}`);
+      awardBadge(st, n, gym.badge);
+      return ok(`${gym.badge} awarded`);
+    }
+
+    case 'badges':
+      for (const g of GYMS) awardBadge(st, g.n, g.badge);
+      return ok('all eight badges awarded');
+
+    case 'hms': {
+      if (!HM_IDS.length) return no('no HMs exist yet');
+      for (const id of HM_IDS) debugGiveItem(st, id, 1);
+      return ok(`${HM_IDS.length} HM(s) in the bag`);
+    }
+
+    case 'money': {
+      const n = Number(args[0]);
+      if (!Number.isFinite(n)) return no('how much?');
+      st.inventory.money = Math.max(0, Math.min(999999, Math.floor(n)));
+      return ok(`wallet set to ${st.inventory.money}`);
+    }
+
+    case 'flag': {
+      if (!args[0]) return no('which flag? try /flags');
+      const name = args[0];
+      const off = (args[1] || '').toLowerCase() === 'off';
+      st.flags[name] = !off;
+      return ok(`${name} = ${!off}`);
+    }
+
+    case 'flags': {
+      const f = (args[0] || '').toLowerCase();
+      const names = [...new Set([...KNOWN_FLAGS, ...Object.keys(st.flags)])]
+        .filter((n) => !f || n.toLowerCase().includes(f))
+        .sort();
+      if (!names.length) return no(`no flag matches "${f}"`);
+      return ok(names.map((n) => `${st.flags[n] ? '[x]' : '[ ]'} ${n}`).join('\n'));
+    }
+
+    case 'dex': {
+      for (const sp of SPECIES_LIST) {
+        st.dex.seen[sp.id] = true;
+        st.dex.caught[sp.id] = true;
+      }
+      return ok(`Pokédex filled: ${SPECIES_LIST.length} species`);
+    }
+
+    default:
+      return no(`unknown command: /${cmd} — try /help`);
+  }
+}
+
+__exports(__x, { KNOWN_FLAGS: () => KNOWN_FLAGS, spawnPointFor: () => spawnPointFor, chapterState: () => chapterState, playableChapters: () => playableChapters, COMMANDS: () => COMMANDS, runCommand: () => runCommand });
 
 };
 
@@ -28355,6 +30309,7 @@ const { ITEM_IDS, getItem } = __req('data/items.js');
 const { MAP_IDS, getMap } = __req('data/maps/index.js');
 const { TRAINERS } = __req('data/trainers.js');
 const { FLAGS } = __req('game/storyflags.js');
+const { runCommand, playableChapters, COMMANDS } = __req('game/testmode.js');
 const { debugGive, debugGiveItem, healParty, awardBadge, setStoryFlag, formatPlayTime } = __req('game/state.js');
 const { createMonster, healFully } = __req('game/monster.js');
 const { net } = __req('net/NetworkManager.js');
@@ -28366,6 +30321,7 @@ const { reportSeasonWeek, reportPowerRankings } = __req('game/circuit/news.js');
 // Off by default and reachable only from OPTIONS, so it never gets in a
 // player's way — but everything needed to test a system without playing to it
 // is here. Flip `game.debugEnabled` to false to hide it entirely.
+
 
 
 
@@ -28411,6 +30367,8 @@ class DebugScreen extends Screen {
     const st = this.game.state;
     switch (this.page) {
       case 'main': return [
+        { t: 'Console (/commands)...', a: () => this._console() },
+        { t: 'Jump to a chapter...', a: () => { this.page = 'chapters'; this.index = 0; this.scroll = 0; } },
         { t: 'Heal party', a: () => { healParty(st); this._msg('Party healed.'); audio.sfx('heal'); } },
         { t: 'Give monster...', a: () => { this.page = 'species'; this.index = 0; this.scroll = 0; } },
         { t: 'Give item...', a: () => { this.page = 'items'; this.index = 0; this.scroll = 0; } },
@@ -28431,6 +30389,23 @@ class DebugScreen extends Screen {
         { t: 'Reset save', a: () => { this.page = 'reset'; this.index = 1; } },
         { t: 'Close', a: () => this.game.screens.pop() },
       ];
+      // Jumping to a point in the story. This is the one that makes the back
+      // half of the game testable at all: it sets every beat up to the one
+      // picked, levels the party to match, hands over the HMs, and puts the
+      // player where the beat happens.
+      // Whatever the last console line printed. Rows rather than a text blob
+      // so the existing scrolling works on a long list of flags or maps.
+      case 'output': return String(this.output || '').split('\n').map((line) => ({
+        t: line, a: () => this._console(),
+      })).concat([
+        { t: '> type another', a: () => this._console() },
+        { t: 'Back', a: () => { this.page = 'main'; this.index = 0; this.scroll = 0; } },
+      ]);
+      case 'chapters': return playableChapters().map((b) => ({
+        t: b.text,
+        right: b.flag,
+        a: () => { const r = runCommand(this.game, `/chapter ${b.flag}`); this._msg(r.text.split('\n')[0]); audio.sfx('badge'); },
+      })).concat([{ t: 'Back', a: () => { this.page = 'main'; this.index = 0; this.scroll = 0; } }]);
       case 'species': return SPECIES_LIST.map((sp) => ({
         t: `${String(sp.id).padStart(3, '0')} ${sp.name}`,
         right: sp.types.join('/'),
@@ -28522,6 +30497,24 @@ class DebugScreen extends Screen {
       if (this.page === 'main') this.game.screens.pop();
       else { this.page = 'main'; this.index = 0; this.scroll = 0; }
     }
+  }
+
+  /**
+   * The text console. Typing is the only interface that can express
+   * "/warp snowpoint" without a menu of every map in the game, and the
+   * on-screen keyboard means it works on a phone.
+   */
+  _console() {
+    const g = this.game;
+    const hint = COMMANDS.length ? `/help lists ${COMMANDS.length} commands` : '';
+    g.openTextEntry(hint || 'Command', 28, (line) => {
+      if (!line) return;
+      const r = runCommand(g, line);
+      this.output = r.text;
+      this.page = 'output';
+      this.index = 0; this.scroll = 0;
+      audio.sfx(r.ok ? 'select' : 'deny');
+    });
   }
 
   render(ctx) {
@@ -28911,6 +30904,18 @@ const WORLD_POS = {
   route210:       { x: 12, y: 2, kind: 'route' },
   route215:       { x: 10, y: 2, kind: 'route' },
   veilstone:      { x: 8, y: 2, kind: 'city' },
+  // South from Hearthome into the wet country, then round to the lake.
+  route212:       { x: 12, y: 10, kind: 'route' },
+  pastoria:       { x: 12, y: 12, kind: 'city' },
+  route213:       { x: 12, y: 14, kind: 'route' },
+  route214:       { x: 14, y: 12, kind: 'route' },
+  valor_lakefront: { x: 14, y: 10, kind: 'route' },
+  lake_valor:     { x: 14, y: 8, kind: 'special' },
+  // The highlands, above everything: the fog road, the oldest town, and the
+  // road west from it toward the far side of the mountain.
+  route210_north: { x: 12, y: 1, kind: 'route' },
+  celestic:       { x: 12, y: 0, kind: 'town' },
+  route211:       { x: 10, y: 0, kind: 'route' },
   // Underneath all of it. A Secret Base is a room off these tunnels rather
   // than a place in the region, so it has no position on the paper at all.
   underground:    { x: 2, y: 16, kind: 'underground' },
@@ -30657,6 +32662,147 @@ __exports(__x, { storage: () => storage });
 
 };
 
+__defs['save/artifactdb.js'] = function (__x, __req) {
+
+// A save backend that survives the artifact being closed.
+//
+// localStorage is not durable inside the claude.ai artifact viewer. The page
+// runs in a sandboxed frame whose site data the host is free to drop the
+// moment the artifact is closed — which is exactly what was happening: every
+// session opened on a fresh new-game screen with no save to continue. The
+// `db` capability is server-side, scoped to this artifact, and outlives the
+// page, the app being killed, and a republish. It is also shared between the
+// two players' devices, which is what makes a save written on one phone
+// visible on the other.
+//
+// Two things shape the design:
+//
+//  * `claude.use('db')` resolves LATE — never during the first script run,
+//    and up to ten seconds later, or `null` if this view cannot run it. So
+//    the game must boot without it and pick it up when it lands. `ready()`
+//    is what the title screen waits on before deciding whether to offer
+//    Continue.
+//  * It can be absent for good (running from a file, from the dev server,
+//    or in the test harnesses). Every path therefore falls back to
+//    localStorage rather than failing.
+
+const COLLECTION = 'saves';
+const RESOLVE_TIMEOUT_MS = 10000;
+
+/** Resolves the db namespace once, or null. Never throws, never hangs. */
+function resolveDb() {
+  const c = typeof window !== 'undefined' ? window.claude : null;
+  if (!c || typeof c.use !== 'function') return Promise.resolve(null);
+  return Promise.race([
+    Promise.resolve(c.use('db')).catch(() => null),
+    new Promise((r) => setTimeout(() => r(null), RESOLVE_TIMEOUT_MS)),
+  ]).catch(() => null);
+}
+
+class ArtifactDbBackend {
+  constructor(fallback) {
+    this.name = 'artifact-db';
+    this.fallback = fallback;      // LocalBackend, used when db is absent
+    this.db = null;
+    this.lastError = null;
+    this._ready = resolveDb().then((db) => { this.db = db; return db; });
+  }
+
+  /**
+   * Resolves once we know whether durable storage exists. Callers that need
+   * a truthful answer to "is there a save?" — the title screen, chiefly —
+   * await this first; everything else can just call and take the fallback.
+   */
+  ready() { return this._ready; }
+
+  available() { return !!this.db || this.fallback.available(); }
+
+  /** True once we know the save is going somewhere that outlives the tab. */
+  durable() { return !!this.db; }
+
+  _doc(slot) { return this.db.doc(`${COLLECTION}/${slot}`); }
+
+  async read(slot) {
+    await this._ready;
+    if (this.db) {
+      try {
+        const snap = await this._doc(slot).get();
+        // Absence is not an error here — a first-run player has no save.
+        if (snap && snap.exists && snap.data && snap.data.payload) {
+          return JSON.parse(snap.data.payload);
+        }
+        // Nothing in the store yet. A save may still exist locally from a
+        // session before this backend arrived, so keep looking.
+      } catch (err) {
+        this.lastError = String((err && err.message) || err);
+        console.warn('[save] db read failed, falling back', err);
+      }
+    }
+    return this.fallback.read(slot);
+  }
+
+  /**
+   * The local copy only, without waiting for the durable half to resolve.
+   * The title screen draws from this so the game is on screen immediately,
+   * then upgrades itself when `ready()` lands.
+   */
+  readLocal(slot) { return this.fallback.read(slot); }
+
+  async write(slot, data) {
+    // The local copy is written first and unconditionally: it costs nothing,
+    // it is instant, and it means a db hiccup never loses a save outright.
+    const local = await this.fallback.write(slot, data);
+    await this._ready;
+    if (!this.db) return local;
+    try {
+      // One JSON string rather than a nested document: a save is deeply
+      // nested and the store caps nesting at 32 levels, so flattening it
+      // here keeps party members, bag and flags out of that limit entirely.
+      await this._doc(slot).set({
+        payload: JSON.stringify(data),
+        savedAt: data && data.savedAt ? data.savedAt : Date.now(),
+        // Denormalised so a save list can be drawn without parsing.
+        name: (data && data.meta && data.meta.name) || '',
+        badges: (data && data.meta && data.meta.badges) || 0,
+      });
+      this.lastError = null;
+      return true;
+    } catch (err) {
+      this.lastError = String((err && err.message) || err);
+      console.warn('[save] db write failed; local copy kept', err);
+      return local;
+    }
+  }
+
+  async remove(slot) {
+    await this.fallback.remove(slot);
+    await this._ready;
+    if (!this.db) return true;
+    try { await this._doc(slot).delete(); } catch (err) {
+      console.warn('[save] db delete failed', err);
+    }
+    return true;
+  }
+
+  async list() {
+    await this._ready;
+    if (this.db) {
+      try {
+        const snap = await this.db.collection(COLLECTION).get();
+        const ids = (snap && snap.docs ? snap.docs : []).map((d) => d.id);
+        if (ids.length) return ids;
+      } catch (err) {
+        console.warn('[save] db list failed', err);
+      }
+    }
+    return this.fallback.list();
+  }
+}
+
+__exports(__x, { ArtifactDbBackend: () => ArtifactDbBackend });
+
+};
+
 __defs['save/migrations.js'] = function (__x, __req) {
 
 // Save migrations.
@@ -30710,18 +32856,49 @@ function migrateV1toV2(state) {
   return next;
 }
 
+// v2 -> v3. Twinleaf's two houses used to be `player_house` (whoever you
+// were) and `rival_house` (the other one). They are now `matthew_house` and
+// `sammy_house`, fixed to the left and right of the town, so the place reads
+// the same whichever of the two is holding the phone. A save that was made
+// standing in one of them — or that healed in one — points at a map id that
+// no longer exists, and would open into nowhere.
+const HOUSE_RENAME = { player_house: 'matthew_house', rival_house: 'sammy_house' };
+
+function renameHouse(id, look) {
+  if (!HOUSE_RENAME[id]) return id;
+  // `player_house` was whichever of them you are, so the answer depends on
+  // the save's own character rather than on a fixed table.
+  if (id === 'player_house') return look === 'sammy' ? 'sammy_house' : 'matthew_house';
+  return look === 'sammy' ? 'matthew_house' : 'sammy_house';
+}
+
+function migrateV2toV3(state) {
+  if (!state) return state;
+  const look = state.player && state.player.look;
+  const next = { ...state };
+  if (state.player) {
+    next.player = { ...state.player, map: renameHouse(state.player.map, look) };
+  }
+  if (state.lastHealPoint) {
+    next.lastHealPoint = { ...state.lastHealPoint, map: renameHouse(state.lastHealPoint.map, look) };
+  }
+  return next;
+}
+
 // Ordered. `migrate` applies every step from the payload's version up to
 // SAVE_VERSION, so a save can skip as many releases as it likes.
 const MIGRATIONS = [
   { from: 1, to: 2, apply: migrateV1toV2 },
+  { from: 2, to: 3, apply: migrateV2toV3 },
 ];
 
-__exports(__x, { migrateV1toV2: () => migrateV1toV2, MIGRATIONS: () => MIGRATIONS });
+__exports(__x, { migrateV1toV2: () => migrateV1toV2, migrateV2toV3: () => migrateV2toV3, MIGRATIONS: () => MIGRATIONS });
 
 };
 
 __defs['save/SaveManager.js'] = function (__x, __req) {
 const { storage } = __req('core/storage.js');
+const { ArtifactDbBackend } = __req('save/artifactdb.js');
 const { serializeState, deserializeState } = __req('game/state.js');
 const { MIGRATIONS } = __req('save/migrations.js');
 // Saving.
@@ -30734,8 +32911,9 @@ const { MIGRATIONS } = __req('save/migrations.js');
 
 
 
+
 const SAVE_SLOT = 'save1';
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 const AUTOSAVE_MS = 45000;
 
 class LocalBackend {
@@ -30822,6 +33000,20 @@ class SaveManager {
     } catch { return null; }
   }
 
+  /**
+   * A peek that never waits on the network. Used for the first paint of the
+   * title screen: showing the menu instantly and adding CONTINUE a moment
+   * later beats staring at a blank screen for ten seconds.
+   */
+  async peekFast(slot = SAVE_SLOT) {
+    try {
+      const b = this.backend;
+      const raw = typeof b.readLocal === 'function' ? await b.readLocal(slot) : await b.read(slot);
+      if (!raw || !raw.state) return null;
+      return { ...raw.meta, savedAt: raw.savedAt, version: raw.v };
+    } catch { return null; }
+  }
+
   async hasSave(slot = SAVE_SLOT) { return !!(await this.peek(slot)); }
 
   async erase(slot = SAVE_SLOT) { return this.backend.remove(slot); }
@@ -30858,9 +33050,19 @@ class SaveManager {
   }
 }
 
-const saveManager = new SaveManager();
+// The default backend keeps a local copy AND, when the page is running as a
+// claude.ai artifact, a server-side one. Inside the artifact viewer the local
+// copy alone is not durable — closing the artifact can drop it — which is why
+// the durable half exists at all.
+const saveManager = new SaveManager(new ArtifactDbBackend(new LocalBackend()));
 
-__exports(__x, { SAVE_SLOT: () => SAVE_SLOT, SAVE_VERSION: () => SAVE_VERSION, LocalBackend: () => LocalBackend, CloudBackend: () => CloudBackend, SaveManager: () => SaveManager, saveManager: () => saveManager });
+/** Resolves once we know whether durable storage is available. */
+function saveReady() {
+  const b = saveManager.backend;
+  return b && typeof b.ready === 'function' ? b.ready() : Promise.resolve(null);
+}
+
+__exports(__x, { SAVE_SLOT: () => SAVE_SLOT, SAVE_VERSION: () => SAVE_VERSION, LocalBackend: () => LocalBackend, CloudBackend: () => CloudBackend, SaveManager: () => SaveManager, saveManager: () => saveManager, saveReady: () => saveReady });
 
 };
 
@@ -31057,6 +33259,7 @@ const { ShopScreen } = __req('ui/shop.js');
 const { MultiplayerScreen } = __req('ui/multiplayer.js');
 const { TradeScreen } = __req('ui/trade.js');
 const { DebugScreen } = __req('ui/debug.js');
+const { getBackChip } = __req('ui/controls.js');
 const { DigScreen } = __req('ui/dig.js');
 const { TownMapScreen } = __req('ui/townmap.js');
 const { CircuitScreen, TournamentScreen, PressScreen } = __req('ui/circuit.js');
@@ -31073,7 +33276,7 @@ const { SCRIPTS } = __req('game/overworld/scripts.js');
 const { forceHour, currentPhase, shiftHours } = __req('game/clock.js');
 const { addItem } = __req('game/inventory.js');
 const { randomSeed } = __req('core/rng.js');
-const { saveManager } = __req('save/SaveManager.js');
+const { saveManager, saveReady } = __req('save/SaveManager.js');
 const { net } = __req('net/NetworkManager.js');
 const { RoomManager, TRADE_STATE, PVP_STATE } = __req('net/RoomManager.js');
 const { MUSIC } = __req('data/music.js');
@@ -31127,6 +33330,7 @@ const { PAL } = __req('render/palette.js');
 
 
 
+
 class Game {
   constructor() {
     this.state = createGameState();
@@ -31135,6 +33339,8 @@ class Game {
     this.save = saveManager;
     this.rooms = null;
     this.loop = null;
+    // Persisted with the save: having to dig through OPTIONS after every
+    // reload is most of why a test mode goes unused.
     this.debugEnabled = false;
     this.overworld = null;
     this.lastTick = performance.now();
@@ -31148,6 +33354,9 @@ class Game {
     this.mapsForTest = { MAPS };
     this.dialogueForTest = dialogue;
     this.gossipForTest = { resolveDialogue, worldSnapshot };
+    // So the menu suite can ask where the BACK chip actually got drawn,
+    // rather than guessing at a coordinate.
+    this.controlsForTest = { backChip: getBackChip };
     this.clockForTest = { forceHour, currentPhase, shiftHours };
     this.scriptsForTest = SCRIPTS;
     this.journalForTest = journalApi;
@@ -31180,8 +33389,17 @@ class Game {
     this.rooms = new RoomManager(this.state);
     this._wireSessions();
 
-    const meta = await this.save.peek();
-    this.screens.push(new TitleScreen(this, meta));
+    // The title comes up immediately on whatever is stored locally, then
+    // upgrades itself once the durable store answers. Blocking the first
+    // paint on a network round trip is how a game ends up looking broken on
+    // a phone with a slow connection.
+    const title = new TitleScreen(this, await this.save.peekFast());
+    this.screens.push(title);
+    saveReady().then(async (db) => {
+      this.saveIsDurable = !!db;
+      const meta = await this.save.peek();
+      if (title.setSave) title.setSave(meta);
+    });
 
     this.loop = new GameLoop({
       update: (dt) => this.update(dt),
@@ -31189,9 +33407,30 @@ class Game {
     });
     this.loop.start();
 
-    window.addEventListener('beforeunload', () => {
-      if (this.overworld && this.state.flags.gotStarter) this.save.save(this.state);
-    });
+    // Flushing the save on the way out. On a phone the artifact is closed by
+    // switching away from it, and `beforeunload` does not reliably fire for
+    // that — `pagehide` and a hidden `visibilitychange` do. All three are
+    // wired because between them they cover every way this page is left,
+    // and saving twice costs nothing.
+    const flush = () => {
+      if (this.overworld && this.state.flags.gotStarter && this.canSaveNow()) {
+        this.save.save(this.state);
+      }
+    };
+    window.addEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+  }
+
+  /**
+   * Whether a save taken right now would be a coherent one. A save captured
+   * mid-battle or mid-trade is worse than no save, so the flush on the way
+   * out declines in exactly the places the autosave does.
+   */
+  canSaveNow() {
+    return this.screens.contains('OverworldScreen')
+      && !this.screens.contains('BattleScreen')
+      && !this.screens.contains('TradeScreen');
   }
 
   // ---- frame ---------------------------------------------------------------
@@ -31224,6 +33463,8 @@ class Game {
     audio.setMusicVolume(s.music ? 0.35 : 0);
     audio.sfxVolume = s.sfx ? 0.5 : 0;
     if (audio.unlocked) audio.sfxGain.gain.value = s.sfx ? 0.5 : 0;
+    // Test mode is a setting, so a loaded save brings it back with it.
+    this.debugEnabled = !!s.testMode;
   }
 
   // ---- lifecycle -------------------------------------------------------------

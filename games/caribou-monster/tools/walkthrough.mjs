@@ -243,6 +243,14 @@ await wait(400);
 await page.screenshot({ path: path.join(OUT, '02-starter.png') });
 const party = await page.evaluate(() => window.CARIBOU.state.party.map((m) => m.species));
 check('received a starter from the professor', party.length > 0, JSON.stringify(party));
+// Cass takes the one that beats yours while you are stood there. Before this
+// existed, the counter-pick was only ever a claim she made on Route 201.
+const sawCass = await page.evaluate(() => {
+  const g = window.CARIBOU;
+  return { metRival: !!g.state.flags.metRival, seen: Object.keys(g.state.dex.seen).length };
+});
+check('and watched Cass take the one that beats it',
+  sawCass.metRival && sawCass.seen > 1, JSON.stringify(sawCass));
 
 // Back out of the lab.
 await walkTo(6, 7);
@@ -966,6 +974,33 @@ const verity = await page.evaluate(async () => {
 });
 check('the Lake Verity raid waits for Lake Valor', verity.count > 0 && verity.requires,
   JSON.stringify(verity));
+
+// --- the opening, as Platinum runs it ---
+// Two things were missing: you never saw the rival choose, and the first
+// rival battle was written but placed on no map, so it never happened.
+console.log('\n--- the rival ---');
+
+const rivalPlaced = await page.evaluate(async () => {
+  const { MAPS } = await import('./src/data/maps/index.js');
+  const evs = (MAPS.route201.events || []).filter((e) => e.script === 'rival1');
+  return { count: evs.length, gated: evs.every((e) => e.requires === 'gotStarter') };
+});
+check('the first rival battle is actually on Route 201', rivalPlaced.count > 0,
+  JSON.stringify(rivalPlaced));
+check('and it waits until you have something to fight with', rivalPlaced.gated,
+  JSON.stringify(rivalPlaced));
+
+// She takes the one that beats yours, and the game has to agree with itself
+// about which that is.
+const counter = await page.evaluate(async () => {
+  const { rivalStarterBase, STARTER_LINES } = await import('./src/data/trainers.js');
+  return STARTER_LINES.map((sl) => {
+    const hers = rivalStarterBase(sl.base);
+    return { mine: sl.base, hers, distinct: hers !== sl.base };
+  });
+});
+check('every starter has a distinct counter-pick', counter.every((c) => c.distinct),
+  counter.map((c) => `${c.mine}->${c.hers}`).join(' '));
 
 // --- Twinleaf belongs to both of them ---
 // Left house is Matthew's, right is Sammy's, always. Whoever you picked

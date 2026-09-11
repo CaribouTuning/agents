@@ -97,8 +97,36 @@ SCRIPTS.starter = async (ctx) => {
   ctx.shareMilestone(FLAGS.GOT_STARTER);
   ctx.journal('gotStarter');
 
+  await cassTakesHers(ctx, base);
   await banditJoins(ctx);
 };
+
+/**
+ * Cass, taking the one that beats yours, while you are stood there.
+ *
+ * She has been in the lab the whole time — she got up at seven, which she
+ * will tell you about for the rest of the game. Watching her do it is the
+ * difference between a rival and a line of dialogue claiming there is one.
+ */
+async function cassTakesHers(ctx, playerBase) {
+  const hers = rivalStarterBase(playerBase);
+  const mine = getSpecies(playerBase);
+  const theirs = getSpecies(hers);
+
+  await ctx.wait(0.4);
+  await ctx.say(`Cass: Right. That is the ${mine.name} gone, then.`, { speaker: 'Cass Wren' });
+  await ctx.say('Cass: I have been sat on that bench since seven waiting to see which\none you would take.');
+  await ctx.showMonster(hers);
+  ctx.cry(hers);
+  await ctx.say(`Cass: So I will have the ${theirs.name}. The ${theirs.types.join('/')} type.`);
+  await ctx.say(`Cass: ${theirs.name} beats ${mine.name}. That is the entire reason.\fI am not going to pretend it is anything else.`);
+  ctx.hideMonster();
+  ctx.dex.seen(hers);
+  await ctx.say('Prof. Rowan: Cass. It is a Pokémon, not a chess piece.', { speaker: 'Prof. Rowan' });
+  await ctx.say('Cass: It can be both.', { speaker: 'Cass Wren' });
+  await ctx.say('Cass: North gate. Twenty minutes. Do not make me stand there for an hour.');
+  ctx.setFlag(FLAGS.MET_RIVAL);
+}
 
 /**
  * Bandit lets himself in.

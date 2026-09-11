@@ -5,7 +5,7 @@
 // This screen supplies the primitives they await, and blocks player input for
 // as long as one is running.
 import { Screen, FADE } from './screen.js';
-import { World, DIRS, opposite } from '../game/overworld/world.js';
+import { World, DIRS } from '../game/overworld/world.js';
 import { Camera, drawWorld, drawLocationBanner, drawGuideBar } from '../render/worldrender.js';
 import { drawControls, hintBar, computeLayout } from './controls.js';
 import { dialogue } from './dialogue.js';
@@ -321,22 +321,10 @@ export class OverworldScreen extends Screen {
   }
 
   /**
-   * A gated warp turning the player away. The step back matters: without it
-   * the player is left standing on the warp tile and every subsequent frame
-   * re-triggers the refusal.
+   * A gated door turning the player away. They bumped it rather than stepped
+   * onto it, so there is nothing to undo — just the reason why.
    */
   _refuseWarp(warp) {
-    const w = this.world;
-    const back = opposite[w.player.dir] || 'down';
-    const [dx, dy] = DIRS[back];
-    const bx = w.player.x + dx, by = w.player.y + dy;
-    if (w.canEnter(w.player, bx, by, back)) {
-      w.player.x = bx; w.player.y = by;
-      w.state.player.x = bx; w.state.player.y = by;
-    }
-    w.player.dir = back;
-    w.state.player.dir = back;
-    audio.sfx('bump');
     this.say(warp.refuse || 'You should not go this way yet.');
   }
 
