@@ -61,7 +61,7 @@ export function createGameState(opts = {}) {
     visited: {},
     // Trees cut down, rocks smashed, walls climbed: obstacles stay cleared.
     cleared: {},
-    settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true },
+    settings: { textSpeed: 1, music: true, sfx: true, showGrid: false, guide: true, testMode: false },
   };
 }
 

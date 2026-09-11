@@ -52,6 +52,8 @@ class Game {
     this.save = saveManager;
     this.rooms = null;
     this.loop = null;
+    // Persisted with the save: having to dig through OPTIONS after every
+    // reload is most of why a test mode goes unused.
     this.debugEnabled = false;
     this.overworld = null;
     this.lastTick = performance.now();
@@ -171,6 +173,8 @@ class Game {
     audio.setMusicVolume(s.music ? 0.35 : 0);
     audio.sfxVolume = s.sfx ? 0.5 : 0;
     if (audio.unlocked) audio.sfxGain.gain.value = s.sfx ? 0.5 : 0;
+    // Test mode is a setting, so a loaded save brings it back with it.
+    this.debugEnabled = !!s.testMode;
   }
 
   // ---- lifecycle -------------------------------------------------------------

@@ -51,6 +51,9 @@ export class MainMenuScreen extends Screen {
     out.push({ key: 'link', text: 'LINK' });
     out.push({ key: 'save', text: 'SAVE' });
     out.push({ key: 'options', text: 'OPTIONS' });
+    // The only way into test mode on a phone. There is no keyboard there to
+    // press the desktop shortcut with.
+    if (this.game.debugEnabled) out.push({ key: 'debug', text: 'TEST MODE' });
     out.push({ key: 'close', text: 'CLOSE' });
     return out;
   }
@@ -83,6 +86,7 @@ export class MainMenuScreen extends Screen {
       case 'link': g.openMultiplayer(); break;
       case 'save': g.openSave(); break;
       case 'options': g.openOptions(); break;
+      case 'debug': g.openDebug(); break;
       default: g.screens.pop();
     }
   }
@@ -777,7 +781,7 @@ export class OptionsScreen extends Screen {
       { key: 'music', label: 'MUSIC', value: s.music ? 'ON' : 'OFF' },
       { key: 'sfx', label: 'SOUND', value: s.sfx ? 'ON' : 'OFF' },
       { key: 'guide', label: 'GUIDE BAR', value: s.guide === false ? 'OFF' : 'ON' },
-      { key: 'debug', label: 'DEBUG MENU', value: this.game.debugEnabled ? 'ON' : 'OFF' },
+      { key: 'debug', label: 'TEST MODE', value: this.game.debugEnabled ? 'ON' : 'OFF' },
       { key: 'back', label: 'BACK', value: '' },
     ];
   }
@@ -809,7 +813,11 @@ export class OptionsScreen extends Screen {
       case 'music': s.music = !s.music; this.game.applySettings(); break;
       case 'sfx': s.sfx = !s.sfx; this.game.applySettings(); break;
       case 'guide': s.guide = s.guide === false; break;
-      case 'debug': this.game.debugEnabled = !this.game.debugEnabled; break;
+      case 'debug':
+        this.game.debugEnabled = !this.game.debugEnabled;
+        // Remembered, so it is on next time the artifact is opened.
+        this.game.state.settings.testMode = this.game.debugEnabled;
+        break;
       case 'back': this.game.screens.pop(); return;
       default: break;
     }

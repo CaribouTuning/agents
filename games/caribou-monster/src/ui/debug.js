@@ -16,6 +16,7 @@ import { ITEM_IDS, getItem } from '../data/items.js';
 import { MAP_IDS, getMap } from '../data/maps/index.js';
 import { TRAINERS } from '../data/trainers.js';
 import { FLAGS } from '../game/storyflags.js';
+import { runCommand, playableChapters, COMMANDS } from '../game/testmode.js';
 import {
   debugGive, debugGiveItem, healParty, awardBadge, setStoryFlag, formatPlayTime,
 } from '../game/state.js';
@@ -52,6 +53,8 @@ export class DebugScreen extends Screen {
     const st = this.game.state;
     switch (this.page) {
       case 'main': return [
+        { t: 'Console (/commands)...', a: () => this._console() },
+        { t: 'Jump to a chapter...', a: () => { this.page = 'chapters'; this.index = 0; this.scroll = 0; } },
         { t: 'Heal party', a: () => { healParty(st); this._msg('Party healed.'); audio.sfx('heal'); } },
         { t: 'Give monster...', a: () => { this.page = 'species'; this.index = 0; this.scroll = 0; } },
         { t: 'Give item...', a: () => { this.page = 'items'; this.index = 0; this.scroll = 0; } },
@@ -72,6 +75,23 @@ export class DebugScreen extends Screen {
         { t: 'Reset save', a: () => { this.page = 'reset'; this.index = 1; } },
         { t: 'Close', a: () => this.game.screens.pop() },
       ];
+      // Jumping to a point in the story. This is the one that makes the back
+      // half of the game testable at all: it sets every beat up to the one
+      // picked, levels the party to match, hands over the HMs, and puts the
+      // player where the beat happens.
+      // Whatever the last console line printed. Rows rather than a text blob
+      // so the existing scrolling works on a long list of flags or maps.
+      case 'output': return String(this.output || '').split('\n').map((line) => ({
+        t: line, a: () => this._console(),
+      })).concat([
+        { t: '> type another', a: () => this._console() },
+        { t: 'Back', a: () => { this.page = 'main'; this.index = 0; this.scroll = 0; } },
+      ]);
+      case 'chapters': return playableChapters().map((b) => ({
+        t: b.text,
+        right: b.flag,
+        a: () => { const r = runCommand(this.game, `/chapter ${b.flag}`); this._msg(r.text.split('\n')[0]); audio.sfx('badge'); },
+      })).concat([{ t: 'Back', a: () => { this.page = 'main'; this.index = 0; this.scroll = 0; } }]);
       case 'species': return SPECIES_LIST.map((sp) => ({
         t: `${String(sp.id).padStart(3, '0')} ${sp.name}`,
         right: sp.types.join('/'),
@@ -163,6 +183,24 @@ export class DebugScreen extends Screen {
       if (this.page === 'main') this.game.screens.pop();
       else { this.page = 'main'; this.index = 0; this.scroll = 0; }
     }
+  }
+
+  /**
+   * The text console. Typing is the only interface that can express
+   * "/warp snowpoint" without a menu of every map in the game, and the
+   * on-screen keyboard means it works on a phone.
+   */
+  _console() {
+    const g = this.game;
+    const hint = COMMANDS.length ? `/help lists ${COMMANDS.length} commands` : '';
+    g.openTextEntry(hint || 'Command', 28, (line) => {
+      if (!line) return;
+      const r = runCommand(g, line);
+      this.output = r.text;
+      this.page = 'output';
+      this.index = 0; this.scroll = 0;
+      audio.sfx(r.ok ? 'select' : 'deny');
+    });
   }
 
   render(ctx) {

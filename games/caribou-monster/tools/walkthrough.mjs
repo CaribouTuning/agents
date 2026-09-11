@@ -965,6 +965,72 @@ const verity = await page.evaluate(async () => {
 check('the Lake Verity raid waits for Lake Valor', verity.count > 0 && verity.requires,
   JSON.stringify(verity));
 
+// --- test mode ---
+// The console is how the rest of this game is going to be exercised, so it
+// gets driven here the way a player would drive it rather than only being
+// unit tested.
+console.log('\n--- test mode ---');
+
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.settings.testMode = true;
+  g.applySettings();
+});
+const testable = await page.evaluate(() => window.CARIBOU.debugEnabled);
+check('turning test mode on in settings enables it', testable === true, String(testable));
+
+await page.evaluate(() => window.CARIBOU.openMenu());
+await wait(320);
+const menuHasIt = await page.evaluate(() => {
+  const top = window.CARIBOU.screens.top;
+  return (top.entries || []).map((e) => e.key).join(',');
+});
+check('and the pause menu offers a way in on a phone', menuHasIt.includes('debug'), menuHasIt);
+await tap('KeyX', 1, 260);
+await waitIdle();
+
+// Every command, run for real against the live game.
+const console_ = async (line) => page.evaluate(async (l) => {
+  const { runCommand } = await import('./src/game/testmode.js');
+  return runCommand(window.CARIBOU, l);
+}, line);
+
+const warped = await console_('/warp snowpoint');
+const whereNow = await where();
+check('the console can warp to a map that exists', warped.ok || /no such map/.test(warped.text),
+  warped.text);
+
+const toCelestic = await console_('/warp celestic');
+await wait(400);
+await waitIdle();
+const atCelestic = await where();
+check('/warp lands the player on the named map', atCelestic.map === 'celestic',
+  `${atCelestic.map} ${atCelestic.x},${atCelestic.y}`);
+check('and leaves them able to move', (await canMove()).length > 0, (await canMove()).join(','));
+void toCelestic; void whereNow;
+
+const jumped = await console_('/chapter badge4');
+await wait(500);
+await waitIdle();
+const afterJump = await page.evaluate(() => ({
+  map: window.CARIBOU.overworld.world.mapId,
+  badges: window.CARIBOU.state.badges.length,
+  party: window.CARIBOU.state.party.length,
+}));
+check('/chapter moves the whole game to a story beat', jumped.ok && afterJump.badges === 4,
+  JSON.stringify(afterJump));
+check('and puts the player somewhere real with a party',
+  afterJump.party > 0 && (await canMove()).length > 0, JSON.stringify(afterJump));
+
+const gave = await console_('/give ultraball 3');
+check('/give puts items in the bag', gave.ok, gave.text);
+const badCmd = await console_('/warp nowhere');
+check('a bad command says so instead of breaking', !badCmd.ok, badCmd.text);
+await page.screenshot({ path: path.join(OUT, '08g-testmode.png') });
+
+// Back to a sane state for the sections that follow.
+await page.evaluate(() => { window.CARIBOU.state.settings.testMode = false; window.CARIBOU.applySettings(); });
+
 // --- the World Circuit, played end to end ---
 // Walk into the Battle Hall, register at the desk, enter the Rookie Cup and
 // actually fight a round. This is the only test that proves the side story
