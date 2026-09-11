@@ -201,8 +201,6 @@ add('secretpotion', 'Secret Potion', 'Key Items', 0, { kind: 'story' },
   'A Celestic remedy for headaches nothing else touches. Smells appalling.', { key: true });
 add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
   'A cold, faintly glowing charm. It hums near old stone.', { key: true });
-add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
-  'Proof of victory over the Oreburgh Gym.', { key: true, badge: 1 });
 
 export function getItem(id) { return ITEMS[id]; }
 

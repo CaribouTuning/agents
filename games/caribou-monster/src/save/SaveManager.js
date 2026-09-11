@@ -4,7 +4,7 @@
 // implementation is LocalBackend; a cloud backend (per-account slots synced
 // across the two players' phones) drops in behind the same three methods
 // without any game code changing.
-import { storage, storageReady, isDurable, providerReport } from '../core/storage.js';
+import { storage, storageReady, isDurable, providerReport, saveDiagnosis } from '../core/storage.js';
 import { serializeState, deserializeState } from '../game/state.js';
 import { MIGRATIONS } from './migrations.js';
 
@@ -25,6 +25,7 @@ export class LocalBackend {
   ready() { return storageReady(); }
   durable() { return isDurable(); }
   providers() { return providerReport(); }
+  diagnose() { return saveDiagnosis(); }
   readLocal(slot) { return storage.readLocalNow(slot); }
   async read(slot) { return storage.read(slot); }
   async write(slot, data) { return storage.write(slot, data); }

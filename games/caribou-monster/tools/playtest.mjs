@@ -225,6 +225,33 @@ async function playOpening(me) {
 await playOpening({ name: 'Matthew', look: 'matthew', house: 'matthew_house' });
 await playOpening({ name: 'Sammy', look: 'sammy', house: 'sammy_house' });
 
+// --- the map exists and can be opened ---
+// It did not. The Town Map screen was written, the Key Item was defined, and
+// nobody was ever given one — so as far as a player was concerned the game
+// had no map at all.
+console.log('\n--- the map ---');
+{
+  const held = await page.evaluate(() => (window.CARIBOU.state.inventory.items.townmap || 0) > 0);
+  check(held, 'you are actually given a Town Map', String(held));
+
+  await page.evaluate(() => window.CARIBOU.openMenu());
+  await wait(320);
+  const keys = await page.evaluate(() => (window.CARIBOU.screens.top.entries || []).map((e) => e.key));
+  check(keys.includes('map'), 'and it is in the pause menu', keys.join(','));
+
+  // Open it the way a player would: move to the row and press A.
+  const opened = await page.evaluate(async () => {
+    const g = window.CARIBOU;
+    g.openTownMap();
+    await new Promise((r) => setTimeout(r, 200));
+    return g.screens.top.constructor.name;
+  });
+  check(opened === 'TownMapScreen', 'and it opens', opened);
+  await page.screenshot({ path: path.join(OUT, 'map.png') });
+  await page.evaluate(() => { while (window.CARIBOU.screens.stack.length > 1) window.CARIBOU.screens.pop(); });
+  await wait(200);
+}
+
 // --- the stand-in steps aside for the real person ---
 console.log('\n--- and gets out of the way when the real one arrives ---');
 {

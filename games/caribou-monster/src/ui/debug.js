@@ -85,11 +85,23 @@ export class DebugScreen extends Screen {
       // screen said so.
       case 'storage': {
         const b = this.game.save.backend;
-        const rows = (b.providers ? b.providers() : []).map((p) => ({
+        const d = b.diagnose ? b.diagnose() : { providers: [], permission: '?' };
+        const rows = (d.providers || []).map((p) => ({
           t: p.name, right: p.up ? 'UP' : 'not available',
         }));
+        rows.push({ t: 'permission', right: String(d.permission) });
+        rows.push({ t: 'last error', right: d.lastError ? String(d.lastError).slice(0, 22) : 'none' });
         rows.push({ t: b.durable && b.durable() ? 'Saves survive closing' : 'THIS DEVICE ONLY',
           right: b.durable && b.durable() ? 'yes' : 'at risk' });
+        rows.push({
+          t: 'Ask for cloud save permission',
+          a: async () => {
+            this._msg('asking...');
+            await this.game.save.flush(this.game.state);
+            const after = b.diagnose ? b.diagnose() : {};
+            this._msg(`permission: ${after.permission}${after.lastError ? ' / ' + after.lastError : ''}`);
+          },
+        });
         rows.push({
           t: 'Save now and read it back',
           a: async () => {

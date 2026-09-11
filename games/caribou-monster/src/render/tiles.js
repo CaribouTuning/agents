@@ -153,6 +153,81 @@ function softSoil(c) {
 }
 
 
+/**
+ * City paving. Big laid slabs with a joint line, so a street reads as built
+ * rather than as a path somebody wore into the grass.
+ */
+function paving(c) {
+  const base = '#b9b4ab';
+  c.fillStyle = base; px(c, 0, 0, 16, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const r = h(x, y, 91);
+    if (r > 0.9) { c.fillStyle = shade(base, 0.06); px(c, x, y); }
+    else if (r < 0.1) { c.fillStyle = shade(base, -0.07); px(c, x, y); }
+  }
+  c.fillStyle = shade(base, -0.22);
+  px(c, 0, 7, 16, 1);
+  px(c, 7, 0, 1, 7); px(c, 11, 8, 1, 8);
+  c.fillStyle = shade(base, 0.14);
+  px(c, 0, 8, 16, 1); px(c, 8, 0, 1, 7); px(c, 12, 8, 1, 8);
+}
+
+/** Old cobble: rounded stones, no grid, for the places that predate roads. */
+function cobble(c) {
+  const base = '#9a9384';
+  c.fillStyle = shade(base, -0.3); px(c, 0, 0, 16, 16);
+  for (let cy = 1; cy < 16; cy += 5) {
+    for (let cx = (cy % 10 === 1 ? 1 : 4); cx < 16; cx += 5) {
+      const tone = shade(base, (h(cx, cy, 97) - 0.5) * 0.3);
+      c.fillStyle = tone;
+      px(c, cx, cy + 1, 4, 2); px(c, cx + 1, cy, 2, 4);
+      c.fillStyle = shade(tone, 0.2); px(c, cx + 1, cy + 1, 2, 1);
+    }
+  }
+}
+
+/** Boardwalk: planks over water or sand, for the towns built on stilts. */
+function boardwalk(c) {
+  const wood = '#b08a52';
+  c.fillStyle = wood; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade(wood, -0.28);
+  for (let y = 0; y < 16; y += 5) px(c, 0, y, 16, 1);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    if (h(x, y, 101) > 0.88) { c.fillStyle = shade(wood, -0.12); px(c, x, y); }
+  }
+  c.fillStyle = shade(wood, 0.16);
+  for (let y = 1; y < 16; y += 5) px(c, 0, y, 16, 1);
+  c.fillStyle = shade(wood, -0.4);
+  px(c, 3, 2, 1, 1); px(c, 12, 7, 1, 1); px(c, 6, 12, 1, 1);
+}
+
+/**
+ * A tall town building: brick, three storeys of windows, no pitched roof.
+ * This is the thing a city has that a village does not, and the reason
+ * every town looked the same was that nothing in the set said "city".
+ */
+function block(c) {
+  const brick = '#a2705a';
+  c.fillStyle = brick; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade(brick, -0.22);
+  for (let y = 0; y < 16; y += 3) px(c, 0, y, 16, 1);
+  for (let y = 0; y < 16; y += 3) {
+    const off = (y / 3) % 2 ? 4 : 0;
+    for (let x = off; x < 16; x += 8) px(c, x, y, 1, 3);
+  }
+  c.fillStyle = shade(brick, 0.1); px(c, 0, 0, 16, 1);
+}
+
+/** The same brick with a lit window in it. */
+function blockWindow(c) {
+  block(c);
+  c.fillStyle = shade('#a2705a', -0.45); px(c, 3, 4, 10, 8);
+  c.fillStyle = PAL.window; px(c, 4, 5, 8, 6);
+  c.fillStyle = PAL.windowDark; px(c, 4, 8, 8, 3);
+  c.fillStyle = shade(PAL.window, 0.3); px(c, 5, 6, 2, 1);
+  c.fillStyle = shade('#a2705a', -0.45); px(c, 8, 4, 1, 8);
+}
+
 function dirt(c) {
   c.fillStyle = PAL.pathDark; px(c, 0, 0, 16, 16);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -832,6 +907,14 @@ export const TILES = {
   '*': { name: 'flowers', draw: flowers, anim: 2, ground: 'grass' },
   ':': { name: 'path', draw: path, ground: 'path' },
   ';': { name: 'dirt', draw: dirt, ground: 'dirt' },
+  // Made ground. A town's floor is most of what tells you what kind of town
+  // it is, and every town in this game had the same one.
+  'q': { name: 'paving', draw: paving, ground: 'path' },
+  'z': { name: 'cobblestone', draw: cobble, ground: 'path' },
+  'j': { name: 'boardwalk', draw: boardwalk, ground: 'path' },
+  // Tall buildings, for the places that have them.
+  'h': { name: 'brick wall', draw: block, solid: true, casts: true },
+  'i': { name: 'brick window', draw: blockWindow, solid: true, casts: true },
   'O': { name: 'soft soil', draw: softSoil, soil: true, ground: 'grass' },
   's': { name: 'sand', draw: sand, ground: 'sand' },
   'n': { name: 'snow', draw: snow, ground: 'snow' },

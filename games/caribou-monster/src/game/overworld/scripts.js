@@ -1658,6 +1658,17 @@ SCRIPTS.mumDoor = async (ctx) => {
   await ctx.say('Mum: Professor Rowan rang. She wants you at the lab. She wants BOTH\nof you at the lab, she was very clear about it.');
   await ctx.say(`Mum: ${who} is already outside. Has been for a while, I think.\fThey did not knock. They never knock, they just stand there.`);
   await ctx.wait(0.3);
+  await ctx.say('Mum: And take this. I am not having you wandering about Sinnoh\nasking strangers which way is up.');
+  ctx.give('townmap', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received the TOWN MAP!');
+  await ctx.say('Mum: It is in the menu. It fills itself in as you go, so it will be\nmostly blank and that is not a fault.');
+  await ctx.wait(0.3);
+  await ctx.say('Mum: These too. You have worn through two pairs already this year.');
+  ctx.give('runningshoes', 1);
+  await ctx.say('You received the RUNNING SHOES!');
+  await ctx.say('Mum: Hold B and they do the rest.');
+  await ctx.wait(0.3);
   await ctx.say('Mum: Go on. Take your time and do not take too long, which I am aware\nis two different instructions.');
   ctx.setFlag('mumSentYouOff', true);
   ctx.autosave();
@@ -1704,6 +1715,29 @@ SCRIPTS.buddyWaiting = async (ctx) => {
   ctx.shareMilestone('buddyJoined');
   ctx.autosave();
   await ctx.say(`${them.name} is coming with you!`);
+};
+
+/** The Eterna bike shop. One bicycle, given away, for reasons of his own. */
+SCRIPTS.bikeShop = async (ctx) => {
+  const st = ctx.state;
+  if (ctx.hasItem('bicycle')) {
+    await ctx.say('Rad: How is she riding? Do not answer that, I will only worry.',
+      { speaker: 'Rad Rickshaw' });
+    return;
+  }
+  if (!st.flags.badge2) {
+    await ctx.say('Rad: Bicycles. That is the shop.', { speaker: 'Rad Rickshaw' });
+    await ctx.say('Rad: I am not selling you one. I have never sold one.\fI give them to people who have beaten Gardenia, and I could not\ntell you why I started.');
+    await ctx.say('Rad: Go and beat Gardenia. Then we will talk about wheels.');
+    return;
+  }
+  await ctx.say('Rad: Forest Badge. Right.', { speaker: 'Rad Rickshaw' });
+  await ctx.say('Rad: Take it. Folding frame, holds a corner, does not complain.');
+  ctx.give('bicycle', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received the BICYCLE!');
+  await ctx.say('Rad: Do not thank me. Everybody thanks me and it makes it weird.');
+  ctx.autosave();
 };
 
 export function scriptFor(name) { return SCRIPTS[name] || null; }

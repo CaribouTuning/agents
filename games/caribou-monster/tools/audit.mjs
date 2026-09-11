@@ -8,6 +8,7 @@
 // This exists because a softlock is the worst class of bug in this game — it
 // costs the player their session — and it is entirely preventable at build
 // time. Run it before shipping.
+import fs from 'node:fs';
 import { MAPS } from '../src/data/maps/index.js';
 import {
   WORLD_POS, worldGraph, reachableFrom, edgeOf, linksOf, directionHolds, OPPOSITE,
@@ -839,6 +840,41 @@ for (const t of TOURNAMENTS) checkText(`[event ${t.id}]`, [t.name, t.short, t.ve
 checkText('[news]', [HEADLINES, BODIES, PRESS_QUESTIONS, ANALYSTS]);
 for (const o of OUTLETS) checkText(`[outlet ${o.id}]`, o.name);
 
+/**
+ * Every Key Item the game can act on has to be handed to somebody.
+ *
+ * The Town Map was defined, had a working screen behind it, and was given out
+ * by nobody — so the map simply did not exist in the game. Nothing caught it
+ * because every individual piece was fine. This checks the join: an item the
+ * UI knows how to use must appear in a `give` somewhere, or on the ground, or
+ * in a shop.
+ */
+function checkKeyItemsReachable() {
+  const src = [
+    fs.readFileSync(new URL('../src/game/overworld/scripts.js', import.meta.url), 'utf8'),
+    fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8'),
+  ].join('\n');
+  const onGround = new Set();
+  for (const m of Object.values(MAPS)) for (const o of m.objects || []) onGround.add(o.item);
+
+  for (const [id, item] of Object.entries(ITEMS)) {
+    if (!item.key) continue;
+    const given = src.includes(`'${id}'`) || onGround.has(id);
+    if (given) continue;
+    // An HM belongs to a Gym. If that Gym is not built yet, the HM having no
+    // owner is unfinished content rather than a broken join.
+    const gym = GYMS.find((g) => g.tm === id || `hm0${g.n}` === id);
+    const pending = /^hm\d\d$/.test(id) && GYMS.some((g) => !MAPS[g.map]);
+    if (pending) {
+      warn(`[item] "${item.name}" has no owner yet — the Gym that hands it over is not built`);
+    } else {
+      err(`[item] key item "${item.name}" (${id}) is never given to the player — it exists but cannot be got`);
+    }
+    void gym;
+  }
+}
+
+checkKeyItemsReachable();
 checkTownSizes();
 
 // ---- report ---------------------------------------------------------------

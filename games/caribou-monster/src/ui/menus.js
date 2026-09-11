@@ -45,6 +45,8 @@ export class MainMenuScreen extends Screen {
     if (st.flags.gotStarter) out.push({ key: 'dex', text: 'POKéDEX' });
     if (st.party.length) out.push({ key: 'party', text: 'POKéMON' });
     if (st.flags.gotStarter) out.push({ key: 'journal', text: 'JOURNAL' });
+    // The Town Map is a Key Item, but nobody opens the bag looking for a map.
+    if ((st.inventory.items.townmap || 0) > 0) out.push({ key: 'map', text: 'TOWN MAP' });
     out.push({ key: 'bag', text: 'BAG' });
     out.push({ key: 'card', text: st.player.name.toUpperCase() });
     if (st.circuit && st.circuit.joined) out.push({ key: 'circuit', text: 'CIRCUIT' });
@@ -80,6 +82,7 @@ export class MainMenuScreen extends Screen {
       case 'dex': g.openDex(); break;
       case 'party': g.openParty(); break;
       case 'journal': g.openJournal(); break;
+      case 'map': g.openTownMap(); break;
       case 'bag': g.openBag(); break;
       case 'card': g.openCard(); break;
       case 'circuit': g.openCircuit(); break;

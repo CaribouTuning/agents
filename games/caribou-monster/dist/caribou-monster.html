@@ -1040,6 +1040,81 @@ function softSoil(c) {
 }
 
 
+/**
+ * City paving. Big laid slabs with a joint line, so a street reads as built
+ * rather than as a path somebody wore into the grass.
+ */
+function paving(c) {
+  const base = '#b9b4ab';
+  c.fillStyle = base; px(c, 0, 0, 16, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const r = h(x, y, 91);
+    if (r > 0.9) { c.fillStyle = shade(base, 0.06); px(c, x, y); }
+    else if (r < 0.1) { c.fillStyle = shade(base, -0.07); px(c, x, y); }
+  }
+  c.fillStyle = shade(base, -0.22);
+  px(c, 0, 7, 16, 1);
+  px(c, 7, 0, 1, 7); px(c, 11, 8, 1, 8);
+  c.fillStyle = shade(base, 0.14);
+  px(c, 0, 8, 16, 1); px(c, 8, 0, 1, 7); px(c, 12, 8, 1, 8);
+}
+
+/** Old cobble: rounded stones, no grid, for the places that predate roads. */
+function cobble(c) {
+  const base = '#9a9384';
+  c.fillStyle = shade(base, -0.3); px(c, 0, 0, 16, 16);
+  for (let cy = 1; cy < 16; cy += 5) {
+    for (let cx = (cy % 10 === 1 ? 1 : 4); cx < 16; cx += 5) {
+      const tone = shade(base, (h(cx, cy, 97) - 0.5) * 0.3);
+      c.fillStyle = tone;
+      px(c, cx, cy + 1, 4, 2); px(c, cx + 1, cy, 2, 4);
+      c.fillStyle = shade(tone, 0.2); px(c, cx + 1, cy + 1, 2, 1);
+    }
+  }
+}
+
+/** Boardwalk: planks over water or sand, for the towns built on stilts. */
+function boardwalk(c) {
+  const wood = '#b08a52';
+  c.fillStyle = wood; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade(wood, -0.28);
+  for (let y = 0; y < 16; y += 5) px(c, 0, y, 16, 1);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    if (h(x, y, 101) > 0.88) { c.fillStyle = shade(wood, -0.12); px(c, x, y); }
+  }
+  c.fillStyle = shade(wood, 0.16);
+  for (let y = 1; y < 16; y += 5) px(c, 0, y, 16, 1);
+  c.fillStyle = shade(wood, -0.4);
+  px(c, 3, 2, 1, 1); px(c, 12, 7, 1, 1); px(c, 6, 12, 1, 1);
+}
+
+/**
+ * A tall town building: brick, three storeys of windows, no pitched roof.
+ * This is the thing a city has that a village does not, and the reason
+ * every town looked the same was that nothing in the set said "city".
+ */
+function block(c) {
+  const brick = '#a2705a';
+  c.fillStyle = brick; px(c, 0, 0, 16, 16);
+  c.fillStyle = shade(brick, -0.22);
+  for (let y = 0; y < 16; y += 3) px(c, 0, y, 16, 1);
+  for (let y = 0; y < 16; y += 3) {
+    const off = (y / 3) % 2 ? 4 : 0;
+    for (let x = off; x < 16; x += 8) px(c, x, y, 1, 3);
+  }
+  c.fillStyle = shade(brick, 0.1); px(c, 0, 0, 16, 1);
+}
+
+/** The same brick with a lit window in it. */
+function blockWindow(c) {
+  block(c);
+  c.fillStyle = shade('#a2705a', -0.45); px(c, 3, 4, 10, 8);
+  c.fillStyle = PAL.window; px(c, 4, 5, 8, 6);
+  c.fillStyle = PAL.windowDark; px(c, 4, 8, 8, 3);
+  c.fillStyle = shade(PAL.window, 0.3); px(c, 5, 6, 2, 1);
+  c.fillStyle = shade('#a2705a', -0.45); px(c, 8, 4, 1, 8);
+}
+
 function dirt(c) {
   c.fillStyle = PAL.pathDark; px(c, 0, 0, 16, 16);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -1719,6 +1794,14 @@ const TILES = {
   '*': { name: 'flowers', draw: flowers, anim: 2, ground: 'grass' },
   ':': { name: 'path', draw: path, ground: 'path' },
   ';': { name: 'dirt', draw: dirt, ground: 'dirt' },
+  // Made ground. A town's floor is most of what tells you what kind of town
+  // it is, and every town in this game had the same one.
+  'q': { name: 'paving', draw: paving, ground: 'path' },
+  'z': { name: 'cobblestone', draw: cobble, ground: 'path' },
+  'j': { name: 'boardwalk', draw: boardwalk, ground: 'path' },
+  // Tall buildings, for the places that have them.
+  'h': { name: 'brick wall', draw: block, solid: true, casts: true },
+  'i': { name: 'brick window', draw: blockWindow, solid: true, casts: true },
   'O': { name: 'soft soil', draw: softSoil, soil: true, ground: 'grass' },
   's': { name: 'sand', draw: sand, ground: 'sand' },
   'n': { name: 'snow', draw: snow, ground: 'snow' },
@@ -2417,8 +2500,6 @@ add('secretpotion', 'Secret Potion', 'Key Items', 0, { kind: 'story' },
   'A Celestic remedy for headaches nothing else touches. Smells appalling.', { key: true });
 add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
   'A cold, faintly glowing charm. It hums near old stone.', { key: true });
-add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,
-  'Proof of victory over the Oreburgh Gym.', { key: true, badge: 1 });
 
 function getItem(id) { return ITEMS[id]; }
 
@@ -11155,8 +11236,16 @@ class TitleScreen extends Screen {
   _storageNote() {
     const g = this.game;
     if (g.saveProviders === undefined) return 'checking for a saved game...';
-    if (g.saveIsDurable) return 'saving to this account';
-    return 'saving to this device only';
+    const d = g.save.backend.diagnose ? g.save.backend.diagnose() : null;
+    if (!d) return g.saveIsDurable ? 'saving to this account' : 'saving to this device only';
+    if (d.lastError) return `cloud save failed: ${String(d.lastError).slice(0, 28)}`;
+    switch (d.permission) {
+      case 'granted': return 'cloud save on — this game will keep';
+      case 'prompt': return 'cloud save will ask permission when you save';
+      case 'denied': return 'cloud save REFUSED — this device only';
+      case 'unavailable': return 'no cloud save here — this device only';
+      default: return 'checking where saves go...';
+    }
   }
 
   setSave(meta) {
@@ -12177,32 +12266,33 @@ const TWINLEAF = defineMap('twinleaf', {
 const OREBURGH = defineMap('oreburgh', {
   name: 'Oreburgh City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
-    'TTTTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
-    'T.............::...............T',
-    'T..AAAAAAAA...::.....BBBBBBBB..T',
-    'T..AAAAAAAA...::.....BBBBBBBB..T',
-    'T..VVVVVVVV...::.....VVVVVVVV..T',
-    'T..#WFFDFFW#..::.....#WJJDJJW#.T',
-    'T......:......::........:......T',
-    '::::::::::::::::::::::::::.....T',
-    ':.............::..EEEEEEEE.....T',
-    'T....*........::..EEEEEEEE.....T',
-    'T.............::..#WWDDWW#.....T',
-    'T..GGGGG......::.S.............T',
-    'T..GGGGG......::........GGGGG..T',
-    'T..#WDW#......::........#WDW#..T',
-    'T....:....KKKKKKKKKK......:....T',
-    'T....:....KKKKKKKKKK......:....T',
-    'T....:....KKKKKKKKKK......:....T',
-    'T....:....VVVVVVVVVV......:....T',
-    'T....:....NQNNddNNQN......:....T',
-    'T....:....I.S.::.S.I......:....T',
-    'T....::::::::::::::::::::::....T',
-    'T.............::...............T',
-    'T..S..........::..........S....T',
+    'TTTTTTTTTTTTTT;;TTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTTTT;;TTTTTTTTTTTTTTTT',
+    'T.............;;...............T',
+    'T..AAAAAAAA...;;.....BBBBBBBB..T',
+    'T..AAAAAAAA...;;.....BBBBBBBB..T',
+    'T..VVVVVVVV...;;.....VVVVVVVV..T',
+    'T..#WFFDFFW#..;;.....#WJJDJJW#.T',
+    'T......;......;;........;......T',
+    ';;;;;;;;;;;;;;;;;;;;;;;;;;.....T',
+    ';.............;;..EEEEEEEE.....T',
+    'T....*........;;..EEEEEEEE.....T',
+    'T.............;;..#WWDDWW#.....T',
+    'T..GGGGG......;;.S.............T',
+    'T..GGGGG......;;........GGGGG..T',
+    'T..#WDW#......;;........#WDW#..T',
+    'T....;....KKKKKKKKKK......;....T',
+    'T....;....KKKKKKKKKK......;....T',
+    'T....;....KKKKKKKKKK......;....T',
+    'T....;....VVVVVVVVVV......;....T',
+    'T....;....NQNNddNNQN......;....T',
+    'T....;....I.S.;;.S.I......;....T',
+    'T....;;;;;;;;;;;;;;;;;;;;;;....T',
+    'T.............;;...............T',
+    'T..S..........;;..........S....T',
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
+
   warps: [
     { x: 14, y: 0, to: 'route207', tx: 12, ty: 16, dir: 'up', edge: true },
     { x: 15, y: 0, to: 'route207', tx: 13, ty: 16, dir: 'up', edge: true },
@@ -12522,35 +12612,37 @@ const SANDGEM = defineMap('sandgem', {
 const JUBILIFE = defineMap('jubilife', {
   name: 'Jubilife City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTTTTT....T',
-    'T...........::...................T',
-    'T..AAAAAAAA.::......BBBBBBBB.....T',
-    'T..AAAAAAAA.::......BBBBBBBB.....T',
-    'T..VVVVVVVV.::......VVVVVVVV.....T',
-    'T..#WFFDFFW.::......#WJJDJJW.....T',
-    'T.....:.....::..........:........T',
-    ':.....:::::::::::::::::::::::....:',
-    ':.....:.....::..........:::::....:',
-    'T..S..:.....::..........:........T',
-    'T.....:.EEEEEEEEEEEE....:........T',
-    'T.....:.EEEEEEEEEEEE....:........T',
-    'T.....:.VVVVVVVVVVVV....:........T',
-    'T.....:.#WW#WWDDWW#WW...:........T',
-    'T.....:........::.......:........T',
-    'T.....::::::::::::::::::::.......T',
-    'T..............::................T',
-    'T..GGGGG.......::....GGGGG.......T',
-    'T..GGGGG.......::....GGGGG.......T',
-    'T..#WDW#.......::....#WDW#.......T',
-    'T.....:........::......:.........T',
-    'T.....::::::::::::::::::.........T',
-    'T..S...........::...........S....T',
-    'T................................T',
-    'T................................T',
-    'T................................T',
-    'T................................T',
-    'TTTTTTTTTTTT::::::TTTTTTTTTTT....T',
+    'TTTTTTTTTTTTqqTTTTTTTTTTTTTTT....T',
+    'T...........qq...................T',
+    'T..AAAAAAAA.qq......BBBBBBBB.....T',
+    'T..AAAAAAAA.qq......BBBBBBBB.....T',
+    'T..VVVVVVVV.qq......VVVVVVVV.....T',
+    'T..#WFFDFFW.qq......#WJJDJJW.....T',
+    'T.....q.....qq..........q........T',
+    'q.....qqqqqqqqqqqqqqqqqqqqqqq....q',
+    'q.....q.....qq..........qqqqq....q',
+    'T..S..q.....qq..........q........T',
+    'T.....q.EEEEEEEEEEEE....q........T',
+    'T.....q.EEEEEEEEEEEE....q........T',
+    'T.....q.VVVVVVVVVVVV....q........T',
+    'T.....q.#WW#WWDDWW#WW...q........T',
+    'T.....q........qq.......q........T',
+    'T.....qqqqqqqqqqqqqqqqqqqq.......T',
+    'T..............qq................T',
+    'T..hihih.......qq....hihih.......T',
+    'T..hhihh.......qq....hhihh.......T',
+    'T..#WDW#.......qq....#WDW#.......T',
+    'T.....q........qq......q.........T',
+    'T.....qqqqqqqqqqqqqqqqqq.........T',
+    'T..S...........qq...........S....T',
+    'T.qqqqqqqq..........qqqqqqqq.....T',
+    'T.hhihhihh..........hhihhihh.....T',
+    'T.#WDW#WDW..........#WDW#WDW.....T',
+    'T.qq.qq.qq..........qq.qq.qq.....T',
+    'TTTTTTTTTTTTqqqqqqTTTTTTTTTTT....T',
   ],
+
+
 
   warps: [
     { x: 12, y: 0, to: 'route204', tx: 12, ty: 22, dir: 'up', edge: true },
@@ -14419,26 +14511,27 @@ const RAVAGED_PATH = defineMap('ravaged_path', {
 const FLOAROMA = defineMap('floaroma', {
   name: 'Floaroma Town', kind: 'town', music: 'town',
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
-    'T..**..**...::...**..**..T',
-    'T..**..**...::...**..**..T',
-    'T...........::...........T',
-    'T..AAAAAAAA.::.....GGGGG.T',
-    'T..AAAAAAAA.::.....GGGGG.T',
-    'T..VVVVVVVV.::.....#WDW#.T',
-    'T..#WFFDFFW.::.......:...T',
-    'T.....:.....::.......:...T',
-    'T.....:::::::::::::::....T',
-    'T.....:.....::...........T',
-    'T..S..:..**.::..**...**..T',
-    'T.....:..**.::..**...**..T',
-    'T.....:.....::...........T',
-    'T..OOO:.....::....OOO....T',
-    'T.....:.....::...........T',
-    'T.....::::::::...........T',
-    'T...........::..........ST',
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'TTTTTTTTTTTT;;TTTTTTTTTTTT',
+    'T..**..**...;;...**..**..T',
+    'T..**..**...;;...**..**..T',
+    'T...........;;...........T',
+    'T..AAAAAAAA.;;.....GGGGG.T',
+    'T..AAAAAAAA.;;.....GGGGG.T',
+    'T..VVVVVVVV.;;.....#WDW#.T',
+    'T..#WFFDFFW.;;.......;...T',
+    'T.....;.....;;.......;...T',
+    'T.....;;;;;;;;;;;;;;;....T',
+    'T.....;.....;;...........T',
+    'T..S..;..**.;;..**...**..T',
+    'T.....;..**.;;..**...**..T',
+    'T.....;.....;;...........T',
+    'T..OOO;.....;;....OOO....T',
+    'T.....;.....;;...........T',
+    'T.....;;;;;;;;...........T',
+    'T...........;;..........ST',
+    'TTTTTTTTTTTT;;TTTTTTTTTTTT',
   ],
+
   warps: [
     { x: 12, y: 18, to: 'ravaged_path', tx: 8, ty: 1, dir: 'down', edge: true },
     { x: 13, y: 18, to: 'ravaged_path', tx: 9, ty: 1, dir: 'down', edge: true },
@@ -14663,33 +14756,34 @@ const ETERNA_FOREST = defineMap('eterna_forest', {
 const ETERNA = defineMap('eterna', {
   name: 'Eterna City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
-    'T..............................T',
-    'T..AAAAAAAA.........BBBBBBBB...T',
-    'T..AAAAAAAA.........BBBBBBBB...T',
-    'T..VVVVVVVV.........VVVVVVVV...T',
-    'T..#WFFDFFW.........#WJJDJJW...T',
-    'T.....:...................:....T',
-    'T.....:::::::::::::::::::::::...',
-    'T.....:...................:....T',
-    'T..S..:....II.........II..:....T',
-    'T.....:...................:....T',
-    'T.....:...KKKKKKKKKK......:....T',
-    'T.....:...KKKKKKKKKK......:....T',
-    'T.....:...VVVVVVVVVV......:....T',
-    'T.....:...NQNNddNNQN......:....T',
-    'T.....:...I.S....S.I......:....T',
-    'T.....:::::::::::::::::::::....T',
-    'T..............................T',
-    'T..OOO....**......**.....OOO...T',
-    'T.........**......**...........T',
-    'T............::................T',
-    'T..............................T',
-    'T..............................T',
-    'T..............................T',
-    'T..............................T',
-    'TTTTTTTTTTTT::TTTTTTTTTTTTTTT..T',
+    'YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY',
+    'Y..............................Y',
+    'Y..AAAAAAAA.........BBBBBBBB...Y',
+    'Y..AAAAAAAA.........BBBBBBBB...Y',
+    'Y..VVVVVVVV.........VVVVVVVV...Y',
+    'Y..#WFFDFFW.........#WJJDJJW...Y',
+    'Y.....z...................z....Y',
+    'Y.....zzzzzzzzzzzzzzzzzzzzzzz...',
+    'Y.....z...................z....Y',
+    'Y..S..z....II.........II..z....Y',
+    'Y.....z...................z....Y',
+    'Y.....z...KKKKKKKKKK......z....Y',
+    'Y.....z...KKKKKKKKKK......z....Y',
+    'Y.....z...VVVVVVVVVV......z....Y',
+    'Y.....z...NQNNddNNQN......z....Y',
+    'Y.....z...I.S....S.I......z....Y',
+    'Y.....zzzzzzzzzzzzzzzzzzzzz....Y',
+    'Y..............................Y',
+    'Y..OOO....**......**.....OOO...Y',
+    'Y.........**......**...........Y',
+    'Y............zz................Y',
+    'Y..............................Y',
+    'Y..............................Y',
+    'Y..............................Y',
+    'Y..............................Y',
+    'YYYYYYYYYYYYzzYYYYYYYYYYYYYYY..Y',
   ],
+
 
   warps: [
     { x: 12, y: 25, to: 'eterna_forest', tx: 9, ty: 1, dir: 'down', edge: true },
@@ -14713,6 +14807,15 @@ const ETERNA = defineMap('eterna', {
   objects: [],
   healPoint: { map: 'eterna_center', x: 6, y: 7 },
   npcs: [
+    // The bike shop. In Platinum it is the one building in Eterna anybody
+    // remembers, and the Bicycle was sitting in the item table with nobody
+    // to hand it over.
+    {
+      id: 'et_bikeman', x: 6, y: 16, look: 'clerk', name: 'Rad Rickshaw', movement: 'still',
+      facing: 'down', script: 'bikeShop',
+      dialogue: [{ lines: ['Rad: Bicycles. That is the shop. That is the whole shop.'] }],
+    },
+
     {
       id: 'et_guide', x: 16, y: 16, look: 'youngster', name: 'Gym Guide', movement: 'still', facing: 'down',
       dialogue: [
@@ -15246,35 +15349,36 @@ const ROUTE208 = defineMap('route208', {
 const HEARTHOME = defineMap('hearthome', {
   name: 'Hearthome City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTTqqTTTTTTTTTTTTTTTTTTTT',
     'T................................T',
     'T..AAAAAAAA..........BBBBBBBB....T',
     'T..AAAAAAAA..........BBBBBBBB....T',
     'T..VVVVVVVV..........VVVVVVVV....T',
     'T..#WFFDFFW..........#WJJDJJW....T',
-    'T.....:....................:.....T',
-    'T.....::::::::::::::::::::::.....T',
-    'T.....:....................:.....T',
-    'T..S..:...GGGGGGGG.........:.....T',
-    'T.....:...GGGGGGGG.........:.....T',
-    'T.....:...VVVVVVVV.........:.....T',
-    '::::::::::#WWDDWW#.........:.....T',
-    'T.....:....................:.....T',
-    'T.....:...KKKKKKKKKK.......:.....T',
-    'T.....:...KKKKKKKKKK.......:.....T',
-    'T.....:...KKKKKKKKKK.......:.....T',
-    'T.....:...VVVVVVVVVV.......:.....T',
-    'T.....:...NQNNddNNQN.......:.....T',
-    'T.....:...I.S....S.I.......:.....T',
-    'T.....:::::::::::::::::::::......T',
+    'T.....q....................q.....T',
+    'T.....qqqqqqqqqqqqqqqqqqqqqq.....T',
+    'T.....q....................q.....T',
+    'T..S..q...GGGGGGGG.........q.....T',
+    'T.....q...GGGGGGGG.........q.....T',
+    'T.....q...VVVVVVVV.........q.....T',
+    'qqqqqqqqqq#WWDDWW#.........q.....T',
+    'T.....q....................q.....T',
+    'T.....q...KKKKKKKKKK.......q.....T',
+    'T.....q...KKKKKKKKKK.......q.....T',
+    'T.....q...KKKKKKKKKK.......q.....T',
+    'T.....q...VVVVVVVVVV.......q.....T',
+    'T.....q...NQNNddNNQN.......q.....T',
+    'T.....q...I.S....S.I.......q.....T',
+    'T.....qqqqqqqqqqqqqqqqqqqqq......T',
     'T................................T',
     'T..**....EEEEEEEE......**....S...T',
     'T..**....EEEEEEEE......**........T',
     'T........VVVVVVVV................T',
     'T........#WWDDWW#................T',
     'T................................T',
-    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTTqqTTTTTTTTTTTTTTTTTTTT',
   ],
+
   warps: [
     { x: 0, y: 12, to: 'route208', tx: 30, ty: 7, dir: 'left', edge: true },
     { x: 12, y: 0, to: 'route209', tx: 12, ty: 21, dir: 'up', edge: true },
@@ -15818,25 +15922,26 @@ const LOST_TOWER_3 = defineMap('lost_tower_3', {
 const SOLACEON = defineMap('solaceon', {
   name: 'Solaceon Town', kind: 'town', music: 'town',
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
-    'T...........::...........T',
-    'T..AAAAAAAA.::.....GGGGG.T',
-    'T..AAAAAAAA.::.....GGGGG.T',
-    'T..VVVVVVVV.::.....#WDW#.T',
-    'T..#WFFDFFW.::.......:...T',
-    'T.....:.....::.......:...T',
-    'T.....:::::::::::::::....T',
-    'T.....:.....::...........T',
-    'T..S..:..OOO::....**.....T',
-    'T.....:.....::....**.....T',
-    'T.....:.....::...........T',
-    'T.....:...BBBBBB.........T',
-    'T.....:...BBBBBB.........T',
-    'T.....:...VVVVVV.........T',
-    'T.....::::#WWDWW.........T',
-    'T...........::..........ST',
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'TTTTTTTTTTTT;;TTTTTTTTTTTT',
+    'T...........;;...........T',
+    'T..AAAAAAAA.;;.....GGGGG.T',
+    'T..AAAAAAAA.;;.....GGGGG.T',
+    'T..VVVVVVVV.;;.....#WDW#.T',
+    'T..#WFFDFFW.;;.......;...T',
+    'T.....;.....;;.......;...T',
+    'T.....;;;;;;;;;;;;;;;....T',
+    'T.....;.....;;...........T',
+    'T..S..;..OOO;;....**.....T',
+    'T.....;.....;;....**.....T',
+    'T.....;.....;;...........T',
+    'T.....;...BBBBBB.........T',
+    'T.....;...BBBBBB.........T',
+    'T.....;...VVVVVV.........T',
+    'T.....;;;;#WWDWW.........T',
+    'T...........;;..........ST',
+    'TTTTTTTTTTTT;;TTTTTTTTTTTT',
   ],
+
   warps: [
     { x: 12, y: 17, to: 'route209', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 13, y: 17, to: 'route209', tx: 13, ty: 1, dir: 'down', edge: true },
@@ -16090,35 +16195,36 @@ const ROUTE215 = defineMap('route215', {
 const VEILSTONE = defineMap('veilstone', {
   name: 'Veilstone City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
-    'T................................T',
-    'T....EEEEEEEE..........EEEEEE....T',
-    'T....EEEEEEEE..........EEEEEE....T',
-    'T....EEEEEEEE..........VVVVVV....T',
-    'T....VVVVVVVV..........#WWDWW....T',
-    'T....#WWDDWW#..............:.....T',
-    'T.......::.................:.....T',
-    'T.......::.................:.....T',
-    'T..S....:::::::::::::::::::::::::.',
-    'T.......::.................:.....T',
-    'T.......::.................:.....T',
-    'T..AAAAAAAA................:.....T',
-    'T..AAAAAAAA................:.....T',
-    'T..VVVVVVVV......KKKKKKKKKK:.....T',
-    'T..#WFFDFFW......KKKKKKKKKK:.....T',
-    'T.....:..........KKKKKKKKKK:.....T',
-    'T.....:..........VVVVVVVVVV:.....T',
-    'T.....:..........NQNNddNNQN:.....T',
-    'T.....:..........I.S....S.I:.....T',
-    'T.....::::::::::::::::::::::.....T',
-    'T................................T',
-    'T..BBBBBB....................S...T',
-    'T..BBBBBB........................T',
-    'T..VVVVVV........................T',
-    'T..#WWDWW........................T',
-    'T................................T',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^',
+    '^................................^',
+    '^....EEEEEEEE..........EEEEEE....^',
+    '^....EEEEEEEE..........EEEEEE....^',
+    '^....EEEEEEEE..........VVVVVV....^',
+    '^....VVVVVVVV..........#WWDWW....^',
+    '^....#WWDDWW#..............q.....^',
+    '^.......qq.................q.....^',
+    '^.......qq.................q.....^',
+    '^..S....qqqqqqqqqqqqqqqqqqqqqqqqq.',
+    '^.......qq.................q.....^',
+    '^.......qq.................q.....^',
+    '^..AAAAAAAA................q.....^',
+    '^..AAAAAAAA................q.....^',
+    '^..VVVVVVVV......KKKKKKKKKKq.....^',
+    '^..#WFFDFFW......KKKKKKKKKKq.....^',
+    '^.....q..........KKKKKKKKKKq.....^',
+    '^.....q..........VVVVVVVVVVq.....^',
+    '^.....q..........NQNNddNNQNq.....^',
+    '^.....q..........I.S....S.Iq.....^',
+    '^.....qqqqqqqqqqqqqqqqqqqqqq.....^',
+    '^................................^',
+    '^..BBBBBB....................S...^',
+    '^..BBBBBB........................^',
+    '^..VVVVVV........................^',
+    '^..#WWDWW........................^',
+    '^................................^',
+    '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^',
   ],
+
   warps: [
     { x: 33, y: 9, to: 'route215', tx: 1, ty: 8, dir: 'right', edge: true },
     { x: 8, y: 6, to: 'veilstone_store', tx: 7, ty: 7, dir: 'up' },
@@ -16584,30 +16690,31 @@ const ROUTE212 = defineMap('route212', {
 const PASTORIA = defineMap('pastoria', {
   name: 'Pastoria City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
-    'T...........::...............T',
-    'T..AAAAAAAA.::......EEEEEE...T',
-    'T..AAAAAAAA.::......EEEEEE...T',
-    'T..VVVVVVVV.::......VVVVVV...T',
-    'T..#WFFDFFW.::......#WWDWW...T',
-    'T.....:.....::..........:....T',
-    'T.....::::::::::::::::::::::::',
-    'T.....:.....::..........:....T',
-    'T..S..:.....::..........:....T',
-    'T.....:..KKKKKKKKKK.....:....T',
-    'T.....:..KKKKKKKKKK.....:....T',
-    'T.....:..VVVVVVVVVV.....:....T',
-    'T.....:..NQNNddNNQN.....:....T',
-    'T.....:..I.S....S.I.....:....T',
-    'T.....::::::::::::::::::::...T',
-    'T...........::...............T',
-    'T..~~~~~....::....~~~~~~~~...T',
-    'T.~~~~~~~...::...~~~~~~~~~~..T',
-    'T..~~~~~....::....~~~~~~~~...T',
-    'T...........::...............T',
-    'T..S........::..............ST',
-    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTTjjTTTTTTTTTTTTTTTT',
+    'T...........jj...............T',
+    'T..AAAAAAAA.jj......EEEEEE...T',
+    'T..AAAAAAAA.jj......EEEEEE...T',
+    'T..VVVVVVVV.jj......VVVVVV...T',
+    'T..#WFFDFFW.jj......#WWDWW...T',
+    'T.....j.....jj..........j....T',
+    'T.....jjjjjjjjjjjjjjjjjjjjjjjj',
+    'T.....j.....jj..........j....T',
+    'T..S..j.....jj..........j....T',
+    'T.....j..KKKKKKKKKK.....j....T',
+    'T.....j..KKKKKKKKKK.....j....T',
+    'T.....j..VVVVVVVVVV.....j....T',
+    'T.....j..NQNNddNNQN.....j....T',
+    'T.....j..I.S....S.I.....j....T',
+    'T.....jjjjjjjjjjjjjjjjjjjj...T',
+    'T...........jj...............T',
+    'T..~~~~~....jj....~~~~~~~~...T',
+    'T.~~~~~~~...jj...~~~~~~~~~~..T',
+    'T..~~~~~....jj....~~~~~~~~...T',
+    'T...........jj...............T',
+    'T..S........jj..............ST',
+    'TTTTTTTTTTTTjjTTTTTTTTTTTTTTTT',
   ],
+
   warps: [
     { x: 12, y: 0, to: 'route212', tx: 12, ty: 20, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'route212', tx: 13, ty: 20, dir: 'up', edge: true },
@@ -17212,29 +17319,30 @@ const ROUTE210_NORTH = defineMap('route210_north', {
 const CELESTIC = defineMap('celestic', {
   name: 'Celestic Town', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTTTTTTTTTTTTTTTT',
-    'T^^^^^^^^^^IIII^^^^^^^^^^T',
-    'T^^^^^^^^^^IDDI^^^^^^^^^^T',
-    'T...........::...........T',
-    'T..AAAAA....::....AAAAA..T',
-    'T..AAAAA....::....AAAAA..T',
-    'T..VVVVV....::....VVVVV..T',
-    'T..#WDW#....::....#WDW#..T',
-    'T....:......::......:....T',
-    'T....::::::::::::::::....T',
-    'T...........::...........T',
-    'T.S.........::.........S.T',
-    '::::::::::::::...........T',
-    'T...........::...........T',
-    'T..,,,,.....::.....,,,,..T',
-    'T..,,,,.....::.....,,,,..T',
-    'T...........::...........T',
-    'T..~~~~~....::....~~~~~..T',
-    'T..~~~~~....::....~~~~~..T',
-    'T...........::...........T',
-    'T.........S.::...........T',
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    '^^^^^^^^^^^^^^^^^^^^^^^^^^',
+    '^^^^^^^^^^^IIII^^^^^^^^^^^',
+    '^^^^^^^^^^^IDDI^^^^^^^^^^^',
+    '^...........zz...........^',
+    '^..AAAAA....zz....AAAAA..^',
+    '^..AAAAA....zz....AAAAA..^',
+    '^..VVVVV....zz....VVVVV..^',
+    '^..#WDW#....zz....#WDW#..^',
+    '^....z......zz......z....^',
+    '^....zzzzzzzzzzzzzzzz....^',
+    '^...........zz...........^',
+    '^.S.........zz.........S.^',
+    'zzzzzzzzzzzzzz...........^',
+    '^...........zz...........^',
+    '^..,,,,.....zz.....,,,,..^',
+    '^..,,,,.....zz.....,,,,..^',
+    '^...........zz...........^',
+    '^..~~~~~....zz....~~~~~..^',
+    '^..~~~~~....zz....~~~~~..^',
+    '^...........zz...........^',
+    '^.........S.zz...........^',
+    '^^^^^^^^^^^^zz^^^^^^^^^^^^',
   ],
+
   warps: [
     { x: 12, y: 21, to: 'route210_north', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 13, y: 21, to: 'route210_north', tx: 13, ty: 1, dir: 'down', edge: true },
@@ -17595,25 +17703,26 @@ const CANALAVE = defineMap('canalave', {
     'T..AAAAA........~~.....kkkkkkk...T',
     'T..VVVVV........~~.....VVVVVVV...T',
     'T..#WDW#........~~.....#WWDWW#...T',
-    'T....:..........~~........:......T',
-    'T....::::::::::.~~.:::::::.......T',
-    'T....:.........:==:.......:......:',
-    'T....:..........~~........:......T',
+    'T....q..........~~........q......T',
+    'T....qqqqqqqqqq.~~.qqqqqqq.......T',
+    'T....q.........q==q.......q......q',
+    'T....q..........~~........q......T',
     'T..NNNNNNN......~~....AAAAAAA....T',
     'T..NQdNQNN......~~....VVVVVVV....T',
-    'T....:..........~~....#WWDWW#....T',
-    'T....:..........~~........:......T',
-    'T....:..........~~........:......T',
-    'T....:..........~~........:......T',
-    'T....:...S......~~...S....:......T',
-    'T....:..........~~........:......T',
-    'T....::::::::::.==.:::::::.......T',
+    'T....q..........~~....#WWDWW#....T',
+    'T....q..........~~........q......T',
+    'T....q..........~~........q......T',
+    'T....q..........~~........q......T',
+    'T....q...S......~~...S....q......T',
+    'T....q..........~~........q......T',
+    'T....qqqqqqqqqq.==.qqqqqqq.......T',
     'T...............~~...............T',
     'T..ssssssssss...~~...ssssssssss..T',
     'T..ssssssssss...~~...ssssssssss..T',
     'T...............~~...............T',
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
+
   warps: [
     { x: 33, y: 8, to: 'route218', tx: 1, ty: 8, dir: 'right', edge: true },
     { x: 5, y: 5, to: 'canalave_center', tx: 6, ty: 6, dir: 'up' },
@@ -22293,6 +22402,17 @@ SCRIPTS.mumDoor = async (ctx) => {
   await ctx.say('Mum: Professor Rowan rang. She wants you at the lab. She wants BOTH\nof you at the lab, she was very clear about it.');
   await ctx.say(`Mum: ${who} is already outside. Has been for a while, I think.\fThey did not knock. They never knock, they just stand there.`);
   await ctx.wait(0.3);
+  await ctx.say('Mum: And take this. I am not having you wandering about Sinnoh\nasking strangers which way is up.');
+  ctx.give('townmap', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received the TOWN MAP!');
+  await ctx.say('Mum: It is in the menu. It fills itself in as you go, so it will be\nmostly blank and that is not a fault.');
+  await ctx.wait(0.3);
+  await ctx.say('Mum: These too. You have worn through two pairs already this year.');
+  ctx.give('runningshoes', 1);
+  await ctx.say('You received the RUNNING SHOES!');
+  await ctx.say('Mum: Hold B and they do the rest.');
+  await ctx.wait(0.3);
   await ctx.say('Mum: Go on. Take your time and do not take too long, which I am aware\nis two different instructions.');
   ctx.setFlag('mumSentYouOff', true);
   ctx.autosave();
@@ -22339,6 +22459,29 @@ SCRIPTS.buddyWaiting = async (ctx) => {
   ctx.shareMilestone('buddyJoined');
   ctx.autosave();
   await ctx.say(`${them.name} is coming with you!`);
+};
+
+/** The Eterna bike shop. One bicycle, given away, for reasons of his own. */
+SCRIPTS.bikeShop = async (ctx) => {
+  const st = ctx.state;
+  if (ctx.hasItem('bicycle')) {
+    await ctx.say('Rad: How is she riding? Do not answer that, I will only worry.',
+      { speaker: 'Rad Rickshaw' });
+    return;
+  }
+  if (!st.flags.badge2) {
+    await ctx.say('Rad: Bicycles. That is the shop.', { speaker: 'Rad Rickshaw' });
+    await ctx.say('Rad: I am not selling you one. I have never sold one.\fI give them to people who have beaten Gardenia, and I could not\ntell you why I started.');
+    await ctx.say('Rad: Go and beat Gardenia. Then we will talk about wheels.');
+    return;
+  }
+  await ctx.say('Rad: Forest Badge. Right.', { speaker: 'Rad Rickshaw' });
+  await ctx.say('Rad: Take it. Folding frame, holds a corner, does not complain.');
+  ctx.give('bicycle', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received the BICYCLE!');
+  await ctx.say('Rad: Do not thank me. Everybody thanks me and it makes it weird.');
+  ctx.autosave();
 };
 
 function scriptFor(name) { return SCRIPTS[name] || null; }
@@ -28549,6 +28692,8 @@ class MainMenuScreen extends Screen {
     if (st.flags.gotStarter) out.push({ key: 'dex', text: 'POKéDEX' });
     if (st.party.length) out.push({ key: 'party', text: 'POKéMON' });
     if (st.flags.gotStarter) out.push({ key: 'journal', text: 'JOURNAL' });
+    // The Town Map is a Key Item, but nobody opens the bag looking for a map.
+    if ((st.inventory.items.townmap || 0) > 0) out.push({ key: 'map', text: 'TOWN MAP' });
     out.push({ key: 'bag', text: 'BAG' });
     out.push({ key: 'card', text: st.player.name.toUpperCase() });
     if (st.circuit && st.circuit.joined) out.push({ key: 'circuit', text: 'CIRCUIT' });
@@ -28584,6 +28729,7 @@ class MainMenuScreen extends Screen {
       case 'dex': g.openDex(); break;
       case 'party': g.openParty(); break;
       case 'journal': g.openJournal(); break;
+      case 'map': g.openTownMap(); break;
       case 'bag': g.openBag(); break;
       case 'card': g.openCard(); break;
       case 'circuit': g.openCircuit(); break;
@@ -31382,11 +31528,23 @@ class DebugScreen extends Screen {
       // screen said so.
       case 'storage': {
         const b = this.game.save.backend;
-        const rows = (b.providers ? b.providers() : []).map((p) => ({
+        const d = b.diagnose ? b.diagnose() : { providers: [], permission: '?' };
+        const rows = (d.providers || []).map((p) => ({
           t: p.name, right: p.up ? 'UP' : 'not available',
         }));
+        rows.push({ t: 'permission', right: String(d.permission) });
+        rows.push({ t: 'last error', right: d.lastError ? String(d.lastError).slice(0, 22) : 'none' });
         rows.push({ t: b.durable && b.durable() ? 'Saves survive closing' : 'THIS DEVICE ONLY',
           right: b.durable && b.durable() ? 'yes' : 'at risk' });
+        rows.push({
+          t: 'Ask for cloud save permission',
+          a: async () => {
+            this._msg('asking...');
+            await this.game.save.flush(this.game.state);
+            const after = b.diagnose ? b.diagnose() : {};
+            this._msg(`permission: ${after.permission}${after.lastError ? ' / ' + after.lastError : ''}`);
+          },
+        });
         rows.push({
           t: 'Save now and read it back',
           a: async () => {
@@ -33716,40 +33874,106 @@ function claudeUse() {
   return c && typeof c.use === 'function' ? c : null;
 }
 
+/**
+ * What the viewer has said about durable storage, in words.
+ *
+ * This exists because the save has now failed three times and every failure
+ * was invisible. The capability asks for consent LAZILY — at the first write
+ * — and if that prompt never reaches the player, writes fail quietly and the
+ * game falls back to storage the viewer wipes on close. So the page asks
+ * explicitly, records the answer, and puts it on screen where somebody can
+ * read it back to me.
+ */
+const durableState = {
+  permission: 'unknown',   // unknown | granted | prompt | denied | unavailable
+  resolved: false,         // did use('db') hand back a namespace
+  lastError: null,         // the real message from the last failed write
+  lastWriteAt: 0,
+};
+
 const dbProvider = {
-  name: 'artifact-db',
+  name: 'cloud save',
   handle: null,
+  _asked: false,
+
   async init() {
     const c = await waitFor(claudeUse);
-    if (!c) return null;
-    // `use` itself resolves late — the contract says never within the first
-    // script run, and up to ten seconds after. Racing it against a deadline
-    // keeps a missing capability from hanging the boot.
+    if (!c) { durableState.permission = 'unavailable'; return null; }
+
+    // `state` never prompts, so it is safe at boot and tells us whether a
+    // prompt is even going to happen.
+    try {
+      const perms = await c.use('permissions');
+      if (perms) durableState.permission = await perms.state('db');
+    } catch { /* leave it unknown */ }
+
     this.handle = await Promise.race([
       Promise.resolve(c.use('db')).catch(() => null),
       new Promise((r) => setTimeout(() => r(null), PROVIDER_DEADLINE_MS)),
     ]).catch(() => null);
+    durableState.resolved = !!this.handle;
+    if (!this.handle && durableState.permission === 'unknown') {
+      durableState.permission = 'unavailable';
+    }
     return this.handle;
   },
+
+  /**
+   * Ask for consent, once, with the one batched dialog the platform allows.
+   *
+   * Deliberately not at boot — the contract says not to gate first paint on
+   * it — but before the first write, which is the first moment the answer
+   * actually matters.
+   */
+  async ensurePermission() {
+    if (this._asked) return durableState.permission;
+    this._asked = true;
+    const c = claudeUse();
+    if (!c) return durableState.permission;
+    try {
+      const perms = await c.use('permissions');
+      if (!perms) return durableState.permission;
+      if (durableState.permission === 'prompt' || durableState.permission === 'unknown') {
+        const res = await perms.request(['db']);
+        durableState.permission = (res && res.db) || durableState.permission;
+      }
+    } catch (err) {
+      durableState.lastError = String((err && err.message) || err);
+    }
+    return durableState.permission;
+  },
+
   async read(slot) {
     if (!this.handle) return null;
     const snap = await this.handle.doc(`saves/${slot}`).get();
     if (!snap || !snap.exists || !snap.data || !snap.data.payload) return null;
     return JSON.parse(snap.data.payload);
   },
+
   async write(slot, value) {
     if (!this.handle) return false;
-    // One JSON string rather than a nested document: a save is deeply nested
-    // and the store caps nesting, so flattening keeps party, bag and flags
-    // out of that limit entirely.
-    await this.handle.doc(`saves/${slot}`).set({
-      payload: JSON.stringify(value),
-      savedAt: (value && value.savedAt) || now(),
-      name: (value && value.meta && value.meta.name) || '',
-      badges: (value && value.meta && value.meta.badges) || 0,
-    });
-    return true;
+    await this.ensurePermission();
+    try {
+      // One JSON string rather than a nested document: a save is deeply
+      // nested and the store caps nesting, so flattening keeps party, bag
+      // and flags out of that limit entirely.
+      await this.handle.doc(`saves/${slot}`).set({
+        payload: JSON.stringify(value),
+        savedAt: (value && value.savedAt) || now(),
+        name: (value && value.meta && value.meta.name) || '',
+        badges: (value && value.meta && value.meta.badges) || 0,
+      });
+      durableState.lastError = null;
+      durableState.lastWriteAt = now();
+      return true;
+    } catch (err) {
+      // The real message, kept, so the failure can be read rather than
+      // guessed at.
+      durableState.lastError = String((err && err.code) || (err && err.message) || err);
+      throw err;
+    }
   },
+
   async remove(slot) {
     if (!this.handle) return;
     await this.handle.doc(`saves/${slot}`).delete();
@@ -33813,7 +34037,19 @@ function providerReport() {
 
 /** True once at least one provider that outlives the tab is up. */
 function isDurable() {
-  return !!(hostProvider.handle || dbProvider.handle);
+  return !!hostProvider.handle
+    || !!(dbProvider.handle && durableState.permission !== 'denied' && !durableState.lastError);
+}
+
+/** Everything known about whether the save is going somewhere that lasts. */
+function saveDiagnosis() {
+  return {
+    providers: providerReport(),
+    permission: durableState.permission,
+    resolved: durableState.resolved,
+    lastError: durableState.lastError,
+    lastWriteAt: durableState.lastWriteAt,
+  };
 }
 
 const storage = {
@@ -33889,7 +34125,7 @@ const storage = {
   },
 };
 
-__exports(__x, { HOST_KEY: () => HOST_KEY, storageReady: () => storageReady, providerReport: () => providerReport, isDurable: () => isDurable, storage: () => storage });
+__exports(__x, { HOST_KEY: () => HOST_KEY, durableState: () => durableState, storageReady: () => storageReady, providerReport: () => providerReport, isDurable: () => isDurable, saveDiagnosis: () => saveDiagnosis, storage: () => storage });
 
 };
 
@@ -33987,7 +34223,7 @@ __exports(__x, { migrateV1toV2: () => migrateV1toV2, migrateV2toV3: () => migrat
 };
 
 __defs['save/SaveManager.js'] = function (__x, __req) {
-const { storage, storageReady, isDurable, providerReport } = __req('core/storage.js');
+const { storage, storageReady, isDurable, providerReport, saveDiagnosis } = __req('core/storage.js');
 const { serializeState, deserializeState } = __req('game/state.js');
 const { MIGRATIONS } = __req('save/migrations.js');
 // Saving.
@@ -34017,6 +34253,7 @@ class LocalBackend {
   ready() { return storageReady(); }
   durable() { return isDurable(); }
   providers() { return providerReport(); }
+  diagnose() { return saveDiagnosis(); }
   readLocal(slot) { return storage.readLocalNow(slot); }
   async read(slot) { return storage.read(slot); }
   async write(slot, data) { return storage.write(slot, data); }

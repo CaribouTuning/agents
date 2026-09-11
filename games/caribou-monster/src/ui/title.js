@@ -41,8 +41,16 @@ export class TitleScreen extends Screen {
   _storageNote() {
     const g = this.game;
     if (g.saveProviders === undefined) return 'checking for a saved game...';
-    if (g.saveIsDurable) return 'saving to this account';
-    return 'saving to this device only';
+    const d = g.save.backend.diagnose ? g.save.backend.diagnose() : null;
+    if (!d) return g.saveIsDurable ? 'saving to this account' : 'saving to this device only';
+    if (d.lastError) return `cloud save failed: ${String(d.lastError).slice(0, 28)}`;
+    switch (d.permission) {
+      case 'granted': return 'cloud save on — this game will keep';
+      case 'prompt': return 'cloud save will ask permission when you save';
+      case 'denied': return 'cloud save REFUSED — this device only';
+      case 'unavailable': return 'no cloud save here — this device only';
+      default: return 'checking where saves go...';
+    }
   }
 
   setSave(meta) {

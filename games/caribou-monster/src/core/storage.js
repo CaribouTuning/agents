@@ -93,40 +93,106 @@ function claudeUse() {
   return c && typeof c.use === 'function' ? c : null;
 }
 
+/**
+ * What the viewer has said about durable storage, in words.
+ *
+ * This exists because the save has now failed three times and every failure
+ * was invisible. The capability asks for consent LAZILY — at the first write
+ * — and if that prompt never reaches the player, writes fail quietly and the
+ * game falls back to storage the viewer wipes on close. So the page asks
+ * explicitly, records the answer, and puts it on screen where somebody can
+ * read it back to me.
+ */
+export const durableState = {
+  permission: 'unknown',   // unknown | granted | prompt | denied | unavailable
+  resolved: false,         // did use('db') hand back a namespace
+  lastError: null,         // the real message from the last failed write
+  lastWriteAt: 0,
+};
+
 const dbProvider = {
-  name: 'artifact-db',
+  name: 'cloud save',
   handle: null,
+  _asked: false,
+
   async init() {
     const c = await waitFor(claudeUse);
-    if (!c) return null;
-    // `use` itself resolves late — the contract says never within the first
-    // script run, and up to ten seconds after. Racing it against a deadline
-    // keeps a missing capability from hanging the boot.
+    if (!c) { durableState.permission = 'unavailable'; return null; }
+
+    // `state` never prompts, so it is safe at boot and tells us whether a
+    // prompt is even going to happen.
+    try {
+      const perms = await c.use('permissions');
+      if (perms) durableState.permission = await perms.state('db');
+    } catch { /* leave it unknown */ }
+
     this.handle = await Promise.race([
       Promise.resolve(c.use('db')).catch(() => null),
       new Promise((r) => setTimeout(() => r(null), PROVIDER_DEADLINE_MS)),
     ]).catch(() => null);
+    durableState.resolved = !!this.handle;
+    if (!this.handle && durableState.permission === 'unknown') {
+      durableState.permission = 'unavailable';
+    }
     return this.handle;
   },
+
+  /**
+   * Ask for consent, once, with the one batched dialog the platform allows.
+   *
+   * Deliberately not at boot — the contract says not to gate first paint on
+   * it — but before the first write, which is the first moment the answer
+   * actually matters.
+   */
+  async ensurePermission() {
+    if (this._asked) return durableState.permission;
+    this._asked = true;
+    const c = claudeUse();
+    if (!c) return durableState.permission;
+    try {
+      const perms = await c.use('permissions');
+      if (!perms) return durableState.permission;
+      if (durableState.permission === 'prompt' || durableState.permission === 'unknown') {
+        const res = await perms.request(['db']);
+        durableState.permission = (res && res.db) || durableState.permission;
+      }
+    } catch (err) {
+      durableState.lastError = String((err && err.message) || err);
+    }
+    return durableState.permission;
+  },
+
   async read(slot) {
     if (!this.handle) return null;
     const snap = await this.handle.doc(`saves/${slot}`).get();
     if (!snap || !snap.exists || !snap.data || !snap.data.payload) return null;
     return JSON.parse(snap.data.payload);
   },
+
   async write(slot, value) {
     if (!this.handle) return false;
-    // One JSON string rather than a nested document: a save is deeply nested
-    // and the store caps nesting, so flattening keeps party, bag and flags
-    // out of that limit entirely.
-    await this.handle.doc(`saves/${slot}`).set({
-      payload: JSON.stringify(value),
-      savedAt: (value && value.savedAt) || now(),
-      name: (value && value.meta && value.meta.name) || '',
-      badges: (value && value.meta && value.meta.badges) || 0,
-    });
-    return true;
+    await this.ensurePermission();
+    try {
+      // One JSON string rather than a nested document: a save is deeply
+      // nested and the store caps nesting, so flattening keeps party, bag
+      // and flags out of that limit entirely.
+      await this.handle.doc(`saves/${slot}`).set({
+        payload: JSON.stringify(value),
+        savedAt: (value && value.savedAt) || now(),
+        name: (value && value.meta && value.meta.name) || '',
+        badges: (value && value.meta && value.meta.badges) || 0,
+      });
+      durableState.lastError = null;
+      durableState.lastWriteAt = now();
+      return true;
+    } catch (err) {
+      // The real message, kept, so the failure can be read rather than
+      // guessed at.
+      durableState.lastError = String((err && err.code) || (err && err.message) || err);
+      throw err;
+    }
   },
+
   async remove(slot) {
     if (!this.handle) return;
     await this.handle.doc(`saves/${slot}`).delete();
@@ -190,7 +256,19 @@ export function providerReport() {
 
 /** True once at least one provider that outlives the tab is up. */
 export function isDurable() {
-  return !!(hostProvider.handle || dbProvider.handle);
+  return !!hostProvider.handle
+    || !!(dbProvider.handle && durableState.permission !== 'denied' && !durableState.lastError);
+}
+
+/** Everything known about whether the save is going somewhere that lasts. */
+export function saveDiagnosis() {
+  return {
+    providers: providerReport(),
+    permission: durableState.permission,
+    resolved: durableState.resolved,
+    lastError: durableState.lastError,
+    lastWriteAt: durableState.lastWriteAt,
+  };
 }
 
 export const storage = {
