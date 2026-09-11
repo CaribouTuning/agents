@@ -16,20 +16,32 @@ import { makeMart } from './interiors.js';
 // ---------------------------------------------------------------------------
 export const ROUTE218 = defineMap('route218', {
   name: 'Route 218', kind: 'route', music: 'route',
+  // The channel runs NORTH TO SOUTH, across the road, because the road runs
+  // east to west.
+  //
+  // It used to lie ALONG the road: water through the middle, dry sand above
+  // it, dry sand below it, and a path down both edges. A channel lying along
+  // the way you are going cannot separate the near bank from the far one, so
+  // Canalave, Byron and the revelation in the library were all reachable on
+  // foot from the first morning with a level-five starter, and Surf — handed
+  // over at Lake Valor — opened nothing at all.
+  //
+  // It now runs from the treeline in the north to the treeline in the south.
+  // The only way across is Surf. Both banks keep their grass and their sand.
   tiles: [
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
-    'T............................T',
-    'T..YYYY...........YYYY.......T',
-    'T..YYYY...........YYYY.......T',
-    'T............................T',
-    'sssssssssssssssssssssssssssss:',
-    's~~~~~~~~~~~~~~~~~~~~~~~~~~~~:',
-    ':s~~~~~~~~~~~~~~~~~~~~~~~~~~~:',
-    ':s~~~~~~~~~~~~~~~~~~~~~~~~~~~:',
-    's~~~~~~~~~~~~~~~~~~~~~~~~~~~~:',
-    'sssssssssssssssssssssssssssss:',
-    'T...................S........T',
-    'T....""""..........""""......T',
+    'T....................s~~~~sssT',
+    'T..YYYY......YYYY....s~~~~sssT',
+    'T..YYYY......YYYY....s~~~~sssT',
+    'T....................s~~~~sssT',
+    's....................s~~~~sss:',
+    's....................s~~~~sss:',
+    ':ss..................s~~~~sss:',
+    ':ss..................s~~~~sss:',
+    's....................s~~~~sss:',
+    's....................s~~~~sss:',
+    'T...................Ss~~~~sssT',
+    'T...."""".....""""...s~~~~sssT',
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
@@ -46,7 +58,7 @@ export const ROUTE218 = defineMap('route218', {
   ],
   npcs: [
     { id: 'r218_t1', x: 8, y: 2, look: 'sailor', trainer: 'r218_sailor', facing: 'down', sight: 4, movement: 'still' },
-    { id: 'r218_t2', x: 22, y: 12, look: 'youngster', trainer: 'r218_fisher', facing: 'left', sight: 4, movement: 'still' },
+    { id: 'r218_t2', x: 18, y: 9, look: 'youngster', trainer: 'r218_fisher', facing: 'left', sight: 4, movement: 'still' },
     {
       id: 'r218_watcher', x: 12, y: 11, look: 'oldMan', name: 'Kesk', movement: 'lookAround', facing: 'right',
       dialogue: [
@@ -65,14 +77,19 @@ export const ROUTE218 = defineMap('route218', {
       ],
     },
   ],
+  // The far bank is the last ground before Byron, and it is only reachable
+  // once Surf is in the bag, so nothing here can be met early. It used to top
+  // out at 34 against a Leader who takes a team of 41 to beat — five levels
+  // of grinding standing between the player and the last Gym. It reaches into
+  // the high thirties now, which is what the road before a final Gym is for.
   encounters: {
     grass: {
-      min: 28, max: 32,
+      min: 33, max: 38,
       table: [[396, 22], [278, 20], [55, 16], [279, 14], [431, 14], [451, 14]],
-      night: { min: 28, max: 32, table: [[198, 24], [279, 20], [55, 18], [431, 16], [92, 12], [278, 10]] },
+      night: { min: 33, max: 38, table: [[198, 24], [279, 20], [55, 18], [431, 16], [92, 12], [278, 10]] },
     },
-    surf: { min: 26, max: 34, table: [[279, 40], [278, 30], [130, 16], [129, 14]] },
-    fish: { min: 24, max: 34, table: [[129, 32], [118, 24], [119, 18], [279, 14], [130, 12]] },
+    surf: { min: 32, max: 39, table: [[279, 40], [278, 30], [130, 16], [129, 14]] },
+    fish: { min: 30, max: 39, table: [[129, 32], [118, 24], [119, 18], [279, 14], [130, 12]] },
   },
 });
 

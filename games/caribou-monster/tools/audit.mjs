@@ -16,6 +16,12 @@ import {
 import { tileDef } from '../src/render/tiles.js';
 import { FIELD_MOVES, badgeFor, storyGateFor, moveForTile } from '../src/game/fieldmoves.js';
 import { GYMS, builtGyms } from '../src/data/campaign.js';
+
+/** The field move a tile character answers to, if any. */
+function obstacleMove(ch) {
+  for (const [id, f] of Object.entries(FIELD_MOVES)) if (f.tile === ch) return id;
+  return null;
+}
 import * as STORY_MOD from '../src/data/story.js';
 import { unrenderable } from '../src/render/font.js';
 import { objective, OBJECTIVE_MAX, ENTRIES as JOURNAL_ENTRIES } from '../src/game/journal.js';
@@ -1609,6 +1615,87 @@ function checkTheFirstFightIsFair() {
   }
 }
 
+// ---- the badges actually gate the world ------------------------------------
+// "A badge does not teach you anything. It makes the world accept a move you
+// already know." That is the design, and for a long time it was decoration:
+// there were five obstacle tiles in the whole region, none of them separating
+// anything, and Route 218's channel lay ALONG the road it was supposed to
+// block rather than across it. Canalave, Byron and the revelation in the
+// library were a walk from the first morning with a level-five starter, into
+// grass thirty levels above them.
+//
+// This walks the region with each badge's field move in turn and reports how
+// much of the Gym order the player could skip. It is deliberately a warning
+// and not an error: an open world is a choice, and the remaining Gyms are
+// open by design until somebody decides otherwise. What it must never do
+// again is be open by accident and unmeasured.
+
+function reachableWith(have) {
+  const seenMaps = new Set();
+  const tiles = new Map();
+  const pending = [['twinleaf', [[10, 12], [11, 12], [4, 12]]]];
+  while (pending.length) {
+    const [id, starts] = pending.pop();
+    const m = MAPS[id];
+    if (!m) continue;
+    seenMaps.add(id);
+    const got = tiles.get(id) || new Set();
+    tiles.set(id, got);
+    const key = (x, y) => `${x},${y}`;
+    const queue = [];
+    for (const [x, y] of starts) if (!got.has(key(x, y))) { got.add(key(x, y)); queue.push([x, y]); }
+    for (let i = 0; i < queue.length && i < 40000; i++) {
+      const [x, y] = queue[i];
+      for (const w of (m.warps || [])) if (w.x === x && w.y === y && MAPS[w.to]) pending.push([w.to, [[w.tx, w.ty]]]);
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= m.width || ny >= m.height) continue;
+        if (got.has(key(nx, ny))) continue;
+        const ch = m.tiles[ny][nx];
+        const need = obstacleMove(ch);
+        const def = tileDef(ch);
+        if (need) { if (!have.has(need)) continue; }
+        else if (def.water) { if (!have.has('surf')) continue; }
+        else if (def.solid) continue;
+        got.add(key(nx, ny)); queue.push([nx, ny]);
+      }
+    }
+  }
+  return seenMaps;
+}
+
+function checkTheBadgesGateTheWorld() {
+  const gyms = builtGyms(MAPS);
+  const have = new Set();
+  let skippable = 0;
+  for (let n = 0; n <= gyms.length; n++) {
+    if (n > 0) {
+      const spec = GYMS.find((g) => g.n === gyms[n - 1].n);
+      if (spec && spec.field) have.add(spec.field);
+      // Surf is the story's, not a Gym's: it comes out of Lake Valor.
+      if (gyms[n - 1].n >= 5) have.add('surf');
+    }
+    const open = reachableWith(have);
+    // Every Gym after the next one that is already standing open.
+    const ahead = gyms.slice(n + 1).filter((g) => open.has(g.city));
+    if (ahead.length > skippable) skippable = ahead.length;
+    if (n === 0 && ahead.length) {
+      warn(`[gating] with no badges at all the player can already walk into `
+        + `${ahead.length + 1} of the ${gyms.length} Gym towns `
+        + `(${[gyms[0], ...ahead].map((g) => g.city).join(', ')})`);
+    }
+  }
+  // The one thing that must hold: the LAST Gym cannot be open from the start,
+  // or the badge order means nothing at all.
+  const fromNothing = reachableWith(new Set());
+  const last = gyms[gyms.length - 1];
+  if (last && fromNothing.has(last.city)) {
+    err(`[gating] ` + `${last.city} — the last Gym town — is reachable on foot before a single `
+      + 'badge, so nothing in the badge order gates anything');
+  }
+}
+
+checkTheBadgesGateTheWorld();
 checkTheFirstFightIsFair();
 checkNobodyFightsAPlaceholder();
 checkNothingCountsTheGymsByHand();

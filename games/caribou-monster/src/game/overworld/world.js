@@ -467,8 +467,13 @@ export class World {
       while (f.trail.length > 8) f.trail.shift();
       return;
     }
+    // A body that is mid-step already HOLDS its destination — x and y are set
+    // when the step begins and only the drawing catches up — so a moving one
+    // blocks just as hard as a standing one. Letting a step through because
+    // the blocker was "still moving" put two of them on the same tile about
+    // one walk in three.
     const blocker = this._bodyAt(next.x, next.y, f);
-    if (blocker && !blocker.moving) {
+    if (blocker) {
       while (f.trail.length > 8) f.trail.shift();
       return;
     }
@@ -486,6 +491,7 @@ export class World {
     const chain = this._chain();
     const behind = chain[chain.indexOf(f) + 1];
     if (behind) behind.trail.push({ x: f.fromX, y: f.fromY, dur: f.moveDur, hop: next.hop || 0 });
+    this._unstack();
   }
 
   // Pixel position for rendering, interpolated across the step.
