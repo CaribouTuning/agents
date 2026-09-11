@@ -10048,6 +10048,18 @@ const TWINLEAF = defineMap('twinleaf', {
       id: 'bv_kid', x: 8, y: 8, look: 'kid', name: 'Tam', movement: 'wander', facing: 'down',
       dialogue: [
         {
+          // The kid who kept a notebook. He gets the last word.
+          when: { flag: 'postGame' },
+          pool: [
+            ['My notebook has a page in it now that is not about battles.',
+              'It says: THEY WENT UNDER A HILL. I do not know what else to put.',
+              'Nobody at school believes that part. They believe the trophy.'],
+            ['Everyone talks about the Finals. Nobody talks about the other thing.',
+              'I think that is because the other thing does not have a scoreboard.',
+              'I am keeping the page anyway.'],
+          ],
+        },
+        {
           when: { champion: true },
           pool: [
             ['{player}. {player}! You are number one in the WORLD.',
@@ -11157,6 +11169,8 @@ const OREBURGH_GATE = defineMap('oreburgh_gate', {
     // every time you stand on it: shut without the charm, a door with it.
     { x: 12, y: 2, flag: 'everlightOpened', script: 'everlight', repeat: true },
   ],
+  // Somebody comes down here afterwards. The room is a room now, and the
+  // people who study it will be studying it for the rest of their lives.
   npcs: [
     { id: 'sf_t1', x: 6, y: 5, look: 'grunt', trainer: 'cave_grunt1', facing: 'right', sight: 4, movement: 'still' },
     { id: 'sf_t2', x: 18, y: 11, look: 'gruntF', trainer: 'cave_grunt2', facing: 'left', sight: 4, movement: 'still' },
@@ -11366,6 +11380,20 @@ const ROWAN_LAB = defineMap('rowan_lab', {
     {
       id: 'lab_aide', x: 10, y: 6, look: 'scientist', name: 'Aide', movement: 'still', facing: 'left',
       dialogue: [
+        {
+          // After the end. The work did not stop because the story did.
+          when: { flag: 'postGame' },
+          pool: [
+            ['She has not slept properly since. Not worried — busy.',
+              'Thirty-one years of readings and the last four days of them are\nthe only ones that make sense.',
+              'She keeps saying "it was holding it" to nobody in particular.'],
+            ['Looker has been in twice. He brought a new file and would not say\nwhat was in it.',
+              'He did say the old one is closed. He said it like it cost him\nsomething to close it.'],
+            ['The light readings went flat the day you came back up.',
+              'Flat, everywhere, for the first time since the instruments were\ninvented. She has a whole wall of it.',
+              'She calls that wall "the quiet". I do not think she is joking.'],
+          ],
+        },
         {
           when: { caught: 20 },
           lines: ['{caught} caught, {seen} seen. I have shown the professor. She made a noise.',
@@ -12357,6 +12385,7 @@ __exports(__x, { UNDERGROUND: () => UNDERGROUND, SECRET_BASE: () => SECRET_BASE,
 
 __defs['data/maps/north.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
+const { TILES } = __req('render/tiles.js');
 // The northern branch.
 //
 // Everything in this file exists to stop the region being a corridor. Before
@@ -12365,6 +12394,7 @@ const { defineMap } = __req('data/maps/define.js');
 // south, Route 203 leaves it east, and Route 204 leaves it north — and the
 // north road eventually bends back round to meet the east one, which is what
 // turns a line into a region.
+
 
 
 // ---------------------------------------------------------------------------
@@ -12677,9 +12707,7 @@ const WINDWORKS = defineMap('windworks', {
 // ---------------------------------------------------------------------------
 // Eterna Forest — dark, close, and full of Bug types. The classic one.
 // ---------------------------------------------------------------------------
-const ETERNA_FOREST = defineMap('eterna_forest', {
-  name: 'Eterna Forest', kind: 'route', music: 'forest', dark: true,
-  tiles: [
+const EF_ROWS = [
     'YYYYYYYYY::YYYYYYYY',
     'Y.......:::.......Y',
     'Y.""""..:.:..""""'+'.Y',
@@ -12698,7 +12726,11 @@ const ETERNA_FOREST = defineMap('eterna_forest', {
     'Y.......:::.......Y',
     'Y.""""...:...""""'+'.Y',
     'YYYYYYYYY::YYYYYYYY',
-  ],
+  ];
+
+const ETERNA_FOREST = defineMap('eterna_forest', {
+  name: 'Eterna Forest', kind: 'route', music: 'forest', dark: true,
+  tiles: EF_ROWS,
   warps: [
     { x: 9, y: 17, to: 'route205', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 10, y: 17, to: 'route205', tx: 13, ty: 1, dir: 'down', edge: true },
@@ -12709,6 +12741,14 @@ const ETERNA_FOREST = defineMap('eterna_forest', {
   objects: [
     { id: 'ef_ball', x: 2, y: 9, item: 'greatball', qty: 3 },
   ],
+  // The grunt is on the forest road, across its whole width, because a beat
+  // the player can walk straight past is a beat that does not exist. Act II
+  // opens with Galactic doing something that is not theft.
+  events: EF_ROWS[10].split('').map((ch, x) => (
+    TILES[ch] && !TILES[ch].solid && !TILES[ch].water
+      ? { x, y: 10, flag: 'forestGrunt', script: 'forestGrunt' }
+      : null
+  )).filter(Boolean),
   npcs: [
     { id: 'ef_t1', x: 6, y: 10, look: 'bugCatcher', trainer: 'ef_bug', facing: 'right', sight: 3, movement: 'still' },
   ],
@@ -16957,6 +16997,17 @@ const ENTRIES = [
     title: 'The rock drew back',
     body: ['The charm did not answer the light. The light answered the charm.'],
     next: 'Go into the Everlight Chamber.',
+  },
+  {
+    id: 'forestGrunt',
+    title: 'A man measuring light',
+    body: [
+      'Galactic, in Eterna Forest, kneeling in the moss with a meter pointed\nat the canopy. He did not want anything from us.',
+      'He said four hundred and ten, under a full canopy, and that it was\nthe third wood this month that was wrong.',
+      'The case for the meter had a foam cutout shaped exactly for it.',
+      'You do not get a case made for one of something.',
+    ],
+    next: 'They are not stealing anything. They are taking readings.',
   },
   {
     id: 'sawEverlight',
@@ -26895,6 +26946,61 @@ SCRIPTS.everlightDialga = async (ctx) => {
  * end of a story is not the last thing that happens in it, it is the first
  * quiet thing after the last loud one.
  */
+/**
+ * Eterna Forest: a Galactic grunt taking readings, in Act II.
+ *
+ * The first time the player sees Galactic doing something that is not theft.
+ * He is not guarding anything, he does not want a fight, and he will not
+ * explain — he is measuring light in a wood, and the reason that matters is
+ * four acts away, in a library in Canalave. This is the beat `forestGrunt`
+ * was declared for: the flag existed, was listed as a co-op milestone the two
+ * players keep in step on, and nothing in the game ever set it because the
+ * scene was never written.
+ */
+SCRIPTS.forestGrunt = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.FOREST_GRUNT]) {
+    await ctx.say('*The patch of moss he was kneeling on is still flattened.*');
+    return;
+  }
+
+  const grunt = ctx.spawnNpc({
+    id: 'ef_grunt', look: 'grunt', x: ctx.player.x, y: Math.max(1, ctx.player.y - 2),
+    dir: 'down', name: 'Galactic Grunt',
+  });
+  ctx.exclaim(grunt);
+  await ctx.wait(0.5);
+  await ctx.say('*There is somebody kneeling in the moss with a handheld meter,\nholding it up at the canopy.*');
+  await ctx.say('Grunt: Do not stand there. You are in it.', { speaker: 'Grunt' });
+  await ctx.say('*You move. He does not look up.*');
+  await ctx.wait(0.3);
+  await ctx.say('Grunt: Four hundred and ten. Under a full canopy, at this hour.\nThat is not right.');
+  await ctx.say('Grunt: It is the third wood this month that is not right.');
+  await ctx.wait(0.3);
+
+  const opt = await ctx.ask('Say something?', ['What are you measuring?', 'Leave him to it']);
+  if (opt === 0) {
+    await ctx.say('Grunt: Light.', { speaker: 'Grunt' });
+    await ctx.say('Grunt: Not sunlight. There is a difference and I am not going to\nstand in a wood explaining it to a child.');
+    await ctx.say('Grunt: Ask me again in a year. You will not have to.');
+  } else {
+    await ctx.say('*You leave him to it. He does not notice you go.*');
+  }
+
+  // No battle. The first time Galactic turn up they are not a threat, and a
+  // fight here would teach the player to read them as one for the rest of it.
+  await ctx.wait(0.4);
+  await ctx.say('*He packs the meter into a case with a foam cutout shaped exactly\nfor it, which means there are a lot of these.*');
+  await ctx.walk(grunt, 'up', 4);
+  ctx.despawn(grunt);
+  ctx.sfx('leave');
+
+  ctx.setFlag(FLAGS.FOREST_GRUNT);
+  ctx.shareMilestone(FLAGS.FOREST_GRUNT);
+  ctx.journal('forestGrunt');
+  ctx.autosave();
+};
+
 SCRIPTS.wentHome = async (ctx) => {
   const st = ctx.state;
   if (st.flags[FLAGS.WENT_HOME]) return;

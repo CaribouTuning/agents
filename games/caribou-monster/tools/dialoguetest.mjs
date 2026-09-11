@@ -242,6 +242,17 @@ function walkedTheGrass(st) {
   return st;
 }
 
+/** After the end: the Everlight put back, the Finals won, the world quiet. */
+function afterTheEnd(st) {
+  st.flags.canalaveTruth = true;
+  st.flags.everlightResolved = true;
+  st.flags.rowanDebriefed = true;
+  st.flags.wentHome = true;
+  st.flags.wonFinals = true;
+  st.flags.postGame = true;
+  return st;
+}
+
 const STAGES = [
   ['fresh save', () => baseState()],
   ['got a starter', () => withStarter(baseState())],
@@ -263,6 +274,7 @@ const STAGES = [
   ['all hype, no respect', () => loudmouth(withBadge(withStarter(baseState())))],
   ['all respect, no hype', () => wellLiked(withBadge(withStarter(baseState())))],
   ['world number one', () => asChampion(withCommander(withCave(withBadge(withStarter(baseState())))))],
+  ['after the end', () => afterTheEnd(asChampion(withCommander(withCave(withBadge(withStarter(baseState()))))))],
   // The northern branch: berries, the second badge, and knowing what the
   // charm is. Without these stages a third of the new region never speaks.
   ['carrying berries', () => withBerries(withStarter(baseState()))],

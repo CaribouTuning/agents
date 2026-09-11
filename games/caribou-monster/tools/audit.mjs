@@ -1025,15 +1025,29 @@ function checkNobodyBlocksADoor() {
  * flag set by a script and read by nobody is a scene that changes nothing.
  * Both read as "the game is broken" long before anyone can say why.
  */
+/** Every .js file under src/, as one string. Nothing to keep up to date. */
+function readAllSource() {
+  let out = '';
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const at = new URL(`${e.name}${e.isDirectory() ? '/' : ''}`, dir);
+      if (e.isDirectory()) walk(at);
+      else if (e.name.endsWith('.js')) out += `${fs.readFileSync(at, 'utf8')}\n`;
+    }
+  };
+  walk(new URL('../src/', import.meta.url));
+  return out;
+}
+
 function checkFlagsJoinUp() {
-  const src = [
-    fs.readFileSync(new URL('../src/game/overworld/scripts.js', import.meta.url), 'utf8'),
-    fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8'),
-    fs.readFileSync(new URL('../src/ui/overworld.js', import.meta.url), 'utf8'),
-    fs.readFileSync(new URL('../src/game/state.js', import.meta.url), 'utf8'),
-    fs.readFileSync(new URL('../src/game/fieldmoves.js', import.meta.url), 'utf8'),
-    fs.readFileSync(new URL('../src/ui/battle.js', import.meta.url), 'utf8'),
-  ].join('\n');
+  // The WHOLE of the game and UI source, not a hand-kept list of six files.
+  //
+  // A list of files is a list that goes stale: `postGame` was set in the
+  // Circuit screen, which was not on it, so the rule that exists to catch a
+  // flag nothing reads could not see the flag being set at all. That is the
+  // second time a too-narrow scan has hidden exactly what a rule was written
+  // to find.
+  const src = readAllSource();
 
   const set = new Set();
   // Flags can be set four ways, and a rule that only knows one of them
@@ -1247,16 +1261,7 @@ function checkEveryScriptIsReachable() {
   // A script can also be run by the engine or by a menu — the Explorer Kit
   // starts the dig from the bag, not from a tile — so the whole of the UI and
   // game source counts as a place a script can be reached from.
-  const dirs = ['../src/ui', '../src/game', '../src/game/overworld'];
-  let src = '';
-  for (const d of dirs) {
-    const dir = new URL(`${d}/`, import.meta.url);
-    for (const f of fs.readdirSync(dir)) {
-      if (!f.endsWith('.js')) continue;
-      src += fs.readFileSync(new URL(f, dir), 'utf8') + '\n';
-    }
-  }
-  src += fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const src = readAllSource();
 
   for (const name of Object.keys(SCRIPTS)) {
     if (placed.has(name)) continue;

@@ -299,6 +299,17 @@ export const ENTRIES = [
     next: 'Go into the Everlight Chamber.',
   },
   {
+    id: 'forestGrunt',
+    title: 'A man measuring light',
+    body: [
+      'Galactic, in Eterna Forest, kneeling in the moss with a meter pointed\nat the canopy. He did not want anything from us.',
+      'He said four hundred and ten, under a full canopy, and that it was\nthe third wood this month that was wrong.',
+      'The case for the meter had a foam cutout shaped exactly for it.',
+      'You do not get a case made for one of something.',
+    ],
+    next: 'They are not stealing anything. They are taking readings.',
+  },
+  {
     id: 'sawEverlight',
     title: 'Something is standing in it',
     body: [

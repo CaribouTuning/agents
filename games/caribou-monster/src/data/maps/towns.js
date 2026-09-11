@@ -106,6 +106,18 @@ export const TWINLEAF = defineMap('twinleaf', {
       id: 'bv_kid', x: 8, y: 8, look: 'kid', name: 'Tam', movement: 'wander', facing: 'down',
       dialogue: [
         {
+          // The kid who kept a notebook. He gets the last word.
+          when: { flag: 'postGame' },
+          pool: [
+            ['My notebook has a page in it now that is not about battles.',
+              'It says: THEY WENT UNDER A HILL. I do not know what else to put.',
+              'Nobody at school believes that part. They believe the trophy.'],
+            ['Everyone talks about the Finals. Nobody talks about the other thing.',
+              'I think that is because the other thing does not have a scoreboard.',
+              'I am keeping the page anyway.'],
+          ],
+        },
+        {
           when: { champion: true },
           pool: [
             ['{player}. {player}! You are number one in the WORLD.',

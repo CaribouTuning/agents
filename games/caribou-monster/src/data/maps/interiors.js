@@ -168,6 +168,20 @@ const ROWAN_LAB = defineMap('rowan_lab', {
       id: 'lab_aide', x: 10, y: 6, look: 'scientist', name: 'Aide', movement: 'still', facing: 'left',
       dialogue: [
         {
+          // After the end. The work did not stop because the story did.
+          when: { flag: 'postGame' },
+          pool: [
+            ['She has not slept properly since. Not worried — busy.',
+              'Thirty-one years of readings and the last four days of them are\nthe only ones that make sense.',
+              'She keeps saying "it was holding it" to nobody in particular.'],
+            ['Looker has been in twice. He brought a new file and would not say\nwhat was in it.',
+              'He did say the old one is closed. He said it like it cost him\nsomething to close it.'],
+            ['The light readings went flat the day you came back up.',
+              'Flat, everywhere, for the first time since the instruments were\ninvented. She has a whole wall of it.',
+              'She calls that wall "the quiet". I do not think she is joking.'],
+          ],
+        },
+        {
           when: { caught: 20 },
           lines: ['{caught} caught, {seen} seen. I have shown the professor. She made a noise.',
             'That noise means she is impressed and would rather not say so.'],

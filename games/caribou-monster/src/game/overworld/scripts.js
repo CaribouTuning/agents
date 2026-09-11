@@ -708,6 +708,61 @@ SCRIPTS.everlightDialga = async (ctx) => {
  * end of a story is not the last thing that happens in it, it is the first
  * quiet thing after the last loud one.
  */
+/**
+ * Eterna Forest: a Galactic grunt taking readings, in Act II.
+ *
+ * The first time the player sees Galactic doing something that is not theft.
+ * He is not guarding anything, he does not want a fight, and he will not
+ * explain — he is measuring light in a wood, and the reason that matters is
+ * four acts away, in a library in Canalave. This is the beat `forestGrunt`
+ * was declared for: the flag existed, was listed as a co-op milestone the two
+ * players keep in step on, and nothing in the game ever set it because the
+ * scene was never written.
+ */
+SCRIPTS.forestGrunt = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.FOREST_GRUNT]) {
+    await ctx.say('*The patch of moss he was kneeling on is still flattened.*');
+    return;
+  }
+
+  const grunt = ctx.spawnNpc({
+    id: 'ef_grunt', look: 'grunt', x: ctx.player.x, y: Math.max(1, ctx.player.y - 2),
+    dir: 'down', name: 'Galactic Grunt',
+  });
+  ctx.exclaim(grunt);
+  await ctx.wait(0.5);
+  await ctx.say('*There is somebody kneeling in the moss with a handheld meter,\nholding it up at the canopy.*');
+  await ctx.say('Grunt: Do not stand there. You are in it.', { speaker: 'Grunt' });
+  await ctx.say('*You move. He does not look up.*');
+  await ctx.wait(0.3);
+  await ctx.say('Grunt: Four hundred and ten. Under a full canopy, at this hour.\nThat is not right.');
+  await ctx.say('Grunt: It is the third wood this month that is not right.');
+  await ctx.wait(0.3);
+
+  const opt = await ctx.ask('Say something?', ['What are you measuring?', 'Leave him to it']);
+  if (opt === 0) {
+    await ctx.say('Grunt: Light.', { speaker: 'Grunt' });
+    await ctx.say('Grunt: Not sunlight. There is a difference and I am not going to\nstand in a wood explaining it to a child.');
+    await ctx.say('Grunt: Ask me again in a year. You will not have to.');
+  } else {
+    await ctx.say('*You leave him to it. He does not notice you go.*');
+  }
+
+  // No battle. The first time Galactic turn up they are not a threat, and a
+  // fight here would teach the player to read them as one for the rest of it.
+  await ctx.wait(0.4);
+  await ctx.say('*He packs the meter into a case with a foam cutout shaped exactly\nfor it, which means there are a lot of these.*');
+  await ctx.walk(grunt, 'up', 4);
+  ctx.despawn(grunt);
+  ctx.sfx('leave');
+
+  ctx.setFlag(FLAGS.FOREST_GRUNT);
+  ctx.shareMilestone(FLAGS.FOREST_GRUNT);
+  ctx.journal('forestGrunt');
+  ctx.autosave();
+};
+
 SCRIPTS.wentHome = async (ctx) => {
   const st = ctx.state;
   if (st.flags[FLAGS.WENT_HOME]) return;

@@ -7,6 +7,7 @@
 // north road eventually bends back round to meet the east one, which is what
 // turns a line into a region.
 import { defineMap } from './define.js';
+import { TILES } from '../../render/tiles.js';
 
 // ---------------------------------------------------------------------------
 // Route 204 — Jubilife up to the Ravaged Path.
@@ -318,9 +319,7 @@ export const WINDWORKS = defineMap('windworks', {
 // ---------------------------------------------------------------------------
 // Eterna Forest — dark, close, and full of Bug types. The classic one.
 // ---------------------------------------------------------------------------
-export const ETERNA_FOREST = defineMap('eterna_forest', {
-  name: 'Eterna Forest', kind: 'route', music: 'forest', dark: true,
-  tiles: [
+const EF_ROWS = [
     'YYYYYYYYY::YYYYYYYY',
     'Y.......:::.......Y',
     'Y.""""..:.:..""""'+'.Y',
@@ -339,7 +338,11 @@ export const ETERNA_FOREST = defineMap('eterna_forest', {
     'Y.......:::.......Y',
     'Y.""""...:...""""'+'.Y',
     'YYYYYYYYY::YYYYYYYY',
-  ],
+  ];
+
+export const ETERNA_FOREST = defineMap('eterna_forest', {
+  name: 'Eterna Forest', kind: 'route', music: 'forest', dark: true,
+  tiles: EF_ROWS,
   warps: [
     { x: 9, y: 17, to: 'route205', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 10, y: 17, to: 'route205', tx: 13, ty: 1, dir: 'down', edge: true },
@@ -350,6 +353,14 @@ export const ETERNA_FOREST = defineMap('eterna_forest', {
   objects: [
     { id: 'ef_ball', x: 2, y: 9, item: 'greatball', qty: 3 },
   ],
+  // The grunt is on the forest road, across its whole width, because a beat
+  // the player can walk straight past is a beat that does not exist. Act II
+  // opens with Galactic doing something that is not theft.
+  events: EF_ROWS[10].split('').map((ch, x) => (
+    TILES[ch] && !TILES[ch].solid && !TILES[ch].water
+      ? { x, y: 10, flag: 'forestGrunt', script: 'forestGrunt' }
+      : null
+  )).filter(Boolean),
   npcs: [
     { id: 'ef_t1', x: 6, y: 10, look: 'bugCatcher', trainer: 'ef_bug', facing: 'right', sight: 3, movement: 'still' },
   ],

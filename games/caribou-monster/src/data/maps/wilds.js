@@ -155,6 +155,8 @@ export const OREBURGH_GATE = defineMap('oreburgh_gate', {
     // every time you stand on it: shut without the charm, a door with it.
     { x: 12, y: 2, flag: 'everlightOpened', script: 'everlight', repeat: true },
   ],
+  // Somebody comes down here afterwards. The room is a room now, and the
+  // people who study it will be studying it for the rest of their lives.
   npcs: [
     { id: 'sf_t1', x: 6, y: 5, look: 'grunt', trainer: 'cave_grunt1', facing: 'right', sight: 4, movement: 'still' },
     { id: 'sf_t2', x: 18, y: 11, look: 'gruntF', trainer: 'cave_grunt2', facing: 'left', sight: 4, movement: 'still' },
