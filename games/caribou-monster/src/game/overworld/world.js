@@ -259,29 +259,41 @@ export class World {
     entity.moveDur = (run ? RUN_FRAMES : WALK_FRAMES) * (hop ? 1.6 : 1);
     entity.hopping = hop;
     if (entity.kind === 'player') {
-      const step = { x: entity.fromX, y: entity.fromY, dur: entity.moveDur, hop: 0 };
-      // The person walks a tile behind you and the Pokemon a tile behind
-      // them, so the three of you read as a line rather than a pile.
-      if (this.companion && this.companion.visible) {
-        this.companion.trail.push({ ...step });
-        while (this.companion.trail.length > 2) this.companion.trail.shift();
-      }
-      if (this.follower && this.follower.visible) {
-        this.follower.trail.push({ ...step });
-        const slack = this.companion && this.companion.visible ? 3 : 2;
-        while (this.follower.trail.length > slack) this.follower.trail.shift();
-      }
-      if (this.pet && this.pet.visible) {
-        this.pet.trail.push({ ...step });
-        // Behind the person she belongs to, and behind your Pokemon if you
-        // have one out, so the line reads front to back in the right order.
-        let slack = 2;
-        if (this.companion && this.companion.visible) slack++;
-        if (this.follower && this.follower.visible) slack++;
-        while (this.pet.trail.length > slack) this.pet.trail.shift();
-      }
+      // Only the body directly behind you is told where you were. Each one
+      // after that is told by the body in front of it, when IT moves — see
+      // `_followerStep`. Everybody used to be handed the player's own trail
+      // with a different queue length meant to space them out, but a queue
+      // that is drained as fast as it is filled never reaches its limit, so
+      // the spacing did nothing and the whole line walked on one tile: the
+      // dog was inside the person she belongs to.
+      const first = this._chain()[0];
+      if (first) first.trail.push({ x: entity.fromX, y: entity.fromY, dur: entity.moveDur, hop: 0 });
     }
     return true;
+  }
+
+  /**
+   * Who is walking with you, front to back.
+   *
+   * Bandit is Sammy's dog, so she goes directly behind Sammy — behind the
+   * player when Sammy is the one playing, and behind the companion when
+   * Sammy is the one walking beside you. Your own Pokemon brings up the rear.
+   */
+  _chain() {
+    const out = [];
+    const companion = this.companion && this.companion.visible ? this.companion : null;
+    const pet = this.pet && this.pet.visible ? this.pet : null;
+    const follower = this.follower && this.follower.visible ? this.follower : null;
+    const iAmHerOwner = (this.state.player && this.state.player.look) === 'sammy';
+    if (iAmHerOwner) {
+      if (pet) out.push(pet);
+      if (companion) out.push(companion);
+    } else {
+      if (companion) out.push(companion);
+      if (pet) out.push(pet);
+    }
+    if (follower) out.push(follower);
+    return out;
   }
 
   face(entity, dirName) { if (!entity.moving) entity.dir = dirName; }
@@ -319,28 +331,43 @@ export class World {
     return null;
   }
 
-  _placeBeside(body) {
+  /**
+   * Stands the whole line up behind the player, in order, all at once.
+   *
+   * Each body used to place itself when it happened to be refreshed, and the
+   * order that happens in is not the order of the line — so the dog ended up
+   * in front of the player and the person behind the Pokemon, and whoever
+   * went last was left standing on somebody. There is only one right answer
+   * for all of them together, so it is worked out in one pass.
+   */
+  _placeChain() {
     const p = this.player;
     const BEHIND = { up: [0, 1], down: [0, -1], left: [1, 0], right: [-1, 0] };
     const back = BEHIND[p.dir] || [0, 1];
-    const tries = [back, [0, 1], [0, -1], [-1, 0], [1, 0]];
-    let x = p.x, y = p.y;
-    for (const [dx, dy] of tries) {
-      const nx = p.x + dx, ny = p.y + dy;
-      if (nx < 0 || ny < 0 || nx >= this.map.width || ny >= this.map.height) continue;
-      if (this.defAt(nx, ny).solid) continue;
-      if (this.entityAt(nx, ny, body)) continue;
-      // The other walking bodies do not block anybody — they are deliberately
-      // not solid, so you never get shut in by your own dog — but two of them
-      // on one tile is still one sprite hiding another.
-      if (this._bodyAt(nx, ny, body)) continue;
-      x = nx; y = ny; break;
-    }
-    body.x = x; body.y = y;
-    body.fromX = x; body.fromY = y;
-    body.dir = p.dir;
-    body.moving = false;
-    body.trail = [];
+    const taken = [`${p.x},${p.y}`];
+    const free = (x, y) => {
+      if (x < 0 || y < 0 || x >= this.map.width || y >= this.map.height) return false;
+      if (this.defAt(x, y).solid) return false;
+      if (this.entityAt(x, y)) return false;
+      return !taken.includes(`${x},${y}`);
+    };
+    const chain = this._chain();
+    chain.forEach((body, i) => {
+      const tries = [];
+      // Straight back down the line first, then anywhere free beside it.
+      for (let n = i + 1; n >= 1; n--) tries.push([p.x + back[0] * n, p.y + back[1] * n]);
+      for (const [dx, dy] of [[0, 1], [0, -1], [-1, 0], [1, 0]]) tries.push([p.x + dx, p.y + dy]);
+      let spot = tries.find(([x, y]) => free(x, y));
+      // Boxed in: stand on the player rather than inside a wall. Rare, and
+      // it resolves itself the moment anybody takes a step.
+      if (!spot) spot = [p.x, p.y];
+      taken.push(`${spot[0]},${spot[1]}`);
+      body.x = spot[0]; body.y = spot[1];
+      body.fromX = body.x; body.fromY = body.y;
+      body.dir = p.dir;
+      body.moving = false;
+      body.trail = [];
+    });
   }
 
   refreshCompanion() {
@@ -351,7 +378,7 @@ export class World {
     c.look = slot ? slot.look : null;
     c.name = slot ? slot.name : null;
     if (!c.visible) { c.trail = []; return; }
-    this._placeBeside(c);
+    this._placeChain();
   }
 
   refreshPet() {
@@ -368,7 +395,7 @@ export class World {
     c.species = slot ? slot.species : null;
     c.name = slot ? slot.name : null;
     if (!c.visible) { c.trail = []; return; }
-    this._placeBeside(c);
+    this._placeChain();
   }
 
   /** An animal starts walking with you. `who` is {species, name}. */
@@ -408,7 +435,7 @@ export class World {
     f.mon = lead;
     f.visible = !!lead && this.map && this.map.kind !== 'indoor';
     if (!f.visible) return;
-    this._placeBeside(f);
+    this._placeChain();
   }
 
   /**
@@ -416,12 +443,36 @@ export class World {
    * left. The trail is a queue of the player's last positions, so the partner
    * traces the player's path rather than cutting corners through walls.
    */
+  /** Whoever walks directly in front of this body — the one it follows. */
+  _leaderOf(body) {
+    const chain = this._chain();
+    const at = chain.indexOf(body);
+    if (at < 0) return null;
+    return at === 0 ? this.player : chain[at - 1];
+  }
+
   _followerStep(which) {
     const f = which || this.follower;
     if (!f || !f.visible || f.moving) return;
-    const next = f.trail.shift();
+    const next = f.trail[0];
     if (!next) return;
-    if (next.x === f.x && next.y === f.y) return;
+    if (next.x === f.x && next.y === f.y) { f.trail.shift(); return; }
+    // Never walk into anybody — not the one in front, and not the player.
+    // Checking only the body ahead left the hole that mattered: the player is
+    // not part of the line and can turn round and stand anywhere in it, and
+    // the dog would then walk into the person holding the phone. Whoever is
+    // blocked waits where they are until the way is clear, which is what it
+    // looks like when somebody stops to let you past.
+    if (this.player.x === next.x && this.player.y === next.y) {
+      while (f.trail.length > 8) f.trail.shift();
+      return;
+    }
+    const blocker = this._bodyAt(next.x, next.y, f);
+    if (blocker && !blocker.moving) {
+      while (f.trail.length > 8) f.trail.shift();
+      return;
+    }
+    f.trail.shift();
     f.fromX = f.x; f.fromY = f.y;
     f.dir = next.x > f.x ? 'right' : next.x < f.x ? 'left' : next.y > f.y ? 'down' : 'up';
     f.x = next.x; f.y = next.y;
@@ -429,6 +480,12 @@ export class World {
     f.moveT = 0;
     f.moveDur = next.dur || WALK_FRAMES;
     f.hopping = next.hop || 0;
+    // Hand the tile just vacated to whoever is behind. This is what keeps the
+    // line a line: each body walks into the square the one in front has left,
+    // exactly one step later, instead of everybody chasing the player.
+    const chain = this._chain();
+    const behind = chain[chain.indexOf(f) + 1];
+    if (behind) behind.trail.push({ x: f.fromX, y: f.fromY, dur: f.moveDur, hop: next.hop || 0 });
   }
 
   // Pixel position for rendering, interpolated across the step.
@@ -520,10 +577,45 @@ export class World {
     }
   }
 
+  /**
+   * Nobody standing still shares a tile with anybody else.
+   *
+   * The line keeps itself in order while it is walking, but the player is not
+   * part of the line and nothing stops them turning round and walking into
+   * it: followers are deliberately not solid, because being shut in a doorway
+   * by your own dog would be far worse than walking through her. So after
+   * every step anyone left standing on somebody else steps aside, preferring
+   * the tile the player has just left. It is a safety net rather than the
+   * mechanism — if it is doing much work, the line is wrong somewhere else.
+   */
+  _unstack() {
+    const p = this.player;
+    const taken = new Set([`${p.x},${p.y}`]);
+    for (const b of this._chain()) {
+      const key = `${b.x},${b.y}`;
+      if (b.moving) { taken.add(key); continue; }
+      if (!taken.has(key)) { taken.add(key); continue; }
+      const spots = [[p.fromX, p.fromY], [b.x, b.y + 1], [b.x, b.y - 1],
+        [b.x - 1, b.y], [b.x + 1, b.y]];
+      let moved = false;
+      for (const [x, y] of spots) {
+        if (x < 0 || y < 0 || x >= this.map.width || y >= this.map.height) continue;
+        if (taken.has(`${x},${y}`)) continue;
+        if (this.defAt(x, y).solid || this.entityAt(x, y)) continue;
+        b.x = x; b.y = y; b.fromX = x; b.fromY = y; b.moving = false;
+        taken.add(`${x},${y}`);
+        moved = true;
+        break;
+      }
+      if (!moved) taken.add(key);
+    }
+  }
+
   _finishPlayerStep() {
     const p = this.player;
     p.moving = false;
     p.frame = 0;
+    this._unstack();
     p.hopping = 0;
     p.stepPhase = (p.stepPhase + 1) % 4;
     this.state.player.x = p.x;

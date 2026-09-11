@@ -147,7 +147,14 @@ add('rival_1', {
   name: 'Cass Wren', cls: 'Rival', look: 'rivalGirl', ai: 1, prize: 400, rival: true,
   intro: 'One year. That is how far ahead I am.',
   defeat: 'That is not what a year is supposed to look like.',
-  team: [mon(396, 5, ['tackle', 'growl']), 'RIVAL_STARTER:5'],
+  // One Pokemon, because this is the first fight in the game and the player
+  // has exactly one. She used to lead with a Starly as well, so the opening
+  // battle was two against one AND hers was the type picked to beat yours —
+  // unwinnable on easy without spending a Potion you have barely been given.
+  // She still picked the counter on purpose, which is the whole point of the
+  // scene; she just does not bring a friend to the first one. Starly joins
+  // her from the second battle, where you have a team to meet it with.
+  team: ['RIVAL_STARTER:5'],
 });
 add('rival_2', {
   name: 'Cass Wren', cls: 'Rival', look: 'rivalGirl', ai: 2, prize: 900, rival: true,

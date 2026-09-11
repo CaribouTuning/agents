@@ -124,6 +124,72 @@ for (const who of ['matthew', 'sammy']) {
   check(after.companion, `${who}: and so is the other one`);
 }
 
+// --- and they stay a line once you start walking ---------------------------
+//
+// The earlier version of this file only checked where everybody STOOD when a
+// scene put them there. That is not where the bug was. Every body was handed
+// the player's own trail with a different queue length meant to space them
+// out, and a queue drained as fast as it is filled never reaches its limit —
+// so the moment you walked, the whole line collapsed onto one tile and the
+// dog was inside the person she belongs to. Walking is the test.
+for (const who of ['matthew', 'sammy']) {
+  console.log(`\n--- walking about, as ${who} ---`);
+  await page.evaluate((look) => {
+    const g = window.CARIBOU;
+    g.startNewGame({ name: look === 'sammy' ? 'Sammy' : 'Matthew', look, difficulty: 'easy' });
+    g.state.settings.textSpeed = 2;
+    g.dialogueForTest.speedIndex = 2;
+    g.state.flags.gotStarter = true;
+    g.debugGive(387, 12);
+  }, who);
+  await wait(900);
+  await page.evaluate(() => window.CARIBOU.teleport('route201'));
+  await wait(900);
+  await page.evaluate(() => {
+    const g = window.CARIBOU;
+    
+    g.overworld.world.companionJoin({ look: 'rivalGirl', name: 'Buddy', key: 'buddy' });
+    g.overworld.world.petJoin({ species: 449, name: 'Bandit' });
+  });
+  await wait(400);
+
+  let worstOverlap = null;
+  let sawEverybody = false;
+  // Long holds, and long runs in one direction before turning. Alternating
+  // every step with a short hold only ever makes the player turn on the spot
+  // — the turn-in-place beat eats the whole press — so the line is never
+  // actually walked and the test proves nothing.
+  const LEGS = ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowUp', 'ArrowUp', 'ArrowUp',
+    'ArrowLeft', 'ArrowLeft', 'ArrowRight', 'ArrowRight'];
+  for (let step = 0; step < LEGS.length * 3; step++) {
+    const key = LEGS[step % LEGS.length];
+    await page.keyboard.down(key);
+    await wait(280);
+    await page.keyboard.up(key);
+    await wait(160);
+    const shot = await page.evaluate(() => {
+      const w = window.CARIBOU.overworld.world;
+      const p = w.player;
+      const bodies = [['companion', w.companion], ['pet', w.pet], ['follower', w.follower]]
+        .filter(([, b]) => b && b.visible)
+        .map(([n, b]) => ({ n, x: b.x, y: b.y, moving: !!b.moving }));
+      return { player: { x: p.x, y: p.y, moving: !!p.moving }, bodies };
+    });
+    if (shot.bodies.length >= 2) sawEverybody = true;
+    // Nobody settled should share a tile with the player or with each other.
+    const settled = [{ n: 'player', ...shot.player }, ...shot.bodies].filter((b) => !b.moving);
+    for (let i = 0; i < settled.length; i++) {
+      for (let j = i + 1; j < settled.length; j++) {
+        if (settled[i].x === settled[j].x && settled[i].y === settled[j].y) {
+          worstOverlap = `${settled[i].n} and ${settled[j].n} both at ${settled[i].x},${settled[i].y} after step ${step}`;
+        }
+      }
+    }
+  }
+  check(sawEverybody, `${who}: the line has more than one body in it`);
+  check(!worstOverlap, `${who}: nobody ends a step standing inside anybody else`, worstOverlap || '');
+}
+
 // And nobody a script conjures up arrives standing inside the player.
 console.log('\n--- somebody a scene puts in front of you ---');
 await page.evaluate(() => {

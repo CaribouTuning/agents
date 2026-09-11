@@ -1583,6 +1583,33 @@ function checkNowhereStrandsYou() {
 checkNowhereStrandsYou();
 checkEveryGymFightIsWalkableTo();
 checkNoTextIsStranded();
+// ---- the first fight is a fair fight ---------------------------------------
+// The player owns exactly one Pokemon when Cass stops them on Route 201, and
+// hers is deliberately the one picked to beat theirs. Bringing a second
+// Pokemon to that made the opening battle two against one with the type
+// advantage on her side — unwinnable on EASY without spending a Potion the
+// player has barely been handed. The first fight of the game may not
+// outnumber the player, whatever anybody adds to her team later.
+
+function checkTheFirstFightIsFair() {
+  const first = TRAINERS.rival_1;
+  if (!first) { err(`[opening] ` + 'the first rival battle has no trainer behind it'); return; }
+  if (first.team.length > 1) {
+    err(`[opening] ` + `the first battle of the game fields ${first.team.length} Pokemon against `
+      + 'a player who owns one');
+  }
+  // And it must climb from there, or the rival stops being a rival.
+  const later = [TRAINERS.rival_2, TRAINERS.rival_3].filter(Boolean);
+  let n = first.team.length;
+  for (const t of later) {
+    if (t.team.length < n) {
+      err(`[opening] ` + `${t.name} brings ${t.team.length} Pokemon after bringing ${n}`);
+    }
+    n = t.team.length;
+  }
+}
+
+checkTheFirstFightIsFair();
 checkNobodyFightsAPlaceholder();
 checkNothingCountsTheGymsByHand();
 checkThePaperTellsTheTruth();
