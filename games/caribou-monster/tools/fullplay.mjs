@@ -513,6 +513,42 @@ async function talkToEveryone(limit = 14) {
 }
 
 /**
+ * Walks up to one particular person and talks to them.
+ *
+ * Talking to everybody in a Gym means fighting every trainer in it, which is
+ * an honest thing to do and takes twenty minutes a Gym. When what is being
+ * checked is whether the Leader hands over the badge, go and find the Leader.
+ */
+async function talkTo(match) {
+  const who = await page.evaluate((m) => {
+    const w = window.CARIBOU.overworld.world;
+    const e = (w.entities || []).find((n) => n.id === m
+      || (n.data && (n.data.trainer === m || n.data.name === m)));
+    return e ? { id: e.id, x: e.x, y: e.y } : null;
+  }, match);
+  if (!who) return null;
+  const spot = await page.evaluate(([x, y]) => {
+    const w = window.CARIBOU.overworld.world;
+    for (const [d, dx, dy] of [['up', 0, 1], ['down', 0, -1], ['left', 1, 0], ['right', -1, 0]]) {
+      if (w.canEnter(w.player, x + dx, y + dy)) return { x: x + dx, y: y + dy, dir: d };
+    }
+    return null;
+  }, [who.x, who.y]);
+  if (!spot) return null;
+  if (!await walkTo(spot.x, spot.y, 18)) return null;
+  for (let k = 0; k < 20; k++) {
+    if (await page.evaluate(() => !window.CARIBOU.overworld.world.player.moving)) break;
+    await wait(30);
+  }
+  await page.evaluate((d) => { window.CARIBOU.overworld.world.player.dir = d; }, spot.dir);
+  await wait(120);
+  await tap('KeyZ', 1, 220);
+  const text = await clear(200);
+  await inspect(text);
+  return text;
+}
+
+/**
  * Reads every sign on the map, as the player reads it.
  *
  * A sign's stored text still has its slots in it — the filling happens on
@@ -673,8 +709,10 @@ for (const gym of GYMS) {
   const got = await goThrough(gym.map);
   if (!got) { found('GYM UNREACHABLE', `${gym.leader}'s Gym has no door from ${gym.city}`); continue; }
   const before = (await at()).badges;
-  // Fight the leader for real: walk up to them and talk, like anybody would.
-  await talkToEveryone(10);
+  // Go and find the Leader rather than fighting the whole Gym: the badge is
+  // what is being checked, and the trainers in between are twenty minutes.
+  const met = await talkTo(gym.trainer);
+  if (met === null) await talkToEveryone(6);   // could not find them; try the room
   const after = (await at()).badges;
   if (after <= before) {
     found('NO BADGE', `beating ${gym.leader} did not hand over the ${gym.badge}`);
