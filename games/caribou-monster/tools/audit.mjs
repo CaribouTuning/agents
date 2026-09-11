@@ -1471,6 +1471,34 @@ function checkNobodyFightsAPlaceholder() {
   }
 }
 
+// ---- text nobody can ever read ---------------------------------------------
+// Talking to somebody runs their trainer battle if they have one, otherwise
+// their script if they have one, otherwise their dialogue. So an NPC carrying
+// both a script and dialogue has dialogue the player can never see. Most of
+// it is an older version of what the script now says — the nurses ask twice,
+// the Gym Leaders make the same speech — but it reads as live content, and
+// somebody editing it would be editing text that never reaches the screen.
+
+function checkNoTextIsStranded() {
+  const stranded = [];
+  for (const map of Object.values(MAPS)) {
+    for (const n of (map.npcs || [])) {
+      const lines = Array.isArray(n.dialogue) ? n.dialogue.length : (n.dialogue ? 1 : 0);
+      if (!lines) continue;
+      if (n.trainer || n.script) stranded.push(`${map.id}/${n.id}`);
+    }
+  }
+  // One line, not fifty. Almost all of it is an older draft of what the
+  // script now says — the nurses ask whether to heal you twice, the Gym
+  // Leaders make the same speech in two places — so it is worth knowing
+  // about and not worth burying the real findings under.
+  if (stranded.length) {
+    warn(`[stranded] ${stranded.length} NPCs carry dialogue behind a script or a trainer, `
+      + `so it never reaches the screen (e.g. ${stranded.slice(0, 3).join(', ')})`);
+  }
+}
+
+checkNoTextIsStranded();
 checkNobodyFightsAPlaceholder();
 checkNothingCountsTheGymsByHand();
 checkThePaperTellsTheTruth();
