@@ -805,6 +805,13 @@ check('the Aurora Charm opens the chamber', inside.map === 'everlight_chamber',
 check('the door set its flag', await page.evaluate(() => !!window.CARIBOU.state.flags.everlightOpened));
 await page.screenshot({ path: path.join(OUT, '09-everlight.png') });
 
+// By the time a real save stands in this room it has been to Canalave and
+// read Volume III — that is the whole point of the middle of the game, and
+// the encounter is gated on it. Walking in before that is a sighting, not
+// the end of the story, so a run that skips six badges has to say it knows
+// what the floor is for before the chamber will answer.
+await page.evaluate(() => { window.CARIBOU.state.flags.canalaveTruth = true; });
+
 if (inside.map === 'everlight_chamber') {
   check('the chamber leaves the player mobile', (await canMove()).length > 0, (await canMove()).join(','));
   await waitIdle();
