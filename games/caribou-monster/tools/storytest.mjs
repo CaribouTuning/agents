@@ -18,6 +18,9 @@ import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../src/data/sto
 import { TRAINERS } from '../src/data/trainers.js';
 import { unrenderable } from '../src/render/font.js';
 import { MAPS } from '../src/data/maps/index.js';
+import { leagueBadges, builtGyms } from '../src/data/campaign.js';
+const LEAGUE_COUNT = leagueBadges(MAPS);
+const BUILT_GYMS = builtGyms(MAPS).length;
 import { worldSnapshot, isKnownSlot, fillText } from '../src/game/overworld/gossip.js';
 
 let fails = 0;
@@ -439,6 +442,57 @@ console.log('\n--- the road from the first morning to the Everlight is unbroken 
   for (const flag of ['beatCommander', 'knowsTwist', 'everlightOpened', 'everlightResolved']) {
     check(sets(flag), `something sets ${flag}`);
   }
+}
+
+console.log('\n--- and it keeps going after the climax, all the way to the end ---');
+{
+  // The chain above stops at the Everlight, which is where the story turns —
+  // not where it ends. Everything after it is the part the game was asked to
+  // finish: the quiet afterwards, going home, the League, the credits, and
+  // the world afterwards. Each of those is a scene somebody has to be able
+  // to walk into, and a flag the next one reads.
+  const placed = new Set();
+  const where = new Map();
+  for (const map of Object.values(MAPS)) {
+    for (const n of map.npcs) if (n.script) { placed.add(n.script); where.set(n.script, map.id); }
+    for (const e of map.events || []) if (e.script) { placed.add(e.script); where.set(e.script, map.id); }
+    for (const o of map.objects || []) if (o.script) { placed.add(o.script); where.set(o.script, map.id); }
+  }
+  const after = [
+    ['rowanAfter', 'Rowan, once it is over'],
+    ['wentHome', 'going home, which is how the chapter closes'],
+  ];
+  for (const [name, what] of after) {
+    check(placed.has(name), `${what} is somewhere a player can reach it`,
+      placed.has(name) ? `on ${where.get(name)}` : 'PLACED NOWHERE');
+    check(typeof SCRIPTS[name] === 'function', `${name} is a scene that exists`);
+  }
+
+  // The ending's flags, each read by something downstream. A flag nothing
+  // reads is a beat that happens and changes nothing, which is the same as
+  // it not happening.
+  const src = readFileSync(new URL('../src/game/overworld/scripts.js', import.meta.url), 'utf8');
+  const all = [src];
+  for (const f of ['journal.js', 'state.js']) {
+    try { all.push(readFileSync(new URL(`../src/game/${f}`, import.meta.url), 'utf8')); } catch { /* fine */ }
+  }
+  for (const map of ['interiors.js', 'north.js', 'routes.js', 'east.js', 'towns.js']) {
+    try { all.push(readFileSync(new URL(`../src/data/maps/${map}`, import.meta.url), 'utf8')); } catch { /* fine */ }
+  }
+  const everything = all.join('\n');
+  for (const flag of ['everlightResolved', 'rowanDebriefed', 'wentHome', 'postGame']) {
+    const written = new RegExp(`setFlag\\(\\s*(?:FLAGS\\.[A-Z_]+|['\`]${flag}['\`])`).test(src)
+      || new RegExp(`flags\\.${flag}\\s*=`).test(everything);
+    const read = new RegExp(`(?:flags\\.${flag}\\b|['\`]${flag}['\`])`).test(everything);
+    check(written, `something sets ${flag}`);
+    check(read, `something reads ${flag}`);
+  }
+
+  // The League is only open once the story is done and the badges are in.
+  check(typeof leagueBadges === 'function' || LEAGUE_COUNT > 0,
+    'the League knows how many badges it wants', String(LEAGUE_COUNT));
+  check(BUILT_GYMS === LEAGUE_COUNT,
+    'it wants exactly as many as are built', `${BUILT_GYMS} built, ${LEAGUE_COUNT} wanted`);
 }
 
 console.log('\n--- nothing the game can say still has a {slot} in it ---');

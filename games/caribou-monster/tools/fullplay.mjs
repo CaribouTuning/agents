@@ -776,4 +776,54 @@ else {
 }
 await page.screenshot({ path: path.join(OUT, 'credits.png') });
 
+// ---------------------------------------------------------------------------
+// AND AGAIN, AS THE OTHER ONE
+// ---------------------------------------------------------------------------
+//
+// The opening is written for two protagonists and the order of its scenes
+// flips depending on which you are. Playing it only as Matthew proves half
+// of it. This walks the same first morning as Sammy — the doorstep, the
+// companion who is supposed to be standing there, Bandit, the lab, the road
+// north — and reports the same way.
+
+stage('as Sammy: the first morning');
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.startNewGame({ name: 'Sammy', look: 'sammy', difficulty: 'easy' });
+});
+await wait(900);
+await clear();
+await goTo('twinleaf');
+await wait(700);
+await clear();                                   // the doorstep scene
+
+// Whoever the player is, the other one and the dog should be on screen by
+// the time the scene has finished talking about them.
+const cast = await page.evaluate(() => {
+  const w = window.CARIBOU.overworld.world;
+  return {
+    companion: !!(w.companion && w.companion.visible),
+    pet: !!(w.pet && w.pet.visible),
+    who: w.companion ? w.companion.name : null,
+  };
+});
+if (!cast.companion) found('CAST', 'the other protagonist is talked about but not on screen');
+if (cast.who === 'Sammy') found('CAST', 'Sammy is following Sammy');
+
+await talkToEveryone(6);
+await readEverySign();
+stage('as Sammy: the lab');
+await goTo('rowan_lab');
+await runScene('starter');
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.debugGive(387, 60); g.debugGive(392, 60); g.debugGive(398, 60);
+  g.state.party.sort((a, b) => b.level - a.level);
+});
+stage('as Sammy: the road north');
+if (!await goTo('route201')) found('ROUTE BROKEN', 'Sammy cannot walk north out of Twinleaf');
+await clear();
+if (!await goTo('sandgem')) found('ROUTE BROKEN', 'Sammy cannot reach Sandgem');
+await talkToEveryone(6);
+
 await finish();
