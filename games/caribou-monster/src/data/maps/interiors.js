@@ -111,12 +111,12 @@ const SAMMY_HOUSE = defineMap('sammy_house', {
   healPoint: { map: 'sammy_house', x: 5, y: 6 },
   npcs: [
     {
-      id: 'sh_parent', x: 3, y: 4, look: 'oldWoman', name: "Sammy's Mum", movement: 'still', facing: 'down',
+      id: 'sh_parent', x: 3, y: 4, look: 'mom', name: "Sammy's Mum", movement: 'still', facing: 'down',
       heals: true,
       dialogue: [
         {
           // Matthew, at his girlfriend's door, with her dog at his heel.
-          when: { all: [{ flag: 'hasBandit' }, { playing: 'matthew' }] },
+          when: { all: [{ flag: 'banditWithUs' }, { playing: 'matthew' }] },
           lines: ['So Bandit went with you two. She has never once done as she was told.',
             'She chose Sammy the day she turned up and she has not wavered since.',
             'Look after our girl. Both of ours, come to that.'],
@@ -137,38 +137,6 @@ const SAMMY_HOUSE = defineMap('sammy_house', {
           lines: ['Matthew. Come in, come in — she is not here, she is at the lab.',
             'You could have rung. You never ring. You just appear at the door.',
             'I do not mind. It is very nearly charming.'],
-        },
-      ],
-    },
-    {
-      id: 'sh_neighbour', x: 8, y: 4, look: 'oldMan', name: 'Neighbour', movement: 'still', facing: 'down',
-      dialogue: [
-        {
-          when: { flag: 'beatRival2' },
-          lines: ['Came back through here last week, dropped the bag, went straight out again.',
-            'Said you had beaten them twice now. Said it like it was your fault.',
-            'Try not to let them win every argument. It only encourages it.'],
-        },
-        {
-          when: { flag: 'beatRival1' },
-          lines: ['Heard you two had it out on Route 201. Heard who won, as well.',
-            'Do not expect that to be the end of it. It never is.'],
-        },
-        {
-          when: { flag: 'hasBandit' },
-          lines: ['So she went with you. Of course she did.',
-            'That dog has slept on four doorsteps in this street and chosen exactly one person.',
-            'Do not let her near anybody\u2019s washing line. I am asking as a favour.'],
-        },
-        {
-          when: { linked: true },
-          lines: ['Both of you out there at once. That is the whole street empty, then.',
-            '{partner} came past earlier with the same look on their face you have got now.',
-            'Whatever the two of you are up to, do it somewhere with a Center nearby.'],
-        },
-        {
-          lines: ['Ran out of here at dawn shouting about the lab. You know how it is.',
-            'Try not to let them win every argument. It only encourages it.'],
         },
       ],
     },

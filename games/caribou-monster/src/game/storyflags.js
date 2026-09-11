@@ -28,6 +28,10 @@ export const FLAGS = {
   MUM_SENT_YOU_OFF: 'mumSentYouOff',
   BUDDY_JOINED: 'buddyJoined',
   BANDIT_HELLO: 'banditHello',
+  // "Bandit is with us now", whoever is holding the phone. She joins Sammy's
+  // party; when Matthew plays she leaves the step with Sammy instead. Either
+  // way this is the flag that means she is no longer sat outside the house.
+  BANDIT_WITH_US: 'banditWithUs',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',

@@ -196,6 +196,44 @@ function playedGame() {
   check((await save.peek()) === null, 'and the continue screen does not offer it');
 }
 
+// ---- 4b. the two of them do not overwrite each other ------------------------
+//
+// The artifact document store is shared by everyone who opens the page, and
+// this page is opened by exactly two people. With one slot, whoever saved
+// last owned the only save there was.
+
+{
+  const backend = new MemoryBackend();
+  const save = new SaveManager(backend);
+
+  const his = createGameState({ name: 'Matthew', look: 'matthew' });
+  his.inventory.money = 111;
+  await save.save(his);
+
+  const hers = createGameState({ name: 'Sammy', look: 'sammy' });
+  hers.inventory.money = 222;
+  await save.save(hers);
+
+  const slots = await backend.list();
+  check(slots.length === 2, 'two players get two slots, not one', slots.join(' '));
+
+  const back = await save.load('save-matthew');
+  check(back && back.inventory.money === 111,
+    "Sammy saving does not overwrite Matthew's game", back && String(back.inventory.money));
+
+  const all = await save.peekAll();
+  check(all.length === 2, 'and the title screen is offered both', all.map((a) => a.meta.name).join(','));
+
+  // Both saves land in the same millisecond here, so age the older one by
+  // hand before checking that the most recent game is offered first.
+  const aged = await backend.read('save-matthew');
+  aged.savedAt -= 60000;
+  await backend.write('save-matthew', aged);
+  const ordered = await save.peekAll();
+  check(ordered[0].meta.name === 'Sammy', 'newest first, so the last one to play is on top',
+    ordered.map((a) => a.meta.name).join(','));
+}
+
 // ---- 5. a fresh game is not a save ------------------------------------------
 
 {

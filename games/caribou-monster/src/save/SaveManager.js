@@ -8,8 +8,32 @@ import { storage, storageReady, isDurable, providerReport, saveDiagnosis } from 
 import { serializeState, deserializeState } from '../game/state.js';
 import { MIGRATIONS } from './migrations.js';
 
+// One slot per character, not one slot per artifact.
+//
+// The artifact document store is shared by everyone who opens the page, and
+// this page is opened by exactly two people. With a single slot, whichever of
+// them saved last owned the only save there was. Matthew's game lives at
+// `save-matthew`, Sammy's at `save-sammy`, and neither can tread on the
+// other. `save1` is what the first builds wrote; it is still read, once, and
+// adopted into whichever character it belongs to.
 export const SAVE_SLOT = 'save1';
+export const SLOT_PREFIX = 'save-';
+export const SLOTS = ['save-matthew', 'save-sammy'];
 export const SAVE_VERSION = 3;
+
+/** The slot a given character's game belongs in. */
+export function slotForLook(look) {
+  const k = String(look || '').toLowerCase();
+  return SLOTS.includes(SLOT_PREFIX + k) ? SLOT_PREFIX + k : SLOTS[0];
+}
+
+/** The slot a given state belongs in, however old the save is. */
+export function slotForState(state) {
+  const p = (state && state.player) || {};
+  const byLook = SLOT_PREFIX + String(p.look || '').toLowerCase();
+  if (SLOTS.includes(byLook)) return byLook;
+  return slotForLook(String(p.name || '').toLowerCase());
+}
 const AUTOSAVE_MS = 45000;
 const FLUSH_DEBOUNCE_MS = 700;
 
@@ -57,7 +81,8 @@ export class SaveManager {
 
   markDirty() { this.dirty = true; }
 
-  async save(state, slot = SAVE_SLOT, opts = {}) {
+  async save(state, slot = null, opts = {}) {
+    slot = slot || slotForState(state);
     // A save already in flight used to make this a no-op, which meant the
     // flush on the way out could be the one that got dropped. Queue instead.
     if (this.saving) { this._again = { state, slot }; return false; }
@@ -76,9 +101,14 @@ export class SaveManager {
           party: state.party.map((m) => ({ species: m.species, level: m.level, shiny: !!m.shiny })),
         },
       };
-      const ok = await this.backend.write(slot, payload);
-      if (ok) { this.dirty = false; this.lastSaveAt = Date.now(); this.lastError = null; }
-      else this.lastError = 'write failed';
+      const res = await this.backend.write(slot, payload);
+      // `res` reports where the write actually landed. A write that only
+      // reached this device is not a failure, but it is not a save either,
+      // and the game has to stop calling it one.
+      const ok = res && (res.ok !== undefined ? res.ok : !!res);
+      this.lastDurable = !!(res && res.durable);
+      if (ok) { this.dirty = false; this.lastSaveAt = Date.now(); this.lastError = (res && res.error) || null; }
+      else this.lastError = (res && res.error) || 'write failed';
       return !!ok;
     } catch (err) {
       this.lastError = String(err && err.message || err);
@@ -93,9 +123,17 @@ export class SaveManager {
     }
   }
 
-  async load(slot = SAVE_SLOT) {
+  /** Whichever character saved most recently, or null if nobody has. */
+  async newestSlot() {
+    const all = await this.peekAll();
+    return all.length ? all[0].slot : null;
+  }
+
+  async load(slot = null) {
     try {
-      const raw = await this.backend.read(slot);
+      const use = slot || await this.newestSlot();
+      if (!use) return null;
+      const raw = await this.backend.read(use);
       if (!raw || !raw.state) return null;
       const st = deserializeState(this.migrate(raw).state);
       return st;
@@ -105,9 +143,16 @@ export class SaveManager {
     }
   }
 
-  async peek(slot = SAVE_SLOT) {
+  /**
+   * One save's headline, for a CONTINUE row. With no slot it answers for
+   * whichever character saved most recently, which is what every caller that
+   * predates per-character slots meant by "the save".
+   */
+  async peek(slot = null) {
     try {
-      const raw = await this.backend.read(slot);
+      const use = slot || await this.newestSlot();
+      if (!use) return null;
+      const raw = await this.backend.read(use);
       if (!raw || !raw.state) return null;
       return { ...raw.meta, savedAt: raw.savedAt, version: raw.v };
     } catch { return null; }
@@ -127,7 +172,79 @@ export class SaveManager {
     } catch { return null; }
   }
 
-  async hasSave(slot = SAVE_SLOT) { return !!(await this.peek(slot)); }
+  /** Erases every slot. Only the "wipe this device" paths want this. */
+  async eraseAll() {
+    for (const slot of [...SLOTS, SAVE_SLOT]) {
+      try { await this.backend.remove(slot); } catch { /* already gone */ }
+    }
+    return true;
+  }
+
+  /**
+   * Takes a payload read out of a backup file and makes it the live save.
+   *
+   * It goes through the same migration and the same write path as any other
+   * save, so a backup taken from an older build still loads, and the restored
+   * game is immediately the one a CONTINUE would find.
+   */
+  async restore(raw, slot = null) {
+    if (!raw || !raw.state) return { ok: false, error: 'not a save file' };
+    slot = slot || slotForState(raw.state);
+    let payload;
+    try { payload = this.migrate(raw); } catch (err) { return { ok: false, error: String(err.message || err) }; }
+    const res = await this.backend.write(slot, payload);
+    const ok = res && (res.ok !== undefined ? res.ok : !!res);
+    this.lastDurable = !!(res && res.durable);
+    if (ok) { this.dirty = false; this.lastSaveAt = Date.now(); }
+    return { ok: !!ok, slot, meta: payload.meta, error: (res && res.error) || null };
+  }
+
+  /**
+   * Every character's save, newest first, so the title screen can offer the
+   * right CONTINUE rows rather than assuming there is one game.
+   *
+   * A `save1` left by an older build is adopted here: it is read, written
+   * into the slot its character belongs to, and then ignored forever.
+   */
+  async peekAll() {
+    const out = [];
+    for (const slot of SLOTS) {
+      const meta = await this.peek(slot);
+      if (meta) out.push({ slot, meta });
+    }
+    try {
+      const legacy = await this.backend.read(SAVE_SLOT);
+      if (legacy && legacy.state) {
+        // Only adopt a legacy save this build can actually open. Copying one
+        // it cannot migrate would put an unreadable game in a live slot and
+        // hide the character's real save behind it.
+        this.migrate(legacy);
+        const slot = slotForState(legacy.state);
+        if (!out.some((o) => o.slot === slot)) {
+          await this.backend.write(slot, legacy);
+          out.push({ slot, meta: { ...legacy.meta, savedAt: legacy.savedAt, version: legacy.v } });
+        }
+      }
+    } catch { /* no legacy save, or it is unreadable; either way, move on */ }
+    out.sort((a, b) => (b.meta.savedAt || 0) - (a.meta.savedAt || 0));
+    return out;
+  }
+
+  /** The same, from this tab only, for the very first paint. */
+  async peekAllFast() {
+    const out = [];
+    for (const slot of SLOTS) {
+      const meta = await this.peekFast(slot);
+      if (meta) out.push({ slot, meta });
+    }
+    out.sort((a, b) => (b.meta.savedAt || 0) - (a.meta.savedAt || 0));
+    return out;
+  }
+
+  async hasSave(slot = null) {
+    if (slot) return !!(await this.peek(slot));
+    return (await this.peekAll()).length > 0;
+  }
 
   async erase(slot = SAVE_SLOT) { return this.backend.remove(slot); }
 

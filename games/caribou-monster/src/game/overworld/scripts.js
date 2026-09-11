@@ -194,6 +194,7 @@ async function banditJoins(ctx) {
   await speak(ctx, BANDIT.joined);
   await ctx.say('Bandit joined your team!');
   ctx.setFlag(FLAGS.HAS_BANDIT);
+  ctx.setFlag(FLAGS.BANDIT_WITH_US, true);
   ctx.journal('bandit');
 }
 
@@ -1694,6 +1695,7 @@ SCRIPTS.buddyWaiting = async (ctx) => {
     await ctx.say('Bandit: *She has been sat on the step since it got light and she is\nnot going to let you forget it.*', { speaker: 'Bandit' });
     await ctx.say('*She does a full circuit of you, twice, and then sits down on your\nfoot to make the arrangement official.*');
     ctx.setFlag('banditHello', true);
+    ctx.setFlag(FLAGS.BANDIT_WITH_US, true);
   }
 
   await ctx.wait(0.3);
@@ -1712,6 +1714,10 @@ SCRIPTS.buddyWaiting = async (ctx) => {
 
   ctx.companionJoin({ look: them.look, name: them.name, key: them.key });
   ctx.setFlag('buddyJoined', true);
+  // Bandit goes where Sammy goes. Playing as Matthew, that means she comes
+  // off the step the moment Sammy does, rather than sitting there all game
+  // while everyone talks about her being with you.
+  ctx.setFlag(FLAGS.BANDIT_WITH_US, true);
   ctx.shareMilestone('buddyJoined');
   ctx.autosave();
   await ctx.say(`${them.name} is coming with you!`);

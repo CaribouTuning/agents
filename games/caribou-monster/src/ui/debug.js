@@ -185,7 +185,7 @@ export class DebugScreen extends Screen {
         ];
       }
       case 'reset': return [
-        { t: 'ERASE SAVE AND RESTART', a: async () => { await this.game.save.erase(); location.reload(); } },
+        { t: 'ERASE SAVE AND RESTART', a: async () => { await this.game.save.eraseAll(); location.reload(); } },
         { t: 'Cancel', a: () => { this.page = 'main'; this.index = 0; } },
       ];
       default: return [];

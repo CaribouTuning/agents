@@ -107,7 +107,7 @@ class Game {
     // upgrades itself once the durable store answers. Blocking the first
     // paint on a network round trip is how a game ends up looking broken on
     // a phone with a slow connection.
-    const title = new TitleScreen(this, await this.save.peekFast());
+    const title = new TitleScreen(this, await this.save.peekAllFast());
     this.screens.push(title);
     // The durable stores answer late — that is the whole reason the previous
     // version of this failed. So the title paints on whatever is in this tab
@@ -118,8 +118,8 @@ class Game {
       this.saveIsDurable = !!(b.durable && b.durable());
       this.saveProviders = b.providers ? b.providers() : [];
       console.info('[caribou] storage:', this.saveProviders.map((p) => `${p.name}=${p.up ? 'up' : 'no'}`).join(' '));
-      const meta = await this.save.peek();
-      if (title.setSave) title.setSave(meta);
+      const saves = await this.save.peekAll();
+      if (title.setSave) title.setSave(saves);
     });
 
     this.loop = new GameLoop({
@@ -211,8 +211,8 @@ class Game {
     this.save.markDirty();
   }
 
-  async continueGame() {
-    const loaded = await this.save.load();
+  async continueGame(slot = null) {
+    const loaded = await this.save.load(slot);
     if (loaded) this.state = loaded;
     net.state = this.state;
     if (this.rooms) this.rooms.dispose();

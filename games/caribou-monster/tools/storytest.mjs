@@ -16,6 +16,7 @@ import { ENTRIES, entriesFor, objective, record } from '../src/game/journal.js';
 import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../src/data/story.js';
 import { TRAINERS } from '../src/data/trainers.js';
 import { unrenderable } from '../src/render/font.js';
+import { MAPS } from '../src/data/maps/index.js';
 import { worldSnapshot, isKnownSlot } from '../src/game/overworld/gossip.js';
 
 let fails = 0;
@@ -97,6 +98,29 @@ function freshState() {
   check(/ambient light/i.test(script),
     'Rowan must mention the light sensor in the opening scene');
   check(ctx.journalIds.includes('gotStarter'), 'the opening should write a journal entry');
+}
+
+// ---- 1a. the doorstep ---------------------------------------------------------
+// Rowan announcing that Bandit has joined the party while Bandit is visibly
+// still sitting outside Sammy's front door is the kind of thing that stops a
+// world being a world. She comes off the step the moment she is with you —
+// which for Sammy is the doorstep scene, and for Matthew is Sammy leaving
+// with him, because the dog goes where Sammy goes.
+{
+  const twinleaf = MAPS.twinleaf;
+  const bandit = twinleaf.npcs.find((n) => n.id === 'tw_bandit');
+  check(!!bandit, 'Bandit should be standing outside at the start');
+  check(bandit.goneWhen === 'banditWithUs',
+    'and should stop being there once she is with you');
+
+  for (const look of ['sammy', 'matthew']) {
+    const st = createGameState({ name: look === 'sammy' ? 'Sammy' : 'Matthew', look });
+    st.flags.mumSentYouOff = true;
+    const ctx = fakeCtx(st);
+    await SCRIPTS.buddyWaiting(ctx);
+    check(!!st.flags.banditWithUs,
+      `playing as ${look}, Bandit should leave the step when the two of you set off`);
+  }
 }
 
 // ---- 1b. Bandit ---------------------------------------------------------------

@@ -7733,6 +7733,10 @@ const FLAGS = {
   MUM_SENT_YOU_OFF: 'mumSentYouOff',
   BUDDY_JOINED: 'buddyJoined',
   BANDIT_HELLO: 'banditHello',
+  // "Bandit is with us now", whoever is holding the phone. She joins Sammy's
+  // party; when Matthew plays she leaves the step with Sammy instead. Either
+  // way this is the flag that means she is no longer sat outside the house.
+  BANDIT_WITH_US: 'banditWithUs',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',
@@ -11183,6 +11187,938 @@ __exports(__x, { MAX_PARTY: () => MAX_PARTY, BOX_COUNT: () => BOX_COUNT, BOX_SIZ
 
 };
 
+__defs['core/storage.js'] = function (__x, __req) {
+
+// Persistence, in the only way that actually survives a phone.
+//
+// This file has been rewritten because the previous version did not work, and
+// the reason it did not work is worth writing down so nobody does it again:
+// it asked for the host storage API **once, synchronously, at script eval
+// time**. The bundle is one inline script that runs the instant the page
+// parses, and the host injects its API a beat later — so the check always
+// missed, we always fell back to localStorage, and the artifact viewer wipes
+// localStorage when the artifact is closed. Every session opened on a fresh
+// new game.
+//
+// So: nothing here checks for a provider once. Everything polls until a
+// provider appears or a deadline passes, and every write goes to every
+// provider we have, because the cost of a redundant write is nothing and the
+// cost of a lost save is an evening.
+//
+// Providers, in order of durability:
+//
+//   1. `window.storage`          — host key/value store, if this build has one
+//   2. `claude.use('db')`        — the artifact document store
+//   3. `localStorage`            — works everywhere, survives least
+//
+// Reads take the newest coherent payload across all of them, so a save
+// written on one device shows up on the other, and a save written before a
+// provider existed is not lost when one appears.
+
+const PREFIX = 'caribou:';
+
+/** The key the host store is asked for. One save file, one name. */
+const HOST_KEY = 'monsterGameSave';
+
+// How long to keep looking for a provider before deciding there is not one.
+// Generous on purpose: a slow phone on a bad connection is the exact case
+// this whole file exists for.
+const PROVIDER_DEADLINE_MS = 15000;
+const POLL_MS = 150;
+
+const now = () => Date.now();
+
+/** Polls for `pick()` to return something truthy, or gives up. */
+function waitFor(pick, deadlineMs = PROVIDER_DEADLINE_MS) {
+  return new Promise((resolve) => {
+    const got = pick();
+    if (got) { resolve(got); return; }
+    if (typeof window === 'undefined') { resolve(null); return; }
+    const until = now() + deadlineMs;
+    const timer = setInterval(() => {
+      let v = null;
+      try { v = pick(); } catch { v = null; }
+      if (v) { clearInterval(timer); resolve(v); return; }
+      if (now() > until) { clearInterval(timer); resolve(null); }
+    }, POLL_MS);
+  });
+}
+
+// ---- provider 1: window.storage -------------------------------------------
+
+function hostStore() {
+  const s = typeof window !== 'undefined' ? window.storage : null;
+  return s && typeof s.get === 'function' && typeof s.set === 'function' ? s : null;
+}
+
+const hostProvider = {
+  name: 'window.storage',
+  ready: null,
+  handle: null,
+  async init() {
+    this.handle = await waitFor(hostStore);
+    return this.handle;
+  },
+  async read(slot) {
+    if (!this.handle) return null;
+    const raw = await this.handle.get(`${HOST_KEY}:${slot}`);
+    if (raw == null) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  },
+  async write(slot, value) {
+    if (!this.handle) return false;
+    await this.handle.set(`${HOST_KEY}:${slot}`, JSON.stringify(value));
+    return true;
+  },
+  async remove(slot) {
+    if (!this.handle) return;
+    if (typeof this.handle.delete === 'function') await this.handle.delete(`${HOST_KEY}:${slot}`);
+    else await this.handle.set(`${HOST_KEY}:${slot}`, null);
+  },
+};
+
+// ---- provider 2: the artifact document store -------------------------------
+
+function claudeUse() {
+  const c = typeof window !== 'undefined' ? window.claude : null;
+  return c && typeof c.use === 'function' ? c : null;
+}
+
+/**
+ * What the viewer has said about durable storage, in words.
+ *
+ * This exists because the save has now failed three times and every failure
+ * was invisible. The capability asks for consent LAZILY — at the first write
+ * — and if that prompt never reaches the player, writes fail quietly and the
+ * game falls back to storage the viewer wipes on close. So the page asks
+ * explicitly, records the answer, and puts it on screen where somebody can
+ * read it back to me.
+ */
+const durableState = {
+  permission: 'unknown',   // unknown | granted | prompt | denied | unavailable
+  resolved: false,         // did use('db') hand back a namespace
+  lastError: null,         // the real message from the last failed write
+  lastWriteAt: 0,
+};
+
+const dbProvider = {
+  name: 'cloud save',
+  handle: null,
+  _asked: false,
+
+  async init() {
+    const c = await waitFor(claudeUse);
+    if (!c) { durableState.permission = 'unavailable'; return null; }
+
+    // `state` never prompts, so it is safe at boot and tells us whether a
+    // prompt is even going to happen.
+    try {
+      const perms = await c.use('permissions');
+      if (perms) durableState.permission = await perms.state('db');
+    } catch { /* leave it unknown */ }
+
+    this.handle = await Promise.race([
+      Promise.resolve(c.use('db')).catch(() => null),
+      new Promise((r) => setTimeout(() => r(null), PROVIDER_DEADLINE_MS)),
+    ]).catch(() => null);
+    durableState.resolved = !!this.handle;
+    if (!this.handle && durableState.permission === 'unknown') {
+      durableState.permission = 'unavailable';
+    }
+    return this.handle;
+  },
+
+  /**
+   * Ask for consent, once, with the one batched dialog the platform allows.
+   *
+   * Deliberately not at boot — the contract says not to gate first paint on
+   * it — but before the first write, which is the first moment the answer
+   * actually matters.
+   */
+  async ensurePermission() {
+    if (this._asked) return durableState.permission;
+    this._asked = true;
+    const c = claudeUse();
+    if (!c) return durableState.permission;
+    try {
+      const perms = await c.use('permissions');
+      if (!perms) return durableState.permission;
+      if (durableState.permission === 'prompt' || durableState.permission === 'unknown') {
+        const res = await perms.request(['db']);
+        durableState.permission = (res && res.db) || durableState.permission;
+      }
+    } catch (err) {
+      durableState.lastError = String((err && err.message) || err);
+    }
+    return durableState.permission;
+  },
+
+  async read(slot) {
+    if (!this.handle) return null;
+    const snap = await this.handle.doc(`saves/${slot}`).get();
+    if (!snap || !snap.exists || !snap.data || !snap.data.payload) return null;
+    return JSON.parse(snap.data.payload);
+  },
+
+  async write(slot, value) {
+    if (!this.handle) return false;
+    await this.ensurePermission();
+    try {
+      // One JSON string rather than a nested document: a save is deeply
+      // nested and the store caps nesting, so flattening keeps party, bag
+      // and flags out of that limit entirely.
+      await this.handle.doc(`saves/${slot}`).set({
+        payload: JSON.stringify(value),
+        savedAt: (value && value.savedAt) || now(),
+        name: (value && value.meta && value.meta.name) || '',
+        badges: (value && value.meta && value.meta.badges) || 0,
+      });
+      durableState.lastError = null;
+      durableState.lastWriteAt = now();
+      return true;
+    } catch (err) {
+      // The real message, kept, so the failure can be read rather than
+      // guessed at.
+      durableState.lastError = String((err && err.code) || (err && err.message) || err);
+      throw err;
+    }
+  },
+
+  async remove(slot) {
+    if (!this.handle) return;
+    await this.handle.doc(`saves/${slot}`).delete();
+  },
+};
+
+// ---- provider 3: localStorage ----------------------------------------------
+
+const localProvider = {
+  name: 'localStorage',
+  handle: null,
+  async init() {
+    try {
+      const k = `${PREFIX}__probe`;
+      localStorage.setItem(k, '1');
+      localStorage.removeItem(k);
+      this.handle = localStorage;
+    } catch { this.handle = null; }
+    return this.handle;
+  },
+  async read(slot) {
+    if (!this.handle) return null;
+    const raw = this.handle.getItem(PREFIX + slot);
+    return raw == null ? null : JSON.parse(raw);
+  },
+  async write(slot, value) {
+    if (!this.handle) return false;
+    this.handle.setItem(PREFIX + slot, JSON.stringify(value));
+    return true;
+  },
+  async remove(slot) {
+    if (!this.handle) return;
+    this.handle.removeItem(PREFIX + slot);
+  },
+};
+
+const PROVIDERS = [hostProvider, dbProvider, localProvider];
+
+// ---- the layer -------------------------------------------------------------
+
+let readyPromise = null;
+
+/**
+ * Brings up every provider that exists. Safe to call as often as you like;
+ * the work happens once.
+ */
+function storageReady() {
+  if (!readyPromise) {
+    readyPromise = Promise.all(PROVIDERS.map(async (p) => {
+      try { await p.init(); } catch { p.handle = null; }
+      return p;
+    })).then(() => PROVIDERS.filter((p) => p.handle));
+  }
+  return readyPromise;
+}
+
+/** Which providers came up. Shown in test mode so a failure is visible. */
+function providerReport() {
+  return PROVIDERS.map((p) => ({ name: p.name, up: !!p.handle }));
+}
+
+/** True once at least one provider that outlives the tab is up. */
+function isDurable() {
+  return !!hostProvider.handle
+    || !!(dbProvider.handle && durableState.permission !== 'denied' && !durableState.lastError);
+}
+
+/** Everything known about whether the save is going somewhere that lasts. */
+function saveDiagnosis() {
+  return {
+    providers: providerReport(),
+    permission: durableState.permission,
+    resolved: durableState.resolved,
+    lastError: durableState.lastError,
+    lastWriteAt: durableState.lastWriteAt,
+  };
+}
+
+const storage = {
+  available() { return PROVIDERS.some((p) => p.handle); },
+
+  /**
+   * The newest payload any provider has.
+   *
+   * Taking the newest rather than the first means a save written on the phone
+   * beats a stale one in this tab's localStorage, which is what makes the two
+   * players' devices agree.
+   */
+  async read(slot) {
+    await storageReady();
+    let best = null;
+    for (const p of PROVIDERS) {
+      if (!p.handle) continue;
+      try {
+        const v = await p.read(slot);
+        if (!v) continue;
+        if (!best || (v.savedAt || 0) > (best.savedAt || 0)) best = v;
+      } catch (err) {
+        console.warn(`[storage] ${p.name} read failed`, err);
+      }
+    }
+    return best;
+  },
+
+  /** Reads only what is in this tab, without waiting for the network. */
+  readLocalNow(slot) {
+    try {
+      const raw = localStorage.getItem(PREFIX + slot);
+      return raw == null ? null : JSON.parse(raw);
+    } catch { return null; }
+  },
+
+  /**
+   * Writes everywhere. localStorage first and synchronously, so that even if
+   * the page is killed in the next millisecond something survives; the
+   * durable providers follow.
+   */
+  /**
+   * Writes everywhere, and says truthfully where it got to.
+   *
+   * The previous version returned "true" if ANY provider took the write —
+   * and localStorage almost always does. So the game cheerfully reported
+   * "saved the game" while the only copy was in a store the artifact viewer
+   * wipes on close. The save was not lying about having written something;
+   * it was lying about it mattering. `durable` is the answer that matters.
+   */
+  async write(slot, value) {
+    let local = false;
+    let durable = false;
+    let error = null;
+    try { localStorage.setItem(PREFIX + slot, JSON.stringify(value)); local = true; } catch { /* full or blocked */ }
+    await storageReady();
+    for (const p of PROVIDERS) {
+      if (!p.handle || p === localProvider) continue;
+      try { durable = (await p.write(slot, value)) || durable; } catch (err) {
+        error = String((err && err.code) || (err && err.message) || err);
+        console.warn(`[storage] ${p.name} write failed`, err);
+      }
+    }
+    return { ok: local || durable, local, durable, error };
+  },
+
+  async remove(slot) {
+    await storageReady();
+    for (const p of PROVIDERS) {
+      if (!p.handle) continue;
+      try { await p.remove(slot); } catch { /* ignore */ }
+    }
+  },
+
+  async keys() {
+    await storageReady();
+    const out = new Set();
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(PREFIX)) out.add(k.slice(PREFIX.length));
+      }
+    } catch { /* ignore */ }
+    return [...out];
+  },
+};
+
+__exports(__x, { HOST_KEY: () => HOST_KEY, durableState: () => durableState, storageReady: () => storageReady, providerReport: () => providerReport, isDurable: () => isDurable, saveDiagnosis: () => saveDiagnosis, storage: () => storage });
+
+};
+
+__defs['save/migrations.js'] = function (__x, __req) {
+
+// Save migrations.
+//
+// A save is a promise: whatever we change in here, the game somebody was
+// halfway through still has to open. Every migration is a pure function from
+// one version's payload to the next, so they compose and each one can be
+// tested on its own.
+
+// v1 -> v2. Before the real Pokedex landed, this game had a hand-written
+// roster of 54 monsters numbered 1..54. Those numbers are now national dex
+// numbers belonging to entirely different Pokemon, so a v1 save left alone
+// would either lose its whole party (unknown species are dropped) or, worse,
+// quietly turn a Turtwig into a Bulbasaur. This is the exact table the roster
+// was remapped through, by name.
+const V1_TO_NATIONAL = {
+  1: 387, 2: 388, 3: 389, 4: 390, 5: 391, 6: 392, 7: 393, 8: 394, 9: 395,
+  10: 396, 11: 397, 12: 398, 13: 399, 14: 400, 15: 403, 16: 404, 17: 405, 18: 401,
+  19: 402, 20: 406, 21: 315, 22: 427, 23: 428, 24: 41, 25: 42, 26: 74, 27: 75,
+  28: 95, 29: 66, 30: 67, 31: 77, 32: 54, 33: 55, 34: 63, 35: 64, 36: 417,
+  37: 483, 38: 265, 39: 266, 40: 267, 41: 415, 42: 420, 43: 421, 44: 422, 45: 423,
+  46: 436, 47: 437, 48: 129, 49: 130, 50: 433, 51: 438, 52: 185, 53: 447, 54: 448,
+};
+
+function remapSpecies(id) {
+  const n = Number(id);
+  return V1_TO_NATIONAL[n] !== undefined ? V1_TO_NATIONAL[n] : n;
+}
+
+function remapMon(mon) {
+  if (!mon || mon.species === undefined) return mon;
+  return { ...mon, species: remapSpecies(mon.species) };
+}
+
+function remapDexSide(side) {
+  const out = {};
+  for (const key of Object.keys(side || {})) out[remapSpecies(key)] = side[key];
+  return out;
+}
+
+function migrateV1toV2(state) {
+  if (!state) return state;
+  const next = { ...state };
+  next.party = (state.party || []).map(remapMon);
+  next.boxes = (state.boxes || []).map((b) => ({ ...b, mons: (b.mons || []).map(remapMon) }));
+  next.dex = {
+    seen: remapDexSide(state.dex && state.dex.seen),
+    caught: remapDexSide(state.dex && state.dex.caught),
+  };
+  if (state.starterBase != null) next.starterBase = remapSpecies(state.starterBase);
+  return next;
+}
+
+// v2 -> v3. Twinleaf's two houses used to be `player_house` (whoever you
+// were) and `rival_house` (the other one). They are now `matthew_house` and
+// `sammy_house`, fixed to the left and right of the town, so the place reads
+// the same whichever of the two is holding the phone. A save that was made
+// standing in one of them — or that healed in one — points at a map id that
+// no longer exists, and would open into nowhere.
+const HOUSE_RENAME = { player_house: 'matthew_house', rival_house: 'sammy_house' };
+
+function renameHouse(id, look) {
+  if (!HOUSE_RENAME[id]) return id;
+  // `player_house` was whichever of them you are, so the answer depends on
+  // the save's own character rather than on a fixed table.
+  if (id === 'player_house') return look === 'sammy' ? 'sammy_house' : 'matthew_house';
+  return look === 'sammy' ? 'matthew_house' : 'sammy_house';
+}
+
+function migrateV2toV3(state) {
+  if (!state) return state;
+  const look = state.player && state.player.look;
+  const next = { ...state };
+  if (state.player) {
+    next.player = { ...state.player, map: renameHouse(state.player.map, look) };
+  }
+  if (state.lastHealPoint) {
+    next.lastHealPoint = { ...state.lastHealPoint, map: renameHouse(state.lastHealPoint.map, look) };
+  }
+  return next;
+}
+
+// Ordered. `migrate` applies every step from the payload's version up to
+// SAVE_VERSION, so a save can skip as many releases as it likes.
+const MIGRATIONS = [
+  { from: 1, to: 2, apply: migrateV1toV2 },
+  { from: 2, to: 3, apply: migrateV2toV3 },
+];
+
+__exports(__x, { migrateV1toV2: () => migrateV1toV2, migrateV2toV3: () => migrateV2toV3, MIGRATIONS: () => MIGRATIONS });
+
+};
+
+__defs['save/SaveManager.js'] = function (__x, __req) {
+const { storage, storageReady, isDurable, providerReport, saveDiagnosis } = __req('core/storage.js');
+const { serializeState, deserializeState } = __req('game/state.js');
+const { MIGRATIONS } = __req('save/migrations.js');
+// Saving.
+//
+// The backend is an interface, not localStorage. Today the only
+// implementation is LocalBackend; a cloud backend (per-account slots synced
+// across the two players' phones) drops in behind the same three methods
+// without any game code changing.
+
+
+
+
+// One slot per character, not one slot per artifact.
+//
+// The artifact document store is shared by everyone who opens the page, and
+// this page is opened by exactly two people. With a single slot, whichever of
+// them saved last owned the only save there was. Matthew's game lives at
+// `save-matthew`, Sammy's at `save-sammy`, and neither can tread on the
+// other. `save1` is what the first builds wrote; it is still read, once, and
+// adopted into whichever character it belongs to.
+const SAVE_SLOT = 'save1';
+const SLOT_PREFIX = 'save-';
+const SLOTS = ['save-matthew', 'save-sammy'];
+const SAVE_VERSION = 3;
+
+/** The slot a given character's game belongs in. */
+function slotForLook(look) {
+  const k = String(look || '').toLowerCase();
+  return SLOTS.includes(SLOT_PREFIX + k) ? SLOT_PREFIX + k : SLOTS[0];
+}
+
+/** The slot a given state belongs in, however old the save is. */
+function slotForState(state) {
+  const p = (state && state.player) || {};
+  const byLook = SLOT_PREFIX + String(p.look || '').toLowerCase();
+  if (SLOTS.includes(byLook)) return byLook;
+  return slotForLook(String(p.name || '').toLowerCase());
+}
+const AUTOSAVE_MS = 45000;
+const FLUSH_DEBOUNCE_MS = 700;
+
+/**
+ * The only backend now. `core/storage.js` fans every write out to whichever
+ * of the host store, the artifact document store and localStorage exist, and
+ * reads back the newest of them, so there is nothing left for a backend to
+ * choose between.
+ */
+class LocalBackend {
+  constructor() { this.name = 'storage'; }
+  available() { return storage.available(); }
+  ready() { return storageReady(); }
+  durable() { return isDurable(); }
+  providers() { return providerReport(); }
+  diagnose() { return saveDiagnosis(); }
+  readLocal(slot) { return storage.readLocalNow(slot); }
+  async read(slot) { return storage.read(slot); }
+  async write(slot, data) { return storage.write(slot, data); }
+  async remove(slot) { await storage.remove(slot); return true; }
+  async list() { return (await storage.keys()).filter((k) => k.startsWith('save')); }
+}
+
+// Kept deliberately small: it is the shape a server endpoint would need to
+// implement, and nothing more.
+class CloudBackend {
+  constructor(transport) { this.name = 'cloud'; this.transport = transport; }
+  available() { return !!this.transport; }
+  async read(slot) { return this.transport.get(slot); }
+  async write(slot, data) { return this.transport.put(slot, data); }
+  async remove(slot) { return this.transport.del(slot); }
+  async list() { return this.transport.list(); }
+}
+
+class SaveManager {
+  constructor(backend = new LocalBackend()) {
+    this.backend = backend;
+    this.lastSaveAt = 0;
+    this.dirty = false;
+    this.saving = false;
+    this.lastError = null;
+  }
+
+  available() { return this.backend.available(); }
+
+  markDirty() { this.dirty = true; }
+
+  async save(state, slot = null, opts = {}) {
+    slot = slot || slotForState(state);
+    // A save already in flight used to make this a no-op, which meant the
+    // flush on the way out could be the one that got dropped. Queue instead.
+    if (this.saving) { this._again = { state, slot }; return false; }
+    this.saving = true;
+    try {
+      const payload = {
+        v: SAVE_VERSION,
+        savedAt: Date.now(),
+        state: serializeState(state),
+        meta: {
+          name: state.player.name,
+          badges: state.badges.length,
+          dex: Object.keys(state.dex.caught).length,
+          playTimeMs: state.playTimeMs,
+          map: state.player.map,
+          party: state.party.map((m) => ({ species: m.species, level: m.level, shiny: !!m.shiny })),
+        },
+      };
+      const res = await this.backend.write(slot, payload);
+      // `res` reports where the write actually landed. A write that only
+      // reached this device is not a failure, but it is not a save either,
+      // and the game has to stop calling it one.
+      const ok = res && (res.ok !== undefined ? res.ok : !!res);
+      this.lastDurable = !!(res && res.durable);
+      if (ok) { this.dirty = false; this.lastSaveAt = Date.now(); this.lastError = (res && res.error) || null; }
+      else this.lastError = (res && res.error) || 'write failed';
+      return !!ok;
+    } catch (err) {
+      this.lastError = String(err && err.message || err);
+      console.warn('[save] failed', err);
+      return false;
+    } finally {
+      this.saving = false;
+      void opts;
+      const again = this._again;
+      this._again = null;
+      if (again) this.save(again.state, again.slot);
+    }
+  }
+
+  /** Whichever character saved most recently, or null if nobody has. */
+  async newestSlot() {
+    const all = await this.peekAll();
+    return all.length ? all[0].slot : null;
+  }
+
+  async load(slot = null) {
+    try {
+      const use = slot || await this.newestSlot();
+      if (!use) return null;
+      const raw = await this.backend.read(use);
+      if (!raw || !raw.state) return null;
+      const st = deserializeState(this.migrate(raw).state);
+      return st;
+    } catch (err) {
+      console.warn('[save] load failed', err);
+      return null;
+    }
+  }
+
+  /**
+   * One save's headline, for a CONTINUE row. With no slot it answers for
+   * whichever character saved most recently, which is what every caller that
+   * predates per-character slots meant by "the save".
+   */
+  async peek(slot = null) {
+    try {
+      const use = slot || await this.newestSlot();
+      if (!use) return null;
+      const raw = await this.backend.read(use);
+      if (!raw || !raw.state) return null;
+      return { ...raw.meta, savedAt: raw.savedAt, version: raw.v };
+    } catch { return null; }
+  }
+
+  /**
+   * A peek that never waits on the network. Used for the first paint of the
+   * title screen: showing the menu instantly and adding CONTINUE a moment
+   * later beats staring at a blank screen for ten seconds.
+   */
+  async peekFast(slot = SAVE_SLOT) {
+    try {
+      const b = this.backend;
+      const raw = typeof b.readLocal === 'function' ? await b.readLocal(slot) : await b.read(slot);
+      if (!raw || !raw.state) return null;
+      return { ...raw.meta, savedAt: raw.savedAt, version: raw.v };
+    } catch { return null; }
+  }
+
+  /** Erases every slot. Only the "wipe this device" paths want this. */
+  async eraseAll() {
+    for (const slot of [...SLOTS, SAVE_SLOT]) {
+      try { await this.backend.remove(slot); } catch { /* already gone */ }
+    }
+    return true;
+  }
+
+  /**
+   * Takes a payload read out of a backup file and makes it the live save.
+   *
+   * It goes through the same migration and the same write path as any other
+   * save, so a backup taken from an older build still loads, and the restored
+   * game is immediately the one a CONTINUE would find.
+   */
+  async restore(raw, slot = null) {
+    if (!raw || !raw.state) return { ok: false, error: 'not a save file' };
+    slot = slot || slotForState(raw.state);
+    let payload;
+    try { payload = this.migrate(raw); } catch (err) { return { ok: false, error: String(err.message || err) }; }
+    const res = await this.backend.write(slot, payload);
+    const ok = res && (res.ok !== undefined ? res.ok : !!res);
+    this.lastDurable = !!(res && res.durable);
+    if (ok) { this.dirty = false; this.lastSaveAt = Date.now(); }
+    return { ok: !!ok, slot, meta: payload.meta, error: (res && res.error) || null };
+  }
+
+  /**
+   * Every character's save, newest first, so the title screen can offer the
+   * right CONTINUE rows rather than assuming there is one game.
+   *
+   * A `save1` left by an older build is adopted here: it is read, written
+   * into the slot its character belongs to, and then ignored forever.
+   */
+  async peekAll() {
+    const out = [];
+    for (const slot of SLOTS) {
+      const meta = await this.peek(slot);
+      if (meta) out.push({ slot, meta });
+    }
+    try {
+      const legacy = await this.backend.read(SAVE_SLOT);
+      if (legacy && legacy.state) {
+        // Only adopt a legacy save this build can actually open. Copying one
+        // it cannot migrate would put an unreadable game in a live slot and
+        // hide the character's real save behind it.
+        this.migrate(legacy);
+        const slot = slotForState(legacy.state);
+        if (!out.some((o) => o.slot === slot)) {
+          await this.backend.write(slot, legacy);
+          out.push({ slot, meta: { ...legacy.meta, savedAt: legacy.savedAt, version: legacy.v } });
+        }
+      }
+    } catch { /* no legacy save, or it is unreadable; either way, move on */ }
+    out.sort((a, b) => (b.meta.savedAt || 0) - (a.meta.savedAt || 0));
+    return out;
+  }
+
+  /** The same, from this tab only, for the very first paint. */
+  async peekAllFast() {
+    const out = [];
+    for (const slot of SLOTS) {
+      const meta = await this.peekFast(slot);
+      if (meta) out.push({ slot, meta });
+    }
+    out.sort((a, b) => (b.meta.savedAt || 0) - (a.meta.savedAt || 0));
+    return out;
+  }
+
+  async hasSave(slot = null) {
+    if (slot) return !!(await this.peek(slot));
+    return (await this.peekAll()).length > 0;
+  }
+
+  async erase(slot = SAVE_SLOT) { return this.backend.remove(slot); }
+
+  /**
+   * Old saves are upgraded here rather than rejected, so a content update
+   * never costs the players their game. Steps run in order from whatever
+   * version the payload claims up to SAVE_VERSION, so a save may skip any
+   * number of releases.
+   */
+  migrate(raw) {
+    let v = Number(raw && raw.v) || 1;
+    let state = raw.state;
+    for (const step of MIGRATIONS) {
+      if (v !== step.from) continue;
+      state = step.apply(state);
+      v = step.to;
+    }
+    if (v > SAVE_VERSION) {
+      // A save from a newer build. Loading it would silently discard
+      // whatever that build added, so say so rather than guessing.
+      throw new Error(`save version ${v} is newer than this build (${SAVE_VERSION})`);
+    }
+    return { ...raw, v, state };
+  }
+
+  // Autosave is opportunistic: it never runs during a battle or a trade,
+  // because a save captured mid-transaction is the one thing worse than no save.
+  maybeAutosave(state, canSave) {
+    if (!this.dirty || !canSave) return false;
+    if (Date.now() - this.lastSaveAt < AUTOSAVE_MS) return false;
+    this.save(state);
+    return true;
+  }
+
+  /**
+   * "Something happened worth keeping" — a Pokemon caught, a battle won, a
+   * badge, a heal, a map crossed.
+   *
+   * Debounced rather than immediate because several of these fire together
+   * at the end of a battle, and one write is enough. The debounce is short
+   * enough that swiping away a second later still lands, and `flush` cancels
+   * it and writes now.
+   */
+  touch(state) {
+    this.dirty = true;
+    if (this._pending) clearTimeout(this._pending);
+    this._pending = setTimeout(() => { this._pending = null; this.save(state); }, FLUSH_DEBOUNCE_MS);
+  }
+
+  /**
+   * Write right now, cancelling any debounce. Called when the page is going
+   * away, where there is no later.
+   */
+  flush(state) {
+    if (this._pending) { clearTimeout(this._pending); this._pending = null; }
+    return this.save(state);
+  }
+}
+
+const saveManager = new SaveManager(new LocalBackend());
+
+/** Resolves once every storage provider that exists has come up. */
+function saveReady() { return storageReady(); }
+
+__exports(__x, { SAVE_SLOT: () => SAVE_SLOT, SLOT_PREFIX: () => SLOT_PREFIX, SLOTS: () => SLOTS, SAVE_VERSION: () => SAVE_VERSION, slotForLook: () => slotForLook, slotForState: () => slotForState, LocalBackend: () => LocalBackend, CloudBackend: () => CloudBackend, SaveManager: () => SaveManager, saveManager: () => saveManager, saveReady: () => saveReady });
+
+};
+
+__defs['save/backup.js'] = function (__x, __req) {
+const { SAVE_SLOT, SAVE_VERSION } = __req('save/SaveManager.js');
+const { serializeState } = __req('game/state.js');
+// Backing a save up to a file, and reading one back in.
+//
+// This exists because durable storage has failed for this player three times
+// running, and a playthrough that cannot be rescued is the one bug it is not
+// acceptable to still be chasing. Whatever the capability layer is doing, a
+// file on their phone is a save they own.
+//
+// Export goes through the `downloads` capability (frame code cannot start a
+// download directly in the artifact sandbox). Import is a plain file input,
+// which needs no capability at all — so even if nothing else works, a save
+// can always be read back.
+
+
+
+const FILENAME = 'caribou-monster-save.json';
+
+/** The same payload shape the storage layer writes, as text. */
+function exportText(state) {
+  return JSON.stringify({
+    v: SAVE_VERSION,
+    savedAt: Date.now(),
+    state: serializeState(state),
+    meta: {
+      name: state.player.name,
+      badges: state.badges.length,
+      dex: Object.keys(state.dex.caught).length,
+      playTimeMs: state.playTimeMs,
+      map: state.player.map,
+      party: state.party.map((m) => ({ species: m.species, level: m.level, shiny: !!m.shiny })),
+    },
+  }, null, 0);
+}
+
+/**
+ * Offers the save to the viewer as a file.
+ *
+ * Three routes, because there is no single one that works everywhere. Framed
+ * in the viewer, `claude.use('downloads')` is the only way out — frame code
+ * cannot start a download itself. Served top-level, which is how this opens
+ * on a phone, every `claude.use()` resolves null by contract, but an ordinary
+ * anchor download works fine. And if both are shut, the text itself goes to
+ * the clipboard, because a save the player can paste into their notes is
+ * still a save.
+ *
+ * Resolves a short human sentence either way — this is shown on a screen the
+ * player is looking at, so "it worked" and "you said no" both have to be
+ * sayable without an error code.
+ */
+async function exportToFile(state) {
+  const text = exportText(state);
+  const viaCap = await saveViaCapability(text);
+  if (viaCap) return viaCap;
+  if (saveViaAnchor(text)) return { ok: true, text: 'Backup downloaded. Keep it.' };
+  if (await saveViaClipboard(text)) return { ok: true, text: 'Backup copied. Paste it somewhere safe.' };
+  return { ok: false, text: 'Nothing here can save a file.' };
+}
+
+/** The framed route. Returns null when the capability is not there at all. */
+async function saveViaCapability(text) {
+  const c = typeof window !== 'undefined' ? window.claude : null;
+  if (!c || typeof c.use !== 'function') return null;
+  let downloads = null;
+  try { downloads = await c.use('downloads'); } catch { downloads = null; }
+  if (!downloads) return null;
+  try {
+    await downloads.save({ filename: FILENAME, data: text });
+    return { ok: true, text: 'Backup saved. Keep it somewhere.' };
+  } catch (err) {
+    const code = (err && err.code) || 'unavailable';
+    // A refusal is an answer; anything else means try the other routes.
+    if (code === 'declined') return { ok: false, text: 'Backup cancelled.' };
+    if (code === 'rate_limited') return { ok: false, text: 'Busy — try that again in a moment.' };
+    return null;
+  }
+}
+
+/** The top-level route: a blob URL and a click. Needs no capability. */
+function saveViaAnchor(text) {
+  try {
+    if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return false;
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = FILENAME;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { try { a.remove(); URL.revokeObjectURL(url); } catch { /* gone */ } }, 4000);
+    return true;
+  } catch { return false; }
+}
+
+/** The last resort. A save in the clipboard still loads back through paste. */
+async function saveViaClipboard(text) {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return false;
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch { return false; }
+}
+
+/**
+ * Reads a backup file the player picks, and hands back the payload.
+ *
+ * A plain `<input type=file>`, created and clicked and thrown away. No
+ * capability, no permission, nothing to go wrong except the file being the
+ * wrong file — which is checked before anything is overwritten.
+ */
+function importFromFile() {
+  return new Promise((resolve) => {
+    if (typeof document === 'undefined') { resolve({ ok: false, text: 'No file picker here.' }); return; }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.style.position = 'fixed';
+    input.style.left = '-1000px';
+    document.body.appendChild(input);
+    const done = (r) => { try { input.remove(); } catch { /* gone already */ } resolve(r); };
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) { done({ ok: false, text: 'No file chosen.' }); return; }
+      const reader = new FileReader();
+      reader.onerror = () => done({ ok: false, text: 'Could not read that file.' });
+      reader.onload = () => {
+        try {
+          const raw = JSON.parse(String(reader.result));
+          if (!raw || !raw.state || !raw.meta) {
+            done({ ok: false, text: 'That is not a Caribou Monster save.' });
+            return;
+          }
+          done({ ok: true, raw, text: `Found ${raw.meta.name}, ${raw.meta.badges} badge(s).` });
+        } catch {
+          done({ ok: false, text: 'That file is not readable.' });
+        }
+      };
+      reader.readAsText(file);
+    });
+    // Cancelling a file picker fires nothing at all, so the promise would
+    // hang forever. Give up quietly if the window comes back with no file.
+    const bail = () => setTimeout(() => {
+      if (!input.files || !input.files.length) done({ ok: false, text: 'Restore cancelled.' });
+    }, 1200);
+    window.addEventListener('focus', bail, { once: true });
+    input.click();
+  });
+}
+
+
+
+__exports(__x, { exportText: () => exportText, exportToFile: () => exportToFile, importFromFile: () => importFromFile, SAVE_SLOT: () => SAVE_SLOT });
+
+};
+
 __defs['ui/title.js'] = function (__x, __req) {
 const { Screen, FADE } = __req('ui/screen.js');
 const { KEY_ROWS, keyGrid } = __req('ui/naming.js');
@@ -11196,6 +12132,8 @@ const { getSpecies } = __req('data/species.js');
 const { PLAYERS } = __req('game/players.js');
 const { MUSIC } = __req('data/music.js');
 const { formatPlayTime } = __req('game/state.js');
+const { importFromFile } = __req('save/backup.js');
+const { slotForLook } = __req('save/SaveManager.js');
 // Title, new game and character creation.
 
 
@@ -11213,12 +12151,17 @@ const DIALGA = 483;
 
 
 
+
+
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
 class TitleScreen extends Screen {
-  constructor(game, saveMeta) {
+  constructor(game, saves) {
     super(game);
-    this.saveMeta = saveMeta;
+    // `saves` is one entry per character who has a game here — the store is
+    // shared by the two of them, so there can be two, and the title has to
+    // offer both rather than assuming there is one.
+    this.saves = Array.isArray(saves) ? saves : (saves ? [{ slot: null, meta: saves }] : []);
     this.index = 0;
     this.t = 0;
     this.starT = Array.from({ length: 26 }, () => ({
@@ -11235,6 +12178,9 @@ class TitleScreen extends Screen {
   /** A one-line note about where saves are going. Visible, so a failure is. */
   _storageNote() {
     const g = this.game;
+    // A restore in progress, or its result, outranks the storage note: it is
+    // the thing the player just did and the thing they are waiting on.
+    if (this.note) return this.note;
     if (g.saveProviders === undefined) return 'checking for a saved game...';
     const d = g.save.backend.diagnose ? g.save.backend.diagnose() : null;
     if (!d) return g.saveIsDurable ? 'saving to this account' : 'saving to this device only';
@@ -11248,18 +12194,39 @@ class TitleScreen extends Screen {
     }
   }
 
-  setSave(meta) {
+  setSave(saves) {
     const wasOn = this.options[this.index] && this.options[this.index].key;
-    this.saveMeta = meta || null;
+    this.saves = Array.isArray(saves) ? saves : (saves ? [{ slot: null, meta: saves }] : []);
     const again = this.options.findIndex((o) => o.key === wasOn);
     this.index = again >= 0 ? again : 0;
   }
 
+  /** The save the cursor is currently pointing at, for the info panel. */
+  get saveMeta() {
+    const o = this.options[this.index];
+    const pick = o && o.slot !== undefined ? this.saves.find((sv) => sv.slot === o.slot) : null;
+    return (pick && pick.meta) || (this.saves[0] && this.saves[0].meta) || null;
+  }
+
   get options() {
     const out = [];
-    if (this.saveMeta) out.push({ key: 'continue', text: 'CONTINUE' });
-    out.push({ key: 'new', text: this.saveMeta ? 'NEW GAME' : 'NEW GAME' });
+    // One row per game that exists. With two saves the rows are named, so
+    // nobody has to guess which CONTINUE is theirs.
+    const many = this.saves.length > 1;
+    for (const sv of this.saves) {
+      const who = (sv.meta && sv.meta.name) || 'TRAINER';
+      out.push({
+        key: `continue:${sv.slot}`,
+        slot: sv.slot,
+        text: many ? `CONTINUE ${String(who).toUpperCase()}` : 'CONTINUE',
+      });
+    }
+    out.push({ key: 'new', text: 'NEW GAME' });
     out.push({ key: 'options', text: 'OPTIONS' });
+    // The escape hatch. If the cloud save is refused, unavailable or simply
+    // broken on this device, a backup file still brings a playthrough back —
+    // and it needs no capability at all to read one.
+    out.push({ key: 'restore', text: 'LOAD BACKUP' });
     // Always here, on the first screen, with no prerequisite. Test mode that
     // can only be switched on from inside a running game is useless to
     // somebody who cannot get a running game to persist.
@@ -11289,14 +12256,17 @@ class TitleScreen extends Screen {
 
   _pick(key) {
     const g = this.game;
-    if (key === 'continue') {
-      g.screens.fade(FADE.BLACK, () => g.continueGame());
+    if (key.startsWith('continue')) {
+      const slot = key.slice('continue:'.length);
+      g.screens.fade(FADE.BLACK, () => g.continueGame(slot === 'null' ? null : slot));
     } else if (key === 'new') {
-      if (this.saveMeta) {
-        g.screens.push(new ConfirmNewGameScreen(g));
-      } else {
-        g.screens.push(new CharacterScreen(g));
-      }
+      // No blanket "this overwrites your save" any more: the two of them have
+      // a slot each, so starting a new game as Sammy cannot touch Matthew's.
+      // The warning now comes at the moment a character who already has a
+      // game is picked, and names them.
+      g.screens.push(new CharacterScreen(g, this.saves));
+    } else if (key === 'restore') {
+      this._restore();
     } else if (key === 'test') {
       // Straight into a playable game with test mode already on, so the
       // console is one tap away instead of a playthrough away.
@@ -11311,6 +12281,23 @@ class TitleScreen extends Screen {
     } else {
       g.screens.push(new TitleOptionsScreen(g));
     }
+  }
+
+  /**
+   * Reads a backup file and makes it the live save, then walks straight into
+   * it. Nothing is overwritten until the file has parsed and been recognised,
+   * so picking the wrong file costs a sentence, not a playthrough.
+   */
+  async _restore() {
+    this.note = 'pick your backup file...';
+    const got = await importFromFile();
+    if (!got.ok) { this.note = got.text; audio.sfx('deny'); return; }
+    this.note = 'restoring...';
+    const res = await this.game.save.restore(got.raw);
+    if (!res.ok) { this.note = `restore failed: ${String(res.error || '?').slice(0, 24)}`; audio.sfx('deny'); return; }
+    audio.sfx('save');
+    this.note = null;
+    this.game.screens.fade(FADE.BLACK, () => this.game.continueGame(res.slot));
   }
 
   _menuBox() {
@@ -11376,11 +12363,12 @@ class TitleScreen extends Screen {
     // Where saves are going, said out loud. A storage problem should be
     // visible on the first screen, not discovered a day later.
     labelDim(ctx, this._storageNote(), 9, H - 45);
-    if (this.saveMeta) {
+    const meta = this.saveMeta;
+    if (meta) {
       window9(ctx, 4, H - 40, 96, 36);
-      labelDim(ctx, this.saveMeta.name || 'Trainer', 9, H - 36);
-      labelDim(ctx, `Badges ${this.saveMeta.badges}`, 9, H - 27);
-      labelDim(ctx, `Time ${formatPlayTime(this.saveMeta.playTimeMs || 0)}`, 9, H - 18);
+      labelDim(ctx, meta.name || 'Trainer', 9, H - 36);
+      labelDim(ctx, `Badges ${meta.badges}`, 9, H - 27);
+      labelDim(ctx, `Time ${formatPlayTime(meta.playTimeMs || 0)}`, 9, H - 18);
     }
     drawTextCentered(ctx, 'A private fan project for two.', cx, H - 12, { color: '#5a6a94' });
   }
@@ -11388,22 +12376,35 @@ class TitleScreen extends Screen {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * "You already have a game as this one." Asked once, about one character,
+ * with their name in it — and it calls back rather than deciding, so the
+ * character screen keeps its place either way.
+ */
 class ConfirmNewGameScreen extends Screen {
-  constructor(game) { super(game); this.seeThrough = true; this.index = 1; }
+  constructor(game, who, onYes) {
+    super(game);
+    this.seeThrough = true;
+    this.index = 1;
+    this.who = who || 'this trainer';
+    this.onYes = onYes || (() => {});
+  }
+
+  _yes() { this.game.screens.pop(); this.onYes(); }
 
   update(dt, isTop) {
     if (!isTop) return;
     if (input.repeated('up') || input.repeated('down')) { this.index = 1 - this.index; audio.sfx('cursor'); }
     if (input.pressed('a')) {
       audio.sfx('select');
-      if (this.index === 0) { this.game.screens.pop(); this.game.screens.push(new CharacterScreen(this.game)); }
+      if (this.index === 0) this._yes();
       else this.game.screens.pop();
     }
     if (input.pressed('b')) { audio.sfx('back'); this.game.screens.pop(); }
     const tap = input.consumeTap();
     if (tap) {
       const { width: W, height: H } = this.game.display;
-      if (hit(tap, W / 2 - 60, H / 2 + 4, 50, 12)) { this.game.screens.pop(); this.game.screens.push(new CharacterScreen(this.game)); }
+      if (hit(tap, W / 2 - 60, H / 2 + 4, 50, 12)) this._yes();
       else if (hit(tap, W / 2 + 10, H / 2 + 4, 50, 12)) this.game.screens.pop();
     }
   }
@@ -11412,8 +12413,8 @@ class ConfirmNewGameScreen extends Screen {
     const { width: W, height: H } = this.game.display;
     shadeScreen(ctx, W, H, 0.6);
     window9(ctx, W / 2 - 90, H / 2 - 26, 180, 52);
-    drawTextCentered(ctx, 'Starting a new game will', W / 2, H / 2 - 20);
-    drawTextCentered(ctx, 'overwrite your save.', W / 2, H / 2 - 10, { color: PAL.uiDanger });
+    drawTextCentered(ctx, `${this.who} already has a game here.`, W / 2, H / 2 - 20);
+    drawTextCentered(ctx, 'Starting over will erase it.', W / 2, H / 2 - 10, { color: PAL.uiDanger });
     ['OVERWRITE', 'CANCEL'].forEach((s, i) => {
       const x = i === 0 ? W / 2 - 60 : W / 2 + 10;
       rect(ctx, x, H / 2 + 4, 50, 12, i === this.index ? PAL.uiSelect : PAL.uiBgAlt);
@@ -11480,8 +12481,10 @@ class TitleOptionsScreen extends Screen {
 const ROWS = KEY_ROWS;
 
 class CharacterScreen extends Screen {
-  constructor(game) {
+  constructor(game, saves = []) {
     super(game);
+    this.saves = saves || [];
+    this.warned = {};
     this.step = 0;         // 0 look, 1 name, 2 difficulty, 3 confirm
     this.look = PLAYERS[0].look;
     this.name = '';
@@ -11532,8 +12535,18 @@ class CharacterScreen extends Screen {
   }
 
   _confirmLook() {
-    this.look = this.looks[this.lookIndex].key;
-    this.name = this.looks[this.lookIndex].defaultName;
+    const pick = this.looks[this.lookIndex];
+    const existing = this.saves.find((sv) => sv.slot === slotForLook(pick.key));
+    if (existing && !this.warned[pick.key]) {
+      const who = (existing.meta && existing.meta.name) || pick.defaultName;
+      this.game.screens.push(new ConfirmNewGameScreen(this.game, who, () => {
+        this.warned[pick.key] = true;
+        this._confirmLook();
+      }));
+      return;
+    }
+    this.look = pick.key;
+    this.name = pick.defaultName;
     this.step = 1;
   }
 
@@ -12069,12 +13082,11 @@ const TWINLEAF = defineMap('twinleaf', {
     {
       id: 'tw_bandit', x: 16, y: 13, species: 228, name: 'Bandit',
       movement: 'lookAround', facing: 'up',
+      // Once she has joined the party she is walking behind somebody, not
+      // sitting on the step. Rowan announcing she has joined while she is
+      // visibly still outside is the kind of thing that breaks a world.
+      goneWhen: 'banditWithUs',
       dialogue: [
-        {
-          when: { all: [{ flag: 'hasBandit' }, { playing: 'matthew' }] },
-          lines: ['Bandit: *She is already at the gate, looking back at you.*',
-            '*Then back at Sammy’s door, to check. Then at you again.*'],
-        },
         {
           when: { playing: 'sammy' },
           lines: ['Bandit: *She hits you at knee height before you have finished\nshutting the door.*',
@@ -13314,12 +14326,12 @@ const SAMMY_HOUSE = defineMap('sammy_house', {
   healPoint: { map: 'sammy_house', x: 5, y: 6 },
   npcs: [
     {
-      id: 'sh_parent', x: 3, y: 4, look: 'oldWoman', name: "Sammy's Mum", movement: 'still', facing: 'down',
+      id: 'sh_parent', x: 3, y: 4, look: 'mom', name: "Sammy's Mum", movement: 'still', facing: 'down',
       heals: true,
       dialogue: [
         {
           // Matthew, at his girlfriend's door, with her dog at his heel.
-          when: { all: [{ flag: 'hasBandit' }, { playing: 'matthew' }] },
+          when: { all: [{ flag: 'banditWithUs' }, { playing: 'matthew' }] },
           lines: ['So Bandit went with you two. She has never once done as she was told.',
             'She chose Sammy the day she turned up and she has not wavered since.',
             'Look after our girl. Both of ours, come to that.'],
@@ -13340,38 +14352,6 @@ const SAMMY_HOUSE = defineMap('sammy_house', {
           lines: ['Matthew. Come in, come in — she is not here, she is at the lab.',
             'You could have rung. You never ring. You just appear at the door.',
             'I do not mind. It is very nearly charming.'],
-        },
-      ],
-    },
-    {
-      id: 'sh_neighbour', x: 8, y: 4, look: 'oldMan', name: 'Neighbour', movement: 'still', facing: 'down',
-      dialogue: [
-        {
-          when: { flag: 'beatRival2' },
-          lines: ['Came back through here last week, dropped the bag, went straight out again.',
-            'Said you had beaten them twice now. Said it like it was your fault.',
-            'Try not to let them win every argument. It only encourages it.'],
-        },
-        {
-          when: { flag: 'beatRival1' },
-          lines: ['Heard you two had it out on Route 201. Heard who won, as well.',
-            'Do not expect that to be the end of it. It never is.'],
-        },
-        {
-          when: { flag: 'hasBandit' },
-          lines: ['So she went with you. Of course she did.',
-            'That dog has slept on four doorsteps in this street and chosen exactly one person.',
-            'Do not let her near anybody\u2019s washing line. I am asking as a favour.'],
-        },
-        {
-          when: { linked: true },
-          lines: ['Both of you out there at once. That is the whole street empty, then.',
-            '{partner} came past earlier with the same look on their face you have got now.',
-            'Whatever the two of you are up to, do it somewhere with a Center nearby.'],
-        },
-        {
-          lines: ['Ran out of here at dawn shouting about the lab. You know how it is.',
-            'Try not to let them win every argument. It only encourages it.'],
         },
       ],
     },
@@ -20938,6 +21918,7 @@ async function banditJoins(ctx) {
   await speak(ctx, BANDIT.joined);
   await ctx.say('Bandit joined your team!');
   ctx.setFlag(FLAGS.HAS_BANDIT);
+  ctx.setFlag(FLAGS.BANDIT_WITH_US, true);
   ctx.journal('bandit');
 }
 
@@ -22438,6 +23419,7 @@ SCRIPTS.buddyWaiting = async (ctx) => {
     await ctx.say('Bandit: *She has been sat on the step since it got light and she is\nnot going to let you forget it.*', { speaker: 'Bandit' });
     await ctx.say('*She does a full circuit of you, twice, and then sits down on your\nfoot to make the arrangement official.*');
     ctx.setFlag('banditHello', true);
+    ctx.setFlag(FLAGS.BANDIT_WITH_US, true);
   }
 
   await ctx.wait(0.3);
@@ -22456,6 +23438,10 @@ SCRIPTS.buddyWaiting = async (ctx) => {
 
   ctx.companionJoin({ look: them.look, name: them.name, key: them.key });
   ctx.setFlag('buddyJoined', true);
+  // Bandit goes where Sammy goes. Playing as Matthew, that means she comes
+  // off the step the moment Sammy does, rather than sitting there all game
+  // while everyone talks about her being with you.
+  ctx.setFlag(FLAGS.BANDIT_WITH_US, true);
   ctx.shareMilestone('buddyJoined');
   ctx.autosave();
   await ctx.say(`${them.name} is coming with you!`);
@@ -28651,10 +29637,12 @@ const { abilityDescription } = __req('game/battle/abilities.js');
 const { friendshipLabel } = __req('game/friendship.js');
 const { net } = __req('net/NetworkManager.js');
 const { drawControls, drawBackChip } = __req('ui/controls.js');
+const { exportToFile } = __req('save/backup.js');
 // The pause menu and everything under it.
 //
 // Every screen here follows the same rules: D-pad or a direct tap both work,
 // B always goes back, and nothing ever traps the player.
+
 
 
 
@@ -29503,6 +30491,15 @@ class OptionsScreen extends Screen {
 
 // ===========================================================================
 
+// SAVE writes to storage; BACK UP writes a file the player owns. Both are
+// here because on this platform the first one can fail in ways the game
+// cannot fix, and the second one cannot.
+const CHOICES = [
+  { key: 'save', text: 'SAVE' },
+  { key: 'backup', text: 'BACK UP' },
+  { key: 'no', text: 'CANCEL' },
+];
+
 class SaveScreen extends Screen {
   constructor(game) {
     super(game);
@@ -29515,21 +30512,47 @@ class SaveScreen extends Screen {
     if (!isTop) return;
     this.t += dt;
     if (this.state === 'confirm') {
-      if (input.repeated('up') || input.repeated('down')) { this.index = 1 - this.index; audio.sfx('cursor'); }
+      const n = CHOICES.length;
+      if (input.repeated('up')) { this.index = (this.index - 1 + n) % n; audio.sfx('cursor'); }
+      if (input.repeated('down')) { this.index = (this.index + 1) % n; audio.sfx('cursor'); }
       const tap = input.consumeTap();
       const W = this.game.display.width;
       if (tap) {
-        if (hit(tap, W - 62, 60, 56, 12)) { this.index = 0; this._doSave(); return; }
-        if (hit(tap, W - 62, 72, 56, 12)) { this.game.screens.pop(); return; }
+        for (let i = 0; i < n; i++) {
+          if (hit(tap, W - 66, 54 + i * 12, 60, 12)) { this.index = i; this._choose(i); return; }
+        }
       }
-      if (input.pressed('a')) { audio.sfx('select'); if (this.index === 0) this._doSave(); else this.game.screens.pop(); }
+      if (input.pressed('a')) { audio.sfx('select'); this._choose(this.index); }
       if (input.pressed('b')) { audio.sfx('back'); this.game.screens.pop(); }
     } else if (this.state === 'done' && this.t > 0.8) {
       if (input.pressed('a') || input.pressed('b') || input.consumeTap()) { this.game.screens.pop(); }
     }
   }
 
+  _choose(i) {
+    if (CHOICES[i].key === 'save') this._doSave();
+    else if (CHOICES[i].key === 'backup') this._doBackup();
+    else this.game.screens.pop();
+  }
+
+  /**
+   * A copy of the game as a file the player keeps. Offered right next to
+   * SAVE, because the moment somebody is thinking about whether their game
+   * is safe is the moment to let them make it safe.
+   */
+  async _doBackup() {
+    this.state = 'saving';
+    this.t = 0;
+    const res = await exportToFile(this.game.state);
+    audio.sfx(res.ok ? 'save' : 'deny');
+    this.ok = res.ok;
+    this.note = res.text;
+    this.state = 'done';
+    this.t = 0;
+  }
+
   async _doSave() {
+    this.note = null;
     this.state = 'saving';
     this.t = 0;
     const ok = await this.game.save.save(this.game.state);
@@ -29552,20 +30575,41 @@ class SaveScreen extends Screen {
     drawTextRight(ctx, this.game.currentMapName(), 130, 54, { color: PAL.uiText });
 
     if (this.state === 'confirm') {
-      window9(ctx, W - 66, 54, 60, 34);
-      label(ctx, 'Save?', W - 60, 46);
-      ['YES', 'NO'].forEach((s, i) => {
-        const y = 60 + i * 12;
+      window9(ctx, W - 66, 48, 60, 12 * CHOICES.length + 10);
+      label(ctx, 'Save?', W - 60, 40);
+      CHOICES.forEach((c, i) => {
+        const y = 54 + i * 12;
         if (i === this.index) cursor(ctx, W - 62, y);
-        label(ctx, s, W - 54, y);
+        label(ctx, c.text, W - 54, y);
       });
     } else if (this.state === 'saving') {
       window9(ctx, 6, H - 32, W - 12, 28);
       label(ctx, 'Saving...', 14, H - 24);
     } else {
-      window9(ctx, 6, H - 32, W - 12, 28);
-      label(ctx, this.ok ? `${st.player.name} saved the game.` : 'Saving failed — storage is unavailable.',
-        14, H - 24, { color: this.ok ? PAL.uiText : PAL.uiDanger });
+      // Where the save actually went, said here, because this is the screen
+      // the player is looking at when they decide it worked. A save that only
+      // reached this device is not a save if the app wipes the device store
+      // on close, and saying "saved the game" to that is how a whole
+      // playthrough gets lost.
+      const sm = this.game.save;
+      const durable = !!sm.lastDurable;
+      window9(ctx, 6, H - 42, W - 12, 38);
+      if (this.note) {
+        label(ctx, this.note.slice(0, 34), 14, H - 34, { color: this.ok ? PAL.uiText : PAL.uiDanger });
+        labelDim(ctx, 'A backup file always loads back.', 14, H - 24);
+      } else if (!this.ok) {
+        label(ctx, 'Saving failed.', 14, H - 34, { color: PAL.uiDanger });
+        label(ctx, String(sm.lastError || 'storage is unavailable').slice(0, 34), 14, H - 24,
+          { color: PAL.uiDanger });
+      } else if (durable) {
+        label(ctx, `${st.player.name} saved the game.`, 14, H - 34);
+        label(ctx, 'Kept to your account — safe to close.', 14, H - 24, { color: PAL.uiTextDim });
+      } else {
+        label(ctx, `${st.player.name} saved — TO THIS DEVICE ONLY.`, 14, H - 34,
+          { color: PAL.uiDanger });
+        label(ctx, String(sm.lastError || 'closing the app may lose it').slice(0, 34), 14, H - 24,
+          { color: PAL.uiDanger });
+      }
     }
     // A thumb needs something to aim at: on a phone there is no B key.
     drawBackChip(ctx, W - 52, 2);
@@ -31628,7 +32672,7 @@ class DebugScreen extends Screen {
         ];
       }
       case 'reset': return [
-        { t: 'ERASE SAVE AND RESTART', a: async () => { await this.game.save.erase(); location.reload(); } },
+        { t: 'ERASE SAVE AND RESTART', a: async () => { await this.game.save.eraseAll(); location.reload(); } },
         { t: 'Cancel', a: () => { this.page = 'main'; this.index = 0; } },
       ];
       default: return [];
@@ -33777,653 +34821,6 @@ __exports(__x, { JournalScreen: () => JournalScreen });
 
 };
 
-__defs['core/storage.js'] = function (__x, __req) {
-
-// Persistence, in the only way that actually survives a phone.
-//
-// This file has been rewritten because the previous version did not work, and
-// the reason it did not work is worth writing down so nobody does it again:
-// it asked for the host storage API **once, synchronously, at script eval
-// time**. The bundle is one inline script that runs the instant the page
-// parses, and the host injects its API a beat later — so the check always
-// missed, we always fell back to localStorage, and the artifact viewer wipes
-// localStorage when the artifact is closed. Every session opened on a fresh
-// new game.
-//
-// So: nothing here checks for a provider once. Everything polls until a
-// provider appears or a deadline passes, and every write goes to every
-// provider we have, because the cost of a redundant write is nothing and the
-// cost of a lost save is an evening.
-//
-// Providers, in order of durability:
-//
-//   1. `window.storage`          — host key/value store, if this build has one
-//   2. `claude.use('db')`        — the artifact document store
-//   3. `localStorage`            — works everywhere, survives least
-//
-// Reads take the newest coherent payload across all of them, so a save
-// written on one device shows up on the other, and a save written before a
-// provider existed is not lost when one appears.
-
-const PREFIX = 'caribou:';
-
-/** The key the host store is asked for. One save file, one name. */
-const HOST_KEY = 'monsterGameSave';
-
-// How long to keep looking for a provider before deciding there is not one.
-// Generous on purpose: a slow phone on a bad connection is the exact case
-// this whole file exists for.
-const PROVIDER_DEADLINE_MS = 15000;
-const POLL_MS = 150;
-
-const now = () => Date.now();
-
-/** Polls for `pick()` to return something truthy, or gives up. */
-function waitFor(pick, deadlineMs = PROVIDER_DEADLINE_MS) {
-  return new Promise((resolve) => {
-    const got = pick();
-    if (got) { resolve(got); return; }
-    if (typeof window === 'undefined') { resolve(null); return; }
-    const until = now() + deadlineMs;
-    const timer = setInterval(() => {
-      let v = null;
-      try { v = pick(); } catch { v = null; }
-      if (v) { clearInterval(timer); resolve(v); return; }
-      if (now() > until) { clearInterval(timer); resolve(null); }
-    }, POLL_MS);
-  });
-}
-
-// ---- provider 1: window.storage -------------------------------------------
-
-function hostStore() {
-  const s = typeof window !== 'undefined' ? window.storage : null;
-  return s && typeof s.get === 'function' && typeof s.set === 'function' ? s : null;
-}
-
-const hostProvider = {
-  name: 'window.storage',
-  ready: null,
-  handle: null,
-  async init() {
-    this.handle = await waitFor(hostStore);
-    return this.handle;
-  },
-  async read(slot) {
-    if (!this.handle) return null;
-    const raw = await this.handle.get(`${HOST_KEY}:${slot}`);
-    if (raw == null) return null;
-    return typeof raw === 'string' ? JSON.parse(raw) : raw;
-  },
-  async write(slot, value) {
-    if (!this.handle) return false;
-    await this.handle.set(`${HOST_KEY}:${slot}`, JSON.stringify(value));
-    return true;
-  },
-  async remove(slot) {
-    if (!this.handle) return;
-    if (typeof this.handle.delete === 'function') await this.handle.delete(`${HOST_KEY}:${slot}`);
-    else await this.handle.set(`${HOST_KEY}:${slot}`, null);
-  },
-};
-
-// ---- provider 2: the artifact document store -------------------------------
-
-function claudeUse() {
-  const c = typeof window !== 'undefined' ? window.claude : null;
-  return c && typeof c.use === 'function' ? c : null;
-}
-
-/**
- * What the viewer has said about durable storage, in words.
- *
- * This exists because the save has now failed three times and every failure
- * was invisible. The capability asks for consent LAZILY — at the first write
- * — and if that prompt never reaches the player, writes fail quietly and the
- * game falls back to storage the viewer wipes on close. So the page asks
- * explicitly, records the answer, and puts it on screen where somebody can
- * read it back to me.
- */
-const durableState = {
-  permission: 'unknown',   // unknown | granted | prompt | denied | unavailable
-  resolved: false,         // did use('db') hand back a namespace
-  lastError: null,         // the real message from the last failed write
-  lastWriteAt: 0,
-};
-
-const dbProvider = {
-  name: 'cloud save',
-  handle: null,
-  _asked: false,
-
-  async init() {
-    const c = await waitFor(claudeUse);
-    if (!c) { durableState.permission = 'unavailable'; return null; }
-
-    // `state` never prompts, so it is safe at boot and tells us whether a
-    // prompt is even going to happen.
-    try {
-      const perms = await c.use('permissions');
-      if (perms) durableState.permission = await perms.state('db');
-    } catch { /* leave it unknown */ }
-
-    this.handle = await Promise.race([
-      Promise.resolve(c.use('db')).catch(() => null),
-      new Promise((r) => setTimeout(() => r(null), PROVIDER_DEADLINE_MS)),
-    ]).catch(() => null);
-    durableState.resolved = !!this.handle;
-    if (!this.handle && durableState.permission === 'unknown') {
-      durableState.permission = 'unavailable';
-    }
-    return this.handle;
-  },
-
-  /**
-   * Ask for consent, once, with the one batched dialog the platform allows.
-   *
-   * Deliberately not at boot — the contract says not to gate first paint on
-   * it — but before the first write, which is the first moment the answer
-   * actually matters.
-   */
-  async ensurePermission() {
-    if (this._asked) return durableState.permission;
-    this._asked = true;
-    const c = claudeUse();
-    if (!c) return durableState.permission;
-    try {
-      const perms = await c.use('permissions');
-      if (!perms) return durableState.permission;
-      if (durableState.permission === 'prompt' || durableState.permission === 'unknown') {
-        const res = await perms.request(['db']);
-        durableState.permission = (res && res.db) || durableState.permission;
-      }
-    } catch (err) {
-      durableState.lastError = String((err && err.message) || err);
-    }
-    return durableState.permission;
-  },
-
-  async read(slot) {
-    if (!this.handle) return null;
-    const snap = await this.handle.doc(`saves/${slot}`).get();
-    if (!snap || !snap.exists || !snap.data || !snap.data.payload) return null;
-    return JSON.parse(snap.data.payload);
-  },
-
-  async write(slot, value) {
-    if (!this.handle) return false;
-    await this.ensurePermission();
-    try {
-      // One JSON string rather than a nested document: a save is deeply
-      // nested and the store caps nesting, so flattening keeps party, bag
-      // and flags out of that limit entirely.
-      await this.handle.doc(`saves/${slot}`).set({
-        payload: JSON.stringify(value),
-        savedAt: (value && value.savedAt) || now(),
-        name: (value && value.meta && value.meta.name) || '',
-        badges: (value && value.meta && value.meta.badges) || 0,
-      });
-      durableState.lastError = null;
-      durableState.lastWriteAt = now();
-      return true;
-    } catch (err) {
-      // The real message, kept, so the failure can be read rather than
-      // guessed at.
-      durableState.lastError = String((err && err.code) || (err && err.message) || err);
-      throw err;
-    }
-  },
-
-  async remove(slot) {
-    if (!this.handle) return;
-    await this.handle.doc(`saves/${slot}`).delete();
-  },
-};
-
-// ---- provider 3: localStorage ----------------------------------------------
-
-const localProvider = {
-  name: 'localStorage',
-  handle: null,
-  async init() {
-    try {
-      const k = `${PREFIX}__probe`;
-      localStorage.setItem(k, '1');
-      localStorage.removeItem(k);
-      this.handle = localStorage;
-    } catch { this.handle = null; }
-    return this.handle;
-  },
-  async read(slot) {
-    if (!this.handle) return null;
-    const raw = this.handle.getItem(PREFIX + slot);
-    return raw == null ? null : JSON.parse(raw);
-  },
-  async write(slot, value) {
-    if (!this.handle) return false;
-    this.handle.setItem(PREFIX + slot, JSON.stringify(value));
-    return true;
-  },
-  async remove(slot) {
-    if (!this.handle) return;
-    this.handle.removeItem(PREFIX + slot);
-  },
-};
-
-const PROVIDERS = [hostProvider, dbProvider, localProvider];
-
-// ---- the layer -------------------------------------------------------------
-
-let readyPromise = null;
-
-/**
- * Brings up every provider that exists. Safe to call as often as you like;
- * the work happens once.
- */
-function storageReady() {
-  if (!readyPromise) {
-    readyPromise = Promise.all(PROVIDERS.map(async (p) => {
-      try { await p.init(); } catch { p.handle = null; }
-      return p;
-    })).then(() => PROVIDERS.filter((p) => p.handle));
-  }
-  return readyPromise;
-}
-
-/** Which providers came up. Shown in test mode so a failure is visible. */
-function providerReport() {
-  return PROVIDERS.map((p) => ({ name: p.name, up: !!p.handle }));
-}
-
-/** True once at least one provider that outlives the tab is up. */
-function isDurable() {
-  return !!hostProvider.handle
-    || !!(dbProvider.handle && durableState.permission !== 'denied' && !durableState.lastError);
-}
-
-/** Everything known about whether the save is going somewhere that lasts. */
-function saveDiagnosis() {
-  return {
-    providers: providerReport(),
-    permission: durableState.permission,
-    resolved: durableState.resolved,
-    lastError: durableState.lastError,
-    lastWriteAt: durableState.lastWriteAt,
-  };
-}
-
-const storage = {
-  available() { return PROVIDERS.some((p) => p.handle); },
-
-  /**
-   * The newest payload any provider has.
-   *
-   * Taking the newest rather than the first means a save written on the phone
-   * beats a stale one in this tab's localStorage, which is what makes the two
-   * players' devices agree.
-   */
-  async read(slot) {
-    await storageReady();
-    let best = null;
-    for (const p of PROVIDERS) {
-      if (!p.handle) continue;
-      try {
-        const v = await p.read(slot);
-        if (!v) continue;
-        if (!best || (v.savedAt || 0) > (best.savedAt || 0)) best = v;
-      } catch (err) {
-        console.warn(`[storage] ${p.name} read failed`, err);
-      }
-    }
-    return best;
-  },
-
-  /** Reads only what is in this tab, without waiting for the network. */
-  readLocalNow(slot) {
-    try {
-      const raw = localStorage.getItem(PREFIX + slot);
-      return raw == null ? null : JSON.parse(raw);
-    } catch { return null; }
-  },
-
-  /**
-   * Writes everywhere. localStorage first and synchronously, so that even if
-   * the page is killed in the next millisecond something survives; the
-   * durable providers follow.
-   */
-  async write(slot, value) {
-    let any = false;
-    try { localStorage.setItem(PREFIX + slot, JSON.stringify(value)); any = true; } catch { /* full or blocked */ }
-    await storageReady();
-    for (const p of PROVIDERS) {
-      if (!p.handle || p === localProvider) continue;
-      try { any = (await p.write(slot, value)) || any; } catch (err) {
-        console.warn(`[storage] ${p.name} write failed`, err);
-      }
-    }
-    return any;
-  },
-
-  async remove(slot) {
-    await storageReady();
-    for (const p of PROVIDERS) {
-      if (!p.handle) continue;
-      try { await p.remove(slot); } catch { /* ignore */ }
-    }
-  },
-
-  async keys() {
-    await storageReady();
-    const out = new Set();
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith(PREFIX)) out.add(k.slice(PREFIX.length));
-      }
-    } catch { /* ignore */ }
-    return [...out];
-  },
-};
-
-__exports(__x, { HOST_KEY: () => HOST_KEY, durableState: () => durableState, storageReady: () => storageReady, providerReport: () => providerReport, isDurable: () => isDurable, saveDiagnosis: () => saveDiagnosis, storage: () => storage });
-
-};
-
-__defs['save/migrations.js'] = function (__x, __req) {
-
-// Save migrations.
-//
-// A save is a promise: whatever we change in here, the game somebody was
-// halfway through still has to open. Every migration is a pure function from
-// one version's payload to the next, so they compose and each one can be
-// tested on its own.
-
-// v1 -> v2. Before the real Pokedex landed, this game had a hand-written
-// roster of 54 monsters numbered 1..54. Those numbers are now national dex
-// numbers belonging to entirely different Pokemon, so a v1 save left alone
-// would either lose its whole party (unknown species are dropped) or, worse,
-// quietly turn a Turtwig into a Bulbasaur. This is the exact table the roster
-// was remapped through, by name.
-const V1_TO_NATIONAL = {
-  1: 387, 2: 388, 3: 389, 4: 390, 5: 391, 6: 392, 7: 393, 8: 394, 9: 395,
-  10: 396, 11: 397, 12: 398, 13: 399, 14: 400, 15: 403, 16: 404, 17: 405, 18: 401,
-  19: 402, 20: 406, 21: 315, 22: 427, 23: 428, 24: 41, 25: 42, 26: 74, 27: 75,
-  28: 95, 29: 66, 30: 67, 31: 77, 32: 54, 33: 55, 34: 63, 35: 64, 36: 417,
-  37: 483, 38: 265, 39: 266, 40: 267, 41: 415, 42: 420, 43: 421, 44: 422, 45: 423,
-  46: 436, 47: 437, 48: 129, 49: 130, 50: 433, 51: 438, 52: 185, 53: 447, 54: 448,
-};
-
-function remapSpecies(id) {
-  const n = Number(id);
-  return V1_TO_NATIONAL[n] !== undefined ? V1_TO_NATIONAL[n] : n;
-}
-
-function remapMon(mon) {
-  if (!mon || mon.species === undefined) return mon;
-  return { ...mon, species: remapSpecies(mon.species) };
-}
-
-function remapDexSide(side) {
-  const out = {};
-  for (const key of Object.keys(side || {})) out[remapSpecies(key)] = side[key];
-  return out;
-}
-
-function migrateV1toV2(state) {
-  if (!state) return state;
-  const next = { ...state };
-  next.party = (state.party || []).map(remapMon);
-  next.boxes = (state.boxes || []).map((b) => ({ ...b, mons: (b.mons || []).map(remapMon) }));
-  next.dex = {
-    seen: remapDexSide(state.dex && state.dex.seen),
-    caught: remapDexSide(state.dex && state.dex.caught),
-  };
-  if (state.starterBase != null) next.starterBase = remapSpecies(state.starterBase);
-  return next;
-}
-
-// v2 -> v3. Twinleaf's two houses used to be `player_house` (whoever you
-// were) and `rival_house` (the other one). They are now `matthew_house` and
-// `sammy_house`, fixed to the left and right of the town, so the place reads
-// the same whichever of the two is holding the phone. A save that was made
-// standing in one of them — or that healed in one — points at a map id that
-// no longer exists, and would open into nowhere.
-const HOUSE_RENAME = { player_house: 'matthew_house', rival_house: 'sammy_house' };
-
-function renameHouse(id, look) {
-  if (!HOUSE_RENAME[id]) return id;
-  // `player_house` was whichever of them you are, so the answer depends on
-  // the save's own character rather than on a fixed table.
-  if (id === 'player_house') return look === 'sammy' ? 'sammy_house' : 'matthew_house';
-  return look === 'sammy' ? 'matthew_house' : 'sammy_house';
-}
-
-function migrateV2toV3(state) {
-  if (!state) return state;
-  const look = state.player && state.player.look;
-  const next = { ...state };
-  if (state.player) {
-    next.player = { ...state.player, map: renameHouse(state.player.map, look) };
-  }
-  if (state.lastHealPoint) {
-    next.lastHealPoint = { ...state.lastHealPoint, map: renameHouse(state.lastHealPoint.map, look) };
-  }
-  return next;
-}
-
-// Ordered. `migrate` applies every step from the payload's version up to
-// SAVE_VERSION, so a save can skip as many releases as it likes.
-const MIGRATIONS = [
-  { from: 1, to: 2, apply: migrateV1toV2 },
-  { from: 2, to: 3, apply: migrateV2toV3 },
-];
-
-__exports(__x, { migrateV1toV2: () => migrateV1toV2, migrateV2toV3: () => migrateV2toV3, MIGRATIONS: () => MIGRATIONS });
-
-};
-
-__defs['save/SaveManager.js'] = function (__x, __req) {
-const { storage, storageReady, isDurable, providerReport, saveDiagnosis } = __req('core/storage.js');
-const { serializeState, deserializeState } = __req('game/state.js');
-const { MIGRATIONS } = __req('save/migrations.js');
-// Saving.
-//
-// The backend is an interface, not localStorage. Today the only
-// implementation is LocalBackend; a cloud backend (per-account slots synced
-// across the two players' phones) drops in behind the same three methods
-// without any game code changing.
-
-
-
-
-const SAVE_SLOT = 'save1';
-const SAVE_VERSION = 3;
-const AUTOSAVE_MS = 45000;
-const FLUSH_DEBOUNCE_MS = 700;
-
-/**
- * The only backend now. `core/storage.js` fans every write out to whichever
- * of the host store, the artifact document store and localStorage exist, and
- * reads back the newest of them, so there is nothing left for a backend to
- * choose between.
- */
-class LocalBackend {
-  constructor() { this.name = 'storage'; }
-  available() { return storage.available(); }
-  ready() { return storageReady(); }
-  durable() { return isDurable(); }
-  providers() { return providerReport(); }
-  diagnose() { return saveDiagnosis(); }
-  readLocal(slot) { return storage.readLocalNow(slot); }
-  async read(slot) { return storage.read(slot); }
-  async write(slot, data) { return storage.write(slot, data); }
-  async remove(slot) { await storage.remove(slot); return true; }
-  async list() { return (await storage.keys()).filter((k) => k.startsWith('save')); }
-}
-
-// Kept deliberately small: it is the shape a server endpoint would need to
-// implement, and nothing more.
-class CloudBackend {
-  constructor(transport) { this.name = 'cloud'; this.transport = transport; }
-  available() { return !!this.transport; }
-  async read(slot) { return this.transport.get(slot); }
-  async write(slot, data) { return this.transport.put(slot, data); }
-  async remove(slot) { return this.transport.del(slot); }
-  async list() { return this.transport.list(); }
-}
-
-class SaveManager {
-  constructor(backend = new LocalBackend()) {
-    this.backend = backend;
-    this.lastSaveAt = 0;
-    this.dirty = false;
-    this.saving = false;
-    this.lastError = null;
-  }
-
-  available() { return this.backend.available(); }
-
-  markDirty() { this.dirty = true; }
-
-  async save(state, slot = SAVE_SLOT, opts = {}) {
-    // A save already in flight used to make this a no-op, which meant the
-    // flush on the way out could be the one that got dropped. Queue instead.
-    if (this.saving) { this._again = { state, slot }; return false; }
-    this.saving = true;
-    try {
-      const payload = {
-        v: SAVE_VERSION,
-        savedAt: Date.now(),
-        state: serializeState(state),
-        meta: {
-          name: state.player.name,
-          badges: state.badges.length,
-          dex: Object.keys(state.dex.caught).length,
-          playTimeMs: state.playTimeMs,
-          map: state.player.map,
-          party: state.party.map((m) => ({ species: m.species, level: m.level, shiny: !!m.shiny })),
-        },
-      };
-      const ok = await this.backend.write(slot, payload);
-      if (ok) { this.dirty = false; this.lastSaveAt = Date.now(); this.lastError = null; }
-      else this.lastError = 'write failed';
-      return !!ok;
-    } catch (err) {
-      this.lastError = String(err && err.message || err);
-      console.warn('[save] failed', err);
-      return false;
-    } finally {
-      this.saving = false;
-      void opts;
-      const again = this._again;
-      this._again = null;
-      if (again) this.save(again.state, again.slot);
-    }
-  }
-
-  async load(slot = SAVE_SLOT) {
-    try {
-      const raw = await this.backend.read(slot);
-      if (!raw || !raw.state) return null;
-      const st = deserializeState(this.migrate(raw).state);
-      return st;
-    } catch (err) {
-      console.warn('[save] load failed', err);
-      return null;
-    }
-  }
-
-  async peek(slot = SAVE_SLOT) {
-    try {
-      const raw = await this.backend.read(slot);
-      if (!raw || !raw.state) return null;
-      return { ...raw.meta, savedAt: raw.savedAt, version: raw.v };
-    } catch { return null; }
-  }
-
-  /**
-   * A peek that never waits on the network. Used for the first paint of the
-   * title screen: showing the menu instantly and adding CONTINUE a moment
-   * later beats staring at a blank screen for ten seconds.
-   */
-  async peekFast(slot = SAVE_SLOT) {
-    try {
-      const b = this.backend;
-      const raw = typeof b.readLocal === 'function' ? await b.readLocal(slot) : await b.read(slot);
-      if (!raw || !raw.state) return null;
-      return { ...raw.meta, savedAt: raw.savedAt, version: raw.v };
-    } catch { return null; }
-  }
-
-  async hasSave(slot = SAVE_SLOT) { return !!(await this.peek(slot)); }
-
-  async erase(slot = SAVE_SLOT) { return this.backend.remove(slot); }
-
-  /**
-   * Old saves are upgraded here rather than rejected, so a content update
-   * never costs the players their game. Steps run in order from whatever
-   * version the payload claims up to SAVE_VERSION, so a save may skip any
-   * number of releases.
-   */
-  migrate(raw) {
-    let v = Number(raw && raw.v) || 1;
-    let state = raw.state;
-    for (const step of MIGRATIONS) {
-      if (v !== step.from) continue;
-      state = step.apply(state);
-      v = step.to;
-    }
-    if (v > SAVE_VERSION) {
-      // A save from a newer build. Loading it would silently discard
-      // whatever that build added, so say so rather than guessing.
-      throw new Error(`save version ${v} is newer than this build (${SAVE_VERSION})`);
-    }
-    return { ...raw, v, state };
-  }
-
-  // Autosave is opportunistic: it never runs during a battle or a trade,
-  // because a save captured mid-transaction is the one thing worse than no save.
-  maybeAutosave(state, canSave) {
-    if (!this.dirty || !canSave) return false;
-    if (Date.now() - this.lastSaveAt < AUTOSAVE_MS) return false;
-    this.save(state);
-    return true;
-  }
-
-  /**
-   * "Something happened worth keeping" — a Pokemon caught, a battle won, a
-   * badge, a heal, a map crossed.
-   *
-   * Debounced rather than immediate because several of these fire together
-   * at the end of a battle, and one write is enough. The debounce is short
-   * enough that swiping away a second later still lands, and `flush` cancels
-   * it and writes now.
-   */
-  touch(state) {
-    this.dirty = true;
-    if (this._pending) clearTimeout(this._pending);
-    this._pending = setTimeout(() => { this._pending = null; this.save(state); }, FLUSH_DEBOUNCE_MS);
-  }
-
-  /**
-   * Write right now, cancelling any debounce. Called when the page is going
-   * away, where there is no later.
-   */
-  flush(state) {
-    if (this._pending) { clearTimeout(this._pending); this._pending = null; }
-    return this.save(state);
-  }
-}
-
-const saveManager = new SaveManager(new LocalBackend());
-
-/** Resolves once every storage provider that exists has come up. */
-function saveReady() { return storageReady(); }
-
-__exports(__x, { SAVE_SLOT: () => SAVE_SLOT, SAVE_VERSION: () => SAVE_VERSION, LocalBackend: () => LocalBackend, CloudBackend: () => CloudBackend, SaveManager: () => SaveManager, saveManager: () => saveManager, saveReady: () => saveReady });
-
-};
-
 __defs['game/circuit/career.js'] = function (__x, __req) {
 const { enterTournament, currentOpponent, currentRoundName, activeTournament, resolveRound, finishTournament, abandonTournament, recordLinkResult, simulateSeasonWeek, proAsTrainer, canEnter, currentRank } = __req('game/circuit/circuit.js');
 const { reportDebut, reportDraw, reportMatch, reportTournamentResult, reportLinkResult, reportPowerRankings, reportSeasonWeek, buildPress, answerPress } = __req('game/circuit/news.js');
@@ -34751,7 +35148,7 @@ class Game {
     // upgrades itself once the durable store answers. Blocking the first
     // paint on a network round trip is how a game ends up looking broken on
     // a phone with a slow connection.
-    const title = new TitleScreen(this, await this.save.peekFast());
+    const title = new TitleScreen(this, await this.save.peekAllFast());
     this.screens.push(title);
     // The durable stores answer late — that is the whole reason the previous
     // version of this failed. So the title paints on whatever is in this tab
@@ -34762,8 +35159,8 @@ class Game {
       this.saveIsDurable = !!(b.durable && b.durable());
       this.saveProviders = b.providers ? b.providers() : [];
       console.info('[caribou] storage:', this.saveProviders.map((p) => `${p.name}=${p.up ? 'up' : 'no'}`).join(' '));
-      const meta = await this.save.peek();
-      if (title.setSave) title.setSave(meta);
+      const saves = await this.save.peekAll();
+      if (title.setSave) title.setSave(saves);
     });
 
     this.loop = new GameLoop({
@@ -34855,8 +35252,8 @@ class Game {
     this.save.markDirty();
   }
 
-  async continueGame() {
-    const loaded = await this.save.load();
+  async continueGame(slot = null) {
+    const loaded = await this.save.load(slot);
     if (loaded) this.state = loaded;
     net.state = this.state;
     if (this.rooms) this.rooms.dispose();

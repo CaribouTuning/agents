@@ -29,6 +29,7 @@ import { HEADLINES, BODIES, PRESS_QUESTIONS, OUTLETS, ANALYSTS } from '../src/da
 import {
   isKnownSlot, isKnownClause, worldSnapshot, RANK_IDS,
 } from '../src/game/overworld/gossip.js';
+import { PLAYERS } from '../src/game/players.js';
 import { FLAGS } from '../src/game/storyflags.js';
 import { SCRIPTS } from '../src/game/overworld/scripts.js';
 import { ABILITIES, INERT_ABILITIES } from '../src/game/battle/abilities.js';
@@ -650,6 +651,12 @@ function checkCondition(tag, when) {
       if ((k === 'flag' || k === 'notFlag') && !KNOWN_FLAGS.has(v)) {
         err(`${tag} names unknown flag "${v}"`);
       }
+      // A `playing` clause naming somebody who is not one of the two is a
+      // branch that can never fire — the exact shape of bug that leaves an
+      // NPC saying the wrong thing forever.
+      if (k === 'playing' && !PLAYERS.some((pl) => pl.key === v || pl.look === v)) {
+        err(`${tag} names unknown player "${v}"`);
+      }
       if (k === 'starter' && !SPECIES_NAMES.has(v)) {
         err(`${tag} names unknown starter species "${v}"`);
       }
@@ -690,6 +697,14 @@ function checkDialogue(tag, dialogue) {
 
 for (const map of Object.values(MAPS)) {
   for (const n of map.npcs) {
+    // Whether an NPC is standing there at all is as much a story statement as
+    // anything they say. A misspelt flag here means somebody is on the screen
+    // during a scene about them having left it.
+    for (const k of ['goneWhen', 'onlyWhen', 'removeAfter']) {
+      if (n[k] && !KNOWN_FLAGS.has(n[k])) {
+        err(`[${map.id}/${n.id}] ${k} names unknown flag "${n[k]}"`);
+      }
+    }
     checkDialogue(`[${map.id}/${n.id}] dialogue`, n.dialogue);
     checkDialogue(`[${map.id}/${n.id}] after`, n.after);
     if (n.dialogueAfter) checkDialogue(`[${map.id}/${n.id}] dialogueAfter`, n.dialogueAfter.lines);

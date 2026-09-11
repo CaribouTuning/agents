@@ -34,7 +34,11 @@ function baseState(name = 'Matthew') {
  * in co-op — and half of Twinleaf has a line for exactly that situation.
  */
 function matthewWithBandit(st) {
-  st.flags.hasBandit = true;
+  // `hasBandit` means she is in THIS save's party, which for Matthew she
+  // never is. `banditWithUs` is the one that means she is with the two of
+  // you — set when Sammy comes off the step with him.
+  st.flags.banditWithUs = true;
+  st.flags.buddyJoined = true;
   st.flags.pairRegistered = true;
   return st;
 }
@@ -45,6 +49,7 @@ function withBandit(st) {
   st.player.look = 'sammy';
   st.player.name = 'Sammy';
   st.flags.hasBandit = true;
+  st.flags.banditWithUs = true;
   // The pair register is a linked-only thing, and the sweep runs each stage
   // both alone and linked, so this stage carries it.
   st.flags.pairRegistered = true;

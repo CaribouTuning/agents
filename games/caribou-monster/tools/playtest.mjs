@@ -291,8 +291,11 @@ await wait(600);
 const wrote = await page.evaluate(() => window.CARIBOU.save.lastError);
 check(!wrote, 'a save completes without error', String(wrote));
 
+// One slot per character, so read the one this run belongs to rather than
+// the single slot the first builds used.
 const stored = await page.evaluate(() => {
-  const raw = localStorage.getItem('caribou:save1');
+  const look = (window.CARIBOU.state.player.look || '').toLowerCase();
+  const raw = localStorage.getItem(`caribou:save-${look}`);
   return raw ? JSON.parse(raw).meta : null;
 });
 check(!!stored, 'and something is actually on disk', JSON.stringify(stored));
@@ -314,7 +317,7 @@ const onTitle = await page.evaluate(() => {
     save: t.saveMeta || null,
   };
 });
-check(onTitle.options.includes('continue'),
+check(onTitle.options.some((k) => k.startsWith('continue')),
   'after a reload the title offers CONTINUE', JSON.stringify(onTitle.options));
 check(onTitle.save && onTitle.save.name === 'Matthew',
   'and it is the game we were playing', JSON.stringify(onTitle.save));

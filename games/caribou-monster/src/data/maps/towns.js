@@ -63,12 +63,11 @@ export const TWINLEAF = defineMap('twinleaf', {
     {
       id: 'tw_bandit', x: 16, y: 13, species: 228, name: 'Bandit',
       movement: 'lookAround', facing: 'up',
+      // Once she has joined the party she is walking behind somebody, not
+      // sitting on the step. Rowan announcing she has joined while she is
+      // visibly still outside is the kind of thing that breaks a world.
+      goneWhen: 'banditWithUs',
       dialogue: [
-        {
-          when: { all: [{ flag: 'hasBandit' }, { playing: 'matthew' }] },
-          lines: ['Bandit: *She is already at the gate, looking back at you.*',
-            '*Then back at Sammy’s door, to check. Then at you again.*'],
-        },
         {
           when: { playing: 'sammy' },
           lines: ['Bandit: *She hits you at knee height before you have finished\nshutting the door.*',

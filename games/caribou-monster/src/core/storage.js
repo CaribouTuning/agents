@@ -310,17 +310,29 @@ export const storage = {
    * the page is killed in the next millisecond something survives; the
    * durable providers follow.
    */
+  /**
+   * Writes everywhere, and says truthfully where it got to.
+   *
+   * The previous version returned "true" if ANY provider took the write —
+   * and localStorage almost always does. So the game cheerfully reported
+   * "saved the game" while the only copy was in a store the artifact viewer
+   * wipes on close. The save was not lying about having written something;
+   * it was lying about it mattering. `durable` is the answer that matters.
+   */
   async write(slot, value) {
-    let any = false;
-    try { localStorage.setItem(PREFIX + slot, JSON.stringify(value)); any = true; } catch { /* full or blocked */ }
+    let local = false;
+    let durable = false;
+    let error = null;
+    try { localStorage.setItem(PREFIX + slot, JSON.stringify(value)); local = true; } catch { /* full or blocked */ }
     await storageReady();
     for (const p of PROVIDERS) {
       if (!p.handle || p === localProvider) continue;
-      try { any = (await p.write(slot, value)) || any; } catch (err) {
+      try { durable = (await p.write(slot, value)) || durable; } catch (err) {
+        error = String((err && err.code) || (err && err.message) || err);
         console.warn(`[storage] ${p.name} write failed`, err);
       }
     }
-    return any;
+    return { ok: local || durable, local, durable, error };
   },
 
   async remove(slot) {

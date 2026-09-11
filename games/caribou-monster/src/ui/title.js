@@ -17,13 +17,18 @@ import { PLAYERS } from '../game/players.js';
 const DIALGA = 483;
 import { MUSIC } from '../data/music.js';
 import { formatPlayTime } from '../game/state.js';
+import { importFromFile } from '../save/backup.js';
+import { slotForLook } from '../save/SaveManager.js';
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
 export class TitleScreen extends Screen {
-  constructor(game, saveMeta) {
+  constructor(game, saves) {
     super(game);
-    this.saveMeta = saveMeta;
+    // `saves` is one entry per character who has a game here — the store is
+    // shared by the two of them, so there can be two, and the title has to
+    // offer both rather than assuming there is one.
+    this.saves = Array.isArray(saves) ? saves : (saves ? [{ slot: null, meta: saves }] : []);
     this.index = 0;
     this.t = 0;
     this.starT = Array.from({ length: 26 }, () => ({
@@ -40,6 +45,9 @@ export class TitleScreen extends Screen {
   /** A one-line note about where saves are going. Visible, so a failure is. */
   _storageNote() {
     const g = this.game;
+    // A restore in progress, or its result, outranks the storage note: it is
+    // the thing the player just did and the thing they are waiting on.
+    if (this.note) return this.note;
     if (g.saveProviders === undefined) return 'checking for a saved game...';
     const d = g.save.backend.diagnose ? g.save.backend.diagnose() : null;
     if (!d) return g.saveIsDurable ? 'saving to this account' : 'saving to this device only';
@@ -53,18 +61,39 @@ export class TitleScreen extends Screen {
     }
   }
 
-  setSave(meta) {
+  setSave(saves) {
     const wasOn = this.options[this.index] && this.options[this.index].key;
-    this.saveMeta = meta || null;
+    this.saves = Array.isArray(saves) ? saves : (saves ? [{ slot: null, meta: saves }] : []);
     const again = this.options.findIndex((o) => o.key === wasOn);
     this.index = again >= 0 ? again : 0;
   }
 
+  /** The save the cursor is currently pointing at, for the info panel. */
+  get saveMeta() {
+    const o = this.options[this.index];
+    const pick = o && o.slot !== undefined ? this.saves.find((sv) => sv.slot === o.slot) : null;
+    return (pick && pick.meta) || (this.saves[0] && this.saves[0].meta) || null;
+  }
+
   get options() {
     const out = [];
-    if (this.saveMeta) out.push({ key: 'continue', text: 'CONTINUE' });
-    out.push({ key: 'new', text: this.saveMeta ? 'NEW GAME' : 'NEW GAME' });
+    // One row per game that exists. With two saves the rows are named, so
+    // nobody has to guess which CONTINUE is theirs.
+    const many = this.saves.length > 1;
+    for (const sv of this.saves) {
+      const who = (sv.meta && sv.meta.name) || 'TRAINER';
+      out.push({
+        key: `continue:${sv.slot}`,
+        slot: sv.slot,
+        text: many ? `CONTINUE ${String(who).toUpperCase()}` : 'CONTINUE',
+      });
+    }
+    out.push({ key: 'new', text: 'NEW GAME' });
     out.push({ key: 'options', text: 'OPTIONS' });
+    // The escape hatch. If the cloud save is refused, unavailable or simply
+    // broken on this device, a backup file still brings a playthrough back —
+    // and it needs no capability at all to read one.
+    out.push({ key: 'restore', text: 'LOAD BACKUP' });
     // Always here, on the first screen, with no prerequisite. Test mode that
     // can only be switched on from inside a running game is useless to
     // somebody who cannot get a running game to persist.
@@ -94,14 +123,17 @@ export class TitleScreen extends Screen {
 
   _pick(key) {
     const g = this.game;
-    if (key === 'continue') {
-      g.screens.fade(FADE.BLACK, () => g.continueGame());
+    if (key.startsWith('continue')) {
+      const slot = key.slice('continue:'.length);
+      g.screens.fade(FADE.BLACK, () => g.continueGame(slot === 'null' ? null : slot));
     } else if (key === 'new') {
-      if (this.saveMeta) {
-        g.screens.push(new ConfirmNewGameScreen(g));
-      } else {
-        g.screens.push(new CharacterScreen(g));
-      }
+      // No blanket "this overwrites your save" any more: the two of them have
+      // a slot each, so starting a new game as Sammy cannot touch Matthew's.
+      // The warning now comes at the moment a character who already has a
+      // game is picked, and names them.
+      g.screens.push(new CharacterScreen(g, this.saves));
+    } else if (key === 'restore') {
+      this._restore();
     } else if (key === 'test') {
       // Straight into a playable game with test mode already on, so the
       // console is one tap away instead of a playthrough away.
@@ -116,6 +148,23 @@ export class TitleScreen extends Screen {
     } else {
       g.screens.push(new TitleOptionsScreen(g));
     }
+  }
+
+  /**
+   * Reads a backup file and makes it the live save, then walks straight into
+   * it. Nothing is overwritten until the file has parsed and been recognised,
+   * so picking the wrong file costs a sentence, not a playthrough.
+   */
+  async _restore() {
+    this.note = 'pick your backup file...';
+    const got = await importFromFile();
+    if (!got.ok) { this.note = got.text; audio.sfx('deny'); return; }
+    this.note = 'restoring...';
+    const res = await this.game.save.restore(got.raw);
+    if (!res.ok) { this.note = `restore failed: ${String(res.error || '?').slice(0, 24)}`; audio.sfx('deny'); return; }
+    audio.sfx('save');
+    this.note = null;
+    this.game.screens.fade(FADE.BLACK, () => this.game.continueGame(res.slot));
   }
 
   _menuBox() {
@@ -181,11 +230,12 @@ export class TitleScreen extends Screen {
     // Where saves are going, said out loud. A storage problem should be
     // visible on the first screen, not discovered a day later.
     labelDim(ctx, this._storageNote(), 9, H - 45);
-    if (this.saveMeta) {
+    const meta = this.saveMeta;
+    if (meta) {
       window9(ctx, 4, H - 40, 96, 36);
-      labelDim(ctx, this.saveMeta.name || 'Trainer', 9, H - 36);
-      labelDim(ctx, `Badges ${this.saveMeta.badges}`, 9, H - 27);
-      labelDim(ctx, `Time ${formatPlayTime(this.saveMeta.playTimeMs || 0)}`, 9, H - 18);
+      labelDim(ctx, meta.name || 'Trainer', 9, H - 36);
+      labelDim(ctx, `Badges ${meta.badges}`, 9, H - 27);
+      labelDim(ctx, `Time ${formatPlayTime(meta.playTimeMs || 0)}`, 9, H - 18);
     }
     drawTextCentered(ctx, 'A private fan project for two.', cx, H - 12, { color: '#5a6a94' });
   }
@@ -193,22 +243,35 @@ export class TitleScreen extends Screen {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * "You already have a game as this one." Asked once, about one character,
+ * with their name in it — and it calls back rather than deciding, so the
+ * character screen keeps its place either way.
+ */
 export class ConfirmNewGameScreen extends Screen {
-  constructor(game) { super(game); this.seeThrough = true; this.index = 1; }
+  constructor(game, who, onYes) {
+    super(game);
+    this.seeThrough = true;
+    this.index = 1;
+    this.who = who || 'this trainer';
+    this.onYes = onYes || (() => {});
+  }
+
+  _yes() { this.game.screens.pop(); this.onYes(); }
 
   update(dt, isTop) {
     if (!isTop) return;
     if (input.repeated('up') || input.repeated('down')) { this.index = 1 - this.index; audio.sfx('cursor'); }
     if (input.pressed('a')) {
       audio.sfx('select');
-      if (this.index === 0) { this.game.screens.pop(); this.game.screens.push(new CharacterScreen(this.game)); }
+      if (this.index === 0) this._yes();
       else this.game.screens.pop();
     }
     if (input.pressed('b')) { audio.sfx('back'); this.game.screens.pop(); }
     const tap = input.consumeTap();
     if (tap) {
       const { width: W, height: H } = this.game.display;
-      if (hit(tap, W / 2 - 60, H / 2 + 4, 50, 12)) { this.game.screens.pop(); this.game.screens.push(new CharacterScreen(this.game)); }
+      if (hit(tap, W / 2 - 60, H / 2 + 4, 50, 12)) this._yes();
       else if (hit(tap, W / 2 + 10, H / 2 + 4, 50, 12)) this.game.screens.pop();
     }
   }
@@ -217,8 +280,8 @@ export class ConfirmNewGameScreen extends Screen {
     const { width: W, height: H } = this.game.display;
     shadeScreen(ctx, W, H, 0.6);
     window9(ctx, W / 2 - 90, H / 2 - 26, 180, 52);
-    drawTextCentered(ctx, 'Starting a new game will', W / 2, H / 2 - 20);
-    drawTextCentered(ctx, 'overwrite your save.', W / 2, H / 2 - 10, { color: PAL.uiDanger });
+    drawTextCentered(ctx, `${this.who} already has a game here.`, W / 2, H / 2 - 20);
+    drawTextCentered(ctx, 'Starting over will erase it.', W / 2, H / 2 - 10, { color: PAL.uiDanger });
     ['OVERWRITE', 'CANCEL'].forEach((s, i) => {
       const x = i === 0 ? W / 2 - 60 : W / 2 + 10;
       rect(ctx, x, H / 2 + 4, 50, 12, i === this.index ? PAL.uiSelect : PAL.uiBgAlt);
@@ -285,8 +348,10 @@ export class TitleOptionsScreen extends Screen {
 const ROWS = KEY_ROWS;
 
 export class CharacterScreen extends Screen {
-  constructor(game) {
+  constructor(game, saves = []) {
     super(game);
+    this.saves = saves || [];
+    this.warned = {};
     this.step = 0;         // 0 look, 1 name, 2 difficulty, 3 confirm
     this.look = PLAYERS[0].look;
     this.name = '';
@@ -337,8 +402,18 @@ export class CharacterScreen extends Screen {
   }
 
   _confirmLook() {
-    this.look = this.looks[this.lookIndex].key;
-    this.name = this.looks[this.lookIndex].defaultName;
+    const pick = this.looks[this.lookIndex];
+    const existing = this.saves.find((sv) => sv.slot === slotForLook(pick.key));
+    if (existing && !this.warned[pick.key]) {
+      const who = (existing.meta && existing.meta.name) || pick.defaultName;
+      this.game.screens.push(new ConfirmNewGameScreen(this.game, who, () => {
+        this.warned[pick.key] = true;
+        this._confirmLook();
+      }));
+      return;
+    }
+    this.look = pick.key;
+    this.name = pick.defaultName;
     this.step = 1;
   }
 

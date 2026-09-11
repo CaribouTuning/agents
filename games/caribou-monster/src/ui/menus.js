@@ -27,6 +27,7 @@ import { abilityDescription } from '../game/battle/abilities.js';
 import { friendshipLabel } from '../game/friendship.js';
 import { net } from '../net/NetworkManager.js';
 import { drawControls, drawBackChip } from './controls.js';
+import { exportToFile } from '../save/backup.js';
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
@@ -856,6 +857,15 @@ export class OptionsScreen extends Screen {
 
 // ===========================================================================
 
+// SAVE writes to storage; BACK UP writes a file the player owns. Both are
+// here because on this platform the first one can fail in ways the game
+// cannot fix, and the second one cannot.
+const CHOICES = [
+  { key: 'save', text: 'SAVE' },
+  { key: 'backup', text: 'BACK UP' },
+  { key: 'no', text: 'CANCEL' },
+];
+
 export class SaveScreen extends Screen {
   constructor(game) {
     super(game);
@@ -868,21 +878,47 @@ export class SaveScreen extends Screen {
     if (!isTop) return;
     this.t += dt;
     if (this.state === 'confirm') {
-      if (input.repeated('up') || input.repeated('down')) { this.index = 1 - this.index; audio.sfx('cursor'); }
+      const n = CHOICES.length;
+      if (input.repeated('up')) { this.index = (this.index - 1 + n) % n; audio.sfx('cursor'); }
+      if (input.repeated('down')) { this.index = (this.index + 1) % n; audio.sfx('cursor'); }
       const tap = input.consumeTap();
       const W = this.game.display.width;
       if (tap) {
-        if (hit(tap, W - 62, 60, 56, 12)) { this.index = 0; this._doSave(); return; }
-        if (hit(tap, W - 62, 72, 56, 12)) { this.game.screens.pop(); return; }
+        for (let i = 0; i < n; i++) {
+          if (hit(tap, W - 66, 54 + i * 12, 60, 12)) { this.index = i; this._choose(i); return; }
+        }
       }
-      if (input.pressed('a')) { audio.sfx('select'); if (this.index === 0) this._doSave(); else this.game.screens.pop(); }
+      if (input.pressed('a')) { audio.sfx('select'); this._choose(this.index); }
       if (input.pressed('b')) { audio.sfx('back'); this.game.screens.pop(); }
     } else if (this.state === 'done' && this.t > 0.8) {
       if (input.pressed('a') || input.pressed('b') || input.consumeTap()) { this.game.screens.pop(); }
     }
   }
 
+  _choose(i) {
+    if (CHOICES[i].key === 'save') this._doSave();
+    else if (CHOICES[i].key === 'backup') this._doBackup();
+    else this.game.screens.pop();
+  }
+
+  /**
+   * A copy of the game as a file the player keeps. Offered right next to
+   * SAVE, because the moment somebody is thinking about whether their game
+   * is safe is the moment to let them make it safe.
+   */
+  async _doBackup() {
+    this.state = 'saving';
+    this.t = 0;
+    const res = await exportToFile(this.game.state);
+    audio.sfx(res.ok ? 'save' : 'deny');
+    this.ok = res.ok;
+    this.note = res.text;
+    this.state = 'done';
+    this.t = 0;
+  }
+
   async _doSave() {
+    this.note = null;
     this.state = 'saving';
     this.t = 0;
     const ok = await this.game.save.save(this.game.state);
@@ -905,20 +941,41 @@ export class SaveScreen extends Screen {
     drawTextRight(ctx, this.game.currentMapName(), 130, 54, { color: PAL.uiText });
 
     if (this.state === 'confirm') {
-      window9(ctx, W - 66, 54, 60, 34);
-      label(ctx, 'Save?', W - 60, 46);
-      ['YES', 'NO'].forEach((s, i) => {
-        const y = 60 + i * 12;
+      window9(ctx, W - 66, 48, 60, 12 * CHOICES.length + 10);
+      label(ctx, 'Save?', W - 60, 40);
+      CHOICES.forEach((c, i) => {
+        const y = 54 + i * 12;
         if (i === this.index) cursor(ctx, W - 62, y);
-        label(ctx, s, W - 54, y);
+        label(ctx, c.text, W - 54, y);
       });
     } else if (this.state === 'saving') {
       window9(ctx, 6, H - 32, W - 12, 28);
       label(ctx, 'Saving...', 14, H - 24);
     } else {
-      window9(ctx, 6, H - 32, W - 12, 28);
-      label(ctx, this.ok ? `${st.player.name} saved the game.` : 'Saving failed — storage is unavailable.',
-        14, H - 24, { color: this.ok ? PAL.uiText : PAL.uiDanger });
+      // Where the save actually went, said here, because this is the screen
+      // the player is looking at when they decide it worked. A save that only
+      // reached this device is not a save if the app wipes the device store
+      // on close, and saying "saved the game" to that is how a whole
+      // playthrough gets lost.
+      const sm = this.game.save;
+      const durable = !!sm.lastDurable;
+      window9(ctx, 6, H - 42, W - 12, 38);
+      if (this.note) {
+        label(ctx, this.note.slice(0, 34), 14, H - 34, { color: this.ok ? PAL.uiText : PAL.uiDanger });
+        labelDim(ctx, 'A backup file always loads back.', 14, H - 24);
+      } else if (!this.ok) {
+        label(ctx, 'Saving failed.', 14, H - 34, { color: PAL.uiDanger });
+        label(ctx, String(sm.lastError || 'storage is unavailable').slice(0, 34), 14, H - 24,
+          { color: PAL.uiDanger });
+      } else if (durable) {
+        label(ctx, `${st.player.name} saved the game.`, 14, H - 34);
+        label(ctx, 'Kept to your account — safe to close.', 14, H - 24, { color: PAL.uiTextDim });
+      } else {
+        label(ctx, `${st.player.name} saved — TO THIS DEVICE ONLY.`, 14, H - 34,
+          { color: PAL.uiDanger });
+        label(ctx, String(sm.lastError || 'closing the app may lose it').slice(0, 34), 14, H - 24,
+          { color: PAL.uiDanger });
+      }
     }
     // A thumb needs something to aim at: on a phone there is no B key.
     drawBackChip(ctx, W - 52, 2);
