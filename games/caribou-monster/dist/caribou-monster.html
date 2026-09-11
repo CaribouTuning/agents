@@ -29886,13 +29886,26 @@ class OverworldScreen extends Screen {
       sfx: (n) => audio.sfx(n),
 
       // Walks an entity `n` tiles and resolves when it stops.
+      //
+      // The wait is on wall-clock time but `moving` only changes when the
+      // world ticks, so anything that stops the world mid-step would leave
+      // this spinning and the script waiting on it forever. Every step is
+      // given a deadline for that reason: a walk that does not finish gives
+      // up and lets the scene carry on, because a scene that ends in the
+      // wrong place is recoverable and one that never ends is not.
       walk: (entity, dir, n) => new Promise((resolve) => {
         let left = n;
         const step = () => {
           if (left <= 0 || !screen.world.startMove(entity, dir)) { resolve(); return; }
           left--;
+          const started = performance.now();
           const check = setInterval(() => {
-            if (!entity.moving) { clearInterval(check); step(); }
+            if (!entity.moving) { clearInterval(check); step(); return; }
+            if (performance.now() - started > 4000) {
+              clearInterval(check);
+              entity.moving = false;
+              resolve();
+            }
           }, 16);
         };
         step();
@@ -29912,8 +29925,14 @@ class OverworldScreen extends Screen {
           }
           if (!screen.world.startMove(npc, npc.dir)) { resolve(); return; }
           steps--;
+          const started = performance.now();
           const check = setInterval(() => {
-            if (!npc.moving) { clearInterval(check); step(); }
+            if (!npc.moving) { clearInterval(check); step(); return; }
+            if (performance.now() - started > 4000) {
+              clearInterval(check);
+              npc.moving = false;
+              resolve();
+            }
           }, 16);
         };
         void dx; void dy;
@@ -40254,6 +40273,7 @@ const { addItem } = __req('game/inventory.js');
 const { randomSeed } = __req('core/rng.js');
 const { saveManager, saveReady, durableSaveReady } = __req('save/SaveManager.js');
 const { net } = __req('net/NetworkManager.js');
+const { fillText } = __req('game/overworld/gossip.js');
 const { RoomManager, TRADE_STATE, PVP_STATE } = __req('net/RoomManager.js');
 const { MUSIC } = __req('data/music.js');
 const { Career } = __req('game/circuit/career.js');
@@ -40265,6 +40285,7 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
 
 
 
@@ -40834,6 +40855,10 @@ function start() {
   // A party put back on its feet, using the game's own healing rather than a
   // number poked into `hp` — max HP is computed from the stats, so there is
   // no `maxHp` field to copy and a harness that invents one heals nobody.
+  // What a piece of authored text actually reads as on screen, slots and
+  // all. The play-test needs it because a sign's stored text still says
+  // "{leagueBadges}" — the filling happens on the way to the box.
+  game.fillForTest = (t) => fillText(String(t), game.state, net.snapshot());
   game.healPartyForTest = () => { for (const m of game.state.party) healFully(m); };
   game.bestMoveForTest = (screen) => {
     // The monster that is actually out, not the first one in the bag: the

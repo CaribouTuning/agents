@@ -527,13 +527,26 @@ export class OverworldScreen extends Screen {
       sfx: (n) => audio.sfx(n),
 
       // Walks an entity `n` tiles and resolves when it stops.
+      //
+      // The wait is on wall-clock time but `moving` only changes when the
+      // world ticks, so anything that stops the world mid-step would leave
+      // this spinning and the script waiting on it forever. Every step is
+      // given a deadline for that reason: a walk that does not finish gives
+      // up and lets the scene carry on, because a scene that ends in the
+      // wrong place is recoverable and one that never ends is not.
       walk: (entity, dir, n) => new Promise((resolve) => {
         let left = n;
         const step = () => {
           if (left <= 0 || !screen.world.startMove(entity, dir)) { resolve(); return; }
           left--;
+          const started = performance.now();
           const check = setInterval(() => {
-            if (!entity.moving) { clearInterval(check); step(); }
+            if (!entity.moving) { clearInterval(check); step(); return; }
+            if (performance.now() - started > 4000) {
+              clearInterval(check);
+              entity.moving = false;
+              resolve();
+            }
           }, 16);
         };
         step();
@@ -553,8 +566,14 @@ export class OverworldScreen extends Screen {
           }
           if (!screen.world.startMove(npc, npc.dir)) { resolve(); return; }
           steps--;
+          const started = performance.now();
           const check = setInterval(() => {
-            if (!npc.moving) { clearInterval(check); step(); }
+            if (!npc.moving) { clearInterval(check); step(); return; }
+            if (performance.now() - started > 4000) {
+              clearInterval(check);
+              npc.moving = false;
+              resolve();
+            }
           }, 16);
         };
         void dx; void dy;

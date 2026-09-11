@@ -48,6 +48,7 @@ import { addItem } from './game/inventory.js';
 import { randomSeed } from './core/rng.js';
 import { saveManager, saveReady, durableSaveReady } from './save/SaveManager.js';
 import { net } from './net/NetworkManager.js';
+import { fillText } from './game/overworld/gossip.js';
 import { RoomManager, TRADE_STATE, PVP_STATE } from './net/RoomManager.js';
 import { MUSIC } from './data/music.js';
 import { Career } from './game/circuit/career.js';
@@ -572,6 +573,10 @@ function start() {
   // A party put back on its feet, using the game's own healing rather than a
   // number poked into `hp` — max HP is computed from the stats, so there is
   // no `maxHp` field to copy and a harness that invents one heals nobody.
+  // What a piece of authored text actually reads as on screen, slots and
+  // all. The play-test needs it because a sign's stored text still says
+  // "{leagueBadges}" — the filling happens on the way to the box.
+  game.fillForTest = (t) => fillText(String(t), game.state, net.snapshot());
   game.healPartyForTest = () => { for (const m of game.state.party) healFully(m); };
   game.bestMoveForTest = (screen) => {
     // The monster that is actually out, not the first one in the bag: the

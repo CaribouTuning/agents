@@ -484,11 +484,18 @@ async function talkToEveryone(limit = 14) {
   }
 }
 
-/** Reads every sign on the map. */
+/**
+ * Reads every sign on the map, as the player reads it.
+ *
+ * A sign's stored text still has its slots in it — the filling happens on
+ * the way to the text box — so checking the raw string reports a board that
+ * reads perfectly well in game as broken.
+ */
 async function readEverySign() {
   const signs = await page.evaluate(() => {
-    const m = window.CARIBOU.overworld.world.map;
-    return (m.signs || []).map((s) => s.text);
+    const g = window.CARIBOU;
+    const m = g.overworld.world.map;
+    return (m.signs || []).map((s) => (g.fillForTest ? g.fillForTest(s.text) : s.text));
   });
   for (const t of signs) await inspect(t);
 }
@@ -588,8 +595,7 @@ for (const gym of GYMS) {
   const got = await goThrough(gym.map);
   if (!got) { found('GYM UNREACHABLE', `${gym.leader}'s Gym has no door from ${gym.city}`); continue; }
   const before = (await at()).badges;
-  await runScene('gymLeaderForTest:' + gym.trainer).catch(() => {});
-  // Fight the leader for real: find them and talk.
+  // Fight the leader for real: walk up to them and talk, like anybody would.
   await talkToEveryone(10);
   const after = (await at()).badges;
   if (after <= before) {
