@@ -1847,10 +1847,16 @@ SCRIPTS.buddyWaiting = async (ctx) => {
   // The other one has been waiting on this step for an hour. They are here
   // when the door opens, because that is the entire point of the scene.
   ctx.companionJoin({ look: them.look, name: them.name, key: them.key });
-  // And so is the dog, whichever of the two is holding the phone: she is
-  // Sammy's, so she is either in your party or walking at Sammy's heel.
-  if (iAmSammy) ctx.petLeave();
-  else ctx.petJoin({ species: BANDIT.species, name: BANDIT.nickname });
+  // And so is the dog, whichever of the two is holding the phone.
+  //
+  // She used to be dismissed outright when Sammy was the player, on the
+  // reasoning that she would be in Sammy's party and the Pokemon follower
+  // would draw her. She is not in anybody's party on that doorstep — the
+  // starter is still an hour away — so Sammy got three paragraphs about a dog
+  // hitting her at knee height and sitting on her foot, with no dog anywhere
+  // on the screen. She joins for both of them now, and the walking body hides
+  // itself if the party follower ever ends up drawing her instead.
+  ctx.petJoin({ species: BANDIT.species, name: BANDIT.nickname });
   await ctx.wait(0.45);
 
   // The two beats, in the order the person playing would experience them.

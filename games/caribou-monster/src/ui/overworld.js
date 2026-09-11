@@ -585,11 +585,24 @@ export class OverworldScreen extends Screen {
       spawnNpc: (cfg) => {
         const e = screen.world.entities.find((x) => x.id === cfg.id);
         if (e) return e;
-        const ent = screen.world.entities[0];
+        const w = screen.world;
         const made = { ...cfg, kind: 'npc', movement: 'still' };
-        const entity = screen.world.entities.push(makeNpc(made)) && screen.world.entities[screen.world.entities.length - 1];
-        void ent;
-        return entity;
+        // Nobody arrives standing inside the player. A scene that spawns
+        // somebody on the player's own tile reads as a voice from nowhere:
+        // they are drawn underneath and do not become visible until the scene
+        // ends and the player takes a step. Step them off to the nearest free
+        // tile instead, so whoever is talking is somebody you can see.
+        if (made.x === w.player.x && made.y === w.player.y) {
+          for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+            const nx = made.x + dx, ny = made.y + dy;
+            if (nx < 0 || ny < 0 || nx >= w.map.width || ny >= w.map.height) continue;
+            if (w.defAt(nx, ny).solid || w.entityAt(nx, ny)) continue;
+            made.x = nx; made.y = ny;
+            break;
+          }
+        }
+        w.entities.push(makeNpc(made));
+        return w.entities[w.entities.length - 1];
       },
 
       despawn: (entity) => screen.world.removeEntity(entity.id),

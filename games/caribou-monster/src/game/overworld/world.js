@@ -295,6 +295,54 @@ export class World {
    * around while the person it stands in for is also on screen is the one
    * thing that would make co-op feel worse rather than better.
    */
+  /**
+   * Puts a walking body next to the player rather than on top of them.
+   *
+   * Everyone who joins you used to be folded onto the player's own tile so
+   * they would not slide in from whatever corner the last map left them in.
+   * The side effect was that they were invisible for the whole scene they had
+   * turned up for: the player stood on the doorstep reading a conversation
+   * with somebody who was standing exactly where the player was, and only saw
+   * them once the scene ended and they took a step.
+   *
+   * So they go one tile BEHIND the player — where a follower belongs, and
+   * where they will be a moment later anyway — and failing that, any free
+   * tile beside them. Only if the player is boxed in do they end up folded in
+   * as before, which at least keeps them from standing inside a wall.
+   */
+  /** Whichever of the companion, the dog or the partner is standing here. */
+  _bodyAt(x, y, except = null) {
+    for (const b of [this.companion, this.pet, this.follower]) {
+      if (!b || b === except || !b.visible) continue;
+      if (b.x === x && b.y === y) return b;
+    }
+    return null;
+  }
+
+  _placeBeside(body) {
+    const p = this.player;
+    const BEHIND = { up: [0, 1], down: [0, -1], left: [1, 0], right: [-1, 0] };
+    const back = BEHIND[p.dir] || [0, 1];
+    const tries = [back, [0, 1], [0, -1], [-1, 0], [1, 0]];
+    let x = p.x, y = p.y;
+    for (const [dx, dy] of tries) {
+      const nx = p.x + dx, ny = p.y + dy;
+      if (nx < 0 || ny < 0 || nx >= this.map.width || ny >= this.map.height) continue;
+      if (this.defAt(nx, ny).solid) continue;
+      if (this.entityAt(nx, ny, body)) continue;
+      // The other walking bodies do not block anybody — they are deliberately
+      // not solid, so you never get shut in by your own dog — but two of them
+      // on one tile is still one sprite hiding another.
+      if (this._bodyAt(nx, ny, body)) continue;
+      x = nx; y = ny; break;
+    }
+    body.x = x; body.y = y;
+    body.fromX = x; body.fromY = y;
+    body.dir = p.dir;
+    body.moving = false;
+    body.trail = [];
+  }
+
   refreshCompanion() {
     const c = this.companion;
     if (!c) return;
@@ -303,28 +351,24 @@ export class World {
     c.look = slot ? slot.look : null;
     c.name = slot ? slot.name : null;
     if (!c.visible) { c.trail = []; return; }
-    // Folded into the player to begin with, so it does not slide in from
-    // whatever corner the last map left it in.
-    c.x = this.player.x; c.y = this.player.y;
-    c.fromX = c.x; c.fromY = c.y;
-    c.dir = this.player.dir;
-    c.moving = false;
-    c.trail = [];
+    this._placeBeside(c);
   }
 
   refreshPet() {
     const c = this.pet;
     if (!c) return;
     const slot = this.state.pet;
-    c.visible = !!(slot && slot.active && slot.species) && !this.linkedNow();
+    // Bandit walks with whoever is holding the phone, because she is Sammy's
+    // dog and Sammy is either the player or the person beside them. The one
+    // case she must NOT be drawn is when she is already the lead Pokemon and
+    // the party follower is drawing her — two Bandits is worse than none.
+    const alreadyDrawn = !!(slot && this.follower && this.follower.visible
+      && this.follower.mon && this.follower.mon.species === slot.species);
+    c.visible = !!(slot && slot.active && slot.species) && !this.linkedNow() && !alreadyDrawn;
     c.species = slot ? slot.species : null;
     c.name = slot ? slot.name : null;
     if (!c.visible) { c.trail = []; return; }
-    c.x = this.player.x; c.y = this.player.y;
-    c.fromX = c.x; c.fromY = c.y;
-    c.dir = this.player.dir;
-    c.moving = false;
-    c.trail = [];
+    this._placeBeside(c);
   }
 
   /** An animal starts walking with you. `who` is {species, name}. */
@@ -364,12 +408,7 @@ export class World {
     f.mon = lead;
     f.visible = !!lead && this.map && this.map.kind !== 'indoor';
     if (!f.visible) return;
-    // Start folded into the player so it does not slide in from the corner.
-    f.x = this.player.x; f.y = this.player.y;
-    f.fromX = f.x; f.fromY = f.y;
-    f.dir = this.player.dir;
-    f.moving = false;
-    f.trail = [];
+    this._placeBeside(f);
   }
 
   /**
