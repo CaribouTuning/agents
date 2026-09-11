@@ -112,6 +112,19 @@ function afterCelestic(st) {
   return st;
 }
 
+/** The library read, and Looker's picture assembled. */
+function afterCanalave(st) {
+  st.badges = [1, 2, 3, 4, 5, 6];
+  st.flags.badge5 = true;
+  st.flags.badge6 = true;
+  st.flags.beat_gym6_leader = true;
+  st.flags.readVolume1 = true;
+  st.flags.readVolume2 = true;
+  st.flags.readVolume3 = true;
+  st.flags.canalaveTruth = true;
+  return st;
+}
+
 function insideGalactic(st) {
   st.flags.metLooker = true;
   st.flags.galacticHQ = true;
@@ -248,6 +261,7 @@ const STAGES = [
   ['saw Lake Valor go', () => afterLakeValor(withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState())))))))],
   // The highlands: the fog road opening, and the shrine after it.
   ['past the Psyduck', () => pastThePsyduck(afterLakeValor(withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))))))],
+  ['read the library', () => afterCanalave(afterCelestic(afterLakeValor(withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState())))))))))],
   ['read the mural', () => afterCelestic(afterLakeValor(withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))))))],
 ];
 

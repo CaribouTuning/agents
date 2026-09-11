@@ -751,6 +751,7 @@ export class BattleScreen extends Screen {
       const dest = receiveMonster(st, mon);
       st.stats.caught++;
       const newEntry = recordCaught(st.dex, mon.species);
+      if (this.game.save) this.game.save.touch(st);
       if (newEntry) this.queue.push({ t: 'text', s: `${displayName(mon)}'s data was added to the Pokédex.` });
       if (dest && dest.where === 'box') {
         this.queue.push({ t: 'text', s: `Your party is full, so ${displayName(mon)}\nwas sent to ${dest.boxName}.` });

@@ -380,6 +380,61 @@ add('lv_mars', {
     mon(429, 36, ['confuseray', 'psybeam', 'shadowball'])],
 });
 
+// ---- the west coast: the channel, the port, and the island ----------------
+add('r218_sailor', {
+  name: 'Sailor Grant', cls: 'Sailor', look: 'sailor', ai: 3, prize: 1280,
+  intro: 'Nobody walks this road. You swim it or you know somebody with a boat.',
+  defeat: 'You know somebody with a boat, then.',
+  team: [mon(224, 32, ['constrict', 'bubblebeam', 'screech']), mon(130, 33, ['bite', 'dragonrage', 'twister'])],
+});
+add('r218_fisher', {
+  name: 'Fisherman Odd', cls: 'Fisherman', look: 'youngster', ai: 3, prize: 1160,
+  intro: 'Been out here since four. Caught two boots and a Magikarp.',
+  defeat: 'Three boots.',
+  team: [mon(129, 30, ['splash', 'tackle', 'flail']), mon(118, 32, ['watergun', 'supersonic', 'aurorabeam']),
+    mon(119, 33, ['watergun', 'agility', 'aurorabeam'])],
+});
+add('gym6_a', {
+  name: 'Worker Tull', cls: 'Worker', look: 'worker', ai: 3, prize: 1440,
+  intro: 'Bottom gallery. You do not get to the top without coming through here.',
+  defeat: 'Right. Up you go.',
+  team: [mon(436, 34, ['confusion', 'gyroball', 'hypnosis']), mon(95, 35, ['irontail', 'screech', 'rocktomb'])],
+});
+add('gym6_b', {
+  name: 'Worker Fenn', cls: 'Worker', look: 'worker', ai: 4, prize: 1520,
+  intro: 'Byron built these lifts himself. Badly. Mind the step.',
+  defeat: 'He will hear you beat me before you reach him. Sound carries in here.',
+  team: [mon(437, 36, ['gyroball', 'confuseray', 'extrasensory']), mon(208, 36, ['irontail', 'rockslide', 'screech'])],
+});
+add('gym6_c', {
+  name: 'Miner Ord', cls: 'Hiker', look: 'hiker', ai: 4, prize: 1600,
+  intro: 'Last one before the old man. I have been last one for nine years.',
+  defeat: 'Nine years and one bad afternoon.',
+  team: [mon(95, 36, ['rockslide', 'bind', 'irontail']), mon(75, 37, ['rockslide', 'magnitude', 'rocktomb'])],
+});
+add('gym6_leader', {
+  name: 'Byron', cls: 'Leader', look: 'hiker', ai: 5, prize: 6200, badge: 6, badgeName: 'Mine Badge',
+  intro: 'You came up the plates. Good. Now come up against something that does not move.',
+  defeat: 'Hah! There it is. There is the thing I dig for.',
+  team: [
+    mon(437, 38, ['gyroball', 'confuseray', 'extrasensory', 'lightscreen']),
+    mon(208, 38, ['irontail', 'rockslide', 'screech', 'dig']),
+    mon(411, 41, ['irondefense', 'rockslide', 'bodyslam', 'curse']),
+  ],
+});
+add('ii_worker', {
+  name: 'Worker Sten', cls: 'Worker', look: 'worker', ai: 3, prize: 1400,
+  intro: 'Island is a working mine. Watch where you put your feet.',
+  defeat: 'And watch where you put your Pokémon, evidently.',
+  team: [mon(95, 35, ['rockslide', 'bind', 'screech']), mon(208, 35, ['irontail', 'screech', 'rocktomb'])],
+});
+add('ii_hiker', {
+  name: 'Hiker Bram', cls: 'Hiker', look: 'hiker', ai: 4, prize: 1480,
+  intro: 'Riley is down there somewhere talking to a wall. He does that.',
+  defeat: 'He is usually right, is the annoying part.',
+  team: [mon(75, 36, ['rockslide', 'magnitude', 'rocktomb']), mon(436, 36, ['gyroball', 'confusion', 'hypnosis'])],
+});
+
 // ---- the fog road and the highlands ---------------------------------------
 add('r10n_hiker', {
   name: 'Hiker Doran', cls: 'Hiker', look: 'hiker', ai: 3, prize: 1120,

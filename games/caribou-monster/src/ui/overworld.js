@@ -297,7 +297,10 @@ export class OverworldScreen extends Screen {
       lines = resolveDialogue(d.dialogueAfter.lines, this.game.state, e.talkCount - 1, link);
     }
     if (!lines || !lines.length) lines = ['...'];
-    const speaker = d.name || null;
+    // Names are authored text too: the partner's plate is written as
+    // "{buddy}" so it says Sammy to Matthew and Matthew to Sammy. Without
+    // filling it, the nameplate read "{buddy}" out loud.
+    const speaker = d.name ? fillText(d.name, this.game.state, link) : null;
     this.say(lines.join('\f'), { speaker });
   }
 
@@ -378,7 +381,7 @@ export class OverworldScreen extends Screen {
       this.playMusic();
       const st = this.game.state;
       // Arriving somewhere new is a natural autosave point.
-      if (this.game.save) { this.game.save.markDirty(); this.game.save.maybeAutosave(st, true); }
+      if (this.game.save) this.game.save.touch(st);
       const map = getMap(warp.to);
       if (map.kind === 'cave') setStoryFlag(st, 'enteredCave', true);
       if (warp.to === 'route202') setStoryFlag(st, 'enteredForest', true);
@@ -613,6 +616,7 @@ export class OverworldScreen extends Screen {
       healAnimation: () => new Promise((resolve) => {
         audio.sfx('heal');
         healParty(st);
+        if (screen.game.save) screen.game.save.touch(st);
         screen.healFlash = 1.1;
         screen.timers.push({ t: 1.2, resolve });
       }),

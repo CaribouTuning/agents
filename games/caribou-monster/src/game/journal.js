@@ -169,6 +169,29 @@ export const ENTRIES = [
     next: 'One lake left. Acuity, past the mountain, in the snow.',
   },
   {
+    id: 'canalaveTruth',
+    title: 'Nothing here is a door',
+    body: [
+      'Three volumes in the Canalave library. The first two are beautiful and\nsay almost nothing. The third is four lines and somebody added it later.',
+      '"They will come and read the first book and say: three keepers, three\nwaters, three keys. They are not keys. Nothing here is a door."',
+      'Looker put the rest together out loud. Oreburgh was a test of whether a\nmachine could touch the thing at all. It could.',
+      'So they stopped trying to take it and started taking what holds it down.\nValor. Verity. Acuity.',
+      'Cyrus thinks he is unlocking something. He is taking the weight off a lid.',
+      'The lakes were never where he was going. The mountain was.',
+    ],
+    next: 'Somebody has made this exact mistake before. There is a note about it.',
+  },
+  {
+    id: 'riley',
+    title: 'The island is honest',
+    body: [
+      'A man called Riley stands in a mine on Iron Island talking to the rock,\nand the rock apparently answers.',
+      'He gave me Strength. He said it does not make you strong — it means a\nheavy thing will move if you and it agree to move it.',
+      'He said people are not like rock, which is the whole trouble with them\nand the whole point of them.',
+    ],
+    next: 'North. The mountain.',
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [

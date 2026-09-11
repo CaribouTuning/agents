@@ -73,6 +73,10 @@ function step(map, block, x, y, dir) {
   // the player gets through it eventually, so reachability has to treat it as
   // passable. Whether they can ever hold the key is checked separately below.
   if (def.field) return { x: nx, y: ny };
+  // Deep water answers to Surf the way a cuttable tree answers to Cut. It has
+  // no obstacle tile of its own — Surf changes what counts as ground — so it
+  // has to be named here or every water crossing reads as a dead end.
+  if (def.water && !def.ledge) return { x: nx, y: ny };
   if (def.ledge) {
     if (def.ledge !== dir) return null;
     const lx = nx + dx, ly = ny + dy;
@@ -89,15 +93,30 @@ function reachable(map, start, opts = { strict: false }) {
   const block = blockers(map, opts);
   const seen = new Set([`${start.x},${start.y}`]);
   const queue = [start];
+  // A warp that lands on its own map is a lift, not a door: Byron's Gym is
+  // three galleries with no stairs, and walking the tiles alone would report
+  // two thirds of it as unreachable. Stepping on a pad IS a way to get where
+  // it goes, so the flood fill follows it.
+  const pads = new Map();
+  for (const w of map.warps) if (w.to === map.id) pads.set(`${w.x},${w.y}`, { x: w.tx, y: w.ty });
+  const visit = (p) => {
+    const k = `${p.x},${p.y}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    queue.push(p);
+    const pad = pads.get(k);
+    if (pad) visit(pad);
+  };
+  {
+    const pad = pads.get(`${start.x},${start.y}`);
+    if (pad) visit(pad);
+  }
   while (queue.length) {
     const cur = queue.shift();
     for (const dir of Object.keys(DIRS)) {
       const next = step(map, block, cur.x, cur.y, dir);
       if (!next) continue;
-      const key = `${next.x},${next.y}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      queue.push(next);
+      visit(next);
     }
   }
   return seen;

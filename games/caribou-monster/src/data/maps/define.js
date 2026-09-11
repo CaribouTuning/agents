@@ -86,7 +86,8 @@ export function defineMap(id, def) {
     // city instead of guessing at it.
     labels: def.labels || [],
     encounters: def.encounters || null,
-    events: def.events || [],       // scripted triggers on step
+    events: def.events || [],       // scripted triggers on step (any extra
+                                    // keys on an event ride along to the script)
     darkEdges: def.darkEdges !== false,
     healPoint: def.healPoint || null,
     // A tile that runs a script when you step on it and leads out of the map.

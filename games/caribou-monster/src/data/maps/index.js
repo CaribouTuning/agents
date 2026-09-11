@@ -30,6 +30,10 @@ import {
 import {
   ROUTE210_NORTH, CELESTIC, CELESTIC_RUINS, ROUTE211, CELESTIC_CENTER, CELESTIC_HOUSE,
 } from './highlands.js';
+import {
+  ROUTE218, CANALAVE, CANALAVE_GYM, CANALAVE_LIBRARY, CANALAVE_CENTER,
+  CANALAVE_MART, IRON_ISLAND,
+} from './west.js';
 
 export { defineMap };
 
@@ -54,6 +58,9 @@ const ALL = [TWINLEAF, ROUTE201, SANDGEM, ROUTE202, JUBILIFE, ROUTE203, OREBURGH
   VALOR_LAKEFRONT, LAKE_VALOR, PASTORIA_CENTER, LAKEFRONT_CENTER,
   // Up through the fog to the oldest town in Sinnoh, and the shrine in it.
   ROUTE210_NORTH, CELESTIC, CELESTIC_RUINS, ROUTE211, CELESTIC_CENTER, CELESTIC_HOUSE,
+  // West across the water: the port that reads, and the island they mine.
+  ROUTE218, CANALAVE, CANALAVE_GYM, CANALAVE_LIBRARY, CANALAVE_CENTER,
+  CANALAVE_MART, IRON_ISLAND,
   ...INTERIORS];
 
 export const MAPS = {};

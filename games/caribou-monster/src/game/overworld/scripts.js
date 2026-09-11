@@ -34,7 +34,7 @@ import { weightedPick } from '../../core/rng.js';
 import { spend, formatMoney as money } from '../inventory.js';
 import { FLAGS } from '../storyflags.js';
 import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../../data/story.js';
-import { playerByLook } from '../players.js';
+import { playerByLook, buddyOf } from '../players.js';
 
 // The thing in the chamber: Dialga, by national dex number.
 const EVERLIGHT_SPECIES = 483;
@@ -98,8 +98,31 @@ SCRIPTS.starter = async (ctx) => {
   ctx.journal('gotStarter');
 
   await cassTakesHers(ctx, base);
+  await buddyTakesTheirs(ctx);
   await banditJoins(ctx);
 };
+
+/**
+ * The other one, taking the last of the three.
+ *
+ * Mum says Rowan called them both down, so they have to actually be here and
+ * actually leave with something. In co-op they are a real player and pick for
+ * themselves, so this only runs when the player is on their own.
+ */
+async function buddyTakesTheirs(ctx) {
+  const st = ctx.state;
+  if (st.link && st.link.connected && st.link.partner) return;
+  const who = buddyOf(st);
+  await ctx.wait(0.3);
+  await ctx.say(`${who}: Right. Me next, then.`, { speaker: who });
+  await ctx.say(`${who}: I have been looking at the last one for twenty minutes\nand pretending I had not decided.`);
+  await ctx.say('Prof. Rowan: Go on. It has been looking at you for twenty minutes too.',
+    { speaker: 'Prof. Rowan' });
+  ctx.sfx('caught');
+  await ctx.say(`${who} took the last Pokémon.`);
+  await ctx.say(`${who}: Come on. I want to be out of here before Cass says\nsomething else about seven o'clock.`);
+  ctx.setFlag('buddyHasStarter', true);
+}
 
 /**
  * Cass, taking the one that beats yours, while you are stood there.
@@ -114,8 +137,9 @@ async function cassTakesHers(ctx, playerBase) {
   const theirs = getSpecies(hers);
 
   await ctx.wait(0.4);
+  await ctx.say('*Cass gets up off the bench.*');
   await ctx.say(`Cass: Right. That is the ${mine.name} gone, then.`, { speaker: 'Cass Wren' });
-  await ctx.say('Cass: I have been sat on that bench since seven waiting to see which\none you would take.');
+  await ctx.say('Cass: I have been sat there since seven waiting to see which one\nyou would take.');
   await ctx.showMonster(hers);
   ctx.cry(hers);
   await ctx.say(`Cass: So I will have the ${theirs.name}. The ${theirs.types.join('/')} type.`);
@@ -124,7 +148,10 @@ async function cassTakesHers(ctx, playerBase) {
   ctx.dex.seen(hers);
   await ctx.say('Prof. Rowan: Cass. It is a Pokémon, not a chess piece.', { speaker: 'Prof. Rowan' });
   await ctx.say('Cass: It can be both.', { speaker: 'Cass Wren' });
-  await ctx.say('Cass: North gate. Twenty minutes. Do not make me stand there for an hour.');
+  await ctx.say('Cass: Route 201. The north gate. Twenty minutes.');
+  await ctx.say('Cass: Do not make me stand there for an hour. I will, and I will\nbring it up for years.');
+  await ctx.say('*She goes out of the door without waiting for an answer.*');
+  ctx.sfx('door');
   ctx.setFlag(FLAGS.MET_RIVAL);
 }
 
@@ -1445,6 +1472,159 @@ SCRIPTS.lakeVerity = async (ctx) => {
   ctx.setFlag('lakeVerity', true);
   ctx.shareMilestone('lakeVerity');
   ctx.journal('lakeVerity');
+  ctx.autosave();
+};
+
+// ---------------------------------------------------------------------------
+// Canalave: the three volumes, and the room where it is finally said.
+// ---------------------------------------------------------------------------
+
+/**
+ * The oldest written copy of the Sinnoh myth, in three short volumes.
+ *
+ * Deliberately not one long exposition NPC. The player reads three pages in
+ * whatever order they find them, and the picture assembles in their head
+ * before anybody says it out loud — which is the only way a revelation of
+ * this size does not land as a lecture.
+ */
+const VOLUMES = {
+  1: {
+    title: 'VOLUME I — OF THE THREE WATERS',
+    lines: [
+      '"There were three waters made, and a keeper set in each,\nand the keepers were not put there to be found."',
+      '"To the first was given knowing. To the second, feeling.\nTo the third, the will to go on."',
+      '"These were not gifts to the world. These were what the keepers\nwere made of, so that they would be heavy enough."',
+      '*Heavy enough for what, the volume does not say. The next page has\nbeen torn out, a very long time ago, by somebody in a hurry.*',
+    ],
+  },
+  2: {
+    title: 'VOLUME II — OF THE MOUNTAIN',
+    lines: [
+      '"Under the mountain there is a light that does not warm anything."',
+      '"It was here before the mountain. The mountain was put on top of it,\nand that was the first thing anybody in this country ever built."',
+      '"It does not want. It does not intend. Do not go to it expecting\nto be answered, and do not go expecting to be refused."',
+      '"It is not sleeping the way a beast sleeps. It is sleeping the way\na weight sits at the bottom of a well."',
+    ],
+  },
+  3: {
+    title: 'VOLUME III — A NOTE, ADDED LATER',
+    lines: [
+      '*This one is four lines long and in a different hand.*',
+      '"They will come and read the first book and say: three keepers,\nthree waters, three keys."',
+      '"They are not keys. Nothing here is a door."',
+      '"They are the weight. Take the weight off and see what you have\nopened, and then try to put it back."',
+    ],
+  },
+};
+
+SCRIPTS.libraryBook = async (ctx, ev) => {
+  const n = (ev && ev.volume) || 1;
+  const v = VOLUMES[n];
+  await ctx.say(`*${v.title}*`);
+  for (const line of v.lines) await ctx.say(line);
+  ctx.setFlag(`readVolume${n}`, true);
+
+  const st = ctx.state;
+  const all = st.flags.readVolume1 && st.flags.readVolume2 && st.flags.readVolume3;
+  if (all && !st.flags.canalaveTruth) {
+    await ctx.wait(0.4);
+    await ctx.say('*You put the third volume down and stand there for a moment with your\nhand still on it.*');
+    await ctx.say('*Somebody at the far table has stopped pretending to read.*');
+  }
+  ctx.autosave();
+};
+
+/**
+ * Looker, at the far table, with the whole thing assembled.
+ *
+ * He is not clever here. He is a man who has been doing paperwork for eight
+ * months and has just understood what the paperwork was about.
+ */
+SCRIPTS.lookerLibrary = async (ctx) => {
+  const st = ctx.state;
+  const all = st.flags.readVolume1 && st.flags.readVolume2 && st.flags.readVolume3;
+
+  if (st.flags.canalaveTruth) {
+    await ctx.say('Looker: Mount Coronet. That is where this ends. I have said it out loud\nnow, so it is real, and I would like it to stop being real.',
+      { speaker: 'Looker' });
+    return;
+  }
+  if (!all) {
+    await ctx.say('Looker: You again. Good. Sit down, do not sit down, I do not mind.',
+      { speaker: 'Looker' });
+    await ctx.say('Looker: There are three volumes here and I have read two of them\nfour times each.');
+    await ctx.say('Looker: Read them. All three. I want to know whether you get the same\nanswer I did, because I would very much like to be wrong.');
+    return;
+  }
+
+  await ctx.say('Looker: You have got the same face I had.', { speaker: 'Looker' });
+  await ctx.wait(0.4);
+  await ctx.say('Looker: Right. Here is eight months of my life in one minute.');
+  await ctx.say('Looker: Oreburgh was not a robbery. It was a test.\fThey wanted to know whether a machine could touch that thing at all.');
+  await ctx.say('Looker: It could. Something came out. You were there — you know better\nthan I do what came out.');
+  if (st.flags.caughtEverlight) {
+    await ctx.say('Looker: And it went with you. Not with them. With YOU.\fMars has written four reports about that and none of them are calm.');
+  } else {
+    await ctx.say('Looker: And it stayed. Standing in that chamber, where they could not\nreach it. It has been there ever since.');
+  }
+  await ctx.say('Looker: So they stopped trying to take the thing itself and started\ntaking what is holding it down.');
+  await ctx.say('Looker: Valor. Verity. Acuity. Three lakes, three keepers,\nand a schedule Saturn was rude enough to mention to you.');
+  await ctx.wait(0.5);
+  await ctx.say('Looker: Volume Three is four lines long and somebody added it later,\nwhich means somebody had already made this mistake once.');
+  await ctx.say('Looker: "They are not keys. Nothing here is a door."');
+  await ctx.say('Looker: Cyrus thinks he is unlocking something.\fHe is taking the weight off a lid.');
+  await ctx.wait(0.4);
+  await ctx.say('Looker: The lakes were never the destination. They are the method.');
+  await ctx.say('Looker: The destination is the mountain, and it always was.');
+
+  ctx.setFlag('canalaveTruth', true);
+  ctx.shareMilestone('canalaveTruth');
+  ctx.journal('canalaveTruth');
+  ctx.sfx('badge');
+  ctx.autosave();
+
+  await ctx.say('Looker: I am going to Celestic to shout at somebody with authority.');
+  await ctx.say('Looker: You are going to do whatever it is you do, which so far has\nworked considerably better than anything I have tried.');
+};
+
+/** Eldon's boat. He will not sail before Byron signs the pass. */
+SCRIPTS.ironBoat = async (ctx) => {
+  const st = ctx.state;
+  if (!st.flags.badge6) {
+    await ctx.say('Eldon: Iron Island is a working mine, not a day out.', { speaker: 'Eldon' });
+    await ctx.say('Eldon: Byron signs the passes and Byron is up the Gym.\fBeat him and he will sign anything, he is like that.');
+    return;
+  }
+  const go = await ctx.ask('Sail out to Iron Island?', ['Yes', 'Not yet']);
+  if (go !== 0) { await ctx.say('Eldon: She will be here.'); return; }
+  await ctx.say('Eldon: Half an hour out. Rough for ten of it. Hold something.');
+  ctx.sfx('warp');
+  await ctx.warpTo('iron_island', 1, 13);
+};
+
+/**
+ * Riley, who hands over Strength — and, without making a speech of it, the
+ * first person to say the thing the ending is about.
+ */
+SCRIPTS.riley = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.rileyDone) {
+    await ctx.say('Riley: Still here. The rock is still talking. It is not in a hurry\nand neither am I.', { speaker: 'Riley' });
+    return;
+  }
+  await ctx.say('Riley: You are the one from Oreburgh.', { speaker: 'Riley' });
+  await ctx.say('Riley: Do not look like that. Half of Sinnoh is the one from Oreburgh\nby now. It is a small country and it gossips.');
+  await ctx.say('Riley: I come out here because the island is honest. Rock either moves\nor it does not, and it tells you which straight away.');
+  await ctx.wait(0.4);
+  await ctx.say('Riley: People are not like that, which is the whole trouble with them,\nand the whole point of them.');
+  await ctx.say('Riley: Here. You will want this before the mountain.');
+  ctx.give('hm04', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received HM04!');
+  await ctx.say('Riley: Strength. It does not make you strong. It means something\nheavy will move if you and it agree to move it.');
+  await ctx.say('Riley: That is most things, in my experience.');
+  ctx.setFlag('rileyDone', true);
+  ctx.journal('riley');
   ctx.autosave();
 };
 

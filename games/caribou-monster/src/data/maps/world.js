@@ -63,6 +63,10 @@ export const WORLD_POS = {
   route210_north: { x: 12, y: 1, kind: 'route' },
   celestic:       { x: 12, y: 0, kind: 'town' },
   route211:       { x: 10, y: 0, kind: 'route' },
+  // West of Jubilife, across the channel. The region's origin is Twinleaf,
+  // not the corner of the map, so the west coast is simply negative.
+  route218:       { x: 0, y: 10, kind: 'route' },
+  canalave:       { x: -2, y: 10, kind: 'city' },
   // Underneath all of it. A Secret Base is a room off these tunnels rather
   // than a place in the region, so it has no position on the paper at all.
   underground:    { x: 2, y: 16, kind: 'underground' },

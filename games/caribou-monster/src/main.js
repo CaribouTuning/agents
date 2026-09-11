@@ -109,8 +109,15 @@ class Game {
     // a phone with a slow connection.
     const title = new TitleScreen(this, await this.save.peekFast());
     this.screens.push(title);
-    saveReady().then(async (db) => {
-      this.saveIsDurable = !!db;
+    // The durable stores answer late — that is the whole reason the previous
+    // version of this failed. So the title paints on whatever is in this tab
+    // and then corrects itself, rather than deciding "no save" before the
+    // stores have had a chance to speak.
+    saveReady().then(async () => {
+      const b = this.save.backend;
+      this.saveIsDurable = !!(b.durable && b.durable());
+      this.saveProviders = b.providers ? b.providers() : [];
+      console.info('[caribou] storage:', this.saveProviders.map((p) => `${p.name}=${p.up ? 'up' : 'no'}`).join(' '));
       const meta = await this.save.peek();
       if (title.setSave) title.setSave(meta);
     });
@@ -121,19 +128,29 @@ class Game {
     });
     this.loop.start();
 
-    // Flushing the save on the way out. On a phone the artifact is closed by
-    // switching away from it, and `beforeunload` does not reliably fire for
-    // that — `pagehide` and a hidden `visibilitychange` do. All three are
-    // wired because between them they cover every way this page is left,
-    // and saving twice costs nothing.
+    // Flushing the save on the way out.
+    //
+    // On a phone the artifact is closed by swiping away from it, and
+    // `beforeunload` does not fire for that. `pagehide`, a hidden
+    // `visibilitychange` and `freeze` between them cover every way this page
+    // is actually left, and writing twice costs nothing.
+    //
+    // Deliberately NOT gated on being idle in the overworld. The old version
+    // declined to save mid-battle on the grounds that a half-finished battle
+    // is an incoherent save — true, but the alternative turned out to be
+    // losing the whole session, and a save that puts you back on the map
+    // outside the battle is a perfectly good save.
     const flush = () => {
-      if (this.overworld && this.state.flags.gotStarter && this.canSaveNow()) {
-        this.save.save(this.state);
+      if (this.state && this.state.flags && this.state.flags.gotStarter) {
+        this.save.flush(this.state);
       }
     };
     window.addEventListener('beforeunload', flush);
     window.addEventListener('pagehide', flush);
+    window.addEventListener('freeze', flush);
+    window.addEventListener('blur', flush);
     document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+    this.flushSave = flush;
   }
 
   /**
@@ -376,6 +393,11 @@ class Game {
   // Called after every battle resolves.
   afterBattle(result, opts) {
     const st = this.state;
+    // Whatever happened, it is worth keeping: experience, a catch, a badge,
+    // or being sent home with less money. Queued rather than written this
+    // instant so the two or three things that fire together here cost one
+    // write, and `flush` on the way out still beats the debounce.
+    if (st.flags && st.flags.gotStarter) this.save.touch(st);
     if (result === 'lose' && opts && opts.noBlackout) {
       // A sanctioned loss: patched up on site, no black-out, no penalty.
       healParty(st);

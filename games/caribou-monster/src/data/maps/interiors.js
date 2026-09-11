@@ -178,6 +178,35 @@ const ROWAN_LAB = defineMap('rowan_lab', {
   ],
   warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 6, ty: 7, dir: 'down' }],
   npcs: [
+    // The other one, waiting by the table, because Mum said Rowan called
+    // them both down and that has to be true when you get here. They go
+    // once you have yours — you meet them again on the road.
+    {
+      id: 'lab_buddy', x: 4, y: 4, look: 'buddy', name: '{buddy}', movement: 'still',
+      facing: 'right', soloOnly: true, goneWhen: 'gotStarter',
+      dialogue: [
+        {
+          lines: ['{buddy}: I have been stood here twenty minutes not touching anything.',
+            '{buddy}: She said do not touch them until you got here. Both of us, she said.',
+            '{buddy}: Go on, you pick first.',
+            '{buddy}: I do not mind. I will mind enormously if you take\nthe one I want.'],
+        },
+      ],
+    },
+    // Cass, on the bench, up since seven, waiting to see which one you take.
+    // She was a voice with no body here, which is why the line about meeting
+    // at the north gate went nowhere.
+    {
+      id: 'lab_cass', x: 9, y: 4, look: 'rivalGirl', name: 'Cass Wren', movement: 'still',
+      facing: 'left', goneWhen: 'gotStarter',
+      dialogue: [
+        {
+          lines: ['Cass: Do not mind me. I am not in the way, I am WAITING.',
+            'Cass: Rowan will not let me have one until you have had yours.\fApparently that is fair.',
+            'Cass: I have been on this bench since seven. Take your time. Really.'],
+        },
+      ],
+    },
     {
       id: 'lab_aspen', x: 6, y: 2, look: 'professor', name: 'Prof. Rowan', movement: 'still', facing: 'down',
       script: 'starter',

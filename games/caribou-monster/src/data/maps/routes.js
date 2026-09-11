@@ -1,8 +1,25 @@
 import { defineMap } from './define.js';
+import { TILES } from '../../render/tiles.js';
 
-export const ROUTE201 = defineMap('route201', {
-  name: 'Route 201', kind: 'route', music: 'route',
-  tiles: [
+/**
+ * A story trigger stretched across every walkable tile of one row.
+ *
+ * Used for the beats that must not be missable. The row is read back out of
+ * the map's own tiles, so widening the road later cannot leave a gap in the
+ * trigger — there is no second copy of the geometry to forget to update.
+ */
+function triggerLine(rows, y, ev) {
+  const out = [];
+  for (let x = 0; x < rows[y].length; x++) {
+    const ch = rows[y][x];
+    const def = TILES[ch];
+    if (!def || def.solid || def.water) continue;
+    out.push({ ...ev, x, y });
+  }
+  return out;
+}
+
+const R201_ROWS = [
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
     'T...........::...........T',
     'T...........::...........T',
@@ -31,7 +48,16 @@ export const ROUTE201 = defineMap('route201', {
     'T.........S.::...........T',
     'T..OOO......::...........T',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
-  ],
+  ];
+
+const rivalLine = (y) => triggerLine(R201_ROWS, y, {
+  flag: 'beatRival1', requires: 'gotStarter', script: 'rival1',
+});
+
+export const ROUTE201 = defineMap('route201', {
+  name: 'Route 201', kind: 'route', music: 'route',
+  tiles: R201_ROWS,
+
   warps: [
     { x: 0, y: 13, to: 'lake_verity', tx: 18, ty: 7, dir: 'left', edge: true },
     { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
@@ -39,13 +65,14 @@ export const ROUTE201 = defineMap('route201', {
     { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 16, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 16, dir: 'up', edge: true },
   ],
-  // Cass is waiting a few tiles up the road, exactly as she said she would
-  // be. This is the first rival battle, and it needs a Pokemon to exist at
-  // all — `requires` makes that a precondition rather than a crash.
-  events: [
-    { x: 12, y: 23, flag: 'beatRival1', requires: 'gotStarter', script: 'rival1' },
-    { x: 13, y: 23, flag: 'beatRival1', requires: 'gotStarter', script: 'rival1' },
-  ],
+  // Cass is waiting a few tiles up the road, exactly as she said she would be.
+  //
+  // The trigger is a LINE across the whole width of the route, not two tiles
+  // in the middle of it. Route 201 is open on both sides, so a two-tile
+  // trigger in the road is a story beat you can walk straight past without
+  // ever knowing it was there — which is exactly what happened: the rival
+  // announced she would be waiting at the north gate and then never appeared.
+  events: rivalLine(23),
   signs: [
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
   ],

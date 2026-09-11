@@ -4,22 +4,32 @@
 // implementation is LocalBackend; a cloud backend (per-account slots synced
 // across the two players' phones) drops in behind the same three methods
 // without any game code changing.
-import { storage } from '../core/storage.js';
-import { ArtifactDbBackend } from './artifactdb.js';
+import { storage, storageReady, isDurable, providerReport } from '../core/storage.js';
 import { serializeState, deserializeState } from '../game/state.js';
 import { MIGRATIONS } from './migrations.js';
 
 export const SAVE_SLOT = 'save1';
 export const SAVE_VERSION = 3;
 const AUTOSAVE_MS = 45000;
+const FLUSH_DEBOUNCE_MS = 700;
 
+/**
+ * The only backend now. `core/storage.js` fans every write out to whichever
+ * of the host store, the artifact document store and localStorage exist, and
+ * reads back the newest of them, so there is nothing left for a backend to
+ * choose between.
+ */
 export class LocalBackend {
-  constructor() { this.name = 'local'; }
+  constructor() { this.name = 'storage'; }
   available() { return storage.available(); }
+  ready() { return storageReady(); }
+  durable() { return isDurable(); }
+  providers() { return providerReport(); }
+  readLocal(slot) { return storage.readLocalNow(slot); }
   async read(slot) { return storage.read(slot); }
   async write(slot, data) { return storage.write(slot, data); }
-  async remove(slot) { storage.remove(slot); return true; }
-  async list() { return storage.keys().filter((k) => k.startsWith('save')); }
+  async remove(slot) { await storage.remove(slot); return true; }
+  async list() { return (await storage.keys()).filter((k) => k.startsWith('save')); }
 }
 
 // Kept deliberately small: it is the shape a server endpoint would need to
@@ -47,7 +57,9 @@ export class SaveManager {
   markDirty() { this.dirty = true; }
 
   async save(state, slot = SAVE_SLOT, opts = {}) {
-    if (this.saving) return false;
+    // A save already in flight used to make this a no-op, which meant the
+    // flush on the way out could be the one that got dropped. Queue instead.
+    if (this.saving) { this._again = { state, slot }; return false; }
     this.saving = true;
     try {
       const payload = {
@@ -74,6 +86,9 @@ export class SaveManager {
     } finally {
       this.saving = false;
       void opts;
+      const again = this._again;
+      this._again = null;
+      if (again) this.save(again.state, again.slot);
     }
   }
 
@@ -145,16 +160,33 @@ export class SaveManager {
     this.save(state);
     return true;
   }
+
+  /**
+   * "Something happened worth keeping" — a Pokemon caught, a battle won, a
+   * badge, a heal, a map crossed.
+   *
+   * Debounced rather than immediate because several of these fire together
+   * at the end of a battle, and one write is enough. The debounce is short
+   * enough that swiping away a second later still lands, and `flush` cancels
+   * it and writes now.
+   */
+  touch(state) {
+    this.dirty = true;
+    if (this._pending) clearTimeout(this._pending);
+    this._pending = setTimeout(() => { this._pending = null; this.save(state); }, FLUSH_DEBOUNCE_MS);
+  }
+
+  /**
+   * Write right now, cancelling any debounce. Called when the page is going
+   * away, where there is no later.
+   */
+  flush(state) {
+    if (this._pending) { clearTimeout(this._pending); this._pending = null; }
+    return this.save(state);
+  }
 }
 
-// The default backend keeps a local copy AND, when the page is running as a
-// claude.ai artifact, a server-side one. Inside the artifact viewer the local
-// copy alone is not durable — closing the artifact can drop it — which is why
-// the durable half exists at all.
-export const saveManager = new SaveManager(new ArtifactDbBackend(new LocalBackend()));
+export const saveManager = new SaveManager(new LocalBackend());
 
-/** Resolves once we know whether durable storage is available. */
-export function saveReady() {
-  const b = saveManager.backend;
-  return b && typeof b.ready === 'function' ? b.ready() : Promise.resolve(null);
-}
+/** Resolves once every storage provider that exists has come up. */
+export function saveReady() { return storageReady(); }

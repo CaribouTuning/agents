@@ -54,6 +54,7 @@ export class DebugScreen extends Screen {
     switch (this.page) {
       case 'main': return [
         { t: 'Console (/commands)...', a: () => this._console() },
+        { t: 'Storage / save check...', a: () => { this.page = 'storage'; this.index = 0; this.scroll = 0; } },
         { t: 'Jump to a chapter...', a: () => { this.page = 'chapters'; this.index = 0; this.scroll = 0; } },
         { t: 'Heal party', a: () => { healParty(st); this._msg('Party healed.'); audio.sfx('heal'); } },
         { t: 'Give monster...', a: () => { this.page = 'species'; this.index = 0; this.scroll = 0; } },
@@ -79,6 +80,28 @@ export class DebugScreen extends Screen {
       // half of the game testable at all: it sets every beat up to the one
       // picked, levels the party to match, hands over the HMs, and puts the
       // player where the beat happens.
+      // Is the save actually going anywhere that outlives the tab? This page
+      // exists because the answer was "no" for a long time and nothing on
+      // screen said so.
+      case 'storage': {
+        const b = this.game.save.backend;
+        const rows = (b.providers ? b.providers() : []).map((p) => ({
+          t: p.name, right: p.up ? 'UP' : 'not available',
+        }));
+        rows.push({ t: b.durable && b.durable() ? 'Saves survive closing' : 'THIS DEVICE ONLY',
+          right: b.durable && b.durable() ? 'yes' : 'at risk' });
+        rows.push({
+          t: 'Save now and read it back',
+          a: async () => {
+            this._msg('saving...');
+            await this.game.save.flush(this.game.state);
+            const back = await this.game.save.peek();
+            this._msg(back ? `read back ok: ${back.name}, ${back.badges} badge(s)` : 'READ BACK FAILED');
+          },
+        });
+        rows.push({ t: 'Back', a: () => { this.page = 'main'; this.index = 0; this.scroll = 0; } });
+        return rows;
+      }
       // Whatever the last console line printed. Rows rather than a text blob
       // so the existing scrolling works on a long list of flags or maps.
       case 'output': return String(this.output || '').split('\n').map((line) => ({

@@ -37,6 +37,14 @@ export class TitleScreen extends Screen {
    * to wait for the network. The cursor is kept on whatever the player was
    * already pointing at rather than jumping under their thumb.
    */
+  /** A one-line note about where saves are going. Visible, so a failure is. */
+  _storageNote() {
+    const g = this.game;
+    if (g.saveProviders === undefined) return 'checking for a saved game...';
+    if (g.saveIsDurable) return 'saving to this account';
+    return 'saving to this device only';
+  }
+
   setSave(meta) {
     const wasOn = this.options[this.index] && this.options[this.index].key;
     this.saveMeta = meta || null;
@@ -49,6 +57,10 @@ export class TitleScreen extends Screen {
     if (this.saveMeta) out.push({ key: 'continue', text: 'CONTINUE' });
     out.push({ key: 'new', text: this.saveMeta ? 'NEW GAME' : 'NEW GAME' });
     out.push({ key: 'options', text: 'OPTIONS' });
+    // Always here, on the first screen, with no prerequisite. Test mode that
+    // can only be switched on from inside a running game is useless to
+    // somebody who cannot get a running game to persist.
+    out.push({ key: 'test', text: 'TEST MODE' });
     return out;
   }
 
@@ -82,6 +94,17 @@ export class TitleScreen extends Screen {
       } else {
         g.screens.push(new CharacterScreen(g));
       }
+    } else if (key === 'test') {
+      // Straight into a playable game with test mode already on, so the
+      // console is one tap away instead of a playthrough away.
+      g.screens.fade(FADE.BLACK, () => {
+        g.startNewGame({ name: 'Matthew', look: 'matthew', difficulty: 'easy' });
+        g.state.settings.testMode = true;
+        g.debugEnabled = true;
+        g.state.flags.gotStarter = true;
+        g.debugGive(387, 5);
+        g.openDebug();
+      });
     } else {
       g.screens.push(new TitleOptionsScreen(g));
     }
@@ -147,6 +170,9 @@ export class TitleScreen extends Screen {
       label(ctx, o.text, x + 14, iy);
     });
 
+    // Where saves are going, said out loud. A storage problem should be
+    // visible on the first screen, not discovered a day later.
+    labelDim(ctx, this._storageNote(), 9, H - 45);
     if (this.saveMeta) {
       window9(ctx, 4, H - 40, 96, 36);
       labelDim(ctx, this.saveMeta.name || 'Trainer', 9, H - 36);
