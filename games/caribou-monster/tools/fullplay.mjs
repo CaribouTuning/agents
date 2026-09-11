@@ -633,7 +633,7 @@ async function goTo(target, hops = 8) {
     if (!path) { found('NO WAY THERE', `nothing joins ${here} to ${target}`); return false; }
     let ok = true;
     for (const next of path) {
-      if (!await goThrough(next)) { ok = false; break; }
+      if (!await goThrough(next, null, true)) { ok = false; break; }
     }
     if (ok && (await at()).map === target) return true;
   }
@@ -641,13 +641,18 @@ async function goTo(target, hops = 8) {
 }
 
 /** Finds the door on this map that leads to `to`, and walks through it. */
-async function goThrough(to, expectMap = null) {
+async function goThrough(to, expectMap = null, quiet = false) {
   const door = await page.evaluate((t) => {
     const w = window.CARIBOU.overworld.world;
     const ws = (w.map.warps || []).filter((x) => x.to === t);
     return ws.length ? { x: ws[0].x, y: ws[0].y } : null;
   }, to);
-  if (!door) { found('NO DOOR', `this map has no way to ${to}`); return false; }
+  if (!door) {
+    // When `goTo` is walking a route it plans each hop afresh, so a hop that
+    // no longer applies is a stale plan, not a missing door.
+    if (!quiet) found('NO DOOR', `this map has no way to ${to}`);
+    return false;
+  }
   const ok = await walkTo(door.x, door.y, 6);
   await wait(420);
   if (await busy()) await clear();
