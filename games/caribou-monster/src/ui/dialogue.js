@@ -35,6 +35,15 @@ export class DialogueBox {
 
   /** Queues text. `\f` starts a new page; long text wraps and pages itself. */
   show(text, opts = {}) {
+    // New words on top of an unanswered question would abandon it, and the
+    // script waiting on that answer would stop where it stood. Answer it
+    // first, the same way closing the box does.
+    const orphan = this.choice || this.pendingChoice;
+    if (orphan && orphan.onPick) {
+      this.choice = null;
+      this.pendingChoice = null;
+      orphan.onPick(orphan.options.length - 1);
+    }
     this.layout(opts.width || 320);
     const chunks = String(text).split('\f');
     this.pages = [];
@@ -63,11 +72,20 @@ export class DialogueBox {
   }
 
   hide() {
+    // A question that is never answered is a script that never finishes, and
+    // a script that never finishes is a player who can never move again. So
+    // closing the box while something is waiting on an answer gives it one —
+    // the last option, which is the same answer B gives and is always the
+    // safe one. Nothing that asks is ever left waiting.
+    const unanswered = this.choice || this.pendingChoice;
     this.visible = false;
     this.pages = [];
     this.choice = null;
     this.pendingChoice = null;
+    const done = this.onDone;
     this.onDone = null;
+    void done;
+    if (unanswered && unanswered.onPick) unanswered.onPick(unanswered.options.length - 1);
   }
 
   get busy() { return this.visible; }
@@ -145,14 +163,43 @@ export class DialogueBox {
     }
   }
 
-  /** Advances programmatically — used by the battle log. */
+  /**
+   * Advances programmatically — used by the battle log and the play-test.
+   *
+   * It has to know about a pending question for the same reason the tap path
+   * does: reaching the end of the words is where the options appear. Without
+   * this it closed the box instead, and the script waiting on the answer
+   * simply stopped — the world stayed frozen with no way out.
+   */
   advance() {
     const full = this.currentText;
     if (this.shown < full.length) { this.shown = full.length; return false; }
     if (this.page < this.pages.length - 1) { this.page++; this.shown = 0; this.timer = 0; return false; }
+    if (this.pendingChoice) {
+      this.choice = this.pendingChoice;
+      this.pendingChoice = null;
+      return false;                       // the question is now on screen
+    }
+    if (this.choice) { this.answer(this.choice.index); return true; }
     const cb = this.onDone;
-    this.hide();
+    this.visible = false;
+    this.pages = [];
+    this.onDone = null;
     if (cb) cb();
+    return true;
+  }
+
+  /** Answers the question on screen with one of its options. */
+  answer(index) {
+    if (!this.choice) return false;
+    const cb = this.choice.onPick;
+    const n = this.choice.options.length;
+    const pick = Math.max(0, Math.min(n - 1, index));
+    this.choice = null;
+    this.visible = false;
+    this.pages = [];
+    this.onDone = null;
+    if (cb) cb(pick);
     return true;
   }
 

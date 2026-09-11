@@ -71,7 +71,7 @@ const wait = (ms) => page.waitForTimeout(ms);
 const hold = async (code, ms) => {
   await page.keyboard.down(code); await wait(ms); await page.keyboard.up(code); await wait(70);
 };
-const tap = async (code, n = 1, ms = 110) => {
+const tap = async (code, n = 1, ms = 70) => {
   for (let i = 0; i < n; i++) { await page.keyboard.press(code); await wait(ms); }
 };
 
@@ -119,9 +119,11 @@ async function inspect(text) {
  * Advances whatever is on screen until the world is walkable again, watching
  * everything it says on the way past.
  */
-async function clear(budget = 160) {
+async function clear(budget = 220) {
   let last = '';
   let same = 0;
+  let stuckOn = null;
+  let stuckN = 0;
   const seen = [];
   for (let i = 0; i < budget; i++) {
     if (!await busy()) return seen.join(' ');
@@ -129,8 +131,30 @@ async function clear(budget = 160) {
     if (top === 'NicknameScreen' || top === 'TextEntryScreen') { await tap('KeyQ', 1, 140); continue; }
     if (top === 'BattleScreen') { await fightToTheEnd(); continue; }
     if (top === 'CreditsScreen') return '<<CREDITS>>';
+    // Anything else on top of the world — a shop, the PC, a menu — is backed
+    // out of rather than confirmed. Holding A in a shop buys things forever.
+    if (top !== 'OverworldScreen') {
+      await tap('KeyX', 1, 120);
+      const still = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
+      if (still === top) {
+        stuckOn = (stuckOn === top) ? stuckOn : top;
+        stuckN++;
+        if (stuckN > 6) { found('TRAPPED', `${top} will not close`); return seen.join(' '); }
+      } else { stuckOn = null; stuckN = 0; }
+      continue;
+    }
     const t = await said();
     if (t && !seen.includes(t)) { seen.push(t); await inspect(t); }
+    // A question is answered, not mashed past. Take the first option, which
+    // is the one that moves the story on ("yes, please"); B would take the
+    // last, which usually declines.
+    const asked = await page.evaluate(() => {
+      const d = window.CARIBOU.dialogueForTest;
+      if (d.choice) { d.answer(0); return 'answered'; }
+      if (d.pendingChoice) { d.shown = d.currentText.length; d.advance(); return 'opened'; }
+      return null;
+    });
+    if (asked) { await wait(140); continue; }
     if (t && t === last) same++; else { same = 0; last = t; }
     if (same > 8) {
       // Standing nose-to-nose with somebody, every A press closes their box
@@ -146,7 +170,12 @@ async function clear(budget = 160) {
     }
     await tap('KeyZ', 1, 100);
   }
-  found('STUCK', 'the world never became walkable again');
+  const onTop = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    return { screen: g.screens.top.constructor.name,
+      dialogue: g.dialogueForTest.visible, script: !!(g.overworld && g.overworld.script) };
+  });
+  found('STUCK', `the world never became walkable again — ${JSON.stringify(onTop)}`);
   return seen.join(' ');
 }
 
@@ -159,38 +188,153 @@ const facingSomebody = () => page.evaluate(() => {
   return (w.entities || []).some((e) => e.visible !== false && e.x === fx && e.y === fy);
 });
 
-/** Wins a battle by mashing the first move, with the party kept healthy. */
+/**
+ * Wins a battle, playing it the way somebody competent would.
+ *
+ * The first version mashed A, which always picks move slot one. When that
+ * slot held Growl the battle could not be won at all: the harness sat there
+ * for two hundred turns taking chip damage and then reported the fight as
+ * broken, which was a lie about the game. So it puts the cursor on the
+ * hardest-hitting move it actually has before confirming, and keeps the
+ * party standing so the run is testing scenes rather than a level curve.
+ */
 async function fightToTheEnd() {
-  for (let i = 0; i < 260; i++) {
-    const top = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
-    if (top !== 'BattleScreen') return;
-    await page.evaluate(() => {
+  for (let i = 0; i < 1200; i++) {
+    const alive = await page.evaluate(() => {
       const g = window.CARIBOU;
-      for (const m of g.state.party) { m.hp = 9999; m.status = null; }
+      const top = g.screens.top;
+      if (top.constructor.name !== 'BattleScreen') return false;
+      if (g.healPartyForTest) g.healPartyForTest();
+      // On the move list, aim at something that can actually knock a foe out.
+      if (g.bestMoveForTest) {
+        const i = g.bestMoveForTest(top);
+        if (i >= 0) top.moveIndex = i;
+      }
+      return true;
     });
-    await tap('KeyZ', 1, 70);
+    if (!alive) return;
+    await tap('KeyZ', 1, 35);
   }
-  found('BATTLE', 'a battle never ended');
+  const detail = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    const top = g.screens.top;
+    if (top.constructor.name !== 'BattleScreen') return { screen: top.constructor.name };
+    const side = top.battle && top.battle.sides[top.mySide];
+    const foe = top.battle && top.battle.sides[top.foeSide];
+    const one = (s) => s && s.party ? s.party.map((m) => `${m.species}@${m.level} ${m.hp}hp`).join(' ') : '?';
+    return { mode: top.mode, msg: String(top.msg || '').slice(0, 60),
+      moveIndex: top.moveIndex, mine: one(side), foe: one(foe),
+      moves: side && side.party[side.active] ? side.party[side.active].moves : null };
+  });
+  found('BATTLE', `a battle never ended — ${JSON.stringify(detail)}`);
 }
 
-/** Walks toward a tile, giving up rather than looping forever. */
-async function walkTo(tx, ty, tries = 26) {
-  for (let i = 0; i < tries; i++) {
+/**
+ * Walks to a tile, the way a player does: by finding a route.
+ *
+ * The first version of this steered greedily toward the target and gave up
+ * when a building got in the way, which meant it could not reach Professor
+ * Rowan's front door from the player's own house — and then reported the lab
+ * as unreachable, which was a lie about the game. A harness that cannot walk
+ * cannot tell you anything about a world you walk through.
+ *
+ * The search runs inside the page against the world's own `canEnter`, so it
+ * is the game's idea of what is walkable, not a second one that can drift.
+ * The destination tile itself is allowed to be un-standable — a door usually
+ * is — so the route stops next to it and the last step is taken as a move.
+ */
+async function routeTo(tx, ty) {
+  return page.evaluate(([gx, gy]) => {
+    const w = window.CARIBOU.overworld.world;
+    const p = w.player;
+    const DIRS = [['up', 0, -1], ['down', 0, 1], ['left', -1, 0], ['right', 1, 0]];
+    const key = (x, y) => `${x},${y}`;
+    const from = new Map([[key(p.x, p.y), null]]);
+    const queue = [[p.x, p.y]];
+    let goal = null;
+    for (let i = 0; i < queue.length && i < 20000; i++) {
+      const [x, y] = queue[i];
+      if (x === gx && y === gy) { goal = [x, y]; break; }
+      for (const [d, dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy;
+        if (from.has(key(nx, ny))) continue;
+        // The goal is reachable even when you cannot stand on it: that is
+        // what a door is. Anywhere else has to be walkable.
+        if (!(nx === gx && ny === gy) && !w.canEnter(p, nx, ny)) continue;
+        from.set(key(nx, ny), { x, y, d });
+        queue.push([nx, ny]);
+      }
+    }
+    if (!goal) return null;
+    const steps = [];
+    let cur = key(gx, gy);
+    while (from.get(cur)) {
+      const step = from.get(cur);
+      steps.push(step.d);
+      cur = key(step.x, step.y);
+    }
+    return steps.reverse();
+  }, [tx, ty]);
+}
+
+const KEY_FOR = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
+
+/**
+ * Takes exactly one step, and does not lie about it.
+ *
+ * Firing a fixed-length key hold per step loses steps: the player is still
+ * sliding between tiles when the next press arrives, and the game drops it.
+ * A route of eleven steps arrived four tiles short, and the harness then
+ * reported Professor Rowan's lab as unreachable — a bug in the harness that
+ * read exactly like a bug in the world. So each step holds the key until the
+ * player has actually moved and come to rest, and reports whether it did.
+ */
+async function step(dir) {
+  const before = await page.evaluate(() => {
+    const p = window.CARIBOU.overworld.world.player;
+    return { x: p.x, y: p.y };
+  });
+  const key = KEY_FOR[dir];
+  await page.keyboard.down(key);
+  let moved = false;
+  for (let i = 0; i < 24; i++) {                 // ~400ms, well over one tile
+    await wait(16);
+    const now = await page.evaluate(() => {
+      const g = window.CARIBOU;
+      const w = g.overworld && g.overworld.world;
+      if (!w) return null;
+      return { x: w.player.x, y: w.player.y, moving: !!w.player.moving, map: w.mapId,
+        busy: !!(g.overworld.script) || g.dialogueForTest.visible
+          || g.screens.top.constructor.name !== 'OverworldScreen' };
+    });
+    if (!now) break;
+    if (now.map !== undefined && (now.busy || now.x !== before.x || now.y !== before.y)) {
+      if (!now.moving || now.busy) { moved = true; break; }
+    }
+  }
+  await page.keyboard.up(key);
+  await wait(40);
+  return moved;
+}
+
+/** Walks to a tile, re-planning whenever the world interrupts. */
+async function walkTo(tx, ty, replans = 8) {
+  for (let r = 0; r < replans; r++) {
     if (await busy()) { await clear(); continue; }
     const p = await at();
     if (p.x === tx && p.y === ty) return true;
-    const dx = tx - p.x, dy = ty - p.y;
-    let key = null;
-    if (Math.abs(dx) >= Math.abs(dy) && dx) key = dx > 0 ? 'ArrowRight' : 'ArrowLeft';
-    else if (dy) key = dy > 0 ? 'ArrowDown' : 'ArrowUp';
-    if (!key) return true;
-    await hold(key, 150);
-    const q = await at();
-    // Blocked in the direction we wanted: try the other axis once.
-    if (q.x === p.x && q.y === p.y) {
-      const alt = dy ? (dy > 0 ? 'ArrowDown' : 'ArrowUp') : (dx > 0 ? 'ArrowRight' : 'ArrowLeft');
-      await hold(alt, 150);
+    const steps = await routeTo(tx, ty);
+    if (!steps) return false;                    // genuinely no way there
+    for (const d of steps) {
+      const ok = await step(d);
+      if (await busy()) break;                   // a scene, a battle, a door
+      const q = await at();
+      if (q.map !== p.map) return true;          // we went through something
+      if (q.x === tx && q.y === ty) return true;
+      if (!ok) break;                            // blocked: plan again
     }
+    const q = await at();
+    if (q.x === tx && q.y === ty || q.map !== p.map) return true;
   }
   return false;
 }
@@ -228,6 +372,12 @@ async function checkArrival(expected) {
 
 const setWhere = (w) => { where = w; };
 
+let stageN = 0;
+const stage = (name) => {
+  where = name;
+  console.log(`[${String(++stageN).padStart(2)}] ${name}`);
+};
+
 const finish = async () => {
   console.log(`\n${findings.length} finding(s)`);
   const byKind = {};
@@ -261,24 +411,44 @@ async function talkToEveryone(limit = 14) {
     }, [who.x, who.y]);
     if (!spot) continue;
     if (!await walkTo(spot.x, spot.y, 18)) continue;
-    // Only judge somebody we are genuinely standing in front of. A walk that
-    // ended somewhere else means our A press hit scenery, and scenery being
-    // quiet is not a bug.
-    const placed = await page.evaluate(([x, y, d]) => {
+    // Only judge somebody we are genuinely standing in front of, and check
+    // that against where they are NOW — a wandering NPC has moved on since
+    // the list was taken, and quiet scenery is not a silent NPC.
+    const placed = await page.evaluate(([x, y, id]) => {
       const w = window.CARIBOU.overworld.world;
-      if (w.player.x !== x || w.player.y !== y) return false;
-      w.player.dir = d;
-      return true;
-    }, [spot.x, spot.y, spot.dir]);
+      if (w.player.x !== x || w.player.y !== y) return null;
+      const e = (w.entities || []).find((n) => n.id === id);
+      if (!e) return null;
+      const dx = e.x - x, dy = e.y - y;
+      if (Math.abs(dx) + Math.abs(dy) !== 1) return null;      // they wandered off
+      w.player.dir = dx ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+      return w.player.dir;
+    }, [spot.x, spot.y, who.id]);
     if (!placed) continue;
+    // The game only reads an A press while the player is standing still, so
+    // wait for the last step to finish landing before knocking.
+    for (let k = 0; k < 20; k++) {
+      const still = await page.evaluate(() => !window.CARIBOU.overworld.world.player.moving);
+      if (still) break;
+      await wait(30);
+    }
     await wait(90);
 
-    await tap('KeyZ', 1, 200);
+    await tap('KeyZ', 1, 220);
     const opened = await page.evaluate(() => {
       const g = window.CARIBOU;
       return g.dialogueForTest.visible || !!(g.overworld && g.overworld.script);
     });
-    if (!opened) { found('SILENT NPC', `${who.id} does not react at all`); continue; }
+    if (!opened) {
+      // Say what the game thought was in front of us, so this is a diagnosis
+      // rather than an accusation.
+      const facing = await page.evaluate(() => {
+        const t = window.CARIBOU.overworld.world.facingTarget();
+        return t ? `${t.type}${t.entity ? ':' + t.entity.id : ''}` : 'nothing';
+      });
+      found('SILENT NPC', `${who.id} does not react; the game was facing ${facing}`);
+      continue;
+    }
 
     // Drain what they say through the game's own advance, NOT by mashing A —
     // an A press with an NPC in front of us just re-opens the conversation.
@@ -303,7 +473,7 @@ async function talkToEveryone(limit = 14) {
         await page.evaluate(() => {
           const d = window.CARIBOU.dialogueForTest;
           d.shown = d.currentText.length;   // skip the typewriter
-          d.advance();
+          if (d.choice) d.answer(0); else d.advance();
         });
       }
       await wait(90);
@@ -342,7 +512,7 @@ async function goThrough(to, expectMap = null) {
     return ws.length ? { x: ws[0].x, y: ws[0].y } : null;
   }, to);
   if (!door) { found('NO DOOR', `this map has no way to ${to}`); return false; }
-  const ok = await walkTo(door.x, door.y, 40);
+  const ok = await walkTo(door.x, door.y, 6);
   await wait(420);
   if (await busy()) await clear();
   const p = await at();
@@ -367,9 +537,10 @@ await page.evaluate(() => {
   g.startNewGame({ name: 'Matthew', look: 'matthew', difficulty: 'easy' });
 });
 await wait(700);
-setWhere('matthew_house');
+stage('matthew_house');
 
 // --- the prologue, walked ---
+stage('the prologue');
 await clear();
 await goThrough('twinleaf');
 await wait(700);
@@ -393,6 +564,7 @@ await talkToEveryone(6);
 await readEverySign();
 
 // --- the road north, gym by gym ---
+stage('the road north');
 const ROAD = [
   ['route202', null],
   ['jubilife', 'talk'],
@@ -405,9 +577,10 @@ for (const [map, mode] of ROAD) {
 }
 
 // --- every built Gym, in order ---
+stage('the Gyms');
 const GYMS = await page.evaluate(() => window.CARIBOU.gymsForTest ? window.CARIBOU.gymsForTest() : []);
 for (const gym of GYMS) {
-  setWhere(gym.map);
+  stage(gym.map);
   await page.evaluate((m) => window.CARIBOU.teleport(m), gym.city);
   await wait(500);
   await clear();
@@ -425,7 +598,7 @@ for (const gym of GYMS) {
 }
 
 // --- the story's spine ---
-setWhere('oreburgh_gate');
+stage('oreburgh_gate');
 await page.evaluate(() => {
   const g = window.CARIBOU;
   g.state.flags.badge1 = true;
@@ -450,7 +623,7 @@ const early = await page.evaluate(() => !!window.CARIBOU.state.flags.everlightRe
 if (early) found('STORY BREAK', 'the Everlight resolved before Canalave');
 
 // --- the middle: the truth in Canalave ---
-setWhere('canalave_library');
+stage('canalave_library');
 await page.evaluate(() => window.CARIBOU.teleport('canalave_library'));
 await wait(500);
 await clear();
@@ -465,7 +638,7 @@ const truth = await page.evaluate(() => !!window.CARIBOU.state.flags.canalaveTru
 if (!truth) found('STORY BREAK', 'reading the library did not set canalaveTruth');
 
 // --- the climax ---
-setWhere('everlight_chamber');
+stage('everlight_chamber');
 await page.evaluate(() => {
   const g = window.CARIBOU;
   g.state.flags.canalaveTruth = true;
@@ -478,10 +651,10 @@ const resolved = await page.evaluate(() => !!window.CARIBOU.state.flags.everligh
 if (!resolved) found('STORY BREAK', 'the climax did not resolve even after Canalave');
 
 // --- the cool-down ---
-setWhere('route207');
+stage('route207');
 await runScene('rowanAfter');
 await page.evaluate(() => { window.CARIBOU.state.flags.rowanDebriefed = true; });
-setWhere('twinleaf');
+stage('twinleaf');
 await page.evaluate(() => window.CARIBOU.teleport('twinleaf'));
 await wait(600);
 await clear();
@@ -490,7 +663,7 @@ const home = await page.evaluate(() => !!window.CARIBOU.state.flags.wentHome);
 if (!home) found('STORY BREAK', 'going home did not close the chapter');
 
 // --- the League, and the end ---
-setWhere('the Finals');
+stage('the Finals');
 const finale = await page.evaluate(() => {
   const g = window.CARIBOU;
   const st = g.state;

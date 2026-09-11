@@ -9,6 +9,7 @@ import { input } from './core/input.js';
 import { exportText } from './save/backup.js';
 import { CreditsScreen } from './ui/credits.js';
 import { ITEM_IDS } from './data/items.js';
+import { getMove } from './data/moves.js';
 import { unrenderable } from './render/font.js';
 import { objective } from './game/journal.js';
 import { builtGyms } from './data/campaign.js';
@@ -564,6 +565,34 @@ function start() {
   game.gymsForTest = () => builtGyms(MAPS).map((g) => ({
     n: g.n, city: g.city, map: g.map, leader: g.leader, badge: g.badge, trainer: g.trainer,
   }));
+  // Which move on the list can actually knock something out. The play-test
+  // needs this because mashing A always picks slot one, and a slot-one Growl
+  // makes a fight unwinnable — the harness then blames the game for a battle
+  // that never ends, when the truth is that it never attacked.
+  // A party put back on its feet, using the game's own healing rather than a
+  // number poked into `hp` — max HP is computed from the stats, so there is
+  // no `maxHp` field to copy and a harness that invents one heals nobody.
+  game.healPartyForTest = () => { for (const m of game.state.party) healFully(m); };
+  game.bestMoveForTest = (screen) => {
+    // The monster that is actually out, not the first one in the bag: the
+    // move list on screen belongs to whoever is standing on the field.
+    let mon = null;
+    try {
+      const side = screen && screen.battle && screen.battle.sides[screen.mySide];
+      if (side) mon = side.party[side.active];
+    } catch { mon = null; }
+    if (!mon) mon = game.state.party.find((m) => m.hp > 0);
+    if (!mon || !mon.moves) return -1;
+    let best = -1, power = -1;
+    mon.moves.forEach((slot, i) => {
+      if (slot && slot.pp === 0) return;
+      const mv = getMove(slot && slot.id ? slot.id : slot);
+      if (!mv || !mv.power) return;
+      if (mv.power > power) { power = mv.power; best = i; }
+    });
+    void screen;
+    return best;
+  };
   Object.defineProperty(game, 'inputEnabled', { get: () => input.enabled });
 }
 

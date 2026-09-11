@@ -23339,6 +23339,15 @@ class DialogueBox {
 
   /** Queues text. `\f` starts a new page; long text wraps and pages itself. */
   show(text, opts = {}) {
+    // New words on top of an unanswered question would abandon it, and the
+    // script waiting on that answer would stop where it stood. Answer it
+    // first, the same way closing the box does.
+    const orphan = this.choice || this.pendingChoice;
+    if (orphan && orphan.onPick) {
+      this.choice = null;
+      this.pendingChoice = null;
+      orphan.onPick(orphan.options.length - 1);
+    }
     this.layout(opts.width || 320);
     const chunks = String(text).split('\f');
     this.pages = [];
@@ -23367,11 +23376,20 @@ class DialogueBox {
   }
 
   hide() {
+    // A question that is never answered is a script that never finishes, and
+    // a script that never finishes is a player who can never move again. So
+    // closing the box while something is waiting on an answer gives it one —
+    // the last option, which is the same answer B gives and is always the
+    // safe one. Nothing that asks is ever left waiting.
+    const unanswered = this.choice || this.pendingChoice;
     this.visible = false;
     this.pages = [];
     this.choice = null;
     this.pendingChoice = null;
+    const done = this.onDone;
     this.onDone = null;
+    void done;
+    if (unanswered && unanswered.onPick) unanswered.onPick(unanswered.options.length - 1);
   }
 
   get busy() { return this.visible; }
@@ -23449,14 +23467,43 @@ class DialogueBox {
     }
   }
 
-  /** Advances programmatically — used by the battle log. */
+  /**
+   * Advances programmatically — used by the battle log and the play-test.
+   *
+   * It has to know about a pending question for the same reason the tap path
+   * does: reaching the end of the words is where the options appear. Without
+   * this it closed the box instead, and the script waiting on the answer
+   * simply stopped — the world stayed frozen with no way out.
+   */
   advance() {
     const full = this.currentText;
     if (this.shown < full.length) { this.shown = full.length; return false; }
     if (this.page < this.pages.length - 1) { this.page++; this.shown = 0; this.timer = 0; return false; }
+    if (this.pendingChoice) {
+      this.choice = this.pendingChoice;
+      this.pendingChoice = null;
+      return false;                       // the question is now on screen
+    }
+    if (this.choice) { this.answer(this.choice.index); return true; }
     const cb = this.onDone;
-    this.hide();
+    this.visible = false;
+    this.pages = [];
+    this.onDone = null;
     if (cb) cb();
+    return true;
+  }
+
+  /** Answers the question on screen with one of its options. */
+  answer(index) {
+    if (!this.choice) return false;
+    const cb = this.choice.onPick;
+    const n = this.choice.options.length;
+    const pick = Math.max(0, Math.min(n - 1, index));
+    this.choice = null;
+    this.visible = false;
+    this.pages = [];
+    this.onDone = null;
+    if (cb) cb(pick);
     return true;
   }
 
@@ -40168,6 +40215,7 @@ const { input } = __req('core/input.js');
 const { exportText } = __req('save/backup.js');
 const { CreditsScreen } = __req('ui/credits.js');
 const { ITEM_IDS } = __req('data/items.js');
+const { getMove } = __req('data/moves.js');
 const { unrenderable } = __req('render/font.js');
 const { objective } = __req('game/journal.js');
 const { builtGyms } = __req('data/campaign.js');
@@ -40217,6 +40265,7 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
 
 
 
@@ -40778,6 +40827,34 @@ function start() {
   game.gymsForTest = () => builtGyms(MAPS).map((g) => ({
     n: g.n, city: g.city, map: g.map, leader: g.leader, badge: g.badge, trainer: g.trainer,
   }));
+  // Which move on the list can actually knock something out. The play-test
+  // needs this because mashing A always picks slot one, and a slot-one Growl
+  // makes a fight unwinnable — the harness then blames the game for a battle
+  // that never ends, when the truth is that it never attacked.
+  // A party put back on its feet, using the game's own healing rather than a
+  // number poked into `hp` — max HP is computed from the stats, so there is
+  // no `maxHp` field to copy and a harness that invents one heals nobody.
+  game.healPartyForTest = () => { for (const m of game.state.party) healFully(m); };
+  game.bestMoveForTest = (screen) => {
+    // The monster that is actually out, not the first one in the bag: the
+    // move list on screen belongs to whoever is standing on the field.
+    let mon = null;
+    try {
+      const side = screen && screen.battle && screen.battle.sides[screen.mySide];
+      if (side) mon = side.party[side.active];
+    } catch { mon = null; }
+    if (!mon) mon = game.state.party.find((m) => m.hp > 0);
+    if (!mon || !mon.moves) return -1;
+    let best = -1, power = -1;
+    mon.moves.forEach((slot, i) => {
+      if (slot && slot.pp === 0) return;
+      const mv = getMove(slot && slot.id ? slot.id : slot);
+      if (!mv || !mv.power) return;
+      if (mv.power > power) { power = mv.power; best = i; }
+    });
+    void screen;
+    return best;
+  };
   Object.defineProperty(game, 'inputEnabled', { get: () => input.enabled });
 }
 
