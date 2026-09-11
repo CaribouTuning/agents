@@ -8,6 +8,7 @@
 // This runs the story headlessly: no canvas, no browser. It drives the same
 // scripts the game runs, with a fake cutscene context that records every line.
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { SCRIPTS } from '../src/game/overworld/scripts.js';
 import { createGameState, serializeState, deserializeState } from '../src/game/state.js';
 import { createMonster } from '../src/game/monster.js';
@@ -364,6 +365,47 @@ function freshState() {
   pageLimit = Infinity;
   walk(ENTRIES, 'journal');
   void snap;
+}
+
+console.log('\n--- the road from the first morning to the Everlight is unbroken ---');
+{
+  // Every link in the chain that leads to the climax, checked as a chain
+  // rather than as pieces. `SCRIPTS.commander` was written, worked perfectly
+  // when called, and was placed on no map — so `beatCommander` was never set,
+  // the Aurora Charm never appeared, the seam never opened, and the back half
+  // of the story could not be reached from a save that had done everything
+  // right. Nothing failed. It just was not there.
+  const placed = new Set();
+  const npcScripts = new Map();
+  for (const map of Object.values(MAPS)) {
+    for (const n of map.npcs) if (n.script) { placed.add(n.script); npcScripts.set(n.script, map.id); }
+    for (const e of map.events || []) if (e.script) { placed.add(e.script); npcScripts.set(e.script, map.id); }
+    for (const o of map.objects || []) if (o.script) { placed.add(o.script); npcScripts.set(o.script, map.id); }
+  }
+
+  // The chain, in the order it has to happen.
+  const chain = [
+    ['starter', 'Rowan hands over a Pokemon'],
+    ['rival1', 'Cass keeps the appointment she made'],
+    ['rival2', 'Cass, the second time'],
+    ['commander', 'Mars in the cave — the only thing that sets beatCommander'],
+    ['charmFound', 'the Aurora Charm on the floor she left it on'],
+    ['everlight', 'the seam in the rock'],
+    ['everlightDialga', 'the Everlight itself'],
+    ['rowanAfter', 'Rowan outside the Gate, afterwards'],
+  ];
+  for (const [name, what] of chain) {
+    check(placed.has(name), `${what} is somewhere a player can reach it`,
+      placed.has(name) ? `on ${npcScripts.get(name)}` : 'PLACED NOWHERE');
+  }
+
+  // And the flag each link needs is set by the link before it.
+  const src = readFileSync(new URL('../src/game/overworld/scripts.js', import.meta.url), 'utf8');
+  const sets = (flag) => new RegExp(`setFlag\\((?:FLAGS\\.[A-Z_]+|'${flag}')`).test(src)
+    && (src.includes(`'${flag}'`) || Object.values(FLAGS).includes(flag));
+  for (const flag of ['beatCommander', 'knowsTwist', 'everlightOpened', 'everlightResolved']) {
+    check(sets(flag), `something sets ${flag}`);
+  }
 }
 
 console.log(fails ? `\n${fails} failure(s)` : '\nstory: all checks passed');

@@ -1,6 +1,6 @@
 // The campaign spine.
 //
-// Platinum's shape, as data: eight Gyms in Platinum's order — which is *not*
+// Platinum's shape, as data: the Gyms in Platinum's order — which is *not*
 // Diamond and Pearl's, because Fantina moves from fifth to third and that
 // changes the whole middle of the game — each with the badge it gives, the TM
 // it hands over, and the field move that badge authorises.
@@ -80,7 +80,26 @@ export function builtGyms(maps) {
   return GYMS.filter((g) => maps[g.map]);
 }
 
-/** How far through the eight the player is. */
+/**
+ * How many badges the League in THIS build actually asks for.
+ *
+ * Rowan used to say "eight of those and the League has to let you in" while
+ * the game had six Gyms in it, which is the kind of thing that quietly tells a
+ * player the world is not real. Nobody states a number any more: every line
+ * that mentions how many badges there are reads it from here, so the sentence
+ * and the game cannot come apart.
+ */
+export function leagueBadges(maps) {
+  return builtGyms(maps).length;
+}
+
+/** The town a Gym is in, by leader name — so nobody ever mislocates one. */
+export function gymTownOf(leader, maps) {
+  const g = builtGyms(maps).find((x) => x.leader === leader);
+  return g ? g.city : null;
+}
+
+/** How far through them the player is. */
 export function badgeCount(state) { return (state.badges || []).length; }
 
 /** The next Gym to go and find, or null once all eight are done. */

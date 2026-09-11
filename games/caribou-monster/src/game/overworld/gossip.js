@@ -16,6 +16,8 @@ import { displayName } from '../monster.js';
 import { getSpecies } from '../../data/species.js';
 import { buddyOf, playerOf } from '../players.js';
 import { caughtCount, seenCount } from '../pokedex.js';
+import { leagueBadges } from '../../data/campaign.js';
+import { MAPS } from '../../data/maps/index.js';
 
 /**
  * Everything an NPC is allowed to know. Built once per conversation so a long
@@ -47,6 +49,10 @@ export function worldSnapshot(state, link = null) {
     state,
     flags: state.flags || {},
     badges: (state.badges || []).length,
+    // How many badges the League in this build actually asks for. Read from
+    // the Gyms that exist, never written into a line, so a sentence about the
+    // road ahead can never describe a road that is not there.
+    leagueBadges: leagueBadges(MAPS),
     party: state.party || [],
     caught: caughtCount(state.dex),
     seen: seenCount(state.dex),
@@ -173,7 +179,7 @@ export function matches(when, s) {
 // ---- templating -------------------------------------------------------------
 
 const SLOTS = new Set([
-  'player', 'starter', 'lead', 'leadLevel', 'badges', 'caught', 'seen',
+  'player', 'starter', 'lead', 'leadLevel', 'badges', 'leagueBadges', 'caught', 'seen',
   'champion', 'championTag', 'topPro', 'topProTag', 'rank', 'cp', 'rating', 'place', 'titles',
   'lastTitle', 'streak', 'rival', 'rivalRating', 'rivalLead', 'event', 'headline',
   'hype', 'respect', 'partner', 'buddy',
@@ -189,6 +195,10 @@ export function fill(line, s) {
       case 'lead': return s.lead;
       case 'leadLevel': return String(s.leadLevel);
       case 'badges': return String(s.badges);
+      // How many badges the League asks for in THIS build. Never written into
+      // a line, so a sentence about the road cannot describe a road that is
+      // not there.
+      case 'leagueBadges': return String(s.leagueBadges);
       case 'caught': return String(s.caught);
       case 'seen': return String(s.seen);
       case 'champion': return s.championIsPlayer ? s.playerName : s.champion;

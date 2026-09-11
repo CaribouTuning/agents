@@ -134,20 +134,21 @@ async function playOpening(me) {
   const mum = transcript;
   check(new RegExp(them).test(mum), 'and names the person waiting outside', mum.slice(-90));
 
-  // Out, and the other one is on the step. Keep walking after the door:
-  // arriving in town is not the same as having taken a step in it.
+  // Out the door, and then NOTHING. No steps at all.
+  //
+  // This used to walk south a few tiles before looking, which is what hid the
+  // bug for weeks: the scene was sitting on the path row below the houses,
+  // the test obligingly walked onto it, and a real player — who walks NORTH,
+  // because that is where the lab is — never saw it. Mum said the other one
+  // was outside and there was nobody there. So the test now does what a
+  // person does: comes out of the door and looks.
   for (let i = 0; i < 6; i++) {
     const at = await where();
     if (at.map === 'twinleaf') break;
     await hold('ArrowDown', 420);
     await wait(360);
   }
-  for (let i = 0; i < 4; i++) {
-    if (await busy()) break;
-    await hold('ArrowDown', 400);
-    await wait(360);
-  }
-  await wait(500);
+  await wait(900);
   transcript = '';
   await clear(200);
   const step = transcript;
@@ -226,6 +227,70 @@ await playOpening({ name: 'Matthew', look: 'matthew', house: 'matthew_house' });
 await playOpening({ name: 'Sammy', look: 'sammy', house: 'sammy_house' });
 
 // --- the map exists and can be opened ---
+// --- what Cass promised actually happens ---
+//
+// She says "Route 201. The north gate. Twenty minutes." and then walks out.
+// If nothing is waiting up that road, she is a character who makes an
+// appointment and does not keep it, and the player is left standing at a gate
+// wondering what they did wrong. This walks the appointment.
+console.log('\n--- Cass keeps her appointment ---');
+{
+  await page.evaluate(() => {
+    const g = window.CARIBOU;
+    // Straight after the lab: starter in hand, Cass met, gate open.
+    g.state.flags.gotStarter = true;
+    g.state.flags.metRival = true;
+    g.state.player.dir = 'up';
+    g.teleport('twinleaf', 11, 2);
+  });
+  await wait(700);
+
+  transcript = '';
+  let met = '';
+  let sawHer = false;
+  for (let i = 0; i < 16; i++) {
+    const at = await where();
+    if (!at) break;
+    if (await busy()) {
+      const r = await clear(90);
+      met += ' ' + transcript;
+      if (r === 'battle') { sawHer = true; break; }
+      if (/Cass/.test(transcript)) sawHer = true;
+      continue;
+    }
+    await hold('ArrowUp', 380);
+    await wait(260);
+  }
+  const at = await where();
+  check(sawHer && /Cass/i.test(met),
+    'walking up Route 201 actually finds her there',
+    `${at ? at.map + ' ' + at.x + ',' + at.y : '?'} | ${met.slice(0, 120)}`);
+
+  // The proof is that a battle against HER actually starts. Fighting it to a
+  // finish is a different test; what matters here is that the appointment she
+  // made in the lab turns into the thing she said it would.
+  const fight = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    const top = g.screens.top;
+    if (top.constructor.name !== 'BattleScreen') return { screen: top.constructor.name };
+    const b = top.battle || top.engine || null;
+    const foe = b && b.sides && b.sides[1];
+    return { screen: 'BattleScreen', foe: foe ? foe.name : null };
+  });
+  check(fight.screen === 'BattleScreen' && /Cass/i.test(fight.foe || ''),
+    'and the battle she promised is the one that starts', JSON.stringify(fight));
+
+  // She is also standing there to be SEEN, not conjured out of the air three
+  // tiles up the road once you have already walked past where she said.
+  const visible = await page.evaluate(() => {
+    const w = window.CARIBOU.overworld.world;
+    const e = (w.entities || []).find((x) => x.id === 'rival');
+    return e ? { x: e.x, y: e.y } : null;
+  });
+  check(!!visible, 'and she is a person standing on the route, not a spawn', JSON.stringify(visible));
+}
+
+
 // It did not. The Town Map screen was written, the Key Item was defined, and
 // nobody was ever given one — so as far as a player was concerned the game
 // had no map at all.

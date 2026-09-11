@@ -159,7 +159,14 @@ export const OREBURGH_GATE = defineMap('oreburgh_gate', {
     { id: 'sf_t1', x: 6, y: 5, look: 'grunt', trainer: 'cave_grunt1', facing: 'right', sight: 4, movement: 'still' },
     { id: 'sf_t2', x: 18, y: 11, look: 'gruntF', trainer: 'cave_grunt2', facing: 'left', sight: 4, movement: 'still' },
     {
-      id: 'sf_boss', x: 12, y: 3, look: 'boss', trainer: 'cave_commander', facing: 'down', sight: 3, movement: 'still',
+      // Mars. She runs `commander`, which is the ONLY thing in the game that
+      // sets `beatCommander` — and until now nothing ran it. She was just a
+      // trainer standing in a cave: you beat her, nothing happened, the charm
+      // never appeared on the tile behind her, the seam never opened, and the
+      // entire back half of the story was unreachable from a save that had
+      // done everything right.
+      id: 'sf_boss', x: 12, y: 3, look: 'boss', trainer: 'cave_commander', facing: 'down', sight: 3,
+      movement: 'still', script: 'commander',
       after: [
         {
           when: { champion: true },

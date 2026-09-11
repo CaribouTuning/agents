@@ -140,8 +140,11 @@ export const ROWAN = {
   send: [
     'Prof. Rowan: North, then. Route 201 to Sandgem, Route 202 to Jubilife,\fRoute 203 to Oreburgh.',
     'Prof. Rowan: Stop at the Trainers’ School in Jubilife.\fIt is free and it is better than anything I could tell you here.',
-    'Prof. Rowan: There is a Pokémon Gym in it. Roark runs it — Rock types.',
-    'Prof. Rowan: Beat him and he gives you the Coal Badge.\fEight of those and the League has to let you in.',
+    // She used to put Roark's Gym in Jubilife, which is two towns early and
+    // exactly the kind of thing that makes a world stop being one. The badge
+    // count is a slot now, filled from the Gyms this game actually has.
+    'Prof. Rowan: Keep going to Oreburgh after that. The mining city.\fThere is a Pokémon Gym there. Roark runs it — Rock types.',
+    'Prof. Rowan: Beat him and he gives you the Coal Badge.\f{leagueBadges} of those and the League has to let you in.',
     'Prof. Rowan: That is the road. Go and walk it.',
   ],
 

@@ -26,17 +26,26 @@ export const TWINLEAF = defineMap('twinleaf', {
   name: 'Twinleaf Town', kind: 'town', music: 'town',
   tiles: TWINLEAF_ROWS,
 
-  // The other one is on the step.
+  // The other one is on the step, and the scene fires the moment you come out
+  // of your own front door.
   //
-  // The trigger is the whole of the path row BELOW the two houses, not the
-  // tiles the doors land on: arriving on a tile does not count as stepping
-  // onto it, so a trigger on the doormat is a scene that never fires. Every
-  // route out of either house crosses this row.
-  events: TWINLEAF_ROWS[14].split('').map((ch, x) => (
-    TILES[ch] && !TILES[ch].solid
-      ? { x, y: 14, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' }
-      : null
-  )).filter(Boolean),
+  // It used to sit on the path row below the houses, on the reasoning that
+  // arriving on a tile is not the same as stepping onto it — which is true,
+  // and was the wrong fix. The lab is NORTH of both houses, so nobody ever
+  // walked south onto that row: Mum said the other one was outside, you came
+  // out, and there was nobody there. An `arrive` event fires on the tile you
+  // land on, which is the doorstep, which is where they are standing.
+  events: [
+    { x: 4, y: 13, arrive: true, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' },
+    { x: 15, y: 13, arrive: true, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' },
+    // And a backstop across the path below, in case somebody walks out, walks
+    // away, and comes back before the scene has happened.
+    ...TWINLEAF_ROWS[14].split('').map((ch, x) => (
+      TILES[ch] && !TILES[ch].solid
+        ? { x, y: 14, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' }
+        : null
+    )).filter(Boolean),
+  ],
   warps: [
     // Shut until Rowan has handed a Pokemon over. You can wander the whole
     // town, go in every house and talk to everybody — the one thing you
@@ -308,13 +317,20 @@ export const OREBURGH = defineMap('oreburgh', {
   events: [
     // The survey Ines keeps talking about, left on the bench beside her.
     { x: 20, y: 21, flag: 'doc_survey_read', script: 'docSurvey' },
+    // Cass, the second time, on the road in from Route 203 — the road the
+    // story actually brings you down. The scene was written and placed on no
+    // map at all, so the second rival battle simply never happened.
+    { x: 3, y: 8, flag: 'beatRival2', requires: 'beatRival1', script: 'rival2' },
+    { x: 3, y: 9, flag: 'beatRival2', requires: 'beatRival1', script: 'rival2' },
+    { x: 4, y: 8, flag: 'beatRival2', requires: 'beatRival1', script: 'rival2' },
+    { x: 4, y: 9, flag: 'beatRival2', requires: 'beatRival1', script: 'rival2' },
   ],
   signs: [
     { x: 3, y: 23, text: 'OREBURGH CITY\n"The City of Energy"\nCut from the hillside, stone by stone.' },
     { x: 26, y: 23, text: 'OREBURGH CITY\nGYM ahead — south end of the main road.\nBATTLE HALL — east side.' },
     { x: 17, y: 12, text: 'OREBURGH BATTLE HALL\nSanctioned venue of the World Circuit.\nOpen entry. Bring a team.' },
     { x: 12, y: 20, text: 'OREBURGH GYM\nLeader: ROARK\nThe Rock-type Pokémon user!\n"The quarry does not blink."' },
-    { x: 17, y: 20, text: 'WIN AND CLAIM THE COAL BADGE\nA Gym Badge is proof you beat a Leader.\nEight of them opens the League.' },
+    { x: 17, y: 20, text: 'WIN AND CLAIM THE COAL BADGE\nA Gym Badge is proof you beat a Leader.\n{leagueBadges} of them opens the League.' },
   ],
   npcs: [
     {

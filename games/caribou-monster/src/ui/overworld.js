@@ -403,7 +403,32 @@ export class OverworldScreen extends Screen {
       const map = getMap(warp.to);
       if (map.kind === 'cave') setStoryFlag(st, 'enteredCave', true);
       if (warp.to === 'route202') setStoryFlag(st, 'enteredForest', true);
+      this._arriveEvent(map);
     }, { outMs: warp.edge ? 240 : 300, inMs: warp.edge ? 260 : 320 });
+  }
+
+  /**
+   * A scene that fires because you ARRIVED somewhere, not because you walked
+   * onto a tile.
+   *
+   * Step events only run on a completed step, so a scene meant to happen the
+   * moment you come out of your own front door could never fire: you land on
+   * the doorstep, and landing is not stepping. That is exactly how the whole
+   * opening broke — Mum said the other one was waiting outside, and then
+   * nobody was, because the scene that puts them there was sitting on a tile
+   * the player had no reason to walk onto.
+   *
+   * An `arrive: true` event fires on the tile you land on, or anywhere on the
+   * map if it gives no coordinates.
+   */
+  _arriveEvent(map) {
+    const st = this.game.state;
+    const p = this.world.player;
+    const ev = (map.events || []).find((e) => e.arrive
+      && (e.x === undefined || (e.x === p.x && e.y === p.y))
+      && (e.repeat || !st.flags[e.flag])
+      && (!e.requires || st.flags[e.requires]));
+    if (ev) this.world.pendingEvent = ev;
   }
 
   // ---- battles -------------------------------------------------------------
@@ -422,6 +447,13 @@ export class OverworldScreen extends Screen {
   _trainerSpotted(npc) {
     const t = getTrainer(npc.data.trainer);
     if (!t) return;
+    // A trainer with a script of its own is a story fight, and the script owns
+    // the whole encounter — the speech before it, the flags after it, the
+    // thing it leaves behind. Running the generic "walk up and battle" instead
+    // is how Mars became a Galactic commander you could beat in a cave with
+    // nothing whatsoever happening as a result, which left the Aurora Charm
+    // unobtainable and the back half of the story unreachable.
+    if (npc.data.script) { this.runScript(npc.data.script, npc); return; }
     this.runScript(null, npc, async (ctx) => {
       ctx.exclaim(npc);
       audio.sfx('encounter');

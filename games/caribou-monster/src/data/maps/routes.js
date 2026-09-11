@@ -72,7 +72,10 @@ export const ROUTE201 = defineMap('route201', {
   // trigger in the road is a story beat you can walk straight past without
   // ever knowing it was there — which is exactly what happened: the rival
   // announced she would be waiting at the north gate and then never appeared.
-  events: rivalLine(23),
+  // One tile up from the gate, so she is on screen the moment you come
+  // through it. She said the north gate; standing three tiles into a route
+  // with nothing visible from the gate is not the north gate.
+  events: rivalLine(25),
   signs: [
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
   ],
@@ -81,6 +84,21 @@ export const ROUTE201 = defineMap('route201', {
     { id: 'r1_ball', x: 20, y: 5, item: 'pokeball', qty: 3 },
   ],
   npcs: [
+    // Cass, keeping the appointment she made in the lab.
+    //
+    // She used to be spawned out of thin air by the step event three tiles up
+    // the road, which meant a player who walked to the gate she named saw an
+    // empty route and concluded the battle was broken. She is a real NPC now,
+    // standing where she said she would be — and because `spawnNpc` adopts an
+    // entity that already has the id, the scene picks HER up rather than
+    // putting a second one behind you.
+    {
+      id: 'rival', x: 13, y: 24, look: 'rivalGirl', name: 'Cass Wren',
+      movement: 'still', facing: 'down',
+      onlyWhen: 'metRival', goneWhen: 'beatRival1',
+      script: 'rival1',
+      dialogue: [{ lines: ['Cass: You took your time.'] }],
+    },
     { id: 'r1_t1', x: 8, y: 16, look: 'youngster', trainer: 'r1_youngster', facing: 'right', sight: 4, movement: 'still' },
     { id: 'r1_t2', x: 17, y: 12, look: 'lass', trainer: 'r1_lass', facing: 'left', sight: 4, movement: 'still' },
     {

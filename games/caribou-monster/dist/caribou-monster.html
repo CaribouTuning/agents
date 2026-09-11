@@ -10186,7 +10186,7 @@ __defs['data/campaign.js'] = function (__x, __req) {
 
 // The campaign spine.
 //
-// Platinum's shape, as data: eight Gyms in Platinum's order — which is *not*
+// Platinum's shape, as data: the Gyms in Platinum's order — which is *not*
 // Diamond and Pearl's, because Fantina moves from fifth to third and that
 // changes the whole middle of the game — each with the badge it gives, the TM
 // it hands over, and the field move that badge authorises.
@@ -10266,7 +10266,26 @@ function builtGyms(maps) {
   return GYMS.filter((g) => maps[g.map]);
 }
 
-/** How far through the eight the player is. */
+/**
+ * How many badges the League in THIS build actually asks for.
+ *
+ * Rowan used to say "eight of those and the League has to let you in" while
+ * the game had six Gyms in it, which is the kind of thing that quietly tells a
+ * player the world is not real. Nobody states a number any more: every line
+ * that mentions how many badges there are reads it from here, so the sentence
+ * and the game cannot come apart.
+ */
+function leagueBadges(maps) {
+  return builtGyms(maps).length;
+}
+
+/** The town a Gym is in, by leader name — so nobody ever mislocates one. */
+function gymTownOf(leader, maps) {
+  const g = builtGyms(maps).find((x) => x.leader === leader);
+  return g ? g.city : null;
+}
+
+/** How far through them the player is. */
 function badgeCount(state) { return (state.badges || []).length; }
 
 /** The next Gym to go and find, or null once all eight are done. */
@@ -10316,7 +10335,7 @@ function beatsWithMaps(maps) {
   return BEATS.filter((b) => maps[b.where]);
 }
 
-__exports(__x, { GYMS: () => GYMS, STORY_FIELD_MOVES: () => STORY_FIELD_MOVES, gymByNumber: () => gymByNumber, gymByTrainer: () => gymByTrainer, gymByCity: () => gymByCity, builtGyms: () => builtGyms, badgeCount: () => badgeCount, nextGym: () => nextGym, BEATS: () => BEATS, currentBeat: () => currentBeat, beatsWithMaps: () => beatsWithMaps });
+__exports(__x, { GYMS: () => GYMS, STORY_FIELD_MOVES: () => STORY_FIELD_MOVES, gymByNumber: () => gymByNumber, gymByTrainer: () => gymByTrainer, gymByCity: () => gymByCity, builtGyms: () => builtGyms, leagueBadges: () => leagueBadges, gymTownOf: () => gymTownOf, badgeCount: () => badgeCount, nextGym: () => nextGym, BEATS: () => BEATS, currentBeat: () => currentBeat, beatsWithMaps: () => beatsWithMaps });
 
 };
 
@@ -16809,17 +16828,26 @@ const TWINLEAF = defineMap('twinleaf', {
   name: 'Twinleaf Town', kind: 'town', music: 'town',
   tiles: TWINLEAF_ROWS,
 
-  // The other one is on the step.
+  // The other one is on the step, and the scene fires the moment you come out
+  // of your own front door.
   //
-  // The trigger is the whole of the path row BELOW the two houses, not the
-  // tiles the doors land on: arriving on a tile does not count as stepping
-  // onto it, so a trigger on the doormat is a scene that never fires. Every
-  // route out of either house crosses this row.
-  events: TWINLEAF_ROWS[14].split('').map((ch, x) => (
-    TILES[ch] && !TILES[ch].solid
-      ? { x, y: 14, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' }
-      : null
-  )).filter(Boolean),
+  // It used to sit on the path row below the houses, on the reasoning that
+  // arriving on a tile is not the same as stepping onto it — which is true,
+  // and was the wrong fix. The lab is NORTH of both houses, so nobody ever
+  // walked south onto that row: Mum said the other one was outside, you came
+  // out, and there was nobody there. An `arrive` event fires on the tile you
+  // land on, which is the doorstep, which is where they are standing.
+  events: [
+    { x: 4, y: 13, arrive: true, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' },
+    { x: 15, y: 13, arrive: true, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' },
+    // And a backstop across the path below, in case somebody walks out, walks
+    // away, and comes back before the scene has happened.
+    ...TWINLEAF_ROWS[14].split('').map((ch, x) => (
+      TILES[ch] && !TILES[ch].solid
+        ? { x, y: 14, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' }
+        : null
+    )).filter(Boolean),
+  ],
   warps: [
     // Shut until Rowan has handed a Pokemon over. You can wander the whole
     // town, go in every house and talk to everybody — the one thing you
@@ -17091,13 +17119,20 @@ const OREBURGH = defineMap('oreburgh', {
   events: [
     // The survey Ines keeps talking about, left on the bench beside her.
     { x: 20, y: 21, flag: 'doc_survey_read', script: 'docSurvey' },
+    // Cass, the second time, on the road in from Route 203 — the road the
+    // story actually brings you down. The scene was written and placed on no
+    // map at all, so the second rival battle simply never happened.
+    { x: 3, y: 8, flag: 'beatRival2', requires: 'beatRival1', script: 'rival2' },
+    { x: 3, y: 9, flag: 'beatRival2', requires: 'beatRival1', script: 'rival2' },
+    { x: 4, y: 8, flag: 'beatRival2', requires: 'beatRival1', script: 'rival2' },
+    { x: 4, y: 9, flag: 'beatRival2', requires: 'beatRival1', script: 'rival2' },
   ],
   signs: [
     { x: 3, y: 23, text: 'OREBURGH CITY\n"The City of Energy"\nCut from the hillside, stone by stone.' },
     { x: 26, y: 23, text: 'OREBURGH CITY\nGYM ahead — south end of the main road.\nBATTLE HALL — east side.' },
     { x: 17, y: 12, text: 'OREBURGH BATTLE HALL\nSanctioned venue of the World Circuit.\nOpen entry. Bring a team.' },
     { x: 12, y: 20, text: 'OREBURGH GYM\nLeader: ROARK\nThe Rock-type Pokémon user!\n"The quarry does not blink."' },
-    { x: 17, y: 20, text: 'WIN AND CLAIM THE COAL BADGE\nA Gym Badge is proof you beat a Leader.\nEight of them opens the League.' },
+    { x: 17, y: 20, text: 'WIN AND CLAIM THE COAL BADGE\nA Gym Badge is proof you beat a Leader.\n{leagueBadges} of them opens the League.' },
   ],
   npcs: [
     {
@@ -17587,7 +17622,10 @@ const ROUTE201 = defineMap('route201', {
   // trigger in the road is a story beat you can walk straight past without
   // ever knowing it was there — which is exactly what happened: the rival
   // announced she would be waiting at the north gate and then never appeared.
-  events: rivalLine(23),
+  // One tile up from the gate, so she is on screen the moment you come
+  // through it. She said the north gate; standing three tiles into a route
+  // with nothing visible from the gate is not the north gate.
+  events: rivalLine(25),
   signs: [
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
   ],
@@ -17596,6 +17634,21 @@ const ROUTE201 = defineMap('route201', {
     { id: 'r1_ball', x: 20, y: 5, item: 'pokeball', qty: 3 },
   ],
   npcs: [
+    // Cass, keeping the appointment she made in the lab.
+    //
+    // She used to be spawned out of thin air by the step event three tiles up
+    // the road, which meant a player who walked to the gate she named saw an
+    // empty route and concluded the battle was broken. She is a real NPC now,
+    // standing where she said she would be — and because `spawnNpc` adopts an
+    // entity that already has the id, the scene picks HER up rather than
+    // putting a second one behind you.
+    {
+      id: 'rival', x: 13, y: 24, look: 'rivalGirl', name: 'Cass Wren',
+      movement: 'still', facing: 'down',
+      onlyWhen: 'metRival', goneWhen: 'beatRival1',
+      script: 'rival1',
+      dialogue: [{ lines: ['Cass: You took your time.'] }],
+    },
     { id: 'r1_t1', x: 8, y: 16, look: 'youngster', trainer: 'r1_youngster', facing: 'right', sight: 4, movement: 'still' },
     { id: 'r1_t2', x: 17, y: 12, look: 'lass', trainer: 'r1_lass', facing: 'left', sight: 4, movement: 'still' },
     {
@@ -17957,7 +18010,14 @@ const OREBURGH_GATE = defineMap('oreburgh_gate', {
     { id: 'sf_t1', x: 6, y: 5, look: 'grunt', trainer: 'cave_grunt1', facing: 'right', sight: 4, movement: 'still' },
     { id: 'sf_t2', x: 18, y: 11, look: 'gruntF', trainer: 'cave_grunt2', facing: 'left', sight: 4, movement: 'still' },
     {
-      id: 'sf_boss', x: 12, y: 3, look: 'boss', trainer: 'cave_commander', facing: 'down', sight: 3, movement: 'still',
+      // Mars. She runs `commander`, which is the ONLY thing in the game that
+      // sets `beatCommander` — and until now nothing ran it. She was just a
+      // trainer standing in a cave: you beat her, nothing happened, the charm
+      // never appeared on the tile behind her, the seam never opened, and the
+      // entire back half of the story was unreachable from a save that had
+      // done everything right.
+      id: 'sf_boss', x: 12, y: 3, look: 'boss', trainer: 'cave_commander', facing: 'down', sight: 3,
+      movement: 'still', script: 'commander',
       after: [
         {
           when: { champion: true },
@@ -18333,12 +18393,12 @@ const OREBURGH_GYM = defineMap('oreburgh_gym', {
           when: { badges: 1 },
           lines: ['You took the Coal Badge off Roark! I saw it!',
             'That badge makes traded Pokémon up to level 20 obey you.',
-            'Seven more Gyms after this one. Then the League.'],
+            'The rest of the Gyms after this one, and then the League.'],
         },
         {
           lines: ['Hey! You here to challenge the Gym? Let me give you the rundown.',
             'This is a Pokémon Gym. Beat the Leader and he hands you a BADGE.',
-            'Eight badges gets you into the Pokémon League. That is the whole road.',
+            '{leagueBadges} badges gets you into the Pokémon League. That is the whole road.',
             'Roark uses ROCK types. Rock is heavy, slow, and hates Water and Grass.',
             'Every trainer in here is between you and him. Go on — flatten them!'],
         },
@@ -24923,8 +24983,11 @@ const ROWAN = {
   send: [
     'Prof. Rowan: North, then. Route 201 to Sandgem, Route 202 to Jubilife,\fRoute 203 to Oreburgh.',
     'Prof. Rowan: Stop at the Trainers’ School in Jubilife.\fIt is free and it is better than anything I could tell you here.',
-    'Prof. Rowan: There is a Pokémon Gym in it. Roark runs it — Rock types.',
-    'Prof. Rowan: Beat him and he gives you the Coal Badge.\fEight of those and the League has to let you in.',
+    // She used to put Roark's Gym in Jubilife, which is two towns early and
+    // exactly the kind of thing that makes a world stop being one. The badge
+    // count is a slot now, filled from the Gyms this game actually has.
+    'Prof. Rowan: Keep going to Oreburgh after that. The mining city.\fThere is a Pokémon Gym there. Roark runs it — Rock types.',
+    'Prof. Rowan: Beat him and he gives you the Coal Badge.\f{leagueBadges} of those and the League has to let you in.',
     'Prof. Rowan: That is the road. Go and walk it.',
   ],
 
@@ -27277,6 +27340,8 @@ const { displayName } = __req('game/monster.js');
 const { getSpecies } = __req('data/species.js');
 const { buddyOf, playerOf } = __req('game/players.js');
 const { caughtCount, seenCount } = __req('game/pokedex.js');
+const { leagueBadges } = __req('data/campaign.js');
+const { MAPS } = __req('data/maps/index.js');
 // What the world is saying right now.
 //
 // An NPC's `dialogue` may be a plain array of lines (the simple case) or a
@@ -27289,6 +27354,8 @@ const { caughtCount, seenCount } = __req('game/pokedex.js');
 // The point is that none of this is scenery. Every fact an NPC states is read
 // out of the same state the systems run on, so the world cannot drift out of
 // step with itself.
+
+
 
 
 
@@ -27326,6 +27393,10 @@ function worldSnapshot(state, link = null) {
     state,
     flags: state.flags || {},
     badges: (state.badges || []).length,
+    // How many badges the League in this build actually asks for. Read from
+    // the Gyms that exist, never written into a line, so a sentence about the
+    // road ahead can never describe a road that is not there.
+    leagueBadges: leagueBadges(MAPS),
     party: state.party || [],
     caught: caughtCount(state.dex),
     seen: seenCount(state.dex),
@@ -27452,7 +27523,7 @@ function matches(when, s) {
 // ---- templating -------------------------------------------------------------
 
 const SLOTS = new Set([
-  'player', 'starter', 'lead', 'leadLevel', 'badges', 'caught', 'seen',
+  'player', 'starter', 'lead', 'leadLevel', 'badges', 'leagueBadges', 'caught', 'seen',
   'champion', 'championTag', 'topPro', 'topProTag', 'rank', 'cp', 'rating', 'place', 'titles',
   'lastTitle', 'streak', 'rival', 'rivalRating', 'rivalLead', 'event', 'headline',
   'hype', 'respect', 'partner', 'buddy',
@@ -27468,6 +27539,10 @@ function fill(line, s) {
       case 'lead': return s.lead;
       case 'leadLevel': return String(s.leadLevel);
       case 'badges': return String(s.badges);
+      // How many badges the League asks for in THIS build. Never written into
+      // a line, so a sentence about the road cannot describe a road that is
+      // not there.
+      case 'leagueBadges': return String(s.leagueBadges);
       case 'caught': return String(s.caught);
       case 'seen': return String(s.seen);
       case 'champion': return s.championIsPlayer ? s.playerName : s.champion;
@@ -28780,7 +28855,32 @@ class OverworldScreen extends Screen {
       const map = getMap(warp.to);
       if (map.kind === 'cave') setStoryFlag(st, 'enteredCave', true);
       if (warp.to === 'route202') setStoryFlag(st, 'enteredForest', true);
+      this._arriveEvent(map);
     }, { outMs: warp.edge ? 240 : 300, inMs: warp.edge ? 260 : 320 });
+  }
+
+  /**
+   * A scene that fires because you ARRIVED somewhere, not because you walked
+   * onto a tile.
+   *
+   * Step events only run on a completed step, so a scene meant to happen the
+   * moment you come out of your own front door could never fire: you land on
+   * the doorstep, and landing is not stepping. That is exactly how the whole
+   * opening broke — Mum said the other one was waiting outside, and then
+   * nobody was, because the scene that puts them there was sitting on a tile
+   * the player had no reason to walk onto.
+   *
+   * An `arrive: true` event fires on the tile you land on, or anywhere on the
+   * map if it gives no coordinates.
+   */
+  _arriveEvent(map) {
+    const st = this.game.state;
+    const p = this.world.player;
+    const ev = (map.events || []).find((e) => e.arrive
+      && (e.x === undefined || (e.x === p.x && e.y === p.y))
+      && (e.repeat || !st.flags[e.flag])
+      && (!e.requires || st.flags[e.requires]));
+    if (ev) this.world.pendingEvent = ev;
   }
 
   // ---- battles -------------------------------------------------------------
@@ -28799,6 +28899,13 @@ class OverworldScreen extends Screen {
   _trainerSpotted(npc) {
     const t = getTrainer(npc.data.trainer);
     if (!t) return;
+    // A trainer with a script of its own is a story fight, and the script owns
+    // the whole encounter — the speech before it, the flags after it, the
+    // thing it leaves behind. Running the generic "walk up and battle" instead
+    // is how Mars became a Galactic commander you could beat in a cave with
+    // nothing whatsoever happening as a result, which left the Aurora Charm
+    // unobtainable and the back half of the story unreachable.
+    if (npc.data.script) { this.runScript(npc.data.script, npc); return; }
     this.runScript(null, npc, async (ctx) => {
       ctx.exclaim(npc);
       audio.sfx('encounter');

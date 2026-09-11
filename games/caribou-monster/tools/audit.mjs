@@ -15,7 +15,8 @@ import {
 } from '../src/data/maps/world.js';
 import { tileDef } from '../src/render/tiles.js';
 import { FIELD_MOVES, badgeFor, storyGateFor, moveForTile } from '../src/game/fieldmoves.js';
-import { GYMS } from '../src/data/campaign.js';
+import { GYMS, builtGyms } from '../src/data/campaign.js';
+import * as STORY_MOD from '../src/data/story.js';
 import { unrenderable } from '../src/render/font.js';
 import { objective, OBJECTIVE_MAX, ENTRIES as JOURNAL_ENTRIES } from '../src/game/journal.js';
 import { PHASES, phaseAt, tintFor } from '../src/game/clock.js';
@@ -1152,6 +1153,121 @@ function checkHealPointsBelongToTheirTown() {
   }
 }
 
+/**
+ * Nobody may state a number of Gyms, or put a Gym in the wrong town.
+ *
+ * Rowan told every player that Roark's Gym was in Jubilife — two towns early —
+ * and that eight badges would get them into the League, in a game with six
+ * Gyms in it. Neither line was wrong in any way a test could see, because
+ * both were just prose. So the prose gets checked: a written-out number of
+ * badges is refused outright (use the {leagueBadges} slot), and naming a Gym
+ * leader in the same breath as a town has to be the town they are actually in.
+ */
+const STORY = STORY_MOD;
+
+function checkNobodyMisstatesTheRoad() {
+  const towns = {};
+  for (const g of builtGyms(MAPS)) {
+    towns[g.leader.toLowerCase()] = (MAPS[g.city] ? MAPS[g.city].name : g.city).toLowerCase();
+  }
+  // Two shapes, because the line that actually shipped was neither a plain
+  // "eight badges" nor a plain "eight Gyms": it was "Eight of those and the
+  // League has to let you in", which counts badges without naming them.
+  const NUM = '(one|two|three|four|five|six|seven|eight|nine|ten)';
+  const COUNT = new RegExp(`\\b${NUM}\\s+(?:more\\s+)?(gyms?|badges?)\\b`, 'i');
+  const OF_THOSE = new RegExp(`\\b${NUM}\\s+of (?:those|them)\\b`, 'i');
+
+  const lines = [];
+  const take = (tag, d) => {
+    if (!d) return;
+    for (const entry of d) {
+      if (typeof entry === 'string') { lines.push([tag, entry]); continue; }
+      for (const g of entry.pool || (entry.lines ? [entry.lines] : [])) {
+        for (const l of g) lines.push([tag, l]);
+      }
+    }
+  };
+  for (const map of Object.values(MAPS)) {
+    for (const n of map.npcs) {
+      take(`${map.id}/${n.id}`, n.dialogue);
+      take(`${map.id}/${n.id}`, n.after);
+    }
+    for (const sg of map.signs || []) lines.push([`${map.id} sign`, sg.text]);
+  }
+  for (const [key, val] of Object.entries(STORY)) {
+    const walk = (v, path) => {
+      if (typeof v === 'string') { lines.push([`story.${path}`, v]); return; }
+      if (Array.isArray(v)) { v.forEach((x, i) => walk(x, `${path}[${i}]`)); return; }
+      if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, `${path}.${k}`);
+    };
+    walk(val, key);
+  }
+
+  for (const [tag, line] of lines) {
+    const m = COUNT.exec(line) || (/badge|league|gym/i.test(line) && OF_THOSE.exec(line));
+    if (m) {
+      err(`[${tag}] writes out "${m[0]}" — use the {leagueBadges} slot so it cannot go stale`);
+    }
+    for (const [leader, town] of Object.entries(towns)) {
+      if (!new RegExp(`\\b${leader}\\b`, 'i').test(line)) continue;
+      // Only complain when the line names a DIFFERENT town in the same breath.
+      for (const other of Object.values(MAPS)) {
+        if (other.kind !== 'town' && other.kind !== 'city') continue;
+        const nm = other.name.replace(/ (Town|City)$/, '');
+        if (nm.toLowerCase() === town.replace(/ (town|city)$/, '')) continue;
+        if (new RegExp(`\\b${nm}\\b`).test(line) && /gym/i.test(line)) {
+          err(`[${tag}] puts ${leader}'s Gym near "${nm}" — it is in ${town}`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * A scene nothing can reach is a scene that is not in the game.
+ *
+ * `SCRIPTS.commander` — Mars, the Galactic commander whose defeat is the ONLY
+ * thing that sets `beatCommander`, which is the only thing that puts the
+ * Aurora Charm on the floor, which is the only thing that opens the seam — was
+ * written, tested by hand, and then placed on no map at all. She stood in the
+ * cave as an ordinary trainer. You could beat her and nothing happened, and
+ * the entire back half of the story was unreachable from a save that had done
+ * everything right.
+ */
+function checkEveryScriptIsReachable() {
+  const placed = new Set();
+  for (const map of Object.values(MAPS)) {
+    for (const n of map.npcs) if (n.script) placed.add(n.script);
+    for (const e of map.events || []) if (e.script) placed.add(e.script);
+    for (const o of map.objects || []) if (o.script) placed.add(o.script);
+    if (map.stepOut && map.stepOut.script) placed.add(map.stepOut.script);
+  }
+  // Some scripts are called by other scripts or by the engine rather than
+  // being placed on a tile. Those are reached, just not from the map data.
+  // A script can also be run by the engine or by a menu — the Explorer Kit
+  // starts the dig from the bag, not from a tile — so the whole of the UI and
+  // game source counts as a place a script can be reached from.
+  const dirs = ['../src/ui', '../src/game', '../src/game/overworld'];
+  let src = '';
+  for (const d of dirs) {
+    const dir = new URL(`${d}/`, import.meta.url);
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith('.js')) continue;
+      src += fs.readFileSync(new URL(f, dir), 'utf8') + '\n';
+    }
+  }
+  src += fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  for (const name of Object.keys(SCRIPTS)) {
+    if (placed.has(name)) continue;
+    const calledByName = new RegExp(`runScript\\(\\s*'${name}'|SCRIPTS\\.${name}\\s*\\(|scriptFor\\(\\s*'${name}'`).test(src);
+    if (calledByName) continue;
+    err(`[script] "${name}" is written but nothing on any map runs it`);
+  }
+}
+
+checkEveryScriptIsReachable();
+checkNobodyMisstatesTheRoad();
 checkKeyItemsReachable();
 checkEvolutionsReachable();
 checkTownSizes();
