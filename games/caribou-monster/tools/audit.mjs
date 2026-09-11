@@ -1552,6 +1552,35 @@ function checkEveryGymFightIsWalkableTo() {
   }
 }
 
+// ---- nowhere strands you where you land ------------------------------------
+// Test mode can put the player anywhere, and the story moves them about the
+// same way. Landing has to leave them somewhere they can walk out of: the
+// middle of Pastoria's Gym is a maze pocket three tiles across, and dropping
+// into it strands whoever arrives. Anywhere with a door has a right answer —
+// the tile the door leads to — so every map is checked from wherever arriving
+// actually puts you.
+
+function checkNowhereStrandsYou() {
+  for (const m of Object.values(MAPS)) {
+    const doors = [];
+    for (const other of Object.values(MAPS)) {
+      if (other.id === m.id) continue;
+      for (const w of (other.warps || [])) {
+        if (w.to === m.id && w.tx != null && w.ty != null) doors.push([w.tx, w.ty]);
+      }
+    }
+    if (!doors.length) continue;            // entered by a script; nothing to land on
+    const seen = insideReach(m, [doors[0]]);
+    // A landing spot is only good if you can get back out of the map from it.
+    const out = (m.warps || []).some((w) => w.to !== m.id && seen.has(`${w.x},${w.y}`));
+    if (!out) {
+      err(`[landing] ` + `arriving in ${m.id} at (${doors[0][0]},${doors[0][1]}) leaves the player `
+        + 'somewhere with no way back out of the map');
+    }
+  }
+}
+
+checkNowhereStrandsYou();
 checkEveryGymFightIsWalkableTo();
 checkNoTextIsStranded();
 checkNobodyFightsAPlaceholder();

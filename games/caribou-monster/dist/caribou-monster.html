@@ -40342,6 +40342,20 @@ const { PAL } = __req('render/palette.js');
 
 
 
+/**
+ * The tile a player lands on when they walk into `mapId` from outside it.
+ * Null when nothing walks in — those places are entered by a script.
+ */
+function doorInto(mapId) {
+  for (const m of Object.values(MAPS)) {
+    if (m.id === mapId) continue;
+    for (const w of (m.warps || [])) {
+      if (w.to === mapId && w.tx != null && w.ty != null) return { x: w.tx, y: w.ty };
+    }
+  }
+  return null;
+}
+
 class Game {
   constructor() {
     this.state = createGameState();
@@ -40537,7 +40551,24 @@ class Game {
 
   teleport(mapId, atX = null, atY = null, onDone = null) {
     const map = getMap(mapId);
-    // Land on the first walkable tile near the middle of the map.
+    // Land where walking in would put you: on the tile the front door leads
+    // to. The old rule — the first walkable tile near the middle — drops you
+    // in the middle of Pastoria's Gym, which is a maze, and the middle of a
+    // maze is a pocket three tiles across with no way out of it on foot.
+    // Anywhere with a door has a right answer, so use it.
+    const door = doorInto(mapId);
+    if (door && atX == null && atY == null) {
+      this.screens.popTo('OverworldScreen');
+      dialogue.hide();
+      this.screens.fade(FADE.BLACK, () => {
+        this.overworld.world.load(mapId, door.x, door.y, 'down');
+        this.overworld.showBanner(getMap(mapId));
+        this.overworld.playMusic();
+      }, { onDone });
+      return;
+    }
+    // Nowhere walks into this map — the chamber, the Underground, a Secret
+    // Base. Fall back to the first walkable tile near the middle.
     let tx = Math.floor(map.width / 2), ty = Math.floor(map.height / 2);
     outer:
     for (let r = 0; r < Math.max(map.width, map.height); r++) {
