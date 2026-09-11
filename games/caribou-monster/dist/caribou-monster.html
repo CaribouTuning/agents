@@ -7643,6 +7643,12 @@ const FLAGS = {
   CELESTIC: 'celestic',
   CELESTIC_READ: 'celesticRead',
   LAKE_VERITY: 'lakeVerity',
+  READ_VOLUME_1: 'readVolume1',
+  READ_VOLUME_2: 'readVolume2',
+  READ_VOLUME_3: 'readVolume3',
+  CANALAVE_TRUTH: 'canalaveTruth',
+  RILEY_DONE: 'rileyDone',
+  BUDDY_HAS_STARTER: 'buddyHasStarter',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',
@@ -7666,7 +7672,7 @@ const FLAGS = {
 const SHARED_MILESTONES = [
   FLAGS.GOT_STARTER, FLAGS.LEFT_TOWN, FLAGS.ENTERED_FOREST, FLAGS.FOREST_GRUNT,
   FLAGS.REACHED_ALDERMERE, FLAGS.BADGE_1, FLAGS.ENTERED_CAVE, FLAGS.BEAT_COMMANDER,
-  FLAGS.GALACTIC_HQ, FLAGS.LAKE_VALOR, FLAGS.CELESTIC, FLAGS.LAKE_VERITY,
+  FLAGS.GALACTIC_HQ, FLAGS.LAKE_VALOR, FLAGS.CELESTIC, FLAGS.LAKE_VERITY, FLAGS.CANALAVE_TRUTH,
   FLAGS.CAUGHT_EVERLIGHT,
 ];
 
@@ -9428,6 +9434,29 @@ const ENTRIES = [
     next: 'One lake left. Acuity, past the mountain, in the snow.',
   },
   {
+    id: 'canalaveTruth',
+    title: 'Nothing here is a door',
+    body: [
+      'Three volumes in the Canalave library. The first two are beautiful and\nsay almost nothing. The third is four lines and somebody added it later.',
+      '"They will come and read the first book and say: three keepers, three\nwaters, three keys. They are not keys. Nothing here is a door."',
+      'Looker put the rest together out loud. Oreburgh was a test of whether a\nmachine could touch the thing at all. It could.',
+      'So they stopped trying to take it and started taking what holds it down.\nValor. Verity. Acuity.',
+      'Cyrus thinks he is unlocking something. He is taking the weight off a lid.',
+      'The lakes were never where he was going. The mountain was.',
+    ],
+    next: 'Somebody has made this exact mistake before. There is a note about it.',
+  },
+  {
+    id: 'riley',
+    title: 'The island is honest',
+    body: [
+      'A man called Riley stands in a mine on Iron Island talking to the rock,\nand the rock apparently answers.',
+      'He gave me Strength. He said it does not make you strong — it means a\nheavy thing will move if you and it agree to move it.',
+      'He said people are not like rock, which is the whole trouble with them\nand the whole point of them.',
+    ],
+    next: 'North. The mountain.',
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [
@@ -11114,6 +11143,14 @@ class TitleScreen extends Screen {
    * to wait for the network. The cursor is kept on whatever the player was
    * already pointing at rather than jumping under their thumb.
    */
+  /** A one-line note about where saves are going. Visible, so a failure is. */
+  _storageNote() {
+    const g = this.game;
+    if (g.saveProviders === undefined) return 'checking for a saved game...';
+    if (g.saveIsDurable) return 'saving to this account';
+    return 'saving to this device only';
+  }
+
   setSave(meta) {
     const wasOn = this.options[this.index] && this.options[this.index].key;
     this.saveMeta = meta || null;
@@ -11126,6 +11163,10 @@ class TitleScreen extends Screen {
     if (this.saveMeta) out.push({ key: 'continue', text: 'CONTINUE' });
     out.push({ key: 'new', text: this.saveMeta ? 'NEW GAME' : 'NEW GAME' });
     out.push({ key: 'options', text: 'OPTIONS' });
+    // Always here, on the first screen, with no prerequisite. Test mode that
+    // can only be switched on from inside a running game is useless to
+    // somebody who cannot get a running game to persist.
+    out.push({ key: 'test', text: 'TEST MODE' });
     return out;
   }
 
@@ -11159,6 +11200,17 @@ class TitleScreen extends Screen {
       } else {
         g.screens.push(new CharacterScreen(g));
       }
+    } else if (key === 'test') {
+      // Straight into a playable game with test mode already on, so the
+      // console is one tap away instead of a playthrough away.
+      g.screens.fade(FADE.BLACK, () => {
+        g.startNewGame({ name: 'Matthew', look: 'matthew', difficulty: 'easy' });
+        g.state.settings.testMode = true;
+        g.debugEnabled = true;
+        g.state.flags.gotStarter = true;
+        g.debugGive(387, 5);
+        g.openDebug();
+      });
     } else {
       g.screens.push(new TitleOptionsScreen(g));
     }
@@ -11224,6 +11276,9 @@ class TitleScreen extends Screen {
       label(ctx, o.text, x + 14, iy);
     });
 
+    // Where saves are going, said out loud. A storage problem should be
+    // visible on the first screen, not discovered a day later.
+    labelDim(ctx, this._storageNote(), 9, H - 45);
     if (this.saveMeta) {
       window9(ctx, 4, H - 40, 96, 36);
       labelDim(ctx, this.saveMeta.name || 'Trainer', 9, H - 36);
@@ -11827,7 +11882,8 @@ function defineMap(id, def) {
     // city instead of guessing at it.
     labels: def.labels || [],
     encounters: def.encounters || null,
-    events: def.events || [],       // scripted triggers on step
+    events: def.events || [],       // scripted triggers on step (any extra
+                                    // keys on an event ride along to the script)
     darkEdges: def.darkEdges !== false,
     healPoint: def.healPoint || null,
     // A tile that runs a script when you step on it and leads out of the map.
@@ -12480,8 +12536,8 @@ const JUBILIFE = defineMap('jubilife', {
     'T..VVVVVVVV.::......VVVVVVVV.T',
     'T..#WFFDFFW.::......#WJJDJJW.T',
     'T.....:.....::..........:....T',
-    'T.....::::::::::::::::::::::::',
-    'T.....:.....::..........::::::',
+    ':.....::::::::::::::::::::::::',
+    ':.....:.....::..........::::::',
     'T..S..:.....::..........:....T',
     'T.....:.EEEEEEEEEEEE....:....T',
     'T.....:.EEEEEEEEEEEE....:....T',
@@ -12503,6 +12559,8 @@ const JUBILIFE = defineMap('jubilife', {
     { x: 13, y: 0, to: 'route204', tx: 13, ty: 22, dir: 'up', edge: true },
     { x: 15, y: 23, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 16, y: 23, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 0, y: 7, to: 'route218', tx: 29, ty: 5, dir: 'left', edge: true },
+    { x: 0, y: 8, to: 'route218', tx: 29, ty: 10, dir: 'left', edge: true },
     { x: 29, y: 7, to: 'route203', tx: 1, ty: 6, dir: 'right', edge: true },
     { x: 29, y: 8, to: 'route203', tx: 1, ty: 7, dir: 'right', edge: true },
     { x: 7, y: 5, to: 'jubilife_center', tx: 6, ty: 6, dir: 'up' },
@@ -12579,11 +12637,29 @@ __exports(__x, { TWINLEAF: () => TWINLEAF, OREBURGH: () => OREBURGH, SANDGEM: ()
 
 __defs['data/maps/routes.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
+const { TILES } = __req('render/tiles.js');
 
 
-const ROUTE201 = defineMap('route201', {
-  name: 'Route 201', kind: 'route', music: 'route',
-  tiles: [
+
+/**
+ * A story trigger stretched across every walkable tile of one row.
+ *
+ * Used for the beats that must not be missable. The row is read back out of
+ * the map's own tiles, so widening the road later cannot leave a gap in the
+ * trigger — there is no second copy of the geometry to forget to update.
+ */
+function triggerLine(rows, y, ev) {
+  const out = [];
+  for (let x = 0; x < rows[y].length; x++) {
+    const ch = rows[y][x];
+    const def = TILES[ch];
+    if (!def || def.solid || def.water) continue;
+    out.push({ ...ev, x, y });
+  }
+  return out;
+}
+
+const R201_ROWS = [
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
     'T...........::...........T',
     'T...........::...........T',
@@ -12612,7 +12688,16 @@ const ROUTE201 = defineMap('route201', {
     'T.........S.::...........T',
     'T..OOO......::...........T',
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
-  ],
+  ];
+
+const rivalLine = (y) => triggerLine(R201_ROWS, y, {
+  flag: 'beatRival1', requires: 'gotStarter', script: 'rival1',
+});
+
+const ROUTE201 = defineMap('route201', {
+  name: 'Route 201', kind: 'route', music: 'route',
+  tiles: R201_ROWS,
+
   warps: [
     { x: 0, y: 13, to: 'lake_verity', tx: 18, ty: 7, dir: 'left', edge: true },
     { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
@@ -12620,13 +12705,14 @@ const ROUTE201 = defineMap('route201', {
     { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 16, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 16, dir: 'up', edge: true },
   ],
-  // Cass is waiting a few tiles up the road, exactly as she said she would
-  // be. This is the first rival battle, and it needs a Pokemon to exist at
-  // all — `requires` makes that a precondition rather than a crash.
-  events: [
-    { x: 12, y: 23, flag: 'beatRival1', requires: 'gotStarter', script: 'rival1' },
-    { x: 13, y: 23, flag: 'beatRival1', requires: 'gotStarter', script: 'rival1' },
-  ],
+  // Cass is waiting a few tiles up the road, exactly as she said she would be.
+  //
+  // The trigger is a LINE across the whole width of the route, not two tiles
+  // in the middle of it. Route 201 is open on both sides, so a two-tile
+  // trigger in the road is a story beat you can walk straight past without
+  // ever knowing it was there — which is exactly what happened: the rival
+  // announced she would be waiting at the north gate and then never appeared.
+  events: rivalLine(23),
   signs: [
     { x: 10, y: 25, text: 'ROUTE 201\nTwinleaf Town — Route 202' },
   ],
@@ -13205,6 +13291,35 @@ const ROWAN_LAB = defineMap('rowan_lab', {
   ],
   warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 6, ty: 7, dir: 'down' }],
   npcs: [
+    // The other one, waiting by the table, because Mum said Rowan called
+    // them both down and that has to be true when you get here. They go
+    // once you have yours — you meet them again on the road.
+    {
+      id: 'lab_buddy', x: 4, y: 4, look: 'buddy', name: '{buddy}', movement: 'still',
+      facing: 'right', soloOnly: true, goneWhen: 'gotStarter',
+      dialogue: [
+        {
+          lines: ['{buddy}: I have been stood here twenty minutes not touching anything.',
+            '{buddy}: She said do not touch them until you got here. Both of us, she said.',
+            '{buddy}: Go on, you pick first.',
+            '{buddy}: I do not mind. I will mind enormously if you take\nthe one I want.'],
+        },
+      ],
+    },
+    // Cass, on the bench, up since seven, waiting to see which one you take.
+    // She was a voice with no body here, which is why the line about meeting
+    // at the north gate went nowhere.
+    {
+      id: 'lab_cass', x: 9, y: 4, look: 'rivalGirl', name: 'Cass Wren', movement: 'still',
+      facing: 'left', goneWhen: 'gotStarter',
+      dialogue: [
+        {
+          lines: ['Cass: Do not mind me. I am not in the way, I am WAITING.',
+            'Cass: Rowan will not let me have one until you have had yours.\fApparently that is fair.',
+            'Cass: I have been on this bench since seven. Take your time. Really.'],
+        },
+      ],
+    },
     {
       id: 'lab_aspen', x: 6, y: 2, look: 'professor', name: 'Prof. Rowan', movement: 'still', facing: 'down',
       script: 'starter',
@@ -17399,6 +17514,426 @@ __exports(__x, { ROUTE210_NORTH: () => ROUTE210_NORTH, CELESTIC: () => CELESTIC,
 
 };
 
+__defs['data/maps/west.js'] = function (__x, __req) {
+const { defineMap } = __req('data/maps/define.js');
+const { makeMart } = __req('data/maps/interiors.js');
+// The west coast: the water road out of Jubilife, the port city built over a
+// canal, and the island they dig iron out of.
+//
+// Canalave is where the story stops being a series of incidents and becomes
+// one thing. The library on the east bank holds the oldest written copy of
+// the Sinnoh myth, and it is where Looker finally has enough to say out loud
+// what Team Galactic are actually doing — and, more to the point, what they
+// have misunderstood about it.
+
+
+
+// ---------------------------------------------------------------------------
+// Route 218 — a channel with a sandbar either side. You cross it or you do
+// not go to Canalave, which is why Surf is what opens the second half of the
+// region rather than a badge.
+// ---------------------------------------------------------------------------
+const ROUTE218 = defineMap('route218', {
+  name: 'Route 218', kind: 'route', music: 'route',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T............................T',
+    'T..YYYY...........YYYY.......T',
+    'T..YYYY...........YYYY.......T',
+    'T............................T',
+    'sssssssssssssssssssssssssssss:',
+    's~~~~~~~~~~~~~~~~~~~~~~~~~~~~:',
+    ':s~~~~~~~~~~~~~~~~~~~~~~~~~~~:',
+    ':s~~~~~~~~~~~~~~~~~~~~~~~~~~~:',
+    's~~~~~~~~~~~~~~~~~~~~~~~~~~~~:',
+    'sssssssssssssssssssssssssssss:',
+    'T...................S........T',
+    'T....""""..........""""......T',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 29, y: 7, to: 'jubilife', tx: 1, ty: 7, dir: 'right', edge: true },
+    { x: 29, y: 8, to: 'jubilife', tx: 1, ty: 8, dir: 'right', edge: true },
+    { x: 0, y: 7, to: 'canalave', tx: 32, ty: 8, dir: 'left', edge: true },
+    { x: 0, y: 8, to: 'canalave', tx: 32, ty: 8, dir: 'left', edge: true },
+  ],
+  signs: [
+    { x: 20, y: 11, text: 'ROUTE 218\nJUBILIFE CITY — EAST\nCANALAVE CITY — WEST, across the water.\nThere is no bridge. There has never been a bridge.' },
+  ],
+  objects: [
+    { id: 'r218_pearl', x: 4, y: 12, item: 'stardust', qty: 2 },
+  ],
+  npcs: [
+    { id: 'r218_t1', x: 8, y: 2, look: 'sailor', trainer: 'r218_sailor', facing: 'down', sight: 4, movement: 'still' },
+    { id: 'r218_t2', x: 22, y: 12, look: 'youngster', trainer: 'r218_fisher', facing: 'left', sight: 4, movement: 'still' },
+    {
+      id: 'r218_watcher', x: 12, y: 11, look: 'oldMan', name: 'Kesk', movement: 'lookAround', facing: 'right',
+      dialogue: [
+        {
+          // The unsettling, arriving as a boring complaint about the weather.
+          when: { flag: 'lakeValor' },
+          lines: ['Water is wrong. I have crossed this channel twice a day for thirty years\nand it is wrong.',
+            'Not rough. Not high. It does not sit right in the channel any more.',
+            'You will think I am an old fool. My son thinks I am an old fool.'],
+        },
+        {
+          lines: ['No bridge, before you ask. Canalave voted it down four times.',
+            'They like being the far side of something. Always have.',
+            'If you have got something that can carry you, you can go across yourself.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    grass: {
+      min: 28, max: 32,
+      table: [[396, 22], [278, 20], [55, 16], [279, 14], [431, 14], [451, 14]],
+      night: { min: 28, max: 32, table: [[198, 24], [279, 20], [55, 18], [431, 16], [92, 12], [278, 10]] },
+    },
+    surf: { min: 26, max: 34, table: [[279, 40], [278, 30], [130, 16], [129, 14]] },
+    fish: { min: 24, max: 34, table: [[129, 32], [118, 24], [119, 18], [279, 14], [130, 12]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Canalave City — two banks and a canal, with a bridge at each end. The
+// library is on the east bank and the Gym is on the west, which means the
+// player crosses the water twice and looks at the ships both times.
+// ---------------------------------------------------------------------------
+const CANALAVE = defineMap('canalave', {
+  name: 'Canalave City', kind: 'town', music: 'city',
+  tiles: [
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T...............~~...............T',
+    'T..AAAAA........~~.....kkkkkkk...T',
+    'T..AAAAA........~~.....kkkkkkk...T',
+    'T..VVVVV........~~.....VVVVVVV...T',
+    'T..#WDW#........~~.....#WWDWW#...T',
+    'T....:..........~~........:......T',
+    'T....::::::::::.~~.:::::::.......T',
+    'T....:.........:==:.......:......:',
+    'T....:..........~~........:......T',
+    'T..NNNNNNN......~~....AAAAAAA....T',
+    'T..NQdNQNN......~~....VVVVVVV....T',
+    'T....:..........~~....#WWDWW#....T',
+    'T....:..........~~........:......T',
+    'T....:..........~~........:......T',
+    'T....:..........~~........:......T',
+    'T....:...S......~~...S....:......T',
+    'T....:..........~~........:......T',
+    'T....::::::::::.==.:::::::.......T',
+    'T...............~~...............T',
+    'T..ssssssssss...~~...ssssssssss..T',
+    'T..ssssssssss...~~...ssssssssss..T',
+    'T...............~~...............T',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+  ],
+  warps: [
+    { x: 33, y: 8, to: 'route218', tx: 1, ty: 8, dir: 'right', edge: true },
+    { x: 5, y: 5, to: 'canalave_center', tx: 6, ty: 6, dir: 'up' },
+    { x: 26, y: 5, to: 'canalave_library', tx: 8, ty: 10, dir: 'up' },
+    { x: 5, y: 11, to: 'canalave_gym', tx: 7, ty: 14, dir: 'up' },
+    { x: 25, y: 12, to: 'canalave_mart', tx: 5, ty: 5, dir: 'up' },
+  ],
+  labels: [
+    { x: 3, y: 4, w: 5, text: 'POKéMON CENTER' },
+    { x: 23, y: 4, w: 7, text: 'CANALAVE LIBRARY' },
+    { x: 3, y: 10, w: 7, text: 'CANALAVE GYM', tone: '#f8e070' },
+    { x: 22, y: 11, w: 7, text: 'MART' },
+  ],
+  signs: [
+    { x: 9, y: 16, text: 'CANALAVE CITY\n"The port that reads."\nMore books than people, and they are proud of it.' },
+    { x: 21, y: 16, text: 'CANALAVE GYM\nLEADER: Byron\nThe Rock-Solid Miner\nSteel-type. He has never once said a soft word\nabout his own son.' },
+  ],
+  objects: [],
+  healPoint: { map: 'canalave_center', x: 6, y: 7 },
+  npcs: [
+    // The boat to Iron Island. He only sails once the Gym is done, because
+    // the island is a working mine and Byron signs the passes.
+    {
+      id: 'cv_sailor', x: 8, y: 21, look: 'sailor', name: 'Eldon', movement: 'still', facing: 'down',
+      script: 'ironBoat',
+      dialogue: [{ lines: ['Eldon: Iron Island. Half an hour out, and rough for ten of it.'] }],
+    },
+    {
+      id: 'cv_local', x: 20, y: 19, look: 'lass', name: 'Perrin', movement: 'wander', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'canalaveTruth' },
+          lines: ['You were in the library with the man in the coat, were you not.',
+            'Whatever he read in there, he came out of it looking about ten years older.'],
+        },
+        {
+          when: { flag: 'lakeValor' },
+          lines: ['My uncle sails the Valor run. Sailed. There is nothing to sail on.',
+            'He came home and sat in the kitchen for two days.',
+            'You cannot tell a man his lake is gone. There is no way to say it.'],
+        },
+        {
+          lines: ['Library is the oldest building in Sinnoh that is still a building.',
+            'The oldest one that is not a building is up the mountain, obviously.'],
+        },
+      ],
+    },
+    {
+      id: 'cv_reader', x: 27, y: 8, look: 'clerk', name: 'Ilsa', movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'celestic' },
+          lines: ['You have seen the Celestic mural. Then you should go inside.',
+            'The mural is the picture. What is in here is the words that went with it.',
+            'They do not say quite the same thing, and that has bothered me for years.'],
+        },
+        {
+          lines: ['Everyone comes for the myth and leaves with the shipping records.',
+            'The shipping records are better. Nobody believes me.'],
+        },
+      ],
+    },
+  ],
+  encounters: {
+    surf: { min: 20, max: 30, table: [[129, 40], [279, 30], [278, 20], [130, 10]] },
+    fish: { min: 24, max: 36, table: [[129, 30], [118, 22], [119, 18], [130, 16], [279, 14]] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Byron's Gym. Three galleries stacked with no stairs between them: the only
+// way up is the lift plates, which is a mine, which is the joke.
+// ---------------------------------------------------------------------------
+const CANALAVE_GYM = defineMap('canalave_gym', {
+  name: 'Canalave Gym', kind: 'indoor', music: 'gym', darkEdges: false,
+  tiles: [
+    '||||||||||||||||',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|+++++++++++w++|',
+    '|++++++++++++++|',
+    '|!!!!!!!!!!!!!!|',
+    '|++++++++++++++|',
+    '|+w+++++++++w++|',
+    '|++++++++++++++|',
+    '|!!!!!!!!!!!!!!|',
+    '|++++++++++++++|',
+    '|+w++++++++++++|',
+    '|++++++++++++++|',
+    '|++++++++++++++|',
+    '|||||||DD|||||||',
+  ],
+  warps: [
+    { x: 7, y: 15, to: 'canalave', tx: 5, ty: 12, dir: 'down' },
+    { x: 8, y: 15, to: 'canalave', tx: 5, ty: 12, dir: 'down' },
+    // The lifts. Each is one-way onto a plain plate, so a pad can never
+    // bounce you straight back into itself.
+    { x: 2, y: 12, to: 'canalave_gym', tx: 3, ty: 8, dir: 'up' },
+    { x: 2, y: 8, to: 'canalave_gym', tx: 3, ty: 12, dir: 'down' },
+    { x: 12, y: 8, to: 'canalave_gym', tx: 11, ty: 4, dir: 'up' },
+    { x: 12, y: 4, to: 'canalave_gym', tx: 11, ty: 8, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: 'gym6_leader', x: 7, y: 2, look: 'hiker', trainer: 'gym6_leader',
+      facing: 'down', sight: 0, movement: 'still', script: 'gymLeader',
+      after: ['Byron: Come back when your steel has been in a fire. Mine has.'],
+      dialogue: [
+        {
+          lines: ['Byron: You came up the plates.',
+            'Byron: Most people stand at the bottom and wait for somebody\nto explain them to you.',
+            'Byron: I dig. That is the whole of it.',
+            'Byron: You put a bar in a seam and you lean on it until\nthe world gives.',
+            'Byron: Steel is not hard because it started hard.',
+            'Byron: Steel is hard because somebody made it that way,\non purpose, over a long time.',
+            'Byron: Let us find out what you are made of.'],
+        },
+      ],
+    },
+    { id: 'gym6_t1', x: 4, y: 13, look: 'worker', trainer: 'gym6_a', facing: 'up', sight: 4, movement: 'still' },
+    { id: 'gym6_t2', x: 8, y: 9, look: 'worker', trainer: 'gym6_b', facing: 'left', sight: 5, movement: 'still' },
+    { id: 'gym6_t3', x: 5, y: 4, look: 'hiker', trainer: 'gym6_c', facing: 'right', sight: 4, movement: 'still' },
+  ],
+  encounters: null,
+});
+
+// ---------------------------------------------------------------------------
+// The Canalave Library. The oldest words in Sinnoh, and the room where the
+// whole plot finally gets said out loud.
+// ---------------------------------------------------------------------------
+const CANALAVE_LIBRARY = defineMap('canalave_library', {
+  name: 'Canalave Library', kind: 'indoor', music: 'lab', darkEdges: false,
+  tiles: [
+    '||||||||||||||||||',
+    '|kkkkkk__kkkkkkkk|',
+    '|________________|',
+    '|kkkkkk__kkkkkkkk|',
+    '|________________|',
+    '|kkkkkk__kkkkkkkk|',
+    '|________________|',
+    '|__e__________e__|',
+    '|________________|',
+    '|_p____________p_|',
+    '|________________|',
+    '||||||||DD||||||||',
+  ],
+  warps: [
+    { x: 8, y: 11, to: 'canalave', tx: 26, ty: 6, dir: 'down' },
+    { x: 9, y: 11, to: 'canalave', tx: 26, ty: 6, dir: 'down' },
+  ],
+  // The three volumes. Standing at a shelf and reading is the interaction;
+  // Looker's scene only unlocks once the player has all three, so the
+  // revelation is assembled rather than delivered.
+  events: [
+    { x: 3, y: 2, flag: 'readVolume1', script: 'libraryBook', volume: 1 },
+    { x: 12, y: 4, flag: 'readVolume2', script: 'libraryBook', volume: 2 },
+    { x: 4, y: 6, flag: 'readVolume3', script: 'libraryBook', volume: 3 },
+  ],
+  signs: [],
+  objects: [],
+  npcs: [
+    {
+      id: 'lib_looker', x: 12, y: 7, look: 'clerk', name: 'Looker', movement: 'still',
+      facing: 'left', script: 'lookerLibrary',
+      dialogue: [{ lines: ['Looker: One moment. I am nearly at the end of a sentence I do not like.'] }],
+    },
+    {
+      id: 'lib_keeper', x: 3, y: 9, look: 'oldWoman', name: 'Librarian', movement: 'still', facing: 'right',
+      dialogue: [
+        {
+          when: { flag: 'canalaveTruth' },
+          lines: ['You have read the three. Not many do. Most read the first and decide\nthey have got the shape of it.',
+            'The shape of it is in the third one, and the third one is very short.'],
+        },
+        {
+          when: { flag: 'celestic' },
+          lines: ['Celestic has the picture. We have the words.',
+            'Read all three volumes, in any order, then come back and\ntell me what you think it says.',
+            'People always tell me. I never ask. They always tell me.'],
+        },
+        {
+          lines: ['Quietly, please.',
+            'Two of my regulars are asleep and one of them is a Bronzor.'],
+        },
+      ],
+    },
+  ],
+  encounters: null,
+});
+
+const CANALAVE_CENTER = defineMap('canalave_center', {
+  name: 'Pokémon Center', kind: 'indoor', music: 'center', darkEdges: false,
+  tiles: [
+    '||||||||||||||',
+    '|__H_______P_|',
+    '|_xxxxx______|',
+    '|____________|',
+    '|_p________p_|',
+    '|____________|',
+    '|____________|',
+    '||||||DD||||||',
+  ],
+  warps: [
+    { x: 6, y: 7, to: 'canalave', tx: 5, ty: 6, dir: 'down' },
+    { x: 7, y: 7, to: 'canalave', tx: 5, ty: 6, dir: 'down' },
+  ],
+  npcs: [
+    {
+      id: 'canalave_center_nurse', x: 4, y: 1, look: 'nurse', name: 'Nurse', movement: 'still', facing: 'down',
+      script: 'heal', overCounter: true,
+      dialogue: [
+        { when: { linked: true }, lines: ['Welcome to Canalave. {partner} is on the link as well.', 'Shall I heal your team to full health?'] },
+        { lines: ['Welcome to the Canalave Pokémon Center. Shall I heal your team to full health?'] },
+      ],
+    },
+    {
+      id: 'canalave_center_pc', x: 10, y: 1, look: 'clerk', name: 'Attendant', movement: 'still', facing: 'down',
+      overCounter: true,
+      dialogue: [{ lines: ['The storage system behind me holds anything your party cannot.', 'Walk up to the terminal and press A.'] }],
+    },
+    {
+      id: 'canalave_center_local', x: 9, y: 5, look: 'sailor', name: 'Trainer', movement: 'wander', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'badge6' },
+          lines: ['You took the Mine Badge off Byron. He will be unbearable about it.',
+            'Not to you. To his son. He is only ever unbearable to his son.'],
+        },
+        {
+          lines: ['Byron digs. That is not a figure of speech, he is down the island\nthree days a week with a bar.'],
+        },
+      ],
+    },
+  ],
+  encounters: null,
+});
+
+const CANALAVE_MART = makeMart('canalave_mart', {
+  town: 'canalave', backX: 25, backY: 13,
+  extras: [{
+    id: 'cm_shopper', x: 8, y: 4, look: 'sailor', name: 'Shopper',
+    movement: 'still', facing: 'left',
+    dialogue: [{
+      when: { flag: 'lakeValor' },
+      lines: ['Stock up before you go north. The road past Coronet is a bad road\nand it has got worse this month.'],
+    }, {
+      lines: ['Byron buys his own repels here like everybody else.',
+        'Man runs a Gym and still queues.'],
+    }],
+  }],
+});
+
+// ---------------------------------------------------------------------------
+// Iron Island. A working mine with a man in a hat standing in it, and the
+// place the player learns to move something that will not move.
+// ---------------------------------------------------------------------------
+const IRON_ISLAND = defineMap('iron_island', {
+  subArea: true,
+  name: 'Iron Island', kind: 'cave', music: 'cave',
+  tiles: [
+    'CCCCCCCCCCCCCCCCCCCCCCCC',
+    'CccccccccccccccccccccccC',
+    'CccCCCCCCCCCCCCCCCCCcccC',
+    'CccCcccccccccccccccCcccC',
+    'CccCcccCCCCCCCCCcccCcccC',
+    'CccCcccCcccccccCcccCcccC',
+    'CccCcccCcccrcccCcccCcccC',
+    'CccCcccCcccccccCcccCcccC',
+    'CccCcccCCCCCcccCcccCcccC',
+    'CccCcccccccccccCcccCcccC',
+    'CccCCCCCCCCCCCCCcccCcccC',
+    'CcccccccccccccccccсCcccC'.replace('с', 'c'),
+    'CCCCCCCCCCCCCCCCCCCCcccC',
+    'CccccccccccccccccccccccC',
+    'CCCCCCCCCCCCCCCCCCCCCCCC',
+  ],
+  warps: [
+    { x: 1, y: 13, to: 'canalave', tx: 8, ty: 20, dir: 'down' },
+  ],
+  signs: [],
+  objects: [
+    { id: 'ii_hardstone', x: 11, y: 7, item: 'hardstone', qty: 1 },
+    { id: 'ii_starpiece', x: 5, y: 6, item: 'starpiece', qty: 1 },
+  ],
+  npcs: [
+    {
+      id: 'ii_riley', x: 12, y: 9, look: 'boss', name: 'Riley', movement: 'still', facing: 'down',
+      script: 'riley',
+      dialogue: [{ lines: ['Riley: Give me a moment. The rock is telling me something.'] }],
+    },
+    { id: 'ii_t1', x: 6, y: 3, look: 'worker', trainer: 'ii_worker', facing: 'right', sight: 4, movement: 'still' },
+    { id: 'ii_t2', x: 17, y: 5, look: 'hiker', trainer: 'ii_hiker', facing: 'down', sight: 4, movement: 'still' },
+  ],
+  encounters: {
+    cave: {
+      min: 30, max: 34,
+      table: [[95, 20], [436, 20], [304, 16], [431, 12], [74, 12], [208, 6], [75, 14]],
+    },
+  },
+});
+
+__exports(__x, { ROUTE218: () => ROUTE218, CANALAVE: () => CANALAVE, CANALAVE_GYM: () => CANALAVE_GYM, CANALAVE_LIBRARY: () => CANALAVE_LIBRARY, CANALAVE_CENTER: () => CANALAVE_CENTER, CANALAVE_MART: () => CANALAVE_MART, IRON_ISLAND: () => IRON_ISLAND });
+
+};
+
 __defs['data/maps/index.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
 const { TWINLEAF, SANDGEM, JUBILIFE, OREBURGH } = __req('data/maps/towns.js');
@@ -17411,11 +17946,13 @@ const { MT_CORONET_SOUTH, ROUTE208, HEARTHOME, HEARTHOME_GYM, HEARTHOME_CENTER, 
 const { ROUTE209, LOST_TOWER, LOST_TOWER_2, LOST_TOWER_3, SOLACEON, SOLACEON_RUINS, ROUTE210, ROUTE215, VEILSTONE, VEILSTONE_GYM, SOLACEON_CENTER, SOLACEON_HOUSE, VEILSTONE_CENTER, VEILSTONE_STORE, GALACTIC_WAREHOUSE, GALACTIC_HQ } = __req('data/maps/east.js');
 const { ROUTE212, PASTORIA, GREAT_MARSH, PASTORIA_GYM, ROUTE213, ROUTE214, VALOR_LAKEFRONT, LAKE_VALOR, PASTORIA_CENTER, LAKEFRONT_CENTER } = __req('data/maps/south.js');
 const { ROUTE210_NORTH, CELESTIC, CELESTIC_RUINS, ROUTE211, CELESTIC_CENTER, CELESTIC_HOUSE } = __req('data/maps/highlands.js');
+const { ROUTE218, CANALAVE, CANALAVE_GYM, CANALAVE_LIBRARY, CANALAVE_CENTER, CANALAVE_MART, IRON_ISLAND } = __req('data/maps/west.js');
 // Map registry.
 //
 // A map is: an ASCII tile grid, plus warps, NPCs, objects, signs and an
 // encounter table. `defineMap` validates the grid at load so a mis-typed
 // row is a loud error at boot instead of a mysterious hole in the world.
+
 
 
 
@@ -17451,6 +17988,9 @@ const ALL = [TWINLEAF, ROUTE201, SANDGEM, ROUTE202, JUBILIFE, ROUTE203, OREBURGH
   VALOR_LAKEFRONT, LAKE_VALOR, PASTORIA_CENTER, LAKEFRONT_CENTER,
   // Up through the fog to the oldest town in Sinnoh, and the shrine in it.
   ROUTE210_NORTH, CELESTIC, CELESTIC_RUINS, ROUTE211, CELESTIC_CENTER, CELESTIC_HOUSE,
+  // West across the water: the port that reads, and the island they mine.
+  ROUTE218, CANALAVE, CANALAVE_GYM, CANALAVE_LIBRARY, CANALAVE_CENTER,
+  CANALAVE_MART, IRON_ISLAND,
   ...INTERIORS];
 
 const MAPS = {};
@@ -17914,6 +18454,61 @@ add('lv_mars', {
   defeat: 'That changed nothing and I want you to sit with that.',
   team: [mon(431, 34, ['fakeout', 'furyswipes', 'hypnosis']), mon(198, 34, ['pursuit', 'feintattack', 'torment']),
     mon(429, 36, ['confuseray', 'psybeam', 'shadowball'])],
+});
+
+// ---- the west coast: the channel, the port, and the island ----------------
+add('r218_sailor', {
+  name: 'Sailor Grant', cls: 'Sailor', look: 'sailor', ai: 3, prize: 1280,
+  intro: 'Nobody walks this road. You swim it or you know somebody with a boat.',
+  defeat: 'You know somebody with a boat, then.',
+  team: [mon(224, 32, ['constrict', 'bubblebeam', 'screech']), mon(130, 33, ['bite', 'dragonrage', 'twister'])],
+});
+add('r218_fisher', {
+  name: 'Fisherman Odd', cls: 'Fisherman', look: 'youngster', ai: 3, prize: 1160,
+  intro: 'Been out here since four. Caught two boots and a Magikarp.',
+  defeat: 'Three boots.',
+  team: [mon(129, 30, ['splash', 'tackle', 'flail']), mon(118, 32, ['watergun', 'supersonic', 'aurorabeam']),
+    mon(119, 33, ['watergun', 'agility', 'aurorabeam'])],
+});
+add('gym6_a', {
+  name: 'Worker Tull', cls: 'Worker', look: 'worker', ai: 3, prize: 1440,
+  intro: 'Bottom gallery. You do not get to the top without coming through here.',
+  defeat: 'Right. Up you go.',
+  team: [mon(436, 34, ['confusion', 'gyroball', 'hypnosis']), mon(95, 35, ['irontail', 'screech', 'rocktomb'])],
+});
+add('gym6_b', {
+  name: 'Worker Fenn', cls: 'Worker', look: 'worker', ai: 4, prize: 1520,
+  intro: 'Byron built these lifts himself. Badly. Mind the step.',
+  defeat: 'He will hear you beat me before you reach him. Sound carries in here.',
+  team: [mon(437, 36, ['gyroball', 'confuseray', 'extrasensory']), mon(208, 36, ['irontail', 'rockslide', 'screech'])],
+});
+add('gym6_c', {
+  name: 'Miner Ord', cls: 'Hiker', look: 'hiker', ai: 4, prize: 1600,
+  intro: 'Last one before the old man. I have been last one for nine years.',
+  defeat: 'Nine years and one bad afternoon.',
+  team: [mon(95, 36, ['rockslide', 'bind', 'irontail']), mon(75, 37, ['rockslide', 'magnitude', 'rocktomb'])],
+});
+add('gym6_leader', {
+  name: 'Byron', cls: 'Leader', look: 'hiker', ai: 5, prize: 6200, badge: 6, badgeName: 'Mine Badge',
+  intro: 'You came up the plates. Good. Now come up against something that does not move.',
+  defeat: 'Hah! There it is. There is the thing I dig for.',
+  team: [
+    mon(437, 38, ['gyroball', 'confuseray', 'extrasensory', 'lightscreen']),
+    mon(208, 38, ['irontail', 'rockslide', 'screech', 'dig']),
+    mon(411, 41, ['irondefense', 'rockslide', 'bodyslam', 'curse']),
+  ],
+});
+add('ii_worker', {
+  name: 'Worker Sten', cls: 'Worker', look: 'worker', ai: 3, prize: 1400,
+  intro: 'Island is a working mine. Watch where you put your feet.',
+  defeat: 'And watch where you put your Pokémon, evidently.',
+  team: [mon(95, 35, ['rockslide', 'bind', 'screech']), mon(208, 35, ['irontail', 'screech', 'rocktomb'])],
+});
+add('ii_hiker', {
+  name: 'Hiker Bram', cls: 'Hiker', look: 'hiker', ai: 4, prize: 1480,
+  intro: 'Riley is down there somewhere talking to a wall. He does that.',
+  defeat: 'He is usually right, is the annoying part.',
+  team: [mon(75, 36, ['rockslide', 'magnitude', 'rocktomb']), mon(436, 36, ['gyroball', 'confusion', 'hypnosis'])],
 });
 
 // ---- the fog road and the highlands ---------------------------------------
@@ -19944,7 +20539,7 @@ const { weightedPick } = __req('core/rng.js');
 const { spend, formatMoney: money } = __req('game/inventory.js');
 const { FLAGS } = __req('game/storyflags.js');
 const { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } = __req('data/story.js');
-const { playerByLook } = __req('game/players.js');
+const { playerByLook, buddyOf } = __req('game/players.js');
 // Story scripts.
 //
 // A script is an async function that receives a small `ctx` of primitives —
@@ -20034,8 +20629,31 @@ SCRIPTS.starter = async (ctx) => {
   ctx.journal('gotStarter');
 
   await cassTakesHers(ctx, base);
+  await buddyTakesTheirs(ctx);
   await banditJoins(ctx);
 };
+
+/**
+ * The other one, taking the last of the three.
+ *
+ * Mum says Rowan called them both down, so they have to actually be here and
+ * actually leave with something. In co-op they are a real player and pick for
+ * themselves, so this only runs when the player is on their own.
+ */
+async function buddyTakesTheirs(ctx) {
+  const st = ctx.state;
+  if (st.link && st.link.connected && st.link.partner) return;
+  const who = buddyOf(st);
+  await ctx.wait(0.3);
+  await ctx.say(`${who}: Right. Me next, then.`, { speaker: who });
+  await ctx.say(`${who}: I have been looking at the last one for twenty minutes\nand pretending I had not decided.`);
+  await ctx.say('Prof. Rowan: Go on. It has been looking at you for twenty minutes too.',
+    { speaker: 'Prof. Rowan' });
+  ctx.sfx('caught');
+  await ctx.say(`${who} took the last Pokémon.`);
+  await ctx.say(`${who}: Come on. I want to be out of here before Cass says\nsomething else about seven o'clock.`);
+  ctx.setFlag('buddyHasStarter', true);
+}
 
 /**
  * Cass, taking the one that beats yours, while you are stood there.
@@ -20050,8 +20668,9 @@ async function cassTakesHers(ctx, playerBase) {
   const theirs = getSpecies(hers);
 
   await ctx.wait(0.4);
+  await ctx.say('*Cass gets up off the bench.*');
   await ctx.say(`Cass: Right. That is the ${mine.name} gone, then.`, { speaker: 'Cass Wren' });
-  await ctx.say('Cass: I have been sat on that bench since seven waiting to see which\none you would take.');
+  await ctx.say('Cass: I have been sat there since seven waiting to see which one\nyou would take.');
   await ctx.showMonster(hers);
   ctx.cry(hers);
   await ctx.say(`Cass: So I will have the ${theirs.name}. The ${theirs.types.join('/')} type.`);
@@ -20060,7 +20679,10 @@ async function cassTakesHers(ctx, playerBase) {
   ctx.dex.seen(hers);
   await ctx.say('Prof. Rowan: Cass. It is a Pokémon, not a chess piece.', { speaker: 'Prof. Rowan' });
   await ctx.say('Cass: It can be both.', { speaker: 'Cass Wren' });
-  await ctx.say('Cass: North gate. Twenty minutes. Do not make me stand there for an hour.');
+  await ctx.say('Cass: Route 201. The north gate. Twenty minutes.');
+  await ctx.say('Cass: Do not make me stand there for an hour. I will, and I will\nbring it up for years.');
+  await ctx.say('*She goes out of the door without waiting for an answer.*');
+  ctx.sfx('door');
   ctx.setFlag(FLAGS.MET_RIVAL);
 }
 
@@ -21381,6 +22003,159 @@ SCRIPTS.lakeVerity = async (ctx) => {
   ctx.setFlag('lakeVerity', true);
   ctx.shareMilestone('lakeVerity');
   ctx.journal('lakeVerity');
+  ctx.autosave();
+};
+
+// ---------------------------------------------------------------------------
+// Canalave: the three volumes, and the room where it is finally said.
+// ---------------------------------------------------------------------------
+
+/**
+ * The oldest written copy of the Sinnoh myth, in three short volumes.
+ *
+ * Deliberately not one long exposition NPC. The player reads three pages in
+ * whatever order they find them, and the picture assembles in their head
+ * before anybody says it out loud — which is the only way a revelation of
+ * this size does not land as a lecture.
+ */
+const VOLUMES = {
+  1: {
+    title: 'VOLUME I — OF THE THREE WATERS',
+    lines: [
+      '"There were three waters made, and a keeper set in each,\nand the keepers were not put there to be found."',
+      '"To the first was given knowing. To the second, feeling.\nTo the third, the will to go on."',
+      '"These were not gifts to the world. These were what the keepers\nwere made of, so that they would be heavy enough."',
+      '*Heavy enough for what, the volume does not say. The next page has\nbeen torn out, a very long time ago, by somebody in a hurry.*',
+    ],
+  },
+  2: {
+    title: 'VOLUME II — OF THE MOUNTAIN',
+    lines: [
+      '"Under the mountain there is a light that does not warm anything."',
+      '"It was here before the mountain. The mountain was put on top of it,\nand that was the first thing anybody in this country ever built."',
+      '"It does not want. It does not intend. Do not go to it expecting\nto be answered, and do not go expecting to be refused."',
+      '"It is not sleeping the way a beast sleeps. It is sleeping the way\na weight sits at the bottom of a well."',
+    ],
+  },
+  3: {
+    title: 'VOLUME III — A NOTE, ADDED LATER',
+    lines: [
+      '*This one is four lines long and in a different hand.*',
+      '"They will come and read the first book and say: three keepers,\nthree waters, three keys."',
+      '"They are not keys. Nothing here is a door."',
+      '"They are the weight. Take the weight off and see what you have\nopened, and then try to put it back."',
+    ],
+  },
+};
+
+SCRIPTS.libraryBook = async (ctx, ev) => {
+  const n = (ev && ev.volume) || 1;
+  const v = VOLUMES[n];
+  await ctx.say(`*${v.title}*`);
+  for (const line of v.lines) await ctx.say(line);
+  ctx.setFlag(`readVolume${n}`, true);
+
+  const st = ctx.state;
+  const all = st.flags.readVolume1 && st.flags.readVolume2 && st.flags.readVolume3;
+  if (all && !st.flags.canalaveTruth) {
+    await ctx.wait(0.4);
+    await ctx.say('*You put the third volume down and stand there for a moment with your\nhand still on it.*');
+    await ctx.say('*Somebody at the far table has stopped pretending to read.*');
+  }
+  ctx.autosave();
+};
+
+/**
+ * Looker, at the far table, with the whole thing assembled.
+ *
+ * He is not clever here. He is a man who has been doing paperwork for eight
+ * months and has just understood what the paperwork was about.
+ */
+SCRIPTS.lookerLibrary = async (ctx) => {
+  const st = ctx.state;
+  const all = st.flags.readVolume1 && st.flags.readVolume2 && st.flags.readVolume3;
+
+  if (st.flags.canalaveTruth) {
+    await ctx.say('Looker: Mount Coronet. That is where this ends. I have said it out loud\nnow, so it is real, and I would like it to stop being real.',
+      { speaker: 'Looker' });
+    return;
+  }
+  if (!all) {
+    await ctx.say('Looker: You again. Good. Sit down, do not sit down, I do not mind.',
+      { speaker: 'Looker' });
+    await ctx.say('Looker: There are three volumes here and I have read two of them\nfour times each.');
+    await ctx.say('Looker: Read them. All three. I want to know whether you get the same\nanswer I did, because I would very much like to be wrong.');
+    return;
+  }
+
+  await ctx.say('Looker: You have got the same face I had.', { speaker: 'Looker' });
+  await ctx.wait(0.4);
+  await ctx.say('Looker: Right. Here is eight months of my life in one minute.');
+  await ctx.say('Looker: Oreburgh was not a robbery. It was a test.\fThey wanted to know whether a machine could touch that thing at all.');
+  await ctx.say('Looker: It could. Something came out. You were there — you know better\nthan I do what came out.');
+  if (st.flags.caughtEverlight) {
+    await ctx.say('Looker: And it went with you. Not with them. With YOU.\fMars has written four reports about that and none of them are calm.');
+  } else {
+    await ctx.say('Looker: And it stayed. Standing in that chamber, where they could not\nreach it. It has been there ever since.');
+  }
+  await ctx.say('Looker: So they stopped trying to take the thing itself and started\ntaking what is holding it down.');
+  await ctx.say('Looker: Valor. Verity. Acuity. Three lakes, three keepers,\nand a schedule Saturn was rude enough to mention to you.');
+  await ctx.wait(0.5);
+  await ctx.say('Looker: Volume Three is four lines long and somebody added it later,\nwhich means somebody had already made this mistake once.');
+  await ctx.say('Looker: "They are not keys. Nothing here is a door."');
+  await ctx.say('Looker: Cyrus thinks he is unlocking something.\fHe is taking the weight off a lid.');
+  await ctx.wait(0.4);
+  await ctx.say('Looker: The lakes were never the destination. They are the method.');
+  await ctx.say('Looker: The destination is the mountain, and it always was.');
+
+  ctx.setFlag('canalaveTruth', true);
+  ctx.shareMilestone('canalaveTruth');
+  ctx.journal('canalaveTruth');
+  ctx.sfx('badge');
+  ctx.autosave();
+
+  await ctx.say('Looker: I am going to Celestic to shout at somebody with authority.');
+  await ctx.say('Looker: You are going to do whatever it is you do, which so far has\nworked considerably better than anything I have tried.');
+};
+
+/** Eldon's boat. He will not sail before Byron signs the pass. */
+SCRIPTS.ironBoat = async (ctx) => {
+  const st = ctx.state;
+  if (!st.flags.badge6) {
+    await ctx.say('Eldon: Iron Island is a working mine, not a day out.', { speaker: 'Eldon' });
+    await ctx.say('Eldon: Byron signs the passes and Byron is up the Gym.\fBeat him and he will sign anything, he is like that.');
+    return;
+  }
+  const go = await ctx.ask('Sail out to Iron Island?', ['Yes', 'Not yet']);
+  if (go !== 0) { await ctx.say('Eldon: She will be here.'); return; }
+  await ctx.say('Eldon: Half an hour out. Rough for ten of it. Hold something.');
+  ctx.sfx('warp');
+  await ctx.warpTo('iron_island', 1, 13);
+};
+
+/**
+ * Riley, who hands over Strength — and, without making a speech of it, the
+ * first person to say the thing the ending is about.
+ */
+SCRIPTS.riley = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.rileyDone) {
+    await ctx.say('Riley: Still here. The rock is still talking. It is not in a hurry\nand neither am I.', { speaker: 'Riley' });
+    return;
+  }
+  await ctx.say('Riley: You are the one from Oreburgh.', { speaker: 'Riley' });
+  await ctx.say('Riley: Do not look like that. Half of Sinnoh is the one from Oreburgh\nby now. It is a small country and it gossips.');
+  await ctx.say('Riley: I come out here because the island is honest. Rock either moves\nor it does not, and it tells you which straight away.');
+  await ctx.wait(0.4);
+  await ctx.say('Riley: People are not like that, which is the whole trouble with them,\nand the whole point of them.');
+  await ctx.say('Riley: Here. You will want this before the mountain.');
+  ctx.give('hm04', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received HM04!');
+  await ctx.say('Riley: Strength. It does not make you strong. It means something\nheavy will move if you and it agree to move it.');
+  await ctx.say('Riley: That is most things, in my experience.');
+  ctx.setFlag('rileyDone', true);
+  ctx.journal('riley');
   ctx.autosave();
 };
 
@@ -22794,7 +23569,10 @@ class OverworldScreen extends Screen {
       lines = resolveDialogue(d.dialogueAfter.lines, this.game.state, e.talkCount - 1, link);
     }
     if (!lines || !lines.length) lines = ['...'];
-    const speaker = d.name || null;
+    // Names are authored text too: the partner's plate is written as
+    // "{buddy}" so it says Sammy to Matthew and Matthew to Sammy. Without
+    // filling it, the nameplate read "{buddy}" out loud.
+    const speaker = d.name ? fillText(d.name, this.game.state, link) : null;
     this.say(lines.join('\f'), { speaker });
   }
 
@@ -22875,7 +23653,7 @@ class OverworldScreen extends Screen {
       this.playMusic();
       const st = this.game.state;
       // Arriving somewhere new is a natural autosave point.
-      if (this.game.save) { this.game.save.markDirty(); this.game.save.maybeAutosave(st, true); }
+      if (this.game.save) this.game.save.touch(st);
       const map = getMap(warp.to);
       if (map.kind === 'cave') setStoryFlag(st, 'enteredCave', true);
       if (warp.to === 'route202') setStoryFlag(st, 'enteredForest', true);
@@ -23110,6 +23888,7 @@ class OverworldScreen extends Screen {
       healAnimation: () => new Promise((resolve) => {
         audio.sfx('heal');
         healParty(st);
+        if (screen.game.save) screen.game.save.touch(st);
         screen.healFlash = 1.1;
         screen.timers.push({ t: 1.2, resolve });
       }),
@@ -26976,6 +27755,7 @@ class BattleScreen extends Screen {
       const dest = receiveMonster(st, mon);
       st.stats.caught++;
       const newEntry = recordCaught(st.dex, mon.species);
+      if (this.game.save) this.game.save.touch(st);
       if (newEntry) this.queue.push({ t: 'text', s: `${displayName(mon)}'s data was added to the Pokédex.` });
       if (dest && dest.where === 'box') {
         this.queue.push({ t: 'text', s: `Your party is full, so ${displayName(mon)}\nwas sent to ${dest.boxName}.` });
@@ -30368,6 +31148,7 @@ class DebugScreen extends Screen {
     switch (this.page) {
       case 'main': return [
         { t: 'Console (/commands)...', a: () => this._console() },
+        { t: 'Storage / save check...', a: () => { this.page = 'storage'; this.index = 0; this.scroll = 0; } },
         { t: 'Jump to a chapter...', a: () => { this.page = 'chapters'; this.index = 0; this.scroll = 0; } },
         { t: 'Heal party', a: () => { healParty(st); this._msg('Party healed.'); audio.sfx('heal'); } },
         { t: 'Give monster...', a: () => { this.page = 'species'; this.index = 0; this.scroll = 0; } },
@@ -30393,6 +31174,28 @@ class DebugScreen extends Screen {
       // half of the game testable at all: it sets every beat up to the one
       // picked, levels the party to match, hands over the HMs, and puts the
       // player where the beat happens.
+      // Is the save actually going anywhere that outlives the tab? This page
+      // exists because the answer was "no" for a long time and nothing on
+      // screen said so.
+      case 'storage': {
+        const b = this.game.save.backend;
+        const rows = (b.providers ? b.providers() : []).map((p) => ({
+          t: p.name, right: p.up ? 'UP' : 'not available',
+        }));
+        rows.push({ t: b.durable && b.durable() ? 'Saves survive closing' : 'THIS DEVICE ONLY',
+          right: b.durable && b.durable() ? 'yes' : 'at risk' });
+        rows.push({
+          t: 'Save now and read it back',
+          a: async () => {
+            this._msg('saving...');
+            await this.game.save.flush(this.game.state);
+            const back = await this.game.save.peek();
+            this._msg(back ? `read back ok: ${back.name}, ${back.badges} badge(s)` : 'READ BACK FAILED');
+          },
+        });
+        rows.push({ t: 'Back', a: () => { this.page = 'main'; this.index = 0; this.scroll = 0; } });
+        return rows;
+      }
       // Whatever the last console line printed. Rows rather than a text blob
       // so the existing scrolling works on a long list of flags or maps.
       case 'output': return String(this.output || '').split('\n').map((line) => ({
@@ -30916,6 +31719,10 @@ const WORLD_POS = {
   route210_north: { x: 12, y: 1, kind: 'route' },
   celestic:       { x: 12, y: 0, kind: 'town' },
   route211:       { x: 10, y: 0, kind: 'route' },
+  // West of Jubilife, across the channel. The region's origin is Twinleaf,
+  // not the corner of the map, so the west coast is simply negative.
+  route218:       { x: 0, y: 10, kind: 'route' },
+  canalave:       { x: -2, y: 10, kind: 'city' },
   // Underneath all of it. A Secret Base is a room off these tunnels rather
   // than a place in the region, so it has no position on the paper at all.
   underground:    { x: 2, y: 16, kind: 'underground' },
@@ -32611,195 +33418,275 @@ __exports(__x, { JournalScreen: () => JournalScreen });
 
 __defs['core/storage.js'] = function (__x, __req) {
 
-// Thin wrapper over localStorage so the save layer never touches the
-// browser API directly (and so a cloud backend can swap in later).
+// Persistence, in the only way that actually survives a phone.
+//
+// This file has been rewritten because the previous version did not work, and
+// the reason it did not work is worth writing down so nobody does it again:
+// it asked for the host storage API **once, synchronously, at script eval
+// time**. The bundle is one inline script that runs the instant the page
+// parses, and the host injects its API a beat later — so the check always
+// missed, we always fell back to localStorage, and the artifact viewer wipes
+// localStorage when the artifact is closed. Every session opened on a fresh
+// new game.
+//
+// So: nothing here checks for a provider once. Everything polls until a
+// provider appears or a deadline passes, and every write goes to every
+// provider we have, because the cost of a redundant write is nothing and the
+// cost of a lost save is an evening.
+//
+// Providers, in order of durability:
+//
+//   1. `window.storage`          — host key/value store, if this build has one
+//   2. `claude.use('db')`        — the artifact document store
+//   3. `localStorage`            — works everywhere, survives least
+//
+// Reads take the newest coherent payload across all of them, so a save
+// written on one device shows up on the other, and a save written before a
+// provider existed is not lost when one appears.
+
 const PREFIX = 'caribou:';
 
-const storage = {
-  available() {
+/** The key the host store is asked for. One save file, one name. */
+const HOST_KEY = 'monsterGameSave';
+
+// How long to keep looking for a provider before deciding there is not one.
+// Generous on purpose: a slow phone on a bad connection is the exact case
+// this whole file exists for.
+const PROVIDER_DEADLINE_MS = 15000;
+const POLL_MS = 150;
+
+const now = () => Date.now();
+
+/** Polls for `pick()` to return something truthy, or gives up. */
+function waitFor(pick, deadlineMs = PROVIDER_DEADLINE_MS) {
+  return new Promise((resolve) => {
+    const got = pick();
+    if (got) { resolve(got); return; }
+    if (typeof window === 'undefined') { resolve(null); return; }
+    const until = now() + deadlineMs;
+    const timer = setInterval(() => {
+      let v = null;
+      try { v = pick(); } catch { v = null; }
+      if (v) { clearInterval(timer); resolve(v); return; }
+      if (now() > until) { clearInterval(timer); resolve(null); }
+    }, POLL_MS);
+  });
+}
+
+// ---- provider 1: window.storage -------------------------------------------
+
+function hostStore() {
+  const s = typeof window !== 'undefined' ? window.storage : null;
+  return s && typeof s.get === 'function' && typeof s.set === 'function' ? s : null;
+}
+
+const hostProvider = {
+  name: 'window.storage',
+  ready: null,
+  handle: null,
+  async init() {
+    this.handle = await waitFor(hostStore);
+    return this.handle;
+  },
+  async read(slot) {
+    if (!this.handle) return null;
+    const raw = await this.handle.get(`${HOST_KEY}:${slot}`);
+    if (raw == null) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  },
+  async write(slot, value) {
+    if (!this.handle) return false;
+    await this.handle.set(`${HOST_KEY}:${slot}`, JSON.stringify(value));
+    return true;
+  },
+  async remove(slot) {
+    if (!this.handle) return;
+    if (typeof this.handle.delete === 'function') await this.handle.delete(`${HOST_KEY}:${slot}`);
+    else await this.handle.set(`${HOST_KEY}:${slot}`, null);
+  },
+};
+
+// ---- provider 2: the artifact document store -------------------------------
+
+function claudeUse() {
+  const c = typeof window !== 'undefined' ? window.claude : null;
+  return c && typeof c.use === 'function' ? c : null;
+}
+
+const dbProvider = {
+  name: 'artifact-db',
+  handle: null,
+  async init() {
+    const c = await waitFor(claudeUse);
+    if (!c) return null;
+    // `use` itself resolves late — the contract says never within the first
+    // script run, and up to ten seconds after. Racing it against a deadline
+    // keeps a missing capability from hanging the boot.
+    this.handle = await Promise.race([
+      Promise.resolve(c.use('db')).catch(() => null),
+      new Promise((r) => setTimeout(() => r(null), PROVIDER_DEADLINE_MS)),
+    ]).catch(() => null);
+    return this.handle;
+  },
+  async read(slot) {
+    if (!this.handle) return null;
+    const snap = await this.handle.doc(`saves/${slot}`).get();
+    if (!snap || !snap.exists || !snap.data || !snap.data.payload) return null;
+    return JSON.parse(snap.data.payload);
+  },
+  async write(slot, value) {
+    if (!this.handle) return false;
+    // One JSON string rather than a nested document: a save is deeply nested
+    // and the store caps nesting, so flattening keeps party, bag and flags
+    // out of that limit entirely.
+    await this.handle.doc(`saves/${slot}`).set({
+      payload: JSON.stringify(value),
+      savedAt: (value && value.savedAt) || now(),
+      name: (value && value.meta && value.meta.name) || '',
+      badges: (value && value.meta && value.meta.badges) || 0,
+    });
+    return true;
+  },
+  async remove(slot) {
+    if (!this.handle) return;
+    await this.handle.doc(`saves/${slot}`).delete();
+  },
+};
+
+// ---- provider 3: localStorage ----------------------------------------------
+
+const localProvider = {
+  name: 'localStorage',
+  handle: null,
+  async init() {
     try {
-      const k = PREFIX + '__probe';
+      const k = `${PREFIX}__probe`;
       localStorage.setItem(k, '1');
       localStorage.removeItem(k);
-      return true;
-    } catch { return false; }
+      this.handle = localStorage;
+    } catch { this.handle = null; }
+    return this.handle;
+  },
+  async read(slot) {
+    if (!this.handle) return null;
+    const raw = this.handle.getItem(PREFIX + slot);
+    return raw == null ? null : JSON.parse(raw);
+  },
+  async write(slot, value) {
+    if (!this.handle) return false;
+    this.handle.setItem(PREFIX + slot, JSON.stringify(value));
+    return true;
+  },
+  async remove(slot) {
+    if (!this.handle) return;
+    this.handle.removeItem(PREFIX + slot);
+  },
+};
+
+const PROVIDERS = [hostProvider, dbProvider, localProvider];
+
+// ---- the layer -------------------------------------------------------------
+
+let readyPromise = null;
+
+/**
+ * Brings up every provider that exists. Safe to call as often as you like;
+ * the work happens once.
+ */
+function storageReady() {
+  if (!readyPromise) {
+    readyPromise = Promise.all(PROVIDERS.map(async (p) => {
+      try { await p.init(); } catch { p.handle = null; }
+      return p;
+    })).then(() => PROVIDERS.filter((p) => p.handle));
+  }
+  return readyPromise;
+}
+
+/** Which providers came up. Shown in test mode so a failure is visible. */
+function providerReport() {
+  return PROVIDERS.map((p) => ({ name: p.name, up: !!p.handle }));
+}
+
+/** True once at least one provider that outlives the tab is up. */
+function isDurable() {
+  return !!(hostProvider.handle || dbProvider.handle);
+}
+
+const storage = {
+  available() { return PROVIDERS.some((p) => p.handle); },
+
+  /**
+   * The newest payload any provider has.
+   *
+   * Taking the newest rather than the first means a save written on the phone
+   * beats a stale one in this tab's localStorage, which is what makes the two
+   * players' devices agree.
+   */
+  async read(slot) {
+    await storageReady();
+    let best = null;
+    for (const p of PROVIDERS) {
+      if (!p.handle) continue;
+      try {
+        const v = await p.read(slot);
+        if (!v) continue;
+        if (!best || (v.savedAt || 0) > (best.savedAt || 0)) best = v;
+      } catch (err) {
+        console.warn(`[storage] ${p.name} read failed`, err);
+      }
+    }
+    return best;
   },
 
-  read(key) {
+  /** Reads only what is in this tab, without waiting for the network. */
+  readLocalNow(slot) {
     try {
-      const raw = localStorage.getItem(PREFIX + key);
+      const raw = localStorage.getItem(PREFIX + slot);
       return raw == null ? null : JSON.parse(raw);
     } catch { return null; }
   },
 
-  write(key, value) {
-    try {
-      localStorage.setItem(PREFIX + key, JSON.stringify(value));
-      return true;
-    } catch (err) {
-      console.warn('[storage] write failed', err);
-      return false;
+  /**
+   * Writes everywhere. localStorage first and synchronously, so that even if
+   * the page is killed in the next millisecond something survives; the
+   * durable providers follow.
+   */
+  async write(slot, value) {
+    let any = false;
+    try { localStorage.setItem(PREFIX + slot, JSON.stringify(value)); any = true; } catch { /* full or blocked */ }
+    await storageReady();
+    for (const p of PROVIDERS) {
+      if (!p.handle || p === localProvider) continue;
+      try { any = (await p.write(slot, value)) || any; } catch (err) {
+        console.warn(`[storage] ${p.name} write failed`, err);
+      }
+    }
+    return any;
+  },
+
+  async remove(slot) {
+    await storageReady();
+    for (const p of PROVIDERS) {
+      if (!p.handle) continue;
+      try { await p.remove(slot); } catch { /* ignore */ }
     }
   },
 
-  remove(key) {
-    try { localStorage.removeItem(PREFIX + key); } catch { /* ignore */ }
-  },
-
-  keys() {
-    const out = [];
+  async keys() {
+    await storageReady();
+    const out = new Set();
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith(PREFIX)) out.push(k.slice(PREFIX.length));
+        if (k && k.startsWith(PREFIX)) out.add(k.slice(PREFIX.length));
       }
     } catch { /* ignore */ }
-    return out;
+    return [...out];
   },
 };
 
-__exports(__x, { storage: () => storage });
-
-};
-
-__defs['save/artifactdb.js'] = function (__x, __req) {
-
-// A save backend that survives the artifact being closed.
-//
-// localStorage is not durable inside the claude.ai artifact viewer. The page
-// runs in a sandboxed frame whose site data the host is free to drop the
-// moment the artifact is closed — which is exactly what was happening: every
-// session opened on a fresh new-game screen with no save to continue. The
-// `db` capability is server-side, scoped to this artifact, and outlives the
-// page, the app being killed, and a republish. It is also shared between the
-// two players' devices, which is what makes a save written on one phone
-// visible on the other.
-//
-// Two things shape the design:
-//
-//  * `claude.use('db')` resolves LATE — never during the first script run,
-//    and up to ten seconds later, or `null` if this view cannot run it. So
-//    the game must boot without it and pick it up when it lands. `ready()`
-//    is what the title screen waits on before deciding whether to offer
-//    Continue.
-//  * It can be absent for good (running from a file, from the dev server,
-//    or in the test harnesses). Every path therefore falls back to
-//    localStorage rather than failing.
-
-const COLLECTION = 'saves';
-const RESOLVE_TIMEOUT_MS = 10000;
-
-/** Resolves the db namespace once, or null. Never throws, never hangs. */
-function resolveDb() {
-  const c = typeof window !== 'undefined' ? window.claude : null;
-  if (!c || typeof c.use !== 'function') return Promise.resolve(null);
-  return Promise.race([
-    Promise.resolve(c.use('db')).catch(() => null),
-    new Promise((r) => setTimeout(() => r(null), RESOLVE_TIMEOUT_MS)),
-  ]).catch(() => null);
-}
-
-class ArtifactDbBackend {
-  constructor(fallback) {
-    this.name = 'artifact-db';
-    this.fallback = fallback;      // LocalBackend, used when db is absent
-    this.db = null;
-    this.lastError = null;
-    this._ready = resolveDb().then((db) => { this.db = db; return db; });
-  }
-
-  /**
-   * Resolves once we know whether durable storage exists. Callers that need
-   * a truthful answer to "is there a save?" — the title screen, chiefly —
-   * await this first; everything else can just call and take the fallback.
-   */
-  ready() { return this._ready; }
-
-  available() { return !!this.db || this.fallback.available(); }
-
-  /** True once we know the save is going somewhere that outlives the tab. */
-  durable() { return !!this.db; }
-
-  _doc(slot) { return this.db.doc(`${COLLECTION}/${slot}`); }
-
-  async read(slot) {
-    await this._ready;
-    if (this.db) {
-      try {
-        const snap = await this._doc(slot).get();
-        // Absence is not an error here — a first-run player has no save.
-        if (snap && snap.exists && snap.data && snap.data.payload) {
-          return JSON.parse(snap.data.payload);
-        }
-        // Nothing in the store yet. A save may still exist locally from a
-        // session before this backend arrived, so keep looking.
-      } catch (err) {
-        this.lastError = String((err && err.message) || err);
-        console.warn('[save] db read failed, falling back', err);
-      }
-    }
-    return this.fallback.read(slot);
-  }
-
-  /**
-   * The local copy only, without waiting for the durable half to resolve.
-   * The title screen draws from this so the game is on screen immediately,
-   * then upgrades itself when `ready()` lands.
-   */
-  readLocal(slot) { return this.fallback.read(slot); }
-
-  async write(slot, data) {
-    // The local copy is written first and unconditionally: it costs nothing,
-    // it is instant, and it means a db hiccup never loses a save outright.
-    const local = await this.fallback.write(slot, data);
-    await this._ready;
-    if (!this.db) return local;
-    try {
-      // One JSON string rather than a nested document: a save is deeply
-      // nested and the store caps nesting at 32 levels, so flattening it
-      // here keeps party members, bag and flags out of that limit entirely.
-      await this._doc(slot).set({
-        payload: JSON.stringify(data),
-        savedAt: data && data.savedAt ? data.savedAt : Date.now(),
-        // Denormalised so a save list can be drawn without parsing.
-        name: (data && data.meta && data.meta.name) || '',
-        badges: (data && data.meta && data.meta.badges) || 0,
-      });
-      this.lastError = null;
-      return true;
-    } catch (err) {
-      this.lastError = String((err && err.message) || err);
-      console.warn('[save] db write failed; local copy kept', err);
-      return local;
-    }
-  }
-
-  async remove(slot) {
-    await this.fallback.remove(slot);
-    await this._ready;
-    if (!this.db) return true;
-    try { await this._doc(slot).delete(); } catch (err) {
-      console.warn('[save] db delete failed', err);
-    }
-    return true;
-  }
-
-  async list() {
-    await this._ready;
-    if (this.db) {
-      try {
-        const snap = await this.db.collection(COLLECTION).get();
-        const ids = (snap && snap.docs ? snap.docs : []).map((d) => d.id);
-        if (ids.length) return ids;
-      } catch (err) {
-        console.warn('[save] db list failed', err);
-      }
-    }
-    return this.fallback.list();
-  }
-}
-
-__exports(__x, { ArtifactDbBackend: () => ArtifactDbBackend });
+__exports(__x, { HOST_KEY: () => HOST_KEY, storageReady: () => storageReady, providerReport: () => providerReport, isDurable: () => isDurable, storage: () => storage });
 
 };
 
@@ -32897,8 +33784,7 @@ __exports(__x, { migrateV1toV2: () => migrateV1toV2, migrateV2toV3: () => migrat
 };
 
 __defs['save/SaveManager.js'] = function (__x, __req) {
-const { storage } = __req('core/storage.js');
-const { ArtifactDbBackend } = __req('save/artifactdb.js');
+const { storage, storageReady, isDurable, providerReport } = __req('core/storage.js');
 const { serializeState, deserializeState } = __req('game/state.js');
 const { MIGRATIONS } = __req('save/migrations.js');
 // Saving.
@@ -32911,18 +33797,28 @@ const { MIGRATIONS } = __req('save/migrations.js');
 
 
 
-
 const SAVE_SLOT = 'save1';
 const SAVE_VERSION = 3;
 const AUTOSAVE_MS = 45000;
+const FLUSH_DEBOUNCE_MS = 700;
 
+/**
+ * The only backend now. `core/storage.js` fans every write out to whichever
+ * of the host store, the artifact document store and localStorage exist, and
+ * reads back the newest of them, so there is nothing left for a backend to
+ * choose between.
+ */
 class LocalBackend {
-  constructor() { this.name = 'local'; }
+  constructor() { this.name = 'storage'; }
   available() { return storage.available(); }
+  ready() { return storageReady(); }
+  durable() { return isDurable(); }
+  providers() { return providerReport(); }
+  readLocal(slot) { return storage.readLocalNow(slot); }
   async read(slot) { return storage.read(slot); }
   async write(slot, data) { return storage.write(slot, data); }
-  async remove(slot) { storage.remove(slot); return true; }
-  async list() { return storage.keys().filter((k) => k.startsWith('save')); }
+  async remove(slot) { await storage.remove(slot); return true; }
+  async list() { return (await storage.keys()).filter((k) => k.startsWith('save')); }
 }
 
 // Kept deliberately small: it is the shape a server endpoint would need to
@@ -32950,7 +33846,9 @@ class SaveManager {
   markDirty() { this.dirty = true; }
 
   async save(state, slot = SAVE_SLOT, opts = {}) {
-    if (this.saving) return false;
+    // A save already in flight used to make this a no-op, which meant the
+    // flush on the way out could be the one that got dropped. Queue instead.
+    if (this.saving) { this._again = { state, slot }; return false; }
     this.saving = true;
     try {
       const payload = {
@@ -32977,6 +33875,9 @@ class SaveManager {
     } finally {
       this.saving = false;
       void opts;
+      const again = this._again;
+      this._again = null;
+      if (again) this.save(again.state, again.slot);
     }
   }
 
@@ -33048,19 +33949,36 @@ class SaveManager {
     this.save(state);
     return true;
   }
+
+  /**
+   * "Something happened worth keeping" — a Pokemon caught, a battle won, a
+   * badge, a heal, a map crossed.
+   *
+   * Debounced rather than immediate because several of these fire together
+   * at the end of a battle, and one write is enough. The debounce is short
+   * enough that swiping away a second later still lands, and `flush` cancels
+   * it and writes now.
+   */
+  touch(state) {
+    this.dirty = true;
+    if (this._pending) clearTimeout(this._pending);
+    this._pending = setTimeout(() => { this._pending = null; this.save(state); }, FLUSH_DEBOUNCE_MS);
+  }
+
+  /**
+   * Write right now, cancelling any debounce. Called when the page is going
+   * away, where there is no later.
+   */
+  flush(state) {
+    if (this._pending) { clearTimeout(this._pending); this._pending = null; }
+    return this.save(state);
+  }
 }
 
-// The default backend keeps a local copy AND, when the page is running as a
-// claude.ai artifact, a server-side one. Inside the artifact viewer the local
-// copy alone is not durable — closing the artifact can drop it — which is why
-// the durable half exists at all.
-const saveManager = new SaveManager(new ArtifactDbBackend(new LocalBackend()));
+const saveManager = new SaveManager(new LocalBackend());
 
-/** Resolves once we know whether durable storage is available. */
-function saveReady() {
-  const b = saveManager.backend;
-  return b && typeof b.ready === 'function' ? b.ready() : Promise.resolve(null);
-}
+/** Resolves once every storage provider that exists has come up. */
+function saveReady() { return storageReady(); }
 
 __exports(__x, { SAVE_SLOT: () => SAVE_SLOT, SAVE_VERSION: () => SAVE_VERSION, LocalBackend: () => LocalBackend, CloudBackend: () => CloudBackend, SaveManager: () => SaveManager, saveManager: () => saveManager, saveReady: () => saveReady });
 
@@ -33395,8 +34313,15 @@ class Game {
     // a phone with a slow connection.
     const title = new TitleScreen(this, await this.save.peekFast());
     this.screens.push(title);
-    saveReady().then(async (db) => {
-      this.saveIsDurable = !!db;
+    // The durable stores answer late — that is the whole reason the previous
+    // version of this failed. So the title paints on whatever is in this tab
+    // and then corrects itself, rather than deciding "no save" before the
+    // stores have had a chance to speak.
+    saveReady().then(async () => {
+      const b = this.save.backend;
+      this.saveIsDurable = !!(b.durable && b.durable());
+      this.saveProviders = b.providers ? b.providers() : [];
+      console.info('[caribou] storage:', this.saveProviders.map((p) => `${p.name}=${p.up ? 'up' : 'no'}`).join(' '));
       const meta = await this.save.peek();
       if (title.setSave) title.setSave(meta);
     });
@@ -33407,19 +34332,29 @@ class Game {
     });
     this.loop.start();
 
-    // Flushing the save on the way out. On a phone the artifact is closed by
-    // switching away from it, and `beforeunload` does not reliably fire for
-    // that — `pagehide` and a hidden `visibilitychange` do. All three are
-    // wired because between them they cover every way this page is left,
-    // and saving twice costs nothing.
+    // Flushing the save on the way out.
+    //
+    // On a phone the artifact is closed by swiping away from it, and
+    // `beforeunload` does not fire for that. `pagehide`, a hidden
+    // `visibilitychange` and `freeze` between them cover every way this page
+    // is actually left, and writing twice costs nothing.
+    //
+    // Deliberately NOT gated on being idle in the overworld. The old version
+    // declined to save mid-battle on the grounds that a half-finished battle
+    // is an incoherent save — true, but the alternative turned out to be
+    // losing the whole session, and a save that puts you back on the map
+    // outside the battle is a perfectly good save.
     const flush = () => {
-      if (this.overworld && this.state.flags.gotStarter && this.canSaveNow()) {
-        this.save.save(this.state);
+      if (this.state && this.state.flags && this.state.flags.gotStarter) {
+        this.save.flush(this.state);
       }
     };
     window.addEventListener('beforeunload', flush);
     window.addEventListener('pagehide', flush);
+    window.addEventListener('freeze', flush);
+    window.addEventListener('blur', flush);
     document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+    this.flushSave = flush;
   }
 
   /**
@@ -33662,6 +34597,11 @@ class Game {
   // Called after every battle resolves.
   afterBattle(result, opts) {
     const st = this.state;
+    // Whatever happened, it is worth keeping: experience, a catch, a badge,
+    // or being sent home with less money. Queued rather than written this
+    // instant so the two or three things that fire together here cost one
+    // write, and `flush` on the way out still beats the debounce.
+    if (st.flags && st.flags.gotStarter) this.save.touch(st);
     if (result === 'lose' && opts && opts.noBlackout) {
       // A sanctioned loss: patched up on site, no black-out, no penalty.
       healParty(st);
