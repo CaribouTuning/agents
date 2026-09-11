@@ -5,6 +5,7 @@
 // co-op players each own a completely separate GameState — only the room and
 // the shared story milestones are common.
 import { createInventory, addItem } from './inventory.js';
+import { PLAYERS, playerByLook, playerByName } from './players.js';
 import { createDex, recordSeen, recordCaught } from './pokedex.js';
 import { createFlags, setFlag, getFlag, FLAGS, storyProgress } from './storyflags.js';
 import {
@@ -22,13 +23,17 @@ export const BOX_COUNT = 8;
 export const BOX_SIZE = 30;
 
 export function createGameState(opts = {}) {
+  // You wake up in your own house, and which one that is depends on which
+  // of the two you picked: the left-hand house in Twinleaf is Matthew's and
+  // the right-hand one is Sammy's, always, whoever is holding the phone.
+  const home = (playerByLook(opts.look) || playerByName(opts.name) || PLAYERS[0]).house;
   return {
     version: 1,
     player: {
       name: opts.name || 'Matthew',
       look: opts.look || 'boy',
       id: opts.id || Math.floor(Math.random() * 65536),
-      map: 'player_house',
+      map: home,
       x: 5, y: 5, dir: 'down',
       running: false,
     },
@@ -44,7 +49,7 @@ export function createGameState(opts = {}) {
     difficulty: opts.difficulty || 'easy',
     playTimeMs: 0,
     startedAt: Date.now(),
-    lastHealPoint: { map: 'player_house', x: 5, y: 6 },
+    lastHealPoint: { map: home, x: 5, y: 6 },
     repelSteps: 0,
     starterBase: null,
     stats: { battlesWon: 0, caught: 0, steps: 0 },

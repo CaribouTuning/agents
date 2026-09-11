@@ -14,7 +14,7 @@ import { RANKS, getPro, RIVAL_PRO, getTournament } from '../../data/circuit.js';
 import { standings, currentRank, headToHead } from '../circuit/circuit.js';
 import { displayName } from '../monster.js';
 import { getSpecies } from '../../data/species.js';
-import { buddyOf } from '../players.js';
+import { buddyOf, playerOf } from '../players.js';
 import { caughtCount, seenCount } from '../pokedex.js';
 
 /**
@@ -91,6 +91,10 @@ export function worldSnapshot(state, link = null) {
     // lets the world talk about Sammy while Matthew plays alone, and then
     // notice when both of them are actually here.
     buddy: buddyOf(state),
+    // Which of the two is holding the phone, so a line can be written to
+    // one of them specifically — a mum talking to her own child reads very
+    // differently from the same mum talking to their partner.
+    playing: playerOf(state).key,
     alone: !(link && link.connected && link.partner),
   };
 }
@@ -111,7 +115,7 @@ export const CLAUSES = Object.freeze([
   'flag', 'notFlag',
   'badges', 'maxBadges', 'caught', 'party', 'leadLevel', 'starter',
   'joined', 'rank', 'titles', 'streak', 'hype', 'respect',
-  'champion', 'beatRival', 'inEvent', 'topTen', 'linked', 'alone',
+  'champion', 'beatRival', 'inEvent', 'topTen', 'linked', 'alone', 'playing',
 ]);
 const CLAUSE_SET = new Set(CLAUSES);
 export function isKnownClause(k) { return CLAUSE_SET.has(k); }
@@ -158,6 +162,7 @@ export function matches(when, s) {
       case 'topTen': if ((s.place == null || s.place > 10) === v) return false; break;
       case 'linked': if (s.linked !== v) return false; break;
       case 'alone': if (s.alone !== v) return false; break;
+      case 'playing': if (s.playing !== v) return false; break;
 
       default: return false;   // an unknown clause never silently passes
     }

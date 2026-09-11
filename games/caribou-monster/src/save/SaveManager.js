@@ -10,7 +10,7 @@ import { serializeState, deserializeState } from '../game/state.js';
 import { MIGRATIONS } from './migrations.js';
 
 export const SAVE_SLOT = 'save1';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 const AUTOSAVE_MS = 45000;
 
 export class LocalBackend {

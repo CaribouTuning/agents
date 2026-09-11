@@ -35,8 +35,8 @@ export const TWINLEAF = defineMap('twinleaf', {
     { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true,
       requires: 'gotStarter',
       refuse: 'There is tall grass past the sign, and nothing in your bag but a\nphone.\fGo and see Professor Rowan first.' },
-    { x: 5, y: 13, to: 'player_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 22, y: 13, to: 'rival_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 5, y: 13, to: 'matthew_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 22, y: 13, to: 'sammy_house', tx: 5, ty: 6, dir: 'up' },
     { x: 6, y: 6, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
   ],
   labels: [
@@ -47,6 +47,62 @@ export const TWINLEAF = defineMap('twinleaf', {
     { x: 26, y: 17, text: 'ROUTE 201 — NORTH\nTall grass ahead. Wild Pokémon live in it.\nDo not walk in without a Pokémon.' },
   ],
   npcs: [
+    // The other one. In single player they are stood outside their own front
+    // door, because they live there and because they were waiting for you.
+    // The moment the link comes up they stop being an NPC and start being a
+    // person, so `soloOnly` takes them off the map.
+    {
+      id: 'tw_buddy', x: 21, y: 15, look: 'buddy', name: '{buddy}',
+      movement: 'lookAround', facing: 'left', soloOnly: true,
+      dialogue: [
+        {
+          when: { flag: 'badge5' },
+          lines: ['Five badges. FIVE. And you came home.',
+            'I know exactly why you came home and it is not for the badges.',
+            'Go on then. Say hello to your mum before you say hello to me.'],
+        },
+        {
+          when: { flag: 'badge1' },
+          lines: ['You got the Coal Badge and I found out from Tam. TAM.',
+            'Next time you ring me first. I mean it. I will be insufferable about it.',
+            'Come here. ...Right. Off you go.'],
+        },
+        {
+          when: { flag: 'gotStarter' },
+          lines: ['Rowan gave you one as well, then.',
+            'Route 201 is straight up past the sign.',
+            'I have been three times already and I have not gone in yet,\nbecause I said I would wait.',
+            'I did say I would wait. I am saying it again so you notice.'],
+        },
+        {
+          lines: ['There you are. I have been stood on this step for an hour.',
+            'Rowan wants us both at the lab. BOTH of us, she was specific.',
+            'Do not go on ahead. We are doing this bit together.'],
+        },
+      ],
+    },
+    // Bandit. Sammy's dog, and she has opinions about who she belongs to.
+    {
+      id: 'tw_bandit', x: 22, y: 16, species: 228, name: 'Bandit',
+      movement: 'lookAround', facing: 'up',
+      dialogue: [
+        {
+          when: { all: [{ flag: 'hasBandit' }, { playing: 'matthew' }] },
+          lines: ['Bandit: *She is already at the gate, looking back at you.*',
+            '*Then back at Sammy’s door, to check. Then at you again.*'],
+        },
+        {
+          when: { playing: 'sammy' },
+          lines: ['Bandit: *She hits you at knee height before you have finished\nshutting the door.*',
+            '*She is not going to be talked out of coming.*'],
+        },
+        {
+          lines: ['Bandit: *She looks past you, at the other house, and then back.*',
+            '*She is Sammy’s dog and she has never pretended otherwise.*',
+            '*She lets you scratch her ears anyway.*'],
+        },
+      ],
+    },
     {
       // Tam is the town's circuit superfan. Whoever is actually top of the
       // world ranking is who he has posters of — including, eventually, you.
@@ -217,7 +273,10 @@ export const TWINLEAF = defineMap('twinleaf', {
       ],
     },
   ],
-  healPoint: { map: 'player_house', x: 5, y: 6 },
+  // No town-level heal point: the two houses carry their own, and which one
+  // is yours depends on which of them you are. `state.lastHealPoint` is set
+  // from the player record when the game starts.
+
 });
 
 export const OREBURGH = defineMap('oreburgh', {

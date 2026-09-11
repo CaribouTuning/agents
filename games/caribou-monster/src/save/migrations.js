@@ -49,8 +49,38 @@ export function migrateV1toV2(state) {
   return next;
 }
 
+// v2 -> v3. Twinleaf's two houses used to be `player_house` (whoever you
+// were) and `rival_house` (the other one). They are now `matthew_house` and
+// `sammy_house`, fixed to the left and right of the town, so the place reads
+// the same whichever of the two is holding the phone. A save that was made
+// standing in one of them — or that healed in one — points at a map id that
+// no longer exists, and would open into nowhere.
+const HOUSE_RENAME = { player_house: 'matthew_house', rival_house: 'sammy_house' };
+
+function renameHouse(id, look) {
+  if (!HOUSE_RENAME[id]) return id;
+  // `player_house` was whichever of them you are, so the answer depends on
+  // the save's own character rather than on a fixed table.
+  if (id === 'player_house') return look === 'sammy' ? 'sammy_house' : 'matthew_house';
+  return look === 'sammy' ? 'matthew_house' : 'sammy_house';
+}
+
+export function migrateV2toV3(state) {
+  if (!state) return state;
+  const look = state.player && state.player.look;
+  const next = { ...state };
+  if (state.player) {
+    next.player = { ...state.player, map: renameHouse(state.player.map, look) };
+  }
+  if (state.lastHealPoint) {
+    next.lastHealPoint = { ...state.lastHealPoint, map: renameHouse(state.lastHealPoint.map, look) };
+  }
+  return next;
+}
+
 // Ordered. `migrate` applies every step from the payload's version up to
 // SAVE_VERSION, so a save can skip as many releases as it likes.
 export const MIGRATIONS = [
   { from: 1, to: 2, apply: migrateV1toV2 },
+  { from: 2, to: 3, apply: migrateV2toV3 },
 ];

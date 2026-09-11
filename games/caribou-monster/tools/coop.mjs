@@ -237,12 +237,12 @@ if (code) {
   {
     const alone = await A.evaluate(() => {
       const g = window.CARIBOU;
-      const mum = g.mapsForTest.MAPS.player_house.npcs.find((n) => n.id === 'ph_mom');
+      const mum = g.mapsForTest.MAPS.matthew_house.npcs.find((n) => n.id === 'ph_mom');
       return g.gossipForTest.resolveDialogue(mum.dialogue, g.state, 0, null).join(' ');
     });
     const together = await A.evaluate(() => {
       const g = window.CARIBOU;
-      const mum = g.mapsForTest.MAPS.player_house.npcs.find((n) => n.id === 'ph_mom');
+      const mum = g.mapsForTest.MAPS.matthew_house.npcs.find((n) => n.id === 'ph_mom');
       return g.gossipForTest.resolveDialogue(
         mum.dialogue, g.state, 0, g.netForTest.snapshot()).join(' ');
     });

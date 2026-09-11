@@ -178,7 +178,7 @@ console.log('\n--- what was already there ---');
     'underground']) {
     check(!!MAPS[id], `${id} is still in the world`);
   }
-  for (const id of ['rowan_lab', 'player_house', 'oreburgh_gym', 'oreburgh_hall',
+  for (const id of ['rowan_lab', 'matthew_house', 'sammy_house', 'oreburgh_gym', 'oreburgh_hall',
     'sandgem_daycare', 'secret_base']) {
     check(!!MAPS[id], `${id} is still in the world`);
   }

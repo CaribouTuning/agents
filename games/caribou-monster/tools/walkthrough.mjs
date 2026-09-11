@@ -70,7 +70,9 @@ const canMove = () => page.evaluate(() => {
 console.log('--- opening playthrough ---');
 await page.evaluate(() => window.CARIBOU.startNewGame({ name: 'Matthew', look: 'boy', difficulty: 'easy' }));
 await wait(700);
-check('game starts in the player house', (await where()).map === 'player_house');
+// Matthew's own house, on the left of Twinleaf. Sammy's save starts in hers.
+check('game starts in the player\'s own house', (await where()).map === 'matthew_house',
+  (await where()).map);
 
 // Clears whatever is on screen and waits until the player can move again.
 // Phases used to run into each other: a dialogue box left open from the last
@@ -964,6 +966,72 @@ const verity = await page.evaluate(async () => {
 });
 check('the Lake Verity raid waits for Lake Valor', verity.count > 0 && verity.requires,
   JSON.stringify(verity));
+
+// --- Twinleaf belongs to both of them ---
+// Left house is Matthew's, right is Sammy's, always. Whoever you picked
+// wakes up in theirs, and the other one is stood outside their own door
+// because they live there — until the link comes up and they stop being an
+// NPC and start being a person.
+console.log('\n--- both of them live here ---');
+
+const houses = await page.evaluate(async () => {
+  const { PLAYERS } = await import('./src/game/players.js');
+  const { MAPS } = await import('./src/data/maps/index.js');
+  const tw = MAPS.twinleaf;
+  const door = (id) => tw.warps.find((w) => w.to === id);
+  return {
+    matthew: PLAYERS.find((p) => p.key === 'matthew').house,
+    sammy: PLAYERS.find((p) => p.key === 'sammy').house,
+    matthewX: (door('matthew_house') || {}).x,
+    sammyX: (door('sammy_house') || {}).x,
+  };
+});
+check('Matthew has a house and Sammy has a house',
+  houses.matthew === 'matthew_house' && houses.sammy === 'sammy_house', JSON.stringify(houses));
+check("Matthew's is the left-hand one and Sammy's the right",
+  houses.matthewX < houses.sammyX, `${houses.matthewX} < ${houses.sammyX}`);
+
+// Sammy's playthrough, started for real rather than asserted about.
+await page.evaluate(() => window.CARIBOU.startNewGame({ name: 'Sammy', look: 'sammy', difficulty: 'easy' }));
+await wait(600);
+await waitIdle();
+const sammyStart = await where();
+check('starting as Sammy wakes up in Sammy\'s house', sammyStart.map === 'sammy_house',
+  `${sammyStart.map} ${sammyStart.x},${sammyStart.y}`);
+const sammyHeal = await page.evaluate(() => window.CARIBOU.state.lastHealPoint.map);
+check('and blacking out would send her home, not next door', sammyHeal === 'sammy_house', sammyHeal);
+
+// The partner, stood outside their own door, looking like the one you are not.
+await page.evaluate(() => window.CARIBOU.overworld.world.load('twinleaf', 20, 15, 'right'));
+await wait(400);
+await waitIdle();
+const buddy = await page.evaluate(() => {
+  const w = window.CARIBOU.overworld.world;
+  const e = w.entities.find((x) => x.id === 'tw_buddy');
+  return e ? { look: e.look, x: e.x, y: e.y } : null;
+});
+check('the other one is stood outside in single player', !!buddy, JSON.stringify(buddy));
+check('and looks like whoever you are not', buddy && buddy.look === 'matthew',
+  buddy && buddy.look);
+
+// Bandit is Sammy's, and she is a Houndour, and she is a she.
+const bandit = await page.evaluate(async () => {
+  const { MAPS } = await import('./src/data/maps/index.js');
+  const { BANDIT } = await import('./src/data/story.js');
+  const npc = MAPS.twinleaf.npcs.find((n) => n.id === 'tw_bandit');
+  return { species: npc && npc.species, banditSpecies: BANDIT && BANDIT.species };
+});
+check('Bandit is outside Sammy\'s house', bandit.species === 228, JSON.stringify(bandit));
+
+// Back to Matthew for everything that follows.
+await page.evaluate(() => window.CARIBOU.startNewGame({ name: 'Matthew', look: 'matthew', difficulty: 'easy' }));
+await wait(600);
+await waitIdle();
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.flags.gotStarter = true;
+  g.debugGive(387, 5);
+});
 
 // --- the opening cannot be walked out of ---
 // The bug this covers: leave the house without a Pokemon, walk onto the

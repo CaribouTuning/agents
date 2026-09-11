@@ -13,6 +13,7 @@ import { getTrainer } from '../../data/trainers.js';
 import { weightedPick } from '../../core/rng.js';
 import { TILE } from '../../render/canvas.js';
 import { currentPhase } from '../clock.js';
+import { buddyPlayerOf } from '../players.js';
 
 export const WALK_FRAMES = 14;    // logic ticks to cross one tile
 export const RUN_FRAMES = 8;
@@ -100,7 +101,13 @@ export class World {
       // has not turned up yet.
       if (npc.goneWhen && this.state.flags[npc.goneWhen]) continue;
       if (npc.onlyWhen && !this.state.flags[npc.onlyWhen]) continue;
-      const e = makeEntity({ ...npc, kind: 'npc' });
+      // The other protagonist. When the link is up they are a real player
+      // walking around, so the stand-in has to get out of the way; when it
+      // is not, they are here, because they live here.
+      if (npc.soloOnly && this.linkedNow()) continue;
+      // And a stand-in has to look like whoever you are NOT playing.
+      const look = npc.look === 'buddy' ? buddyPlayerOf(this.state).look : npc.look;
+      const e = makeEntity({ ...npc, look, kind: 'npc' });
       // An NPC that is a Pokemon rather than a person — the Psyduck sitting
       // in the fog road. It draws from the same artwork the walking partner
       // uses, so there is no second sprite pipeline to keep in step.
@@ -458,6 +465,13 @@ export class World {
    * never coming. Checked here rather than in the battle screen because the
    * right answer is for the battle never to start.
    */
+  /** Whether the other player is actually here, on the wire, right now. */
+  linkedNow() {
+    const snap = this.state && this.state.link;
+    if (snap) return !!(snap.connected && snap.partner);
+    return !!(this.remotes && this.remotes.size);
+  }
+
   canBattle() {
     return (this.state.party || []).some((m) => m && !m.isEgg && m.hp > 0);
   }

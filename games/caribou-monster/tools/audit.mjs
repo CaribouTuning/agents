@@ -140,7 +140,9 @@ function entryPoints(map) {
   if (map.healPoint && map.healPoint.map === map.id) {
     pts.push({ x: map.healPoint.x, y: map.healPoint.y, from: 'heal point' });
   }
-  if (map.id === 'player_house') pts.push({ x: 5, y: 5, from: 'new game spawn' });
+  if (map.id === 'matthew_house' || map.id === 'sammy_house') {
+    pts.push({ x: 5, y: 5, from: 'new game spawn' });
+  }
   return pts;
 }
 

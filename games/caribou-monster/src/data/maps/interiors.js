@@ -1,7 +1,7 @@
 import { defineMap } from './define.js';
 
-const PLAYER_HOUSE = defineMap('player_house', {
-  name: 'Home', kind: 'indoor', music: 'home', darkEdges: false,
+const MATTHEW_HOUSE = defineMap('matthew_house', {
+  name: "Matthew's House", kind: 'indoor', music: 'home', darkEdges: false,
   tiles: [
     '||||||||||||',
     '|k_v____bb_|',
@@ -28,6 +28,14 @@ const PLAYER_HOUSE = defineMap('player_house', {
           lines: ['They read your name out on the results sheet. Out loud. In the shop.',
             'The {lastTitle}. I had to go and sit down.',
             'Eat something before you go back out. Champions still have to eat.'],
+        },
+        {
+          // Sammy, in Matthew's kitchen. She is here often enough that this
+          // is not a special occasion for anybody but Matthew.
+          when: { playing: 'sammy' },
+          lines: ['Sammy! He is not here, he went haring off to the lab ten minutes ago.',
+            'He will have forgotten something. He always forgets something.',
+            'Take him this and do not tell him I asked you to.'],
         },
         {
           when: { linked: true },
@@ -72,11 +80,11 @@ const PLAYER_HOUSE = defineMap('player_house', {
       heals: true,
     },
   ],
-  healPoint: { map: 'player_house', x: 5, y: 6 },
+  healPoint: { map: 'matthew_house', x: 5, y: 6 },
 });
 
-const RIVAL_HOUSE = defineMap('rival_house', {
-  name: 'House', kind: 'indoor', music: 'home', darkEdges: false,
+const SAMMY_HOUSE = defineMap('sammy_house', {
+  name: "Sammy's House", kind: 'indoor', music: 'home', darkEdges: false,
   tiles: [
     '||||||||||||',
     '|kk_____bb_|',
@@ -88,9 +96,40 @@ const RIVAL_HOUSE = defineMap('rival_house', {
     '|||||D||||||',
   ],
   warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 22, ty: 14, dir: 'down' }],
+  healPoint: { map: 'sammy_house', x: 5, y: 6 },
   npcs: [
     {
-      id: 'rh_parent', x: 7, y: 4, look: 'oldMan', name: 'Neighbour', movement: 'still', facing: 'down',
+      id: 'sh_parent', x: 3, y: 4, look: 'oldWoman', name: "Sammy's Mum", movement: 'still', facing: 'down',
+      heals: true,
+      dialogue: [
+        {
+          // Matthew, at his girlfriend's door, with her dog at his heel.
+          when: { all: [{ flag: 'hasBandit' }, { playing: 'matthew' }] },
+          lines: ['So Bandit went with you two. She has never once done as she was told.',
+            'She chose Sammy the day she turned up and she has not wavered since.',
+            'Look after our girl. Both of ours, come to that.'],
+        },
+        {
+          // Talking to her own daughter.
+          when: { playing: 'sammy' },
+          lines: ['There she is. Boots off, please, I do not care how urgent it is.',
+            'Matthew came knocking at some appalling hour asking if you were up.',
+            'You were not up. I told him you were up. Go on.'],
+        },
+        {
+          when: { linked: true },
+          lines: ['Both of you, in my kitchen, at once. This is the best day I have had.',
+            'Sit down. Neither of you has eaten.'],
+        },
+        {
+          lines: ['Matthew. Come in, come in — she is not here, she is at the lab.',
+            'You could have rung. You never ring. You just appear at the door.',
+            'I do not mind. It is very nearly charming.'],
+        },
+      ],
+    },
+    {
+      id: 'sh_neighbour', x: 8, y: 4, look: 'oldMan', name: 'Neighbour', movement: 'still', facing: 'down',
       dialogue: [
         {
           when: { flag: 'beatRival2' },
@@ -996,7 +1035,7 @@ const JUBILIFE_HOUSE2 = defineMap('jubilife_house2', {
 
 
 export const INTERIORS = [
-  PLAYER_HOUSE, RIVAL_HOUSE, ROWAN_LAB,
+  MATTHEW_HOUSE, SAMMY_HOUSE, ROWAN_LAB,
   SANDGEM_CENTER, SANDGEM_MART, SANDGEM_DAYCARE,
   JUBILIFE_CENTER, JUBILIFE_MART, JUBILIFE_SCHOOL, JUBILIFE_HOUSE, JUBILIFE_HOUSE2,
   OREBURGH_CENTER, OREBURGH_MART, OREBURGH_GYM, OREBURGH_HOUSE, OREBURGH_HOUSE2,

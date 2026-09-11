@@ -22,8 +22,20 @@ const check = (ok, msg) => { if (!ok) { console.log(`  FAIL  ${msg}`); fails++; 
 // ---- the stages of a career -------------------------------------------------
 
 function baseState(name = 'Matthew') {
-  const st = createGameState({ name });
+  // The look matters now: half the town knows which of the two it is
+  // talking to, so a stage that does not set it tests the wrong person.
+  const st = createGameState({ name, look: name.toLowerCase() });
   st.circuit = createCircuit();
+  return st;
+}
+
+/**
+ * Matthew's save with Bandit in it. She is Sammy's dog, so this only happens
+ * in co-op — and half of Twinleaf has a line for exactly that situation.
+ */
+function matthewWithBandit(st) {
+  st.flags.hasBandit = true;
+  st.flags.pairRegistered = true;
   return st;
 }
 
@@ -207,6 +219,10 @@ const STAGES = [
   ['fresh save', () => baseState()],
   ['got a starter', () => withStarter(baseState())],
   ['Sammy, with Bandit', () => withBandit(withStarter(baseState('Sammy')))],
+  ['Sammy, on her own', () => withStarter(baseState('Sammy'))],
+  // Co-op: Matthew playing, with Sammy and her dog actually along. Bandit is
+  // Sammy's, so this is the only way Matthew's save ever has her in it.
+  ['Matthew, with Sammy and Bandit', () => matthewWithBandit(withStarter(baseState('Matthew')))],
   ['first badge', () => withBadge(withStarter(baseState()))],
   ['into the cave', () => withCave(withBadge(withStarter(baseState())))],
   ['beat the commander', () => withCommander(withCave(withBadge(withStarter(baseState()))))],
