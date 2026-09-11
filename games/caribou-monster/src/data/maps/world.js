@@ -51,6 +51,13 @@ export const WORLD_POS = {
   route210:       { x: 12, y: 2, kind: 'route' },
   route215:       { x: 10, y: 2, kind: 'route' },
   veilstone:      { x: 8, y: 2, kind: 'city' },
+  // South from Hearthome into the wet country, then round to the lake.
+  route212:       { x: 12, y: 10, kind: 'route' },
+  pastoria:       { x: 12, y: 12, kind: 'city' },
+  route213:       { x: 12, y: 14, kind: 'route' },
+  route214:       { x: 14, y: 12, kind: 'route' },
+  valor_lakefront: { x: 14, y: 10, kind: 'route' },
+  lake_valor:     { x: 14, y: 8, kind: 'special' },
   // Underneath all of it. A Secret Base is a room off these tunnels rather
   // than a place in the region, so it has no position on the paper at all.
   underground:    { x: 2, y: 16, kind: 'underground' },

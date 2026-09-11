@@ -16,6 +16,8 @@ fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.html': 'text/html', '.js': 'text/javascript' };
 const server = http.createServer((req, res) => {
   const u = decodeURIComponent(req.url.split('?')[0]);
+  // Chromium asks for this unprompted; a 204 keeps it out of the error log.
+  if (u === '/favicon.ico') { res.writeHead(204); res.end(); return; }
   const f = path.join('.', u === '/' ? '/index.html' : u);
   fs.readFile(f, (e, d) => {
     if (e) { res.writeHead(404); res.end(''); return; }

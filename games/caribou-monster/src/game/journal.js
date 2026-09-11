@@ -136,6 +136,17 @@ export const ENTRIES = [
     next: 'Get to the lakes before they finish.',
   },
   {
+    id: 'lakeValor',
+    title: 'There is no water',
+    body: [
+      'I walked up to Lake Valor expecting a lake. It is a bowl of cracked mud\nfour hundred feet deep with grass coming up in it.',
+      'Something went through me while I stood in it. Not a sound. A pressure,\nonce, like a held breath let go a long way underground.',
+      'Whatever was asleep in that lake is awake, and it is not there any more.',
+      'A ranger gave me Surf and said there was nothing left to sail on.',
+    ],
+    next: 'Two lakes left. Get to one of them first.',
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [

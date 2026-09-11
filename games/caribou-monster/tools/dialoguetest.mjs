@@ -71,6 +71,20 @@ function withFourthBadge(st) {
   return st;
 }
 
+/** The fifth, from Crasher Wake, and the road south to the marsh. */
+function withFifthBadge(st) {
+  st.badges = [1, 2, 3, 4, 5];
+  st.flags.badge5 = true;
+  st.flags.beat_gym5_leader = true;
+  return st;
+}
+
+/** The morning the lake went. Everything south of Hearthome talks about it. */
+function afterLakeValor(st) {
+  st.flags.lakeValor = true;
+  return st;
+}
+
 function insideGalactic(st) {
   st.flags.metLooker = true;
   st.flags.galacticHQ = true;
@@ -198,6 +212,9 @@ const STAGES = [
   ['fourth badge', () => withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState())))))],
   ['inside Galactic HQ', () => insideGalactic(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))))],
   ['knows the twist', () => withTwist(withCommander(withCave(withBadge(withStarter(baseState())))))],
+  // The wet south: Pastoria, the marsh, and the lake that stopped being one.
+  ['fifth badge', () => withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))))],
+  ['saw Lake Valor go', () => afterLakeValor(withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState())))))))],
 ];
 
 // ---- 1. every NPC answers, at every stage ----------------------------------

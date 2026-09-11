@@ -432,3 +432,69 @@ add('gym4_leader', {
     mon(448, 32, ['forcepalm', 'quickattack', 'metalclaw', 'screech']),
   ],
 });
+
+// ---- the wet south ------------------------------------------------------------
+// Levels in the low thirties: this is the stretch where a team that has been
+// coasting on a starter stops coasting.
+
+add('r12_lass', {
+  name: 'Lass Fen', cls: 'Lass', look: 'lass', ai: 3, prize: 1680,
+  intro: 'The ground round here is not ground. Mind your footing.',
+  defeat: 'You are all right on the mud, then.',
+  team: [mon(194, 32, ['watergun', 'mudshot', 'slam']), mon(418, 32, ['aquajet', 'quickattack', 'pursuit'])],
+});
+add('r12_sailor', {
+  name: 'Sailor Bosch', cls: 'Sailor', look: 'sailor', ai: 3, prize: 1760,
+  intro: 'I have worked this water twenty years. I know what is under it.',
+  defeat: 'Most of it. I know most of what is under it.',
+  team: [mon(418, 32, ['aquajet', 'watergun', 'pursuit']), mon(55, 33, ['watergun', 'confusion', 'furyswipes'])],
+});
+add('r13_sailor', {
+  name: 'Sailor Orl', cls: 'Sailor', look: 'sailor', ai: 3, prize: 1840,
+  intro: 'Nothing down this beach but sand and me.',
+  defeat: 'Now there is sand and me and a bad mood.',
+  team: [mon(278, 33, ['wingattack', 'watergun', 'supersonic']), mon(418, 33, ['aquajet', 'pursuit', 'swift'])],
+});
+add('r14_hiker', {
+  name: 'Hiker Vosk', cls: 'Hiker', look: 'hiker', ai: 3, prize: 1920,
+  intro: 'They turned me back at the lakefront. I am in a mood about it.',
+  defeat: 'Now I am in a worse one. Go on, see for yourself.',
+  team: [mon(449, 34, ['bite', 'sandtomb', 'dig']), mon(67, 34, ['karatechop', 'seismictoss', 'lowkick'])],
+});
+add('r14_lass', {
+  name: 'Lass Iri', cls: 'Lass', look: 'lass', ai: 3, prize: 1880,
+  intro: 'There is machinery running up at the lake. You can hear it from here.',
+  defeat: 'Listen for it. You will not un-hear it.',
+  team: [mon(431, 34, ['fakeout', 'furyswipes', 'hypnosis']), mon(451, 34, ['poisonsting', 'bite', 'pinmissile'])],
+});
+
+// ---- the Pastoria Gym -----------------------------------------------------------
+add('gym5_a', {
+  name: 'Sailor Dree', cls: 'Sailor', look: 'sailor', ai: 3, prize: 1800,
+  intro: 'Wake trained me. I am half as loud and about a third as good.',
+  defeat: 'Both of those numbers were generous.',
+  team: [mon(418, 33, ['aquajet', 'watergun', 'swift']), mon(194, 33, ['mudshot', 'watergun', 'slam'])],
+});
+add('gym5_b', {
+  name: 'Youngster Kell', cls: 'Youngster', look: 'youngster', ai: 3, prize: 1800,
+  intro: 'The floor floods in about a minute. I would not stand there.',
+  defeat: 'Told you about the floor.',
+  team: [mon(55, 34, ['watergun', 'confusion', 'furyswipes']), mon(278, 33, ['wingattack', 'watergun'])],
+});
+add('gym5_c', {
+  name: 'Lass Bree', cls: 'Lass', look: 'lass', ai: 3, prize: 1800,
+  intro: 'Grass or Electric. That is what you want and I am telling you anyway.',
+  defeat: 'You had Electric. Everybody has Electric.',
+  team: [mon(194, 34, ['mudshot', 'watergun', 'slam']), mon(453, 34, ['revenge', 'mudslap', 'poisonsting'])],
+});
+add('gym5_leader', {
+  name: 'Crasher Wake', cls: 'Gym Leader', look: 'sailor', ai: 3, prize: 6000, leader: true,
+  badge: 5, badgeName: 'Fen Badge', tm: 'tm06',
+  intro: 'I AM CRASHER WAKE! Water does not crash into you — water gets underneath\nyou and waits! COME AND TAKE THE FEN BADGE!',
+  defeat: 'HA! You got underneath ME! That is the Fen Badge and you have earned it!',
+  team: [
+    mon(195, 34, ['mudshot', 'watergun', 'yawn', 'slam']),
+    mon(419, 35, ['aquajet', 'crunch', 'swift', 'pursuit']),
+    mon(55, 37, ['surf', 'confusion', 'furyswipes', 'screech']),
+  ],
+});

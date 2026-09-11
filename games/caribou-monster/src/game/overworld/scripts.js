@@ -1244,4 +1244,47 @@ SCRIPTS.saturn = async (ctx, npc) => {
   void npc;
 };
 
+// ---- Lake Valor ------------------------------------------------------------
+//
+// The player arrives after it has already happened. That is the whole scene:
+// Team Galactic are not a threat you head off, they are a thing that has been
+// going on while you were earning badges, and this is where that lands.
+
+SCRIPTS.lakeValor = async (ctx) => {
+  const st = ctx.state;
+  ctx.sfx('warp');
+  await ctx.wait(0.6);
+  await ctx.say('*You come out of the trees expecting water.*');
+  await ctx.say('*There is no water.*');
+  await ctx.wait(0.5);
+  await ctx.say('The deepest lake in Sinnoh is a bowl of cracked mud four hundred feet\ndeep, and it is completely dry, and there is grass coming up in it.');
+  await ctx.say('There are tyre tracks. A lot of tyre tracks.');
+
+  if (st.flags.galacticHQ) {
+    await ctx.say('Saturn said they were already at the first one.\fHe said it the way you would mention a train being on time.');
+  }
+
+  ctx.shake(1.2);
+  await ctx.wait(0.7);
+  await ctx.say('*Something goes through you. Not a sound — a pressure, once, like a\nheld breath let go a long way underground.*');
+  await ctx.say('*Whatever was asleep in this lake is awake now, and it is not here.*');
+
+  // The Lakefront ranger has been waiting at the road for somebody to come
+  // down and say what they saw.
+  await ctx.say('Ranger: You went up. Nobody has been allowed up for a week.');
+  await ctx.say('Ranger: My family has worked this water for four generations.\fI have nothing to do. There is nothing to work.');
+  await ctx.say('Ranger: Take this. It is no use to me now. There is nothing to sail on.');
+  ctx.give('hm03', 1);
+  ctx.sfx('badge');
+  await ctx.say('You received HM03!');
+  await ctx.say('Ranger: Surf. Teach it to something that can carry you.', { speaker: 'Ranger' });
+  await ctx.say('Ranger: The lakes are what this region is. If they are taking the lakes,\nthey are taking the region.');
+  await ctx.say('Ranger: Go and be somewhere they are not finished with yet.');
+
+  ctx.setFlag('lakeValor', true);
+  ctx.shareMilestone('lakeValor');
+  ctx.journal('lakeValor');
+  ctx.autosave();
+};
+
 export function scriptFor(name) { return SCRIPTS[name] || null; }
