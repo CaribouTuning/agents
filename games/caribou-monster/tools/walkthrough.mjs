@@ -193,9 +193,28 @@ const pickParty = async (slot) => {
 };
 
 
-// Out the front door.
-await hold('ArrowDown', 1400);
-await wait(900);
+// Out the front door — through Mum, who stops you on the mat, and then the
+// other one, who is on the step. Both are scenes now, so the walk out of the
+// house is a conversation before it is a walk.
+const talkThrough = async (budget = 90) => {
+  for (let i = 0; i < budget; i++) {
+    const talking = await page.evaluate(() => {
+      const g = window.CARIBOU;
+      return g.dialogueForTest.visible || !!(g.overworld && g.overworld.script);
+    });
+    if (!talking) return;
+    await tap('KeyZ', 1, 130);
+  }
+};
+await hold('ArrowDown', 700);
+await talkThrough();
+await hold('ArrowDown', 1200);
+await wait(700);
+await talkThrough();
+await hold('ArrowDown', 800);
+await wait(600);
+await talkThrough();
+await wait(400);
 let w = await where();
 check('walked out into the town', w.map === 'twinleaf', `${w.map} ${w.x},${w.y}`);
 
@@ -252,7 +271,10 @@ const sawCass = await page.evaluate(() => {
 check('and watched Cass take the one that beats it',
   sawCass.metRival && sawCass.seen > 1, JSON.stringify(sawCass));
 
-// Back out of the lab.
+// Back out of the lab. The scene ends with Cass walking to the door, so wait
+// for the room to be still before trying to leave it.
+await talkThrough();
+await waitIdle(90);
 await walkTo(6, 7);
 await hold('ArrowDown', 700);
 await wait(900);
@@ -1040,14 +1062,26 @@ check('and blacking out would send her home, not next door', sammyHeal === 'samm
 await page.evaluate(() => window.CARIBOU.overworld.world.load('twinleaf', 20, 15, 'right'));
 await wait(400);
 await waitIdle();
+// The other one is a walking companion now rather than a parked NPC: they
+// join on the doorstep and come with you.
 const buddy = await page.evaluate(() => {
-  const w = window.CARIBOU.overworld.world;
-  const e = w.entities.find((x) => x.id === 'tw_buddy');
-  return e ? { look: e.look, x: e.x, y: e.y } : null;
+  const g = window.CARIBOU;
+  g.state.flags.mumSentYouOff = true;
+  g.overworld.runScript('buddyWaiting');
+  return null;
 });
-check('the other one is stood outside in single player', !!buddy, JSON.stringify(buddy));
-check('and looks like whoever you are not', buddy && buddy.look === 'matthew',
-  buddy && buddy.look);
+for (let i = 0; i < 60; i++) {
+  const done = await page.evaluate(() => !window.CARIBOU.overworld.script);
+  if (done) break;
+  await tap('KeyZ', 1, 120);
+}
+const walking = await page.evaluate(() => {
+  const g = window.CARIBOU, c = g.overworld.world.companion;
+  return { active: !!(g.state.companion && g.state.companion.active), name: g.state.companion.name, look: c && c.look };
+});
+check('the other one joins you in single player', walking.active, JSON.stringify(walking));
+check('and looks like whoever you are not', walking.look === 'matthew', String(walking.look));
+void buddy;
 
 // Bandit is Sammy's, and she is a Houndour, and she is a she.
 const bandit = await page.evaluate(async () => {

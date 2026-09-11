@@ -252,6 +252,20 @@ for (const dev of DEVICES) {
     await page.waitForFunction(() => !window.CARIBOU.screens.busy, { timeout: 4000 });
     await page.waitForTimeout(200);
 
+    // The opening now has scenes in it — Mum at the door, the other one on
+    // the step — and a MENU tap during a conversation correctly does nothing.
+    // Let whatever is talking finish before testing the button.
+    for (let i = 0; i < 60; i++) {
+      const talking = await page.evaluate(() => {
+        const g = window.CARIBOU;
+        return g.dialogueForTest.visible || !!(g.overworld && g.overworld.script);
+      });
+      if (!talking) break;
+      await page.keyboard.press('KeyZ');
+      await page.waitForTimeout(130);
+    }
+    await page.waitForTimeout(200);
+
     // MENU pill opens the pause menu.
     const startBtn = await page.evaluate(() => {
       const l = window.CARIBOU.controlsLayout();

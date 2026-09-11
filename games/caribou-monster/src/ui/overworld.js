@@ -20,7 +20,7 @@ import { getTrainer } from '../data/trainers.js';
 import { getItem } from '../data/items.js';
 import { getSpecies } from '../data/species.js';
 import { partnerLine } from '../game/monster.js';
-import { BANDIT } from '../data/story.js';
+import { BANDIT, companionLines } from '../data/story.js';
 import { acceptShared, shareable, GOODS } from '../game/underground/base.js';
 import { refusalText } from '../game/fieldmoves.js';
 import { BASE_BOARD, BASE_ORIGIN } from '../data/maps/underground.js';
@@ -192,6 +192,7 @@ export class OverworldScreen extends Screen {
       this.say(fillText(target.sign.text, this.game.state, net.snapshot()));
       return;
     }
+    if (target.type === 'companion') { this._companionTalk(); return; }
     if (target.type === 'flavour') { this.say(target.text); return; }
     if (target.type === 'soil') { this.runScript('berryPatch', { data: { tile: target } }); return; }
     if (target.type === 'dig') { this.runScript('digWall', { data: { tile: target } }); return; }
@@ -302,6 +303,20 @@ export class OverworldScreen extends Screen {
     // filling it, the nameplate read "{buddy}" out loud.
     const speaker = d.name ? fillText(d.name, this.game.state, link) : null;
     this.say(lines.join('\f'), { speaker });
+  }
+
+  /**
+   * A word with whoever is walking with you.
+   *
+   * Reads from the same conditional-dialogue machinery as any other NPC, so
+   * what they say tracks the story without a special case per beat.
+   */
+  _companionTalk() {
+    const st = this.game.state;
+    const slot = st.companion || {};
+    const lines = resolveDialogue(companionLines(st), st, 0, net.snapshot());
+    this.say((lines && lines.length ? lines : ['...']).join('\f'),
+      { speaker: fillText(slot.name || '{buddy}', st, net.snapshot()) });
   }
 
   _trainerTalk(e) {
@@ -601,6 +616,12 @@ export class OverworldScreen extends Screen {
       setFlag: (k, v = true) => setStoryFlag(st, k, v),
 
       shareMilestone: (k) => net.sendStoryEvent(k),
+
+      // Somebody starts, or stops, walking with you. `who` is a plain
+      // {look, name, key} so any character can take the slot.
+      companionJoin: (who) => screen.world.companionJoin(who),
+      companionLeave: () => screen.world.companionLeave(),
+      companionHere: () => !!(screen.world.companion && screen.world.companion.visible),
 
       awardBadge: (n, name) => awardBadge(st, n, name),
 

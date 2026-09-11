@@ -93,6 +93,20 @@ export class World {
     this.follower.trail = [];
     this.refreshFollower();
 
+    // The walking companion: a *person* who comes with you.
+    //
+    // Deliberately a generic slot rather than "the other protagonist". Most
+    // of the time it is Sammy or Matthew, but the story wants Looker to
+    // escort you across a city and Riley to walk you out of a mine, and
+    // neither of those should need its own machinery. Like the Pokemon
+    // follower it is a rendering body, never in a collision test, so it can
+    // never wedge the player against scenery or desync a link.
+    this.companion = makeEntity({
+      id: 'companion', kind: 'companion', x, y, dir, look: null, solid: false,
+    });
+    this.companion.trail = [];
+    this.refreshCompanion();
+
     for (const npc of this.map.npcs) {
       if (npc.trainer && this.state.flags[`beat_${npc.trainer}`] && npc.removeAfter) continue;
       // Two general switches, so a scene can put somebody in the road and
@@ -229,12 +243,19 @@ export class World {
     entity.moveT = 0;
     entity.moveDur = (run ? RUN_FRAMES : WALK_FRAMES) * (hop ? 1.6 : 1);
     entity.hopping = hop;
-    if (entity.kind === 'player' && this.follower && this.follower.visible) {
-      this.follower.trail.push({
-        x: entity.fromX, y: entity.fromY, dur: entity.moveDur, hop: 0,
-      });
-      // One tile of slack. Any more and the partner trails off the screen.
-      while (this.follower.trail.length > 2) this.follower.trail.shift();
+    if (entity.kind === 'player') {
+      const step = { x: entity.fromX, y: entity.fromY, dur: entity.moveDur, hop: 0 };
+      // The person walks a tile behind you and the Pokemon a tile behind
+      // them, so the three of you read as a line rather than a pile.
+      if (this.companion && this.companion.visible) {
+        this.companion.trail.push({ ...step });
+        while (this.companion.trail.length > 2) this.companion.trail.shift();
+      }
+      if (this.follower && this.follower.visible) {
+        this.follower.trail.push({ ...step });
+        const slack = this.companion && this.companion.visible ? 3 : 2;
+        while (this.follower.trail.length > slack) this.follower.trail.shift();
+      }
     }
     return true;
   }
@@ -242,6 +263,42 @@ export class World {
   face(entity, dirName) { if (!entity.moving) entity.dir = dirName; }
 
   // ---- the walking partner ---------------------------------------------------
+
+  /**
+   * Puts the companion where it belongs for this map.
+   *
+   * Hidden the moment a real second player is on the link: a stand-in walking
+   * around while the person it stands in for is also on screen is the one
+   * thing that would make co-op feel worse rather than better.
+   */
+  refreshCompanion() {
+    const c = this.companion;
+    if (!c) return;
+    const slot = this.state.companion;
+    c.visible = !!(slot && slot.active && slot.look) && !this.linkedNow();
+    c.look = slot ? slot.look : null;
+    c.name = slot ? slot.name : null;
+    if (!c.visible) { c.trail = []; return; }
+    // Folded into the player to begin with, so it does not slide in from
+    // whatever corner the last map left it in.
+    c.x = this.player.x; c.y = this.player.y;
+    c.fromX = c.x; c.fromY = c.y;
+    c.dir = this.player.dir;
+    c.moving = false;
+    c.trail = [];
+  }
+
+  /** Somebody starts walking with you. `who` is {look, name, key}. */
+  companionJoin(who) {
+    this.state.companion = { ...who, active: true };
+    this.refreshCompanion();
+  }
+
+  /** And stops. The slot remembers who it was, for a later rejoin. */
+  companionLeave() {
+    if (this.state.companion) this.state.companion.active = false;
+    this.refreshCompanion();
+  }
 
   /**
    * Reads the lead Pokemon off the party. Called on map load and whenever the
@@ -268,8 +325,8 @@ export class World {
    * left. The trail is a queue of the player's last positions, so the partner
    * traces the player's path rather than cutting corners through walls.
    */
-  _followerStep() {
-    const f = this.follower;
+  _followerStep(which) {
+    const f = which || this.follower;
     if (!f || !f.visible || f.moving) return;
     const next = f.trail.shift();
     if (!next) return;
@@ -300,16 +357,17 @@ export class World {
     if (this.animTimer > 0.22) { this.animTimer -= 0.22; this.animFrame = (this.animFrame + 1) % 4; }
     if (this.encounterCooldown > 0) this.encounterCooldown--;
 
-    // The partner, first, so it is already moving on the frame the player
-    // starts its step and the two look like one procession.
-    const f = this.follower;
-    if (f && f.visible) {
+    // The people and the Pokemon walking behind you, first, so they are
+    // already moving on the frame the player starts its step and the whole
+    // line reads as one procession rather than three things twitching.
+    for (const f of [this.companion, this.follower]) {
+      if (!f || !f.visible) continue;
       if (f.moving) {
         f.moveT++;
         f.frame = 1 + (Math.floor((f.moveT / f.moveDur) * 2) % 2);
         if (f.moveT >= f.moveDur) { f.moving = false; f.frame = 0; f.hopping = 0; }
       }
-      if (!f.moving) this._followerStep();
+      if (!f.moving) this._followerStep(f);
     }
 
     // Player.
@@ -507,6 +565,10 @@ export class World {
 
     // The walking partner is not in the collision set, so it has to be
     // checked by hand — otherwise you would talk straight through it.
+    const c = this.companion;
+    if (c && c.visible && c.x === tx && c.y === ty) {
+      return { type: 'companion', entity: c };
+    }
     const f = this.follower;
     if (f && f.visible && f.mon && f.x === tx && f.y === ty) {
       return { type: 'partner', mon: f.mon, entity: f };

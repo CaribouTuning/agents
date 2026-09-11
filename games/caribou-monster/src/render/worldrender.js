@@ -179,6 +179,10 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
   if (world.follower && world.follower.visible && world.follower.mon) {
     drawables.push({ e: world.follower, sortY: world.follower.y - 0.01, partner: true });
   }
+  // The person walking with you sorts by their feet like everybody else.
+  if (world.companion && world.companion.visible && world.companion.look) {
+    drawables.push({ e: world.companion, sortY: world.companion.y - 0.005 });
+  }
   drawables.sort((a, b) => a.sortY - b.sortY || (a.e.kind === 'player' ? 1 : -1));
 
   for (const d of drawables) {

@@ -50,6 +50,9 @@ export function createGameState(opts = {}) {
     playTimeMs: 0,
     startedAt: Date.now(),
     lastHealPoint: { map: home, x: 5, y: 6 },
+    // Who is walking with you. A generic slot: usually the other one, but
+    // the story hands it to Looker and to Riley too.
+    companion: { look: null, name: null, key: null, active: false },
     repelSteps: 0,
     starterBase: null,
     stats: { battlesWon: 0, caught: 0, steps: 0 },
@@ -192,6 +195,7 @@ export function serializeState(st) {
     starterBase: st.starterBase,
     stats: { ...st.stats },
     settings: { ...st.settings },
+    companion: { ...(st.companion || {}) },
     circuit: serializeCircuit(st.circuit),
     journal: serializeJournal(st.journal),
     daycare: serializeDaycare(st.daycare),
@@ -226,6 +230,7 @@ export function deserializeState(raw) {
   st.starterBase = raw.starterBase ?? null;
   Object.assign(st.stats, raw.stats || {});
   Object.assign(st.settings, raw.settings || {});
+  if (raw.companion) Object.assign(st.companion, raw.companion);
   st.circuit = reviveCircuit(raw.circuit);
   st.journal = reviveJournal(raw.journal);
   st.daycare = reviveDaycare(raw.daycare, reviveMonster);

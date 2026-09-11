@@ -34,7 +34,7 @@ import { weightedPick } from '../../core/rng.js';
 import { spend, formatMoney as money } from '../inventory.js';
 import { FLAGS } from '../storyflags.js';
 import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../../data/story.js';
-import { playerByLook, buddyOf } from '../players.js';
+import { playerByLook, buddyOf, playerOf, buddyPlayerOf } from '../players.js';
 
 // The thing in the chamber: Dialga, by national dex number.
 const EVERLIGHT_SPECIES = 483;
@@ -112,6 +112,9 @@ SCRIPTS.starter = async (ctx) => {
 async function buddyTakesTheirs(ctx) {
   const st = ctx.state;
   if (st.link && st.link.connected && st.link.partner) return;
+  // On the link they are a real player and pick for themselves; solo, they
+  // are the person who walked in here with you and there is one left.
+  if (!ctx.companionHere()) return;
   const who = buddyOf(st);
   await ctx.wait(0.3);
   await ctx.say(`${who}: Right. Me next, then.`, { speaker: who });
@@ -137,7 +140,12 @@ async function cassTakesHers(ctx, playerBase) {
   const theirs = getSpecies(hers);
 
   await ctx.wait(0.4);
-  await ctx.say('*Cass gets up off the bench.*');
+  const cass = ctx.spawnNpc({
+    id: 'cass_lab', look: CASS.look, x: ctx.player.x + 1, y: ctx.player.y,
+    dir: 'left', name: CASS.name,
+  });
+  ctx.sfx('bump');
+  await ctx.say('*Somebody has been sat on the bench by the door this whole time,\nand gets up.*');
   await ctx.say(`Cass: Right. That is the ${mine.name} gone, then.`, { speaker: 'Cass Wren' });
   await ctx.say('Cass: I have been sat there since seven waiting to see which one\nyou would take.');
   await ctx.showMonster(hers);
@@ -151,6 +159,8 @@ async function cassTakesHers(ctx, playerBase) {
   await ctx.say('Cass: Route 201. The north gate. Twenty minutes.');
   await ctx.say('Cass: Do not make me stand there for an hour. I will, and I will\nbring it up for years.');
   await ctx.say('*She goes out of the door without waiting for an answer.*');
+  await ctx.walk(cass, 'down', 5);
+  ctx.despawn(cass);
   ctx.sfx('door');
   ctx.setFlag(FLAGS.MET_RIVAL);
 }
@@ -1626,6 +1636,74 @@ SCRIPTS.riley = async (ctx) => {
   ctx.setFlag('rileyDone', true);
   ctx.journal('riley');
   ctx.autosave();
+};
+
+// ---------------------------------------------------------------------------
+// The opening, as the two of them actually live it.
+//
+// Whichever one you picked is the one holding the phone; the other is a real
+// person in the world who was waiting on the step. Every line below is
+// written to read correctly in both directions, because it is the same code
+// in both directions — there is no Matthew version and no Sammy version.
+// ---------------------------------------------------------------------------
+
+/** Your mum, catching you at the door before you get out of it. */
+SCRIPTS.mumDoor = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.mumSentYouOff) return;
+  const who = buddyOf(st);
+  ctx.sfx('bump');
+  await ctx.say('Mum: Not out the door without me saying something at you first.',
+    { speaker: 'Mum' });
+  await ctx.say('Mum: Professor Rowan rang. She wants you at the lab. She wants BOTH\nof you at the lab, she was very clear about it.');
+  await ctx.say(`Mum: ${who} is already outside. Has been for a while, I think.\fThey did not knock. They never knock, they just stand there.`);
+  await ctx.wait(0.3);
+  await ctx.say('Mum: Go on. Take your time and do not take too long, which I am aware\nis two different instructions.');
+  ctx.setFlag('mumSentYouOff', true);
+  ctx.autosave();
+};
+
+/**
+ * The other one, waiting on the step, joining you.
+ *
+ * If you are Sammy then Bandit gets in first, because she always does, and
+ * because a dog does not wait politely for a conversation to finish.
+ */
+SCRIPTS.buddyWaiting = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.buddyJoined) return;
+  const me = playerOf(st);
+  const them = buddyPlayerOf(st);
+
+  // Bandit first, if she is yours.
+  if (me.key === 'sammy' && !st.flags.banditHello) {
+    ctx.sfx('bump');
+    await ctx.say('*Something hits you at knee height before you have finished\nshutting the door.*');
+    ctx.cry(BANDIT.species);
+    await ctx.say('Bandit: *She has been sat on the step since it got light and she is\nnot going to let you forget it.*', { speaker: 'Bandit' });
+    await ctx.say('*She does a full circuit of you, twice, and then sits down on your\nfoot to make the arrangement official.*');
+    ctx.setFlag('banditHello', true);
+  }
+
+  await ctx.wait(0.3);
+  await ctx.say(`${them.name}: There you are.`, { speaker: them.name });
+  await ctx.say(`${them.name}: I have been stood on this step for an hour and your mum has\nlooked out of that window four times.`);
+  if (me.key === 'matthew') {
+    await ctx.say(`${them.name}: She waved. I waved. It got worse each time.`);
+  } else {
+    await ctx.say(`${them.name}: I did wave at her. I do not think that helped.`);
+    await ctx.say('*Bandit leans on their leg. They pretend not to notice and then\nscratch her ear without looking down.*');
+  }
+  await ctx.wait(0.3);
+  await ctx.say(`${them.name}: Rowan wants us both. Both, she said, like she thought one of us\nwould try to go without the other.`);
+  await ctx.say(`${them.name}: As if.`);
+  await ctx.say(`${them.name}: Right. You lead. You always know where you are going and I\nalways pretend I do.`);
+
+  ctx.companionJoin({ look: them.look, name: them.name, key: them.key });
+  ctx.setFlag('buddyJoined', true);
+  ctx.shareMilestone('buddyJoined');
+  ctx.autosave();
+  await ctx.say(`${them.name} is coming with you!`);
 };
 
 export function scriptFor(name) { return SCRIPTS[name] || null; }

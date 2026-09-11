@@ -34,6 +34,11 @@ function fakeCtx(state, opts = {}) {
   const wilds = [...(opts.wilds || [])];
   const spawned = [];
   const ctx = {
+    // The other one walked in here with the player, so the lab scene should
+    // run the branch where they take the last starter.
+    companionHere: () => true,
+    companionJoin: () => {},
+    companionLeave: () => {},
     state,
     said, journalIds, spawned,
     get player() { return { x: 5, y: 5 }; },

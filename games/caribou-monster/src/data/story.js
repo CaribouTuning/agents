@@ -376,3 +376,55 @@ export const BANDIT = {
     'Bandit leans her entire weight against your leg and closes her eyes.',
   ],
 };
+
+// ---- the person walking with you --------------------------------------------
+
+/**
+ * What your companion says when you turn round and talk to them.
+ *
+ * Conditional like any other NPC's dialogue, so it tracks the story without
+ * a special case per beat. The name is filled in by the caller — this is the
+ * same list whichever of the two of them is the one following.
+ */
+export function companionLines(state) {
+  const slot = (state && state.companion) || {};
+  // Anybody who is not one of the two gets their own short list; the long
+  // one below is written for the person the player is actually with.
+  if (slot.key && slot.key !== 'matthew' && slot.key !== 'sammy') {
+    return [{ lines: ['They give you a nod and keep walking.'] }];
+  }
+  return [
+    {
+      when: { flag: 'canalaveTruth' },
+      lines: ['I keep thinking about the third book. The four lines somebody added.',
+        'Somebody had already done this once. Whatever it was, somebody survived it\nand went back and wrote a warning in the margin.',
+        'I do not find that as comforting as I would like to.'],
+    },
+    {
+      when: { flag: 'lakeValor' },
+      lines: ['You have not said anything since the lakebed.',
+        'You do not have to. I was stood next to you.',
+        '...Right. Come on.'],
+    },
+    {
+      when: { flag: 'badge1' },
+      pool: [
+        ['One badge. ONE. And you are already walking like that.'],
+        ['I am fine. My team is fine. Everything is fine.',
+          'Ask me again after the next one.'],
+        ['Do you want to stop? We can stop. I am not saying I want to stop.'],
+      ],
+    },
+    {
+      when: { flag: 'gotStarter' },
+      pool: [
+        ['Right. So we are doing this.', 'We are actually doing this.'],
+        ['I keep checking it is still in the bag. It is still in the bag.'],
+        ['Cass has gone on ahead, obviously. She has been gone twenty minutes.',
+          'She will be stood somewhere looking annoyed. It is her whole thing.'],
+        ['If you get eaten by something in the grass I am going home and\nnot telling anyone.'],
+      ],
+    },
+    { lines: ['Lead on, then. I am right behind you.'] },
+  ];
+}

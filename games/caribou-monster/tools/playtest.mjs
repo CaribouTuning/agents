@@ -50,6 +50,7 @@ const where = () => page.evaluate(() => {
   const w = window.CARIBOU.overworld && window.CARIBOU.overworld.world;
   return w ? { map: w.mapId, x: w.player.x, y: w.player.y } : null;
 });
+let transcript = '';
 const said = () => page.evaluate(() => {
   const d = window.CARIBOU.dialogueForTest;
   return { open: !!d.visible, text: (d.pages || []).flat().join(' ') };
@@ -70,12 +71,14 @@ const busy = () => page.evaluate(() => {
 const clear = async (budget = 120) => {
   let sameText = 0;
   let lastText = '';
+  transcript = transcript || '';
   for (let i = 0; i < budget; i++) {
     if (!await busy()) return true;
     const top = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
     if (top === 'NicknameScreen' || top === 'TextEntryScreen') { await tap('KeyQ', 1, 160); continue; }
     if (top === 'BattleScreen') return 'battle';
     const t = (await said()).text;
+    if (t && !transcript.includes(t)) transcript += ' ' + t;
     if (t && t === lastText) sameText++; else { sameText = 0; lastText = t; }
     // The same conversation coming back around means we are re-triggering it.
     if (sameText > 6) {
@@ -107,125 +110,135 @@ const walkUntilMapChanges = async (key, tries = 8) => {
   return where();
 };
 
-console.log('--- a real playthrough of the opening ---');
+/**
+ * The opening, played as one of the two of them.
+ *
+ * Parameterised rather than written twice, because "does it work as Sammy"
+ * has to be a question the tests answer rather than one I answer.
+ */
+async function playOpening(me) {
+  const them = me.name === 'Matthew' ? 'Sammy' : 'Matthew';
+  console.log(`\n--- the opening, played as ${me.name} ---`);
 
-await page.evaluate(() => window.CARIBOU.startNewGame({ name: 'Matthew', look: 'matthew', difficulty: 'easy' }));
-await wait(700);
-let w = await where();
-check(w && w.map === 'matthew_house', 'you wake up in your own house', w && w.map);
+  await page.evaluate((m) => window.CARIBOU.startNewGame({ name: m.name, look: m.look, difficulty: 'easy' }), me);
+  await wait(700);
+  let w = await where();
+  check(w && w.map === me.house, `${me.name} wakes up in their own house`, w && w.map);
 
-// Out the front door.
-await walk('ArrowDown', 1500);
-await wait(800);
-w = await where();
-check(w.map === 'twinleaf', 'and can walk out of it', `${w.map} ${w.x},${w.y}`);
+  // Mum catches you on the mat.
+  await hold('ArrowDown', 380);
+  await wait(400);
+  transcript = (await said()).text;
+  check(/Mum/.test(transcript), 'Mum stops you before the door', transcript.slice(0, 60));
+  await clear();
+  const mum = transcript;
+  check(new RegExp(them).test(mum), 'and names the person waiting outside', mum.slice(-90));
 
-// The partner outside their own door — and their nameplate.
-await page.evaluate(() => window.CARIBOU.overworld.world.load('twinleaf', 20, 15, 'right'));
-await wait(400);
-await tap('KeyZ', 1, 300);
-const buddy = await said();
-check(buddy.open, 'the other one is outside and talks', buddy.text.slice(0, 50));
-const plate = await page.evaluate(() => window.CARIBOU.dialogueForTest.speaker || '');
-check(plate === 'Sammy', 'and their nameplate says their actual name', `"${plate}"`);
-await clear();
-
-// Into the lab.
-await page.evaluate(() => window.CARIBOU.overworld.world.load('twinleaf', 6, 7, 'up'));
-await wait(400);
-w = await walkUntilMapChanges('ArrowUp');
-check(w.map === 'rowan_lab', 'the lab is enterable', `${w.map} ${w.x},${w.y}`);
-
-// Is Sammy in the lab, as Mum said she would be?
-const inLab = await page.evaluate(() => {
-  const w2 = window.CARIBOU.overworld.world;
-  return w2.entities.filter((e) => e.kind === 'npc').map((e) => e.data && e.data.name).filter(Boolean);
-});
-check(inLab.some((n) => /Sammy|buddy/i.test(String(n))), 'and the person Mum said would be there IS there', inLab.join(', '));
-
-// Walk up to Rowan's table and take a starter.
-for (let i = 0; i < 6; i++) {
-  const p2 = await where();
-  if (p2.y <= 3) break;
-  await hold('ArrowUp', 380);
-  await wait(260);
-}
-await hold('ArrowUp', 300);   // face the professor
-await wait(300);
-await tap('KeyZ', 1, 400);    // and actually talk to her
-const res = await clear(200);
-await wait(400);
-const after = await page.evaluate(() => {
-  const g = window.CARIBOU;
-  return { party: g.state.party.length, starter: g.state.starterBase, metRival: !!g.state.flags.metRival };
-});
-check(after.party > 0, 'the starter scene gives you a Pokémon', JSON.stringify(after));
-check(after.metRival, 'and you watch the rival take theirs', JSON.stringify(after));
-void res;
-
-// Out of the lab, north to Route 201, and the rival battle that never fired.
-await page.evaluate(() => window.CARIBOU.overworld.world.load('twinleaf', 14, 2, 'up'));
-await wait(400);
-await clear();
-w = await walkUntilMapChanges('ArrowUp');
-await clear();
-check(w.map === 'route201', 'the north gate opens once you have a Pokémon', `${w.map} ${w.x},${w.y}`);
-
-// Walk up the road until the rival stops you. Wild encounters happen on the
-// way — that is the road working, not a failure — so they get run from.
-let met = false;
-let sawCass = '';
-for (let i = 0; i < 16 && !met; i++) {
-  await hold('ArrowUp', 480);
-  await wait(420);
-  const top = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
-  if (top === 'BattleScreen') {
-    // A wild Pokémon. Run, and carry on up the road.
-    for (let k = 0; k < 40; k++) {
-      const still = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
-      if (still !== 'BattleScreen') break;
-      await tap('ArrowDown', 1, 90);
-      await tap('ArrowRight', 1, 90);
-      await tap('KeyZ', 1, 140);
-    }
-    await clear(40);
-    // The arrow presses that pick RUN keep going once the battle is over and
-    // walk the player off the road, so put them back on it.
-    for (let k = 0; k < 6; k++) {
-      const at = await where();
-      if (!at || at.x === 12) break;
-      await hold(at.x > 12 ? 'ArrowLeft' : 'ArrowRight', 260);
-      await wait(200);
-    }
-    continue;
+  // Out, and the other one is on the step. Keep walking after the door:
+  // arriving in town is not the same as having taken a step in it.
+  for (let i = 0; i < 6; i++) {
+    const at = await where();
+    if (at.map === 'twinleaf') break;
+    await hold('ArrowDown', 420);
+    await wait(360);
   }
-  const st = await page.evaluate(() => ({
-    script: !!(window.CARIBOU.overworld && window.CARIBOU.overworld.script),
-    dlg: window.CARIBOU.dialogueForTest.visible,
-    rival: !!window.CARIBOU.state.flags.beatRival1,
-    at: `${window.CARIBOU.overworld.world.mapId} ${window.CARIBOU.overworld.world.player.x},${window.CARIBOU.overworld.world.player.y}`,
-  }));
-  if (process.env.TRACE) console.log('    at', st.at, 'script', st.script, 'dlg', st.dlg);
-  if (st.script || st.dlg) {
-    // A script that has just started has not printed anything yet, so give
-    // it a moment before reading — otherwise this reads an empty box and
-    // concludes nothing happened.
-    let line = '';
-    for (let k = 0; k < 20 && !line; k++) { await wait(160); line = (await said()).text; }
-    if (/Cass/i.test(line)) { met = true; sawCass = line; break; }
-    await clear(30);
+  for (let i = 0; i < 4; i++) {
+    if (await busy()) break;
+    await hold('ArrowDown', 400);
+    await wait(360);
   }
-  if (st.rival) { met = true; sawCass = '(already resolved)'; }
+  await wait(500);
+  transcript = '';
+  await clear(200);
+  const step = transcript;
+  check(new RegExp(them).test(step), `${them} is waiting outside and starts a scene`, step.slice(0, 70));
+  if (me.name === 'Sammy') {
+    check(/Bandit/.test(step), 'and Bandit gets in first, because she always does', step.slice(0, 70));
+  }
+
+  const joined = await page.evaluate(() => {
+    const g = window.CARIBOU, c = g.overworld.world.companion;
+    return { active: !!(g.state.companion && g.state.companion.active), name: g.state.companion.name, visible: !!(c && c.visible) };
+  });
+  check(joined.active && joined.name === them, `${them} joins you as a companion`, JSON.stringify(joined));
+
+  // They walk with you.
+  await hold('ArrowUp', 500);
+  await wait(400);
+  const trailing = await page.evaluate(() => {
+    const w2 = window.CARIBOU.overworld.world;
+    const c = w2.companion, p = w2.player;
+    return { visible: !!c.visible, dist: Math.abs(c.x - p.x) + Math.abs(c.y - p.y) };
+  });
+  check(trailing.visible && trailing.dist <= 2, 'and walks along behind you', JSON.stringify(trailing));
+
+  // To the lab.
+  await page.evaluate(() => window.CARIBOU.overworld.world.load('twinleaf', 6, 7, 'up'));
+  await wait(400);
+  w = await walkUntilMapChanges('ArrowUp');
+  check(w.map === 'rowan_lab', 'the lab is enterable', `${w.map} ${w.x},${w.y}`);
+  const cameIn = await page.evaluate(() => {
+    const c = window.CARIBOU.overworld.world.companion;
+    return !!(c && c.visible);
+  });
+  check(cameIn, `${them} comes into the lab with you`, String(cameIn));
+
+  // You pick first, whichever of you you are.
+  for (let i = 0; i < 6; i++) {
+    const p2 = await where();
+    if (p2.y <= 3) break;
+    await hold('ArrowUp', 380);
+    await wait(260);
+  }
+  await hold('ArrowUp', 300);
+  await wait(300);
+  await tap('KeyZ', 1, 400);
+  await clear(240);
+  await wait(400);
+  const lab = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    return {
+      mine: g.state.starterBase,
+      party: g.state.party.length,
+      metRival: !!g.state.flags.metRival,
+      buddyTook: !!g.state.flags.buddyHasStarter,
+    };
+  });
+  check(lab.party > 0 && !!lab.mine, `${me.name} takes the first pick`, JSON.stringify(lab));
+  check(lab.metRival, 'Cass takes the counter to it, on screen', JSON.stringify(lab));
+  check(lab.buddyTook, `${them} takes the last one`, JSON.stringify(lab));
+
+  // And Cass's counter really is the counter to what the PLAYER picked.
+  const counter = await page.evaluate(async (mine) => {
+    const { rivalStarterBase } = await import('./src/data/trainers.js');
+    return rivalStarterBase(mine);
+  }, lab.mine);
+  check(counter !== lab.mine, "and it is the one that beats the player's", `${lab.mine} -> ${counter}`);
+  return lab;
 }
-check(met, 'walking up Route 201 runs into Cass', sawCass.slice(0, 80) || 'nothing happened all the way up the road');
-if (met) {
-  const out = await clear(240);
-  const done = await page.evaluate(() => ({
-    beat: !!window.CARIBOU.state.flags.beatRival1,
-    met: !!window.CARIBOU.state.flags.metRival,
-  }));
-  check(out === 'battle' || done.beat || done.met,
-    'and the first rival battle actually starts', `${out} ${JSON.stringify(done)}`);
+
+await playOpening({ name: 'Matthew', look: 'matthew', house: 'matthew_house' });
+await playOpening({ name: 'Sammy', look: 'sammy', house: 'sammy_house' });
+
+// --- the stand-in steps aside for the real person ---
+console.log('\n--- and gets out of the way when the real one arrives ---');
+{
+  const before = await page.evaluate(() => !!window.CARIBOU.overworld.world.companion.visible);
+  check(before, 'the stand-in is walking with you');
+  const after = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    g.state.link = { connected: true, partner: { name: 'Sammy' } };
+    g.overworld.world.refreshCompanion();
+    return !!g.overworld.world.companion.visible;
+  });
+  check(!after, 'and vanishes the moment a real second player links in', String(after));
+  await page.evaluate(() => {
+    const g = window.CARIBOU;
+    g.state.link = null;
+    g.overworld.world.refreshCompanion();
+  });
+  const back = await page.evaluate(() => !!window.CARIBOU.overworld.world.companion.visible);
+  check(back, 'and comes back when the link drops', String(back));
 }
 
 // --- the save survives being closed ---
