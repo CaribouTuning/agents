@@ -632,7 +632,33 @@ SCRIPTS.everlightDialga = async (ctx) => {
   const st = ctx.state;
   if (st.flags[FLAGS.CAUGHT_EVERLIGHT]) { await speak(ctx, EVERLIGHT.quiet); return; }
 
-  await speak(ctx, st.flags[FLAGS.EVERLIGHT_RESOLVED] ? EVERLIGHT.again : EVERLIGHT.firstSight);
+  const first = !st.flags[FLAGS.EVERLIGHT_SEEN];
+  await speak(ctx, first ? EVERLIGHT.firstSight
+    : (st.flags[FLAGS.EVERLIGHT_RESOLVED] ? EVERLIGHT.again : EVERLIGHT.firstSight.slice(-1)));
+
+  // The seam opens in the first act, because Mars leaves the charm there on
+  // purpose. Understanding what is standing in the chamber does not: that is
+  // in a book in Canalave, six badges later. Until then this is a sighting —
+  // the thing the whole middle of the game is about, seen once, unreadable.
+  // Letting it resolve here would put the end of the story two hours into it.
+  if (!st.flags[FLAGS.CANALAVE_TRUTH]) {
+    ctx.dex.seen(EVERLIGHT_SPECIES);
+    await ctx.showMonster(EVERLIGHT_SPECIES);
+    ctx.cry(EVERLIGHT_SPECIES);
+    await ctx.wait(0.6);
+    ctx.hideMonster();
+    await speak(ctx, EVERLIGHT.tooEarly);
+    if (first) {
+      ctx.setFlag(FLAGS.EVERLIGHT_SEEN);
+      ctx.shareMilestone(FLAGS.EVERLIGHT_SEEN);
+      ctx.journal('sawEverlight');
+      ctx.autosave();
+    }
+    return;
+  }
+
+  if (!first) await speak(ctx, EVERLIGHT.understood);
+  ctx.setFlag(FLAGS.EVERLIGHT_SEEN);
 
   ctx.dex.seen(EVERLIGHT_SPECIES);
   await ctx.showMonster(EVERLIGHT_SPECIES);
@@ -674,6 +700,63 @@ SCRIPTS.everlightDialga = async (ctx) => {
 };
 
 /** Rowan is waiting outside the Gate. He could not go in. He tried. */
+/**
+ * Home, after.
+ *
+ * The cool-down. No fight, no reward, no flag that unlocks a door — the two
+ * of you walk back to the town you started in and sit on a step, because the
+ * end of a story is not the last thing that happens in it, it is the first
+ * quiet thing after the last loud one.
+ */
+SCRIPTS.wentHome = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags[FLAGS.WENT_HOME]) return;
+  const me = playerOf(st);
+  const them = buddyPlayerOf(st);
+  const linked = ctx.linked();
+  const who = linked ? them.name : them.name;
+
+  await ctx.wait(0.4);
+  await ctx.say('*Twinleaf, in the afternoon. The same three buildings and the same\none road out of it.*');
+  await ctx.say('*It has not changed at all, which for some reason is the part that\ngets you.*');
+  await ctx.wait(0.4);
+
+  if (ctx.companionHere() || linked) {
+    await ctx.say(who + ': I keep waiting to feel different.', { speaker: who });
+    await ctx.say(who + ': We were under a hill this morning. There was a thing in it\nthat had been holding a door shut since before either of us was born.');
+    await ctx.say(who + ': And now I am stood outside my mum\'s house and she is going\nto ask if I want a cup of tea.');
+    await ctx.wait(0.3);
+    await ctx.say(who + ': ...I do want a cup of tea. That is the annoying part.');
+  } else {
+    await ctx.say('*You stand in the road for a while. ' + them.name + ' is not here.*');
+    await ctx.say('*You find that you are saving it up to tell them, which is its own\nkind of answer.*');
+  }
+
+  if (st.flags[FLAGS.BANDIT_WITH_US]) {
+    await ctx.wait(0.3);
+    ctx.cry(BANDIT.species);
+    await ctx.say('*Bandit gets onto the step, turns around twice, and goes to sleep in\nthe sun as though none of it happened.*');
+    await ctx.say('*Which, as far as she is concerned, it did not. You came back. That\nwas the whole of her involvement.*');
+  }
+
+  await ctx.wait(0.4);
+  await ctx.say('Mum: There you are.', { speaker: 'Mum' });
+  await ctx.say('Mum: I am not going to ask. You have got the face of somebody who\nwould have to start at the beginning.');
+  await ctx.say('Mum: Kettle is on. Boots off.');
+  await ctx.wait(0.3);
+  await ctx.say('*You take your boots off.*');
+
+  ctx.setFlag(FLAGS.WENT_HOME);
+  ctx.shareMilestone(FLAGS.WENT_HOME);
+  ctx.journal('wentHome');
+  ctx.autosave();
+  await ctx.wait(0.5);
+  await ctx.say('*The Circuit has a Finals in the spring.*');
+  await ctx.say('*There is nothing under the hill now. There is just a hill.*');
+  ctx.journal('theFinals');
+  void me;
+};
+
 SCRIPTS.rowanAfter = async (ctx) => {
   const st = ctx.state;
   await speak(ctx, ROWAN.after);
@@ -1699,42 +1782,74 @@ SCRIPTS.buddyWaiting = async (ctx) => {
   if (st.flags.buddyJoined) return;
   const me = playerOf(st);
   const them = buddyPlayerOf(st);
+  const iAmSammy = me.key === 'sammy';
 
-  // Bandit first, if she is yours.
-  if (me.key === 'sammy' && !st.flags.banditHello) {
+  // EVERYONE IS ON SCREEN BEFORE ANYBODY SPEAKS.
+  //
+  // This scene used to talk first and put people on the map afterwards, so
+  // the player stood alone on a doorstep listening to a voice from nowhere
+  // and then watched the speaker appear at the end, already mid-conversation.
+  // The other one has been waiting on this step for an hour. They are here
+  // when the door opens, because that is the entire point of the scene.
+  ctx.companionJoin({ look: them.look, name: them.name, key: them.key });
+  // And so is the dog, whichever of the two is holding the phone: she is
+  // Sammy's, so she is either in your party or walking at Sammy's heel.
+  if (iAmSammy) ctx.petLeave();
+  else ctx.petJoin({ species: BANDIT.species, name: BANDIT.nickname });
+  await ctx.wait(0.45);
+
+  // The two beats, in the order the person playing would experience them.
+  //
+  //   Sammy  — the dog is on HER step and gets to you first, then Matthew.
+  //   Matthew — Sammy is at HIS door; the dog came with her, and says hello
+  //             after, because she is greeting you second-hand.
+  //
+  // Both scenes happen for both players. They used to be Sammy-only, so
+  // choosing Matthew deleted Bandit from the opening entirely while leaving
+  // every line about her in place.
+  const banditHello = async () => {
+    if (st.flags.banditHello) return;
     ctx.sfx('bump');
-    await ctx.say('*Something hits you at knee height before you have finished\nshutting the door.*');
     ctx.cry(BANDIT.species);
-    await ctx.say('Bandit: *She has been sat on the step since it got light and she is\nnot going to let you forget it.*', { speaker: 'Bandit' });
-    await ctx.say('*She does a full circuit of you, twice, and then sits down on your\nfoot to make the arrangement official.*');
+    if (iAmSammy) {
+      await ctx.say('*Something hits you at knee height before you have finished\nshutting the door.*');
+      await ctx.say('Bandit: *She has been sat on this step since it got light and she is\nnot going to let you forget it.*', { speaker: 'Bandit' });
+      await ctx.say('*She does a full circuit of you, twice, and then sits down on your\nfoot to make the arrangement official.*');
+    } else {
+      await ctx.say('*There is a dog sitting on your doorstep. She is not your dog.*');
+      await ctx.say('Bandit: *She looks up at you, then back at ' + them.name + ', to check that\nthis is a person they approve of.*', { speaker: 'Bandit' });
+      await ctx.say('*Apparently it is. She leans her entire weight against your shin and\nstays there.*');
+    }
     ctx.setFlag('banditHello', true);
     ctx.setFlag(FLAGS.BANDIT_WITH_US, true);
-  }
+  };
+
+  const buddyHello = async () => {
+    await ctx.say(them.name + ': There you are.', { speaker: them.name });
+    await ctx.say(them.name + ': I have been stood on this step for an hour and your mum has\nlooked out of that window four times.');
+    if (iAmSammy) {
+      await ctx.say(them.name + ': She waved. I waved. It got worse each time.');
+    } else {
+      await ctx.say(them.name + ': I did wave at her. I do not think it helped.');
+      await ctx.say('*' + BANDIT.nickname + ' has not moved off your foot. ' + them.name + ' pretends not to\nnotice, and then scratches her ear without looking down.*');
+    }
+  };
+
+  if (iAmSammy) { await banditHello(); await ctx.wait(0.3); await buddyHello(); }
+  else { await buddyHello(); await ctx.wait(0.3); await banditHello(); }
 
   await ctx.wait(0.3);
-  await ctx.say(`${them.name}: There you are.`, { speaker: them.name });
-  await ctx.say(`${them.name}: I have been stood on this step for an hour and your mum has\nlooked out of that window four times.`);
-  if (me.key === 'matthew') {
-    await ctx.say(`${them.name}: She waved. I waved. It got worse each time.`);
-  } else {
-    await ctx.say(`${them.name}: I did wave at her. I do not think that helped.`);
-    await ctx.say('*Bandit leans on their leg. They pretend not to notice and then\nscratch her ear without looking down.*');
-  }
-  await ctx.wait(0.3);
-  await ctx.say(`${them.name}: Rowan wants us both. Both, she said, like she thought one of us\nwould try to go without the other.`);
-  await ctx.say(`${them.name}: As if.`);
-  await ctx.say(`${them.name}: Right. You lead. You always know where you are going and I\nalways pretend I do.`);
+  await ctx.say(them.name + ': Rowan wants us both. Both, she said, like she thought one of us\nwould try to go without the other.', { speaker: them.name });
+  await ctx.say(them.name + ': As if.');
+  await ctx.say(them.name + ': Right. You lead. You always know where you are going and I\nalways pretend I do.');
 
-  ctx.companionJoin({ look: them.look, name: them.name, key: them.key });
   ctx.setFlag('buddyJoined', true);
-  // Bandit goes where Sammy goes. Playing as Matthew, that means she comes
-  // off the step the moment Sammy does, rather than sitting there all game
-  // while everyone talks about her being with you.
   ctx.setFlag(FLAGS.BANDIT_WITH_US, true);
   ctx.shareMilestone('buddyJoined');
   ctx.autosave();
-  await ctx.say(`${them.name} is coming with you!`);
+  await ctx.say(them.name + ' is coming with you!');
 };
+
 
 /** The Eterna bike shop. One bicycle, given away, for reasons of his own. */
 SCRIPTS.bikeShop = async (ctx) => {

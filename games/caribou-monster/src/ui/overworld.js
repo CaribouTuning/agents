@@ -468,7 +468,8 @@ export class OverworldScreen extends Screen {
   // ---- cutscene runtime ------------------------------------------------------
 
   say(text, opts = {}) {
-    dialogue.show(text, { ...opts, width: this.game.display.width });
+    dialogue.show(fillText(text, this.game.state, net.snapshot()),
+      { ...opts, width: this.game.display.width });
   }
 
   /** Runs a named script (or an inline one) as a cutscene. */
@@ -497,8 +498,13 @@ export class OverworldScreen extends Screen {
       state: st,
       get player() { return screen.world.player; },
 
+      // Every line a cutscene says goes through the same slot filler that NPC
+      // dialogue does. It did not, and the moment a script used a slot the
+      // player was shown the raw "{leagueBadges}" in Rowan's mouth. One place
+      // to be right, rather than a rule every script has to remember.
       say: (text, opts = {}) => new Promise((resolve) => {
-        dialogue.show(text, { ...opts, width: screen.game.display.width, onDone: resolve });
+        dialogue.show(fillText(text, screen.game.state, net.snapshot()),
+          { ...opts, width: screen.game.display.width, onDone: resolve });
       }),
 
       ask: (text, options, opts = {}) => new Promise((resolve) => {
@@ -657,6 +663,8 @@ export class OverworldScreen extends Screen {
       companionJoin: (who) => screen.world.companionJoin(who),
       companionLeave: () => screen.world.companionLeave(),
       companionHere: () => !!(screen.world.companion && screen.world.companion.visible),
+      petJoin: (who) => screen.world.petJoin(who),
+      petLeave: () => screen.world.petLeave(),
 
       awardBadge: (n, name) => awardBadge(st, n, name),
 

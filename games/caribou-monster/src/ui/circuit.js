@@ -11,6 +11,8 @@ import { Screen } from './screen.js';
 import { input } from '../core/input.js';
 import { audio } from '../core/audio.js';
 import { PAL, shade } from '../render/palette.js';
+import { setStoryFlag } from '../game/state.js';
+import { record } from '../game/journal.js';
 import {
   window9, rect, label, labelDim, cursor, drawText, drawTextCentered, drawTextRight,
   titleBar, rowHighlight, pill, meterBar, rule, moveCursor, money, LINE, dragList,
@@ -747,10 +749,24 @@ export class TournamentScreen extends Screen {
   _settle() {
     this.summary = this.career.settle();
     audio.sfx(this.summary && this.summary.won ? 'levelup' : 'back');
+    // Winning the Finals is the end of the game. The flag goes on here rather
+    // than in the circuit engine, because the engine is a sports league and
+    // does not know there is a story attached to it.
+    const t = this.summary && this.summary.tournament;
+    if (this.summary && this.summary.won && t && t.finale) {
+      const st = this.game.state;
+      if (!st.flags.wonFinals) {
+        setStoryFlag(st, 'wonFinals', true);
+        setStoryFlag(st, 'postGame', true);
+        record(st, 'worldNumberOne');
+        if (this.game.save) this.game.save.touch(st);
+      }
+      this.rollCredits = true;
+    }
   }
 
   get options() {
-    if (this.summary) return [{ k: 'close', text: 'CONTINUE' }];
+    if (this.summary) return [{ k: 'close', text: this.rollCredits ? 'THE END' : 'CONTINUE' }];
     return [{ k: 'fight', text: 'TAKE THE FLOOR' }, { k: 'quit', text: 'WITHDRAW' }];
   }
 
@@ -799,6 +815,9 @@ export class TournamentScreen extends Screen {
       return;
     }
     this.game.screens.pop();
+    // The end of the game goes ahead of the press conference, because being
+    // asked how you feel about winning is a post-game thing.
+    if (this.rollCredits) { this.game.openCredits(); return; }
     if (this.career.pendingPress) this.game.openPress();
   }
 

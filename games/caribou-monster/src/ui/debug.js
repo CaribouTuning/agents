@@ -186,6 +186,8 @@ export class DebugScreen extends Screen {
         ];
       }
       case 'reset': return [
+        // The ending, on tap, so it can be looked at without playing to it.
+        { t: 'ROLL THE CREDITS', a: () => { this.game.screens.pop(); this.game.openCredits(); } },
         { t: 'ERASE SAVE AND RESTART', a: async () => { await this.game.save.eraseAll(); location.reload(); } },
         { t: 'Cancel', a: () => { this.page = 'main'; this.index = 0; } },
       ];

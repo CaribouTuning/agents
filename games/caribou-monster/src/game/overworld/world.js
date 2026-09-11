@@ -107,6 +107,21 @@ export class World {
     this.companion.trail = [];
     this.refreshCompanion();
 
+    // A second walking body, for an animal that belongs to the companion
+    // rather than to you.
+    //
+    // Bandit is Sammy's dog. When Sammy is the one holding the phone she is
+    // in Sammy's party and the Pokemon follower draws her. When MATTHEW is
+    // holding the phone, Sammy is a companion and Bandit is nobody's party
+    // member — so without this she simply was not there, while every NPC in
+    // Twinleaf carried on talking about her.
+    this.pet = makeEntity({
+      id: 'pet', kind: 'companion', x, y, dir, look: null, solid: false,
+    });
+    this.pet.trail = [];
+    this.pet.isPet = true;
+    this.refreshPet();
+
     for (const npc of this.map.npcs) {
       if (npc.trainer && this.state.flags[`beat_${npc.trainer}`] && npc.removeAfter) continue;
       // Two general switches, so a scene can put somebody in the road and
@@ -256,6 +271,15 @@ export class World {
         const slack = this.companion && this.companion.visible ? 3 : 2;
         while (this.follower.trail.length > slack) this.follower.trail.shift();
       }
+      if (this.pet && this.pet.visible) {
+        this.pet.trail.push({ ...step });
+        // Behind the person she belongs to, and behind your Pokemon if you
+        // have one out, so the line reads front to back in the right order.
+        let slack = 2;
+        if (this.companion && this.companion.visible) slack++;
+        if (this.follower && this.follower.visible) slack++;
+        while (this.pet.trail.length > slack) this.pet.trail.shift();
+      }
     }
     return true;
   }
@@ -288,6 +312,32 @@ export class World {
     c.trail = [];
   }
 
+  refreshPet() {
+    const c = this.pet;
+    if (!c) return;
+    const slot = this.state.pet;
+    c.visible = !!(slot && slot.active && slot.species) && !this.linkedNow();
+    c.species = slot ? slot.species : null;
+    c.name = slot ? slot.name : null;
+    if (!c.visible) { c.trail = []; return; }
+    c.x = this.player.x; c.y = this.player.y;
+    c.fromX = c.x; c.fromY = c.y;
+    c.dir = this.player.dir;
+    c.moving = false;
+    c.trail = [];
+  }
+
+  /** An animal starts walking with you. `who` is {species, name}. */
+  petJoin(who) {
+    this.state.pet = { ...who, active: true };
+    this.refreshPet();
+  }
+
+  petLeave() {
+    if (this.state.pet) this.state.pet.active = false;
+    this.refreshPet();
+  }
+
   /** Somebody starts walking with you. `who` is {look, name, key}. */
   companionJoin(who) {
     this.state.companion = { ...who, active: true };
@@ -298,6 +348,8 @@ export class World {
   companionLeave() {
     if (this.state.companion) this.state.companion.active = false;
     this.refreshCompanion();
+    // The dog belongs to the person, so she goes when they do.
+    this.petLeave();
   }
 
   /**
@@ -360,7 +412,7 @@ export class World {
     // The people and the Pokemon walking behind you, first, so they are
     // already moving on the frame the player starts its step and the whole
     // line reads as one procession rather than three things twitching.
-    for (const f of [this.companion, this.follower]) {
+    for (const f of [this.companion, this.follower, this.pet]) {
       if (!f || !f.visible) continue;
       if (f.moving) {
         f.moveT++;

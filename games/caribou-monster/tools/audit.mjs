@@ -1266,6 +1266,36 @@ function checkEveryScriptIsReachable() {
   }
 }
 
+/**
+ * Every road out of a map has to be named inside the map.
+ *
+ * The Town Map draws Sinnoh as places joined by roads and is correct about
+ * every one of them. The world said nothing: you could stand on Route 207
+ * with four ways off it and no way at all to tell which was which, then open
+ * the map and see four roads you could not identify. Twelve maps were like
+ * that; Jubilife had four exits and named none of them.
+ */
+function checkEveryExitIsNamed() {
+  for (const map of Object.values(MAPS)) {
+    if (map.kind === 'indoor') continue;
+    const links = linksOf(map.id);
+    if (links.length < 2) continue;
+    const said = [
+      ...(map.labels || []).map((l) => l.text),
+      ...(map.signs || []).map((sg) => sg.text),
+    ].join(' ').toLowerCase();
+    for (const [, to] of links) {
+      const dest = MAPS[to];
+      if (!dest) continue;
+      const key = dest.name.replace(/ (Town|City)$/, '').toLowerCase();
+      if (!said.includes(key)) {
+        err(`[${map.id}] has a road to ${dest.name} and nothing in the map says so`);
+      }
+    }
+  }
+}
+
+checkEveryExitIsNamed();
 checkEveryScriptIsReachable();
 checkNobodyMisstatesTheRoad();
 checkKeyItemsReachable();
@@ -1278,10 +1308,11 @@ checkFlagsJoinUp();
 checkScriptsAndTrainers();
 checkHealPointsBelongToTheirTown();
 
-// ---- report ---------------------------------------------------------------
-
-for (const w of warnings) console.log(`  WARN  ${w}`);
-for (const e of errors) console.log(`  ERR   ${e}`);
+// NOTE: the report is printed at the very BOTTOM of this file, after every
+// check has run. It used to be printed here, in the middle, which meant every
+// rule written below it counted its findings into the total and then never
+// showed them — the audit would say "1 error" and print nothing at all. That
+// has now happened twice. The printing goes last, permanently.
 // ---- the guide bar tells the truth, in a line that fits -------------------
 // The objective is the only instruction most of the world gives the player,
 // and it is drawn in one strip on a phone. A line too long to fit is cut off
@@ -1314,17 +1345,17 @@ for (const e of errors) console.log(`  ERR   ${e}`);
     if (stage.map) st.player.map = stage.map;
     const line = objective(st);
     seen.add(line);
-    if (!line) err('journal', 'the guide bar has nothing to say at some point in the story');
+    if (!line) err(`[journal] ` + 'the guide bar has nothing to say at some point in the story');
     else if (line.length > OBJECTIVE_MAX) {
-      err('journal', `objective is ${line.length} chars, over the ${OBJECTIVE_MAX} the guide bar fits: "${line}"`);
+      err(`[journal] ` + `objective is ${line.length} chars, over the ${OBJECTIVE_MAX} the guide bar fits: "${line}"`);
     }
     const bad = unrenderable(line);
-    if (bad.length) err('journal', `objective contains characters the font cannot draw: ${JSON.stringify(bad)}`);
+    if (bad.length) err(`[journal] ` + `objective contains characters the font cannot draw: ${JSON.stringify(bad)}`);
   }
-  if (seen.size < 8) err('journal', `only ${seen.size} distinct objectives across the whole story`);
+  if (seen.size < 8) err(`[journal] ` + `only ${seen.size} distinct objectives across the whole story`);
   for (const e of JOURNAL_ENTRIES) {
     const bad = unrenderable(`${e.title} ${e.body.join(' ')} ${e.next || ''}`);
-    if (bad.length) err('journal', `entry ${e.id} contains undrawable characters: ${JSON.stringify(bad)}`);
+    if (bad.length) err(`[journal] ` + `entry ${e.id} contains undrawable characters: ${JSON.stringify(bad)}`);
   }
 }
 
@@ -1335,20 +1366,26 @@ for (const e of errors) console.log(`  ERR   ${e}`);
   const seen = {};
   for (let h = 0; h < 24; h++) {
     const p = phaseAt(h);
-    if (!PHASES.includes(p)) err('clock', `hour ${h} is in unknown phase "${p}"`);
+    if (!PHASES.includes(p)) err(`[clock] ` + `hour ${h} is in unknown phase "${p}"`);
     seen[p] = (seen[p] || 0) + 1;
   }
   for (const p of PHASES) {
-    if (!seen[p]) err('clock', `no hour of the day falls in "${p}"`);
+    if (!seen[p]) err(`[clock] ` + `no hour of the day falls in "${p}"`);
   }
   const day = tintFor('day');
-  if (day.alpha !== 0) err('clock', 'daytime should be drawn with no wash at all');
+  if (day.alpha !== 0) err(`[clock] ` + 'daytime should be drawn with no wash at all');
   for (const p of PHASES) {
     const t = tintFor(p);
-    if (!(t.alpha >= 0 && t.alpha <= 1)) err('clock', `${p} tint alpha ${t.alpha} is out of range`);
-    if (!/^#[0-9a-f]{6}$/i.test(t.color)) err('clock', `${p} tint colour ${t.color} is not a hex colour`);
+    if (!(t.alpha >= 0 && t.alpha <= 1)) err(`[clock] ` + `${p} tint alpha ${t.alpha} is out of range`);
+    if (!/^#[0-9a-f]{6}$/i.test(t.color)) err(`[clock] ` + `${p} tint colour ${t.color} is not a hex colour`);
   }
 }
+
+// ---- report ---------------------------------------------------------------
+// Last thing in the file, so nothing can be counted without being shown.
+
+for (const w of warnings) console.log(`  WARN  ${w}`);
+for (const e of errors) console.log(`  ERR   ${e}`);
 
 console.log(`\n${errors.length} error(s), ${warnings.length} warning(s) across ${Object.keys(MAPS).length} maps`);
 

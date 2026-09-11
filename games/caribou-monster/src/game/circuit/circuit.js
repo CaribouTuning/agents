@@ -12,6 +12,11 @@ import {
 import { getSpecies } from '../../data/species.js';
 import { movesAtLevel } from '../monster.js';
 import { makeRng } from '../../core/rng.js';
+import { leagueBadges } from '../../data/campaign.js';
+import { MAPS } from '../../data/maps/index.js';
+
+// How many badges the end of this build asks for. Read, never written.
+const LEAGUE_BADGES = leagueBadges(MAPS);
 
 // ---- career state ----------------------------------------------------------
 
@@ -119,15 +124,36 @@ export function rankProgress(c) {
   return { next, frac: span > 0 ? (c.cp - cur.cp) / span : 1, need: next.cp - c.cp };
 }
 
-export function canEnter(c, t) {
+/**
+ * Whether a tournament will take your entry.
+ *
+ * Rank is the ordinary gate. The World Finals has two more, because it is the
+ * end of the game rather than an event in it: every badge the region hands
+ * out, and a region that is still there to hand them out in. A player who
+ * left a light burning under a hill does not get to go and win a trophy.
+ *
+ * `state` is optional so every existing caller keeps working; without it only
+ * the rank gate applies, which is what the circuit-only tests want.
+ */
+export function canEnter(c, t, state = null) {
   if (c.active) return { ok: false, why: 'You are already in a tournament.' };
-  return rankIndex(currentRank(c).id) >= t.requires
-    ? { ok: true }
-    : { ok: false, why: `Requires ${RANKS[t.requires].name}.` };
+  if (rankIndex(currentRank(c).id) < t.requires) {
+    return { ok: false, why: `Requires ${RANKS[t.requires].name}.` };
+  }
+  if (t.finale && state) {
+    const badges = (state.badges || []).length;
+    if (badges < LEAGUE_BADGES) {
+      return { ok: false, why: `Requires all ${LEAGUE_BADGES} badges. You have ${badges}.` };
+    }
+    if (!(state.flags || {}).everlightResolved) {
+      return { ok: false, why: 'Sinnoh has a bigger problem than a trophy.' };
+    }
+  }
+  return { ok: true };
 }
 
-export function availableTournaments(c) {
-  return TOURNAMENTS.map((t) => ({ t, gate: canEnter(c, t) }));
+export function availableTournaments(c, state = null) {
+  return TOURNAMENTS.map((t) => ({ t, gate: canEnter(c, t, state) }));
 }
 
 /** The world ranking: pros and the player in one table, best first. */

@@ -153,6 +153,32 @@ async function playOpening(me) {
   await clear(200);
   const step = transcript;
   check(new RegExp(them).test(step), `${them} is waiting outside and starts a scene`, step.slice(0, 70));
+
+  // They have to be ON THE MAP while they are talking. This scene used to
+  // speak first and put people on screen afterwards, so the player stood on
+  // an empty doorstep listening to a voice from nowhere and then watched the
+  // speaker appear at the end, already mid-conversation.
+  const onScreen = await page.evaluate(() => {
+    const w = window.CARIBOU.overworld.world;
+    return {
+      companion: !!(w.companion && w.companion.visible),
+      pet: !!(w.pet && w.pet.visible),
+    };
+  });
+  check(onScreen.companion, `${them} is actually standing there while they speak`,
+    JSON.stringify(onScreen));
+
+  // Both beats happen for both players; only the order changes.
+  check(/Bandit/.test(step), 'Bandit is in the scene whichever of the two you are',
+    step.slice(0, 90));
+  const banditFirst = step.indexOf('Bandit') < step.indexOf(`${them}: There you are`);
+  if (me.name === 'Sammy') {
+    check(banditFirst, 'playing Sammy, her own dog gets to you first');
+  } else {
+    check(!banditFirst, `playing Matthew, ${them} speaks first and the dog says hello after`);
+    check(onScreen.pet, 'and Bandit walks with them, rather than vanishing from the game',
+      JSON.stringify(onScreen));
+  }
   if (me.name === 'Sammy') {
     check(/Bandit/.test(step), 'and Bandit gets in first, because she always does', step.slice(0, 70));
   }

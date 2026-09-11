@@ -238,6 +238,10 @@ export const TOURNAMENTS = [
   }),
   T('world_finals', {
     name: 'World Circuit Finals', short: 'World Finals', venue: 'Oreburgh Battle Hall',
+    // The end of the game rather than an event in it. `canEnter` asks two
+    // more things of anyone entering this one: every badge the region gives
+    // out, and a region still standing to have given them.
+    finale: true,
     tier: 'World', level: 70, cp: 1500, prize: 250000, requires: 5, entrants: 8,
     field: ['sable', 'calder', 'frost', 'park', 'vance', 'osei', 'wren'],
     blurb: 'The eight best trainers alive. Winner takes the season.',

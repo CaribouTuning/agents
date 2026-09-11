@@ -38,8 +38,19 @@ export const TWINLEAF = defineMap('twinleaf', {
   events: [
     { x: 4, y: 13, arrive: true, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' },
     { x: 15, y: 13, arrive: true, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' },
+    // Home, after. The cool-down: it fires the moment you come back into
+    // Twinleaf once Rowan has finished outside the Gate, whichever road you
+    // walk in on, so the end of the story cannot be missed by arriving from
+    // the wrong direction.
+    { x: 10, y: 1, arrive: true, flag: 'wentHome', requires: 'rowanDebriefed', script: 'wentHome' },
+    { x: 11, y: 1, arrive: true, flag: 'wentHome', requires: 'rowanDebriefed', script: 'wentHome' },
     // And a backstop across the path below, in case somebody walks out, walks
     // away, and comes back before the scene has happened.
+    ...TWINLEAF_ROWS[7].split('').map((ch, x) => (
+      TILES[ch] && !TILES[ch].solid
+        ? { x, y: 7, flag: 'wentHome', requires: 'rowanDebriefed', script: 'wentHome' }
+        : null
+    )).filter(Boolean),
     ...TWINLEAF_ROWS[14].split('').map((ch, x) => (
       TILES[ch] && !TILES[ch].solid
         ? { x, y: 14, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' }

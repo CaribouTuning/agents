@@ -53,6 +53,9 @@ export function createGameState(opts = {}) {
     // Who is walking with you. A generic slot: usually the other one, but
     // the story hands it to Looker and to Riley too.
     companion: { look: null, name: null, key: null, active: false },
+    // An animal that belongs to the companion rather than to you. Bandit,
+    // walking with Sammy, when Matthew is the one holding the phone.
+    pet: { species: null, name: null, active: false },
     repelSteps: 0,
     starterBase: null,
     stats: { battlesWon: 0, caught: 0, steps: 0 },
@@ -196,6 +199,7 @@ export function serializeState(st) {
     stats: { ...st.stats },
     settings: { ...st.settings },
     companion: { ...(st.companion || {}) },
+    pet: { ...(st.pet || {}) },
     circuit: serializeCircuit(st.circuit),
     journal: serializeJournal(st.journal),
     daycare: serializeDaycare(st.daycare),
@@ -231,6 +235,7 @@ export function deserializeState(raw) {
   Object.assign(st.stats, raw.stats || {});
   Object.assign(st.settings, raw.settings || {});
   if (raw.companion) Object.assign(st.companion, raw.companion);
+  if (raw.pet) Object.assign(st.pet, raw.pet);
   st.circuit = reviveCircuit(raw.circuit);
   st.journal = reviveJournal(raw.journal);
   st.daycare = reviveDaycare(raw.daycare, reviveMonster);

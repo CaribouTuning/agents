@@ -7,6 +7,7 @@ import { display, TILE } from './render/canvas.js';
 import { GameLoop } from './core/loop.js';
 import { input } from './core/input.js';
 import { exportText } from './save/backup.js';
+import { CreditsScreen } from './ui/credits.js';
 import { ITEM_IDS } from './data/items.js';
 import { audio } from './core/audio.js';
 import { bus } from './core/events.js';
@@ -312,6 +313,9 @@ class Game {
     return this.screens.push(new TournamentScreen(this));
   }
   openShop(onClose, kind = 'mart') { this.screens.push(new ShopScreen(this, onClose, kind)); }
+
+  /** The end of the game. The post-game is already unlocked when this opens. */
+  openCredits(onDone = null) { this.screens.push(new CreditsScreen(this, onDone)); }
   openDebug() { this.screens.push(new DebugScreen(this)); }
 
   // A wall of rock, and whatever is in it. `cfg` is already a dig from

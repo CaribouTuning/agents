@@ -183,6 +183,10 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
   if (world.companion && world.companion.visible && world.companion.look) {
     drawables.push({ e: world.companion, sortY: world.companion.y - 0.005 });
   }
+  // Their dog, drawn the same way your own Pokemon is.
+  if (world.pet && world.pet.visible && world.pet.species) {
+    drawables.push({ e: world.pet, sortY: world.pet.y - 0.008, partner: true });
+  }
   drawables.sort((a, b) => a.sortY - b.sortY || (a.e.kind === 'player' ? 1 : -1));
 
   for (const d of drawables) {
@@ -392,7 +396,9 @@ function drawShadow(ctx, sx, groundY, lift) {
 const PARTNER_SIZE = 24;
 
 function drawPartner(ctx, world, e, camera) {
-  const sp = getSpecies(e.mon.species);
+  // Your own Pokemon carries a full monster; the companion's dog is just a
+  // species id, because she belongs to somebody else's party.
+  const sp = getSpecies(e.mon ? e.mon.species : e.species);
   if (!sp) return;
   const pos = world.renderPos(e);
   const sx = Math.round(pos.x - camera.x - (PARTNER_SIZE - TILE) / 2);
@@ -404,7 +410,7 @@ function drawPartner(ctx, world, e, camera) {
   ctx.fillRect(Math.round(pos.x - camera.x) + 3, Math.round(pos.y - camera.y) + 12, 10, 3);
   ctx.globalAlpha = 1;
 
-  const img = renderMonster(sp.art, { size: PARTNER_SIZE, shiny: !!e.mon.shiny });
+  const img = renderMonster(sp.art, { size: PARTNER_SIZE, shiny: !!(e.mon && e.mon.shiny) });
   // Facing right mirrors the sprite, the same trick the character sheets use.
   if (e.dir === 'right') {
     ctx.save();

@@ -47,8 +47,15 @@ export const FLAGS = {
   KNOWS_TWIST: 'knowsTwist',
   MARS_LATE: 'marsLate',
   EVERLIGHT_OPENED: 'everlightOpened',
+  // Seen it once, in the first act, without being able to read it.
+  EVERLIGHT_SEEN: 'everlightSeen',
   EVERLIGHT_RESOLVED: 'everlightResolved',
   CAUGHT_EVERLIGHT: 'caughtEverlight',
+  // The cool-down, and then the League, and then what comes after it.
+  ROWAN_DEBRIEFED: 'rowanDebriefed',
+  WENT_HOME: 'wentHome',
+  WON_FINALS: 'wonFinals',
+  POST_GAME: 'postGame',
 };
 
 // Milestones that co-op partners keep in step, in the order they happen.

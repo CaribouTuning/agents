@@ -74,3 +74,8 @@ export function getMap(id) {
 
 export const MAP_IDS = Object.keys(MAPS);
 
+// Every way out of every map gets a board naming where it goes, built from
+// the world graph rather than written by hand — see signposts.js for why.
+import { addSignposts } from './signposts.js';
+
+addSignposts(MAPS);

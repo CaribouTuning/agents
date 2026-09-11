@@ -9,6 +9,11 @@
 // what happened, and the top of the screen always says what you are doing now.
 // Nothing here gates anything — it is a record, not a quest system.
 import { FLAGS } from './storyflags.js';
+import { leagueBadges } from '../data/campaign.js';
+import { MAPS } from '../data/maps/index.js';
+
+// How many badges this build's League asks for. Read, never written.
+const LEAGUE_BADGES = leagueBadges(MAPS);
 
 /**
  * Entries in story order. `id` is what a script passes to ctx.journal().
@@ -294,6 +299,17 @@ export const ENTRIES = [
     next: 'Go into the Everlight Chamber.',
   },
   {
+    id: 'sawEverlight',
+    title: 'Something is standing in it',
+    body: [
+      'The seam opened. There is a chamber behind it, and there is\nsomething standing in it, and it is not surprised to see me.',
+      'It kept looking at the floor. Three places, far apart, with nothing\nmarking them at all.',
+      'It was waiting for me to understand. I did not understand.',
+      'Mars left the charm there on purpose. She wanted somebody to open it.\nShe did not want it to be her.',
+    ],
+    next: 'Whatever it wanted me to see, it is not in that room.',
+  },
+  {
     id: 'caughtEverlight',
     title: 'The Everlight',
     body: [
@@ -302,6 +318,36 @@ export const ENTRIES = [
       'It turned around and it was not surprised. It was relieved.',
     ],
     next: 'Prof. Rowan is waiting outside the Gate.',
+  },
+  {
+    id: 'wentHome',
+    title: 'Home, after',
+    body: [
+      'We went back to Twinleaf. Nobody asked us to. There was nowhere else\nthat made any sense to go.',
+      'The other one did not say a word for most of the road, and then said\none thing, and it was the right thing.',
+      'Bandit slept on the step in the sun as though none of it had happened.',
+      'Mum put the kettle on and asked nothing at all, which is the most she\nhas ever known about anything.',
+    ],
+    next: 'The Circuit has a Finals, and there is nothing under the hill now.',
+  },
+  {
+    id: 'theFinals',
+    title: 'The World Circuit Finals',
+    body: [
+      'Badges, and a region that is still here. The Finals take entries from\nanyone who has both.',
+      'It is the same hall in Oreburgh where I registered, on the day I did\nnot know what any of this was.',
+    ],
+    next: 'Win the World Circuit Finals.',
+  },
+  {
+    id: 'worldNumberOne',
+    title: 'Number one in the world',
+    body: [
+      'We won it. Both of us were there, which is the only way either of us\nwould have wanted it.',
+      'Somebody asked afterwards what the hardest match of the run had been.\nI said none of them, and they wrote that down as arrogance.',
+      'The hardest thing was a cold room under a hill with a light in it and\nno instructions.',
+    ],
+    next: 'Sinnoh is quiet. Keep it that way.',
   },
   {
     id: 'marsLate',
@@ -400,7 +446,15 @@ const RULES = [
   [(f) => !f.beatCommander, 'Head up Route 207. Galactic are digging.'],
   [(f) => !f.gotCharm, 'Take the Aurora Charm from the dig site.'],
   [(f) => !f.everlightOpened, "The sealed seam is in the Gate's north wall."],
-  [(f) => !f.everlightResolved, 'Enter the Everlight Chamber.'],
+  [(f) => !f.everlightSeen, 'Enter the Everlight Chamber.'],
+  // The middle of the game: the road, the badges, and the thing the region
+  // has been trying to say since the first act.
+  [(f) => !f.canalaveTruth, 'What it wanted you to see is not in that room.\nKeep going. Somebody wrote it down.'],
+  [(f) => !f.everlightResolved, 'You know what the three points are now.\nGo back under Oreburgh Gate.'],
+  [(f) => !f.rowanDebriefed, 'Prof. Rowan is waiting outside the Gate.'],
+  [(f) => !f.wentHome, 'Go home to Twinleaf.'],
+  [(f, st) => (st.badges || []).length < LEAGUE_BADGES, 'The Finals take anyone with the badges. Go and get them.'],
+  [(f) => !f.wonFinals, 'Enter the World Circuit Finals, at the Oreburgh Battle Hall.'],
 ];
 
 export function objective(state) {

@@ -18,7 +18,7 @@ import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../src/data/sto
 import { TRAINERS } from '../src/data/trainers.js';
 import { unrenderable } from '../src/render/font.js';
 import { MAPS } from '../src/data/maps/index.js';
-import { worldSnapshot, isKnownSlot } from '../src/game/overworld/gossip.js';
+import { worldSnapshot, isKnownSlot, fillText } from '../src/game/overworld/gossip.js';
 
 let fails = 0;
 const check = (ok, msg) => { if (!ok) { console.log(`  FAIL  ${msg}`); fails++; } };
@@ -39,8 +39,10 @@ function fakeCtx(state, opts = {}) {
     // The other one walked in here with the player, so the lab scene should
     // run the branch where they take the last starter.
     companionHere: () => true,
-    companionJoin: () => {},
-    companionLeave: () => {},
+    companionJoin: () => { state.companion = { active: true }; },
+    companionLeave: () => { if (state.companion) state.companion.active = false; },
+    petJoin: (who) => { state.pet = { ...who, active: true }; },
+    petLeave: () => { if (state.pet) state.pet.active = false; },
     state,
     said, journalIds, spawned,
     get player() { return { x: 5, y: 5 }; },
@@ -240,10 +242,36 @@ function freshState() {
     'her late scene must state the operation and that they chose the player');
 }
 
+// ---- 5a. the chamber, too early ----------------------------------------------
+// Walking in before Canalave is a sighting, not the end of the game. This
+// used to resolve the whole story about two hours in.
+{
+  const early = freshState();
+  early.flags[FLAGS.EVERLIGHT_OPENED] = true;
+  early.party = [createMonster(387, 30)];
+  const ctx = fakeCtx(early, { wilds: ['caught'] });
+  await SCRIPTS.everlightDialga(ctx);
+  check(!early.flags[FLAGS.EVERLIGHT_RESOLVED],
+    'walking in before Canalave must NOT resolve the Everlight');
+  check(!early.flags[FLAGS.CAUGHT_EVERLIGHT],
+    'and must not let it be caught either');
+  check(!!early.flags[FLAGS.EVERLIGHT_SEEN],
+    'but it is seen, and the journal says so');
+  check(/waiting for you to understand/i.test(ctx.said.join(' ')),
+    'and it tells you plainly that you are missing something');
+}
+
 // ---- 5. the chamber ---------------------------------------------------------------
 {
   const st = freshState();
   st.flags[FLAGS.EVERLIGHT_OPENED] = true;
+  // The chamber opens in the first act; understanding it does not. The
+  // encounter is gated on having read Volume III in Canalave, so a test of
+  // the climax has to be a save that has actually got there.
+  st.flags[FLAGS.CANALAVE_TRUTH] = true;
+  // Deliberately NOT `everlightSeen`: this is somebody who never went in
+  // early and walks down for the first time already knowing what the floor
+  // is for, which is a perfectly ordinary way to play it.
   st.party = [createMonster(387, 30)];
 
   const declined = fakeCtx(st, { wilds: ['lose'] });
@@ -293,11 +321,16 @@ function freshState() {
   // script ever writes is a page the player can never turn to.
   // Read the file, not the functions: a script built by a factory closes over
   // its journal id, and String(fn) of the closure does not contain it.
-  const scriptSource = await readFile(
-    new URL('../src/game/overworld/scripts.js', import.meta.url), 'utf8');
+  // Not only scripts: the end of the game is recorded by the Circuit screen,
+  // because winning the Finals happens in a tournament rather than on a tile.
+  const scriptSource = (await Promise.all([
+    readFile(new URL('../src/game/overworld/scripts.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/ui/circuit.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/ui/overworld.js', import.meta.url), 'utf8'),
+  ])).join('\n');
   for (const e of ENTRIES) {
     check(scriptSource.includes(`'${e.id}'`),
-      `journal entry "${e.id}" is never written by any script`);
+      `journal entry "${e.id}" is never written by anything`);
     check(e.title.length > 0 && e.body.length > 0, `journal entry "${e.id}" is empty`);
   }
 
@@ -406,6 +439,49 @@ console.log('\n--- the road from the first morning to the Everlight is unbroken 
   for (const flag of ['beatCommander', 'knowsTwist', 'everlightOpened', 'everlightResolved']) {
     check(sets(flag), `something sets ${flag}`);
   }
+}
+
+console.log('\n--- nothing the game can say still has a {slot} in it ---');
+{
+  // Rowan told every player that "{leagueBadges} of those and the League has
+  // to let you in" — with the braces, on screen, in her mouth. NPC dialogue
+  // went through the slot filler and cutscene lines did not, so the moment a
+  // script used a slot the player saw the template. `ctx.say` fills now, and
+  // this proves every line in the story file survives it.
+  const st = createGameState({ name: 'Matthew', look: 'matthew' });
+  st.flags.gotStarter = true;
+  st.starterBase = 387;
+  st.party = [createMonster(387, 12)];
+
+  const walk = (v, path) => {
+    if (typeof v === 'string') {
+      const out = fillText(v, st, null);
+      const left = out.match(/\{(\w+)\}/g);
+      if (left) check(false, `${path} still says ${left.join(' ')} after filling`);
+      return;
+    }
+    if (Array.isArray(v)) { v.forEach((x, i) => walk(x, `${path}[${i}]`)); return; }
+    if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, `${path}.${k}`);
+  };
+  for (const [name, block] of Object.entries({ CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT })) {
+    walk(block, `story.${name}`);
+  }
+
+  // And every line every NPC and sign in the world can say.
+  for (const map of Object.values(MAPS)) {
+    for (const n of map.npcs) {
+      walk(n.dialogue, `${map.id}/${n.id}.dialogue`);
+      walk(n.after, `${map.id}/${n.id}.after`);
+    }
+    for (const sg of map.signs || []) walk(sg.text, `${map.id} sign ${sg.x},${sg.y}`);
+  }
+
+  // The specific line that shipped broken.
+  const rowan = ROWAN.send.map((l) => fillText(l, st, null)).join(' ');
+  check(/\b6 of those\b/.test(rowan),
+    'Rowan says the number of badges this build actually has', rowan.slice(-90));
+  check(/Oreburgh/.test(rowan) && !/Gym in it/.test(rowan),
+    'and puts Roark in Oreburgh rather than Jubilife');
 }
 
 console.log(fails ? `\n${fails} failure(s)` : '\nstory: all checks passed');

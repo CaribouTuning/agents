@@ -101,7 +101,18 @@ export function worldSnapshot(state, link = null) {
     // one of them specifically — a mum talking to her own child reads very
     // differently from the same mum talking to their partner.
     playing: playerOf(state).key,
-    alone: !(link && link.connected && link.partner),
+    // "Alone" means nobody is with you — not merely that the link is down.
+    //
+    // It used to mean only the latter, so an old woman in Sandgem would tell
+    // you to find a way to walk the road together while the other one stood
+    // visibly at your shoulder. If the companion is walking with you, you are
+    // not travelling on your own and nobody should say you are.
+    alone: !(link && link.connected && link.partner)
+      && !(state.companion && state.companion.active),
+    // The other one is HERE, as a person on the screen, whether that is a
+    // real second phone or the stand-in walking behind you.
+    withBuddy: !!(link && link.connected && link.partner)
+      || !!(state.companion && state.companion.active),
   };
 }
 
@@ -121,7 +132,7 @@ export const CLAUSES = Object.freeze([
   'flag', 'notFlag',
   'badges', 'maxBadges', 'caught', 'party', 'leadLevel', 'starter',
   'joined', 'rank', 'titles', 'streak', 'hype', 'respect',
-  'champion', 'beatRival', 'inEvent', 'topTen', 'linked', 'alone', 'playing',
+  'champion', 'beatRival', 'inEvent', 'topTen', 'linked', 'alone', 'withBuddy', 'playing',
 ]);
 const CLAUSE_SET = new Set(CLAUSES);
 export function isKnownClause(k) { return CLAUSE_SET.has(k); }
@@ -168,6 +179,7 @@ export function matches(when, s) {
       case 'topTen': if ((s.place == null || s.place > 10) === v) return false; break;
       case 'linked': if (s.linked !== v) return false; break;
       case 'alone': if (s.alone !== v) return false; break;
+      case 'withBuddy': if (s.withBuddy !== v) return false; break;
       case 'playing': if (s.playing !== v) return false; break;
 
       default: return false;   // an unknown clause never silently passes

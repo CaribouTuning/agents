@@ -275,6 +275,31 @@ export const EVERLIGHT = {
     'It seems relieved.',
   ],
   again: ['It is still here. It has not moved at all.'],
+
+  // Seeing it is not understanding it.
+  //
+  // The seam opens early — Mars leaves the charm behind in the first act, and
+  // that is deliberate. But a player who walks in at that point is looking at
+  // something they have no way to read yet, and letting them resolve it there
+  // would put the end of the story two hours into it. So the first visit is a
+  // sighting: the room, the shape, and the certainty that you are missing
+  // something. What you are missing is in Canalave, in a book, three acts
+  // later.
+  tooEarly: [
+    'It looks at you for a long moment.',
+    'Then past you, at the seam. Then down at the floor.',
+    'At three points on it, spaced wide apart, marked by nothing at all.',
+    'It is waiting for you to understand something.',
+    'You do not understand it.',
+    '*You could stand here all day. It is not going to explain.*',
+  ],
+  understood: [
+    'You know what the three points on the floor are now.',
+    'Not keys. Not locks. Nothing here is a door.',
+    'They are the places the weight sits. Two of them are empty.',
+    'It has been holding the difference by itself for thirty-one years.',
+    'It watches you work it out, and something in the way it is standing\nchanges.',
+  ],
   quiet: [
     'The chamber is quiet now.',
     'The light in the rock is ordinary light, and the room is just a room.',
