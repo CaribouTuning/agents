@@ -78,6 +78,20 @@ const depth = () => page.evaluate(() => window.CARIBOU.screens.stack.length);
 const top = () => page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
 
 /** Where the BACK chip is, in CSS pixels, or null if none is registered. */
+/**
+ * Logical game pixels -> page pixels.
+ *
+ * The canvas is CENTRED in the viewport, so multiplying by `scale` alone is
+ * out by however wide the letterbox is — about 22px here. That is survivable
+ * when you are aiming at a big chip and fatal when you are aiming at a
+ * seven-pixel scrollbar, which is how this went unnoticed.
+ */
+const toPage = (lx, ly) => page.evaluate(([x, y]) => {
+  const g = window.CARIBOU;
+  const r = g.display.canvas.getBoundingClientRect();
+  return { x: r.left + (x / g.display.width) * r.width, y: r.top + (y / g.display.height) * r.height };
+}, [lx, ly]);
+
 const backChip = () => page.evaluate(() => {
   const g = window.CARIBOU;
   const c = g.controlsForTest && g.controlsForTest.backChip();
@@ -167,6 +181,97 @@ for (const [name, open] of [
     check(await depth() === base, `${name} closes when the chip is tapped`);
   }
   await page.evaluate((d) => { while (window.CARIBOU.screens.stack.length > d) window.CARIBOU.screens.pop(); }, base);
+}
+
+// --- every long list can be scrolled with a thumb ---
+//
+// The Pokedex could not be scrolled at all on a phone. The virtual D-pad is
+// only drawn over the world, and tapping a row in a list SELECTS it, so a
+// list longer than the screen simply ended there — with 493 species, that is
+// most of the Pokedex. A way in and a way out is not enough; a list you
+// cannot move through is a list you cannot use.
+console.log('\n--- every long list scrolls by touch alone ---');
+// A bag with one Potion in it has no list to scroll, so fill it with enough
+// of one pocket to be longer than the screen — which is the only case the
+// bug could ever show up in.
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  const inv = g.state.inventory;
+  for (const id of g.debugItemIds ? g.debugItemIds() : []) inv.items[id] = 3;
+});
+
+for (const [name, opener] of [
+  ['DexScreen', 'openDex'],
+  ['BagScreen', 'openBag'],
+  ['DebugScreen', 'openDebug'],
+]) {
+  const base = await depth();
+  await page.evaluate((o) => window.CARIBOU[o](), opener);
+  await wait(340);
+  if (await top() !== name) {
+    check(false, `${name} opens`, await top());
+    await page.evaluate((d) => { while (window.CARIBOU.screens.stack.length > d) window.CARIBOU.screens.pop(); }, base);
+    continue;
+  }
+
+  // Start from the top of a list nobody has touched. `detail` matters on the
+  // Pokedex: a stray tap opens an entry, and a drag inside an entry is not a
+  // drag on the list.
+  await page.evaluate(() => {
+    const t = window.CARIBOU.screens.top;
+    t.scroll = 0; t.index = 0; t.detail = false;
+    // The Bag opens on whichever pocket is first; point it at the one that
+    // actually has a list in it, which is what a player with a full bag sees.
+    if (t.pocket !== undefined && t.items) {
+      for (let p = 0; p < 6; p++) { t.pocket = p; if (t.items.length > 6) break; }
+      t.index = 0; t.scroll = 0;
+    }
+  });
+  await wait(120);
+  const before = await page.evaluate(() => window.CARIBOU.screens.top.scroll || 0);
+
+  const box = await page.evaluate(() => {
+    const d = window.CARIBOU.display;
+    return { w: d.width, h: d.height };
+  });
+  const p0 = await toPage(box.w * 0.35, box.h * 0.78);
+  const p1 = await toPage(box.w * 0.35, box.h * 0.18);
+  await page.mouse.move(p0.x, p0.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(p0.x, p0.y + (p1.y - p0.y) * (i / 10));
+    await wait(20);
+  }
+  await page.mouse.up();
+  await wait(260);
+
+  const after = await page.evaluate(() => window.CARIBOU.screens.top.scroll || 0);
+  check(after > before, `${name} scrolls when you drag it`, `scroll ${before} -> ${after}`);
+
+  // And the scrollbar arrow is a thing a thumb can hit.
+  const bar = await page.evaluate(() => {
+    const b = window.CARIBOU.screens.top.bar;
+    return b && b.count > b.rows ? { x: b.x, y: b.y, w: b.w, h: b.h, arrow: b.arrow } : null;
+  });
+  check(!!bar, `${name} draws a scrollbar`, bar ? 'yes' : 'none');
+  if (bar) {
+    // Back to the top first: an arrow cannot page a list that is already at
+    // its end, and testing that it does not is testing nothing.
+    await page.evaluate(() => { const t = window.CARIBOU.screens.top; t.scroll = 0; t.index = 0; });
+    await wait(120);
+    const atTop = await page.evaluate(() => window.CARIBOU.screens.top.scroll);
+    const a = await toPage(bar.x + bar.w / 2, bar.y + bar.h - bar.arrow / 2);
+    await page.touchscreen.tap(a.x, a.y);
+    await wait(300);
+    const pushed = await page.evaluate(() => {
+      const t = window.CARIBOU.screens.top;
+      return t.scroll === undefined ? `left the screen (${t.constructor.name})` : t.scroll;
+    });
+    check(typeof pushed === 'number' && pushed > atTop,
+      `${name} pages down when the arrow is tapped`, `${atTop} -> ${pushed}`);
+  }
+  await page.evaluate((d) => { while (window.CARIBOU.screens.stack.length > d) window.CARIBOU.screens.pop(); }, base);
+  await wait(150);
 }
 
 if (errs.length) { console.log(`  page errors: ${errs.slice(0, 4).join(' | ')}`); fails += errs.length; }

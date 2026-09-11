@@ -13,7 +13,7 @@ import { audio } from '../core/audio.js';
 import { PAL, shade } from '../render/palette.js';
 import {
   window9, rect, label, labelDim, cursor, drawText, drawTextCentered, drawTextRight,
-  titleBar, rowHighlight, pill, meterBar, rule, moveCursor, money, LINE,
+  titleBar, rowHighlight, pill, meterBar, rule, moveCursor, money, LINE, dragList,
 } from './kit.js';
 import { drawBackChip, hintBar } from './controls.js';
 import { drawChar, lookFor } from '../render/sprites.js';
@@ -185,6 +185,7 @@ export class CircuitScreen extends Screen {
     const rows = this._rows();
     const p = this._panel();
     const rowH = this._rowH();
+    if (items.length && dragList(this, items.length, rows, rowH)) return;
     const tap = input.consumeTap();
 
     if (tap) {

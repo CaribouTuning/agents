@@ -31,6 +31,13 @@ class Input {
     // cursor to it — the single biggest usability win on a phone.
     this.taps = [];
     this.pending = new Map();   // touch id -> {x, y, t, moved}
+    // Dragging a finger up or down a list.
+    //
+    // Without this there is no way to scroll a long list on a phone at all:
+    // the virtual D-pad is only drawn over the world, and tapping a row in a
+    // menu selects it rather than moving. With 493 Pokedex entries that meant
+    // the list simply ended at whatever fitted on the screen.
+    this.dragY = 0;
   }
 
   attach(canvas, display) {
@@ -85,6 +92,11 @@ class Input {
         if (pend) {
           const q = point(t);
           if (Math.hypot(q.x - pend.x, q.y - pend.y) > 6) pend.moved = true;
+          // Every pixel of vertical travel counts, so a slow drag scrolls as
+          // far as a fast one rather than being rounded away.
+          this.dragY += q.y - pend.y;
+          pend.x = q.x;
+          pend.y = q.y;
         }
         if (!this.touchButtons.has(t.identifier)) continue;
         const p = point(t);
@@ -127,9 +139,17 @@ class Input {
       if (b) { mouseBtn = b; this.press(b); }
       else mouseDownAt = { ...p, t: performance.now() };
     });
+    canvas.addEventListener('mousemove', (e) => {
+      if (!this.enabled || !mouseDownAt || mouseBtn) return;
+      const p = point(e);
+      this.dragY += p.y - mouseDownAt.y;
+      mouseDownAt.x = p.x;
+      mouseDownAt.y = p.y;
+      mouseDownAt.moved = true;
+    });
     window.addEventListener('mouseup', (e) => {
       if (mouseBtn) { this.release(mouseBtn); mouseBtn = null; return; }
-      if (mouseDownAt && this.enabled) {
+      if (mouseDownAt && this.enabled && !mouseDownAt.moved) {
         const p = point(e);
         if (Math.hypot(p.x - mouseDownAt.x, p.y - mouseDownAt.y) < 6) this.taps.push({ x: p.x, y: p.y });
       }
@@ -157,6 +177,7 @@ class Input {
     this.touchButtons.clear();
     this.pending.clear();
     this.taps.length = 0;
+    this.dragY = 0;
   }
 
   isDown(b) { return this.held.has(b); }
@@ -178,6 +199,22 @@ class Input {
   // and hit-test it against whatever they have on screen.
   consumeTap() { return this.taps.length ? this.taps.shift() : null; }
   clearTaps() { this.taps.length = 0; }
+
+  /**
+   * How many ROWS a drag since the last call is worth, and clears the rest.
+   *
+   * Returns a whole number of rows so a list moves in steps rather than
+   * sliding between them, and keeps the remainder so a slow drag still gets
+   * there. Dragging DOWN moves the list up, the way a page of text does.
+   */
+  consumeDragRows(rowHeight = 10) {
+    if (!rowHeight) return 0;
+    const rows = Math.trunc(this.dragY / rowHeight);
+    if (rows) this.dragY -= rows * rowHeight;
+    return -rows;
+  }
+
+  clearDrag() { this.dragY = 0; }
 
   // Called by the loop at the end of every logic tick.
   endFrame() { this.edge.clear(); this.released.clear(); this.taps.length = 0; }

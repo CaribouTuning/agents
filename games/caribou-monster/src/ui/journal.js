@@ -10,7 +10,7 @@ import { audio } from '../core/audio.js';
 import { PAL, shade } from '../render/palette.js';
 import {
   window9, rect, label, labelDim, drawText, drawTextCentered, drawTextRight,
-  titleBar, rowHighlight, rule, moveCursor, LINE,
+  titleBar, rowHighlight, rule, moveCursor, LINE, dragList,
 } from './kit.js';
 import { drawBackChip, hintBar } from './controls.js';
 import { entriesFor, objective } from '../game/journal.js';
@@ -77,6 +77,8 @@ export class JournalScreen extends Screen {
     if (this.reading) {
       const lines = this._articleLines();
       const view = this._articleRows();
+      const dragged = input.consumeDragRows(LINE);
+      if (dragged) this.readScroll = Math.max(0, Math.min(Math.max(0, lines.length - view), this.readScroll + dragged));
       if (input.repeated('up')) this.readScroll = Math.max(0, this.readScroll - 1);
       if (input.repeated('down')) this.readScroll = Math.min(Math.max(0, lines.length - view), this.readScroll + 1);
       if (input.pressed('a') || input.pressed('b') || input.consumeTap()) {
@@ -87,6 +89,7 @@ export class JournalScreen extends Screen {
 
     const items = this.entries;
     const rows = this._rows();
+    if (dragList(this, items.length, rows)) return;
     const tap = input.consumeTap();
     if (tap) {
       for (const r of this._rects()) {

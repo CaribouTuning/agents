@@ -7,6 +7,7 @@ import { display, TILE } from './render/canvas.js';
 import { GameLoop } from './core/loop.js';
 import { input } from './core/input.js';
 import { exportText } from './save/backup.js';
+import { ITEM_IDS } from './data/items.js';
 import { audio } from './core/audio.js';
 import { bus } from './core/events.js';
 import { buildTileAtlas } from './render/tiles.js';
@@ -547,6 +548,7 @@ function start() {
   // would otherwise have to reach into module internals for, and it exposes
   // nothing a player could not already do from the menus.
   game.backupText = () => exportText(game.state);
+  game.debugItemIds = () => ITEM_IDS.slice();
   Object.defineProperty(game, 'inputEnabled', { get: () => input.enabled });
 }
 

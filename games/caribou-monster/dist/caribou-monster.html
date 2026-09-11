@@ -398,6 +398,13 @@ class Input {
     // cursor to it — the single biggest usability win on a phone.
     this.taps = [];
     this.pending = new Map();   // touch id -> {x, y, t, moved}
+    // Dragging a finger up or down a list.
+    //
+    // Without this there is no way to scroll a long list on a phone at all:
+    // the virtual D-pad is only drawn over the world, and tapping a row in a
+    // menu selects it rather than moving. With 493 Pokedex entries that meant
+    // the list simply ended at whatever fitted on the screen.
+    this.dragY = 0;
   }
 
   attach(canvas, display) {
@@ -452,6 +459,11 @@ class Input {
         if (pend) {
           const q = point(t);
           if (Math.hypot(q.x - pend.x, q.y - pend.y) > 6) pend.moved = true;
+          // Every pixel of vertical travel counts, so a slow drag scrolls as
+          // far as a fast one rather than being rounded away.
+          this.dragY += q.y - pend.y;
+          pend.x = q.x;
+          pend.y = q.y;
         }
         if (!this.touchButtons.has(t.identifier)) continue;
         const p = point(t);
@@ -494,9 +506,17 @@ class Input {
       if (b) { mouseBtn = b; this.press(b); }
       else mouseDownAt = { ...p, t: performance.now() };
     });
+    canvas.addEventListener('mousemove', (e) => {
+      if (!this.enabled || !mouseDownAt || mouseBtn) return;
+      const p = point(e);
+      this.dragY += p.y - mouseDownAt.y;
+      mouseDownAt.x = p.x;
+      mouseDownAt.y = p.y;
+      mouseDownAt.moved = true;
+    });
     window.addEventListener('mouseup', (e) => {
       if (mouseBtn) { this.release(mouseBtn); mouseBtn = null; return; }
-      if (mouseDownAt && this.enabled) {
+      if (mouseDownAt && this.enabled && !mouseDownAt.moved) {
         const p = point(e);
         if (Math.hypot(p.x - mouseDownAt.x, p.y - mouseDownAt.y) < 6) this.taps.push({ x: p.x, y: p.y });
       }
@@ -524,6 +544,7 @@ class Input {
     this.touchButtons.clear();
     this.pending.clear();
     this.taps.length = 0;
+    this.dragY = 0;
   }
 
   isDown(b) { return this.held.has(b); }
@@ -545,6 +566,22 @@ class Input {
   // and hit-test it against whatever they have on screen.
   consumeTap() { return this.taps.length ? this.taps.shift() : null; }
   clearTaps() { this.taps.length = 0; }
+
+  /**
+   * How many ROWS a drag since the last call is worth, and clears the rest.
+   *
+   * Returns a whole number of rows so a list moves in steps rather than
+   * sliding between them, and keeps the remainder so a slow drag still gets
+   * there. Dragging DOWN moves the list up, the way a page of text does.
+   */
+  consumeDragRows(rowHeight = 10) {
+    if (!rowHeight) return 0;
+    const rows = Math.trunc(this.dragY / rowHeight);
+    if (rows) this.dragY -= rows * rowHeight;
+    return -rows;
+  }
+
+  clearDrag() { this.dragY = 0; }
 
   // Called by the loop at the end of every logic tick.
   endFrame() { this.edge.clear(); this.released.clear(); this.taps.length = 0; }
@@ -13040,6 +13077,7 @@ __exports(__x, { GLYPH_W: () => GLYPH_W, GLYPH_H: () => GLYPH_H, CHAR_ADVANCE: (
 };
 
 __defs['ui/kit.js'] = function (__x, __req) {
+const { input } = __req('core/input.js');
 const { PAL, shade, typeColor } = __req('render/palette.js');
 const { drawText, drawTextCentered, drawTextRight, textWidth, CHAR_ADVANCE, GLYPH_H } = __req('render/font.js');
 const { formatMoney } = __req('game/inventory.js');
@@ -13048,6 +13086,7 @@ const { formatMoney } = __req('game/inventory.js');
 // One place for frames, panels, cursors, bars and chips means the whole game
 // looks like it came from one machine — which is most of what "feels like a
 // DS game" actually is.
+
 
 
 
@@ -13190,6 +13229,89 @@ function moveCursor(index, count, delta, rows, scroll) {
   return { index: i, scroll: s };
 }
 
+/**
+ * Moves a list by however far a finger has just been dragged.
+ *
+ * Scroll moves, and the cursor is carried along only as far as it must be to
+ * stay on screen — dragging a list should let you LOOK at the far end without
+ * losing the thing you had selected.
+ *
+ * Returns true if anything moved, so a caller can play a sound or bail out of
+ * the rest of its input handling.
+ */
+function dragList(screen, count, rows, step = LINE) {
+  const moved = input.consumeDragRows(step);
+  if (!moved || count <= rows) return false;
+  const max = Math.max(0, count - rows);
+  screen.scroll = Math.max(0, Math.min(max, (screen.scroll || 0) + moved));
+  screen.index = Math.max(screen.scroll, Math.min(screen.scroll + rows - 1, screen.index || 0));
+  return true;
+}
+
+/**
+ * A scrollbar with a tappable arrow at each end, for a list on a phone.
+ *
+ * Long menus had no way to scroll by touch at all: the virtual D-pad is only
+ * drawn over the world, and tapping a row in a list selects it. So the
+ * Pokedex ended at whatever fitted on the screen — which with 493 entries is
+ * most of the Pokedex.
+ *
+ * Returns the boxes it drew so the caller can hit-test them; `hitScroll`
+ * turns a tap into -1, +1 or 0.
+ */
+function scrollbar(ctx, x, y, h, { index, count, rows }) {
+  const box = { x, y, w: 7, h, arrow: 9, count, rows };
+  if (count <= rows) return box;
+  rect(ctx, x, y, box.w, h, PAL.uiBgAlt);
+
+  // The two arrows, at the ends, always tappable.
+  for (const [ay, up] of [[y, true], [y + h - box.arrow, false]]) {
+    rect(ctx, x, ay, box.w, box.arrow, PAL.uiFrame);
+    ctx.fillStyle = PAL.uiTextLight;
+    for (let i = 0; i < 3; i++) {
+      const w = 1 + i * 2;
+      const ry = up ? ay + 6 - i : ay + 3 + i;
+      ctx.fillRect(Math.round(x + box.w / 2 - w / 2), ry, w, 1);
+    }
+  }
+
+  // The thumb: how far down the list you are, and how much of it you can see.
+  const track = h - box.arrow * 2 - 2;
+  const thumb = Math.max(6, Math.round((rows / count) * track));
+  const span = Math.max(1, count - rows);
+  const at = Math.round((Math.min(index, span) / span) * (track - thumb));
+  rect(ctx, x + 1, y + box.arrow + 1 + at, box.w - 2, thumb, PAL.uiFrameLight);
+  return box;
+}
+
+/**
+ * Moves a list a whole screenful, for the scrollbar arrows.
+ *
+ * `moveCursor` moves the CURSOR and drags the view along behind it, which is
+ * right for a D-pad and wrong for an arrow button: pressing down-arrow moved
+ * the cursor a page and the view a single row. This moves the view, and takes
+ * the cursor with it. It clamps rather than wrapping, because a list that
+ * jumps back to the top when you ask for more is not scrolling.
+ */
+function pageBy(screen, count, rows, dir) {
+  const max = Math.max(0, count - rows);
+  const before = screen.scroll || 0;
+  screen.scroll = Math.max(0, Math.min(max, before + dir * rows));
+  screen.index = Math.max(screen.scroll, Math.min(screen.scroll + rows - 1,
+    Math.max(0, Math.min(count - 1, (screen.index || 0) + dir * rows))));
+  return screen.scroll !== before;
+}
+
+/** -1 for the up arrow, +1 for the down arrow, 0 for anywhere else. */
+function hitScroll(tap, box) {
+  if (!tap || !box || box.count <= box.rows) return 0;
+  const inX = tap.x >= box.x - 2 && tap.x <= box.x + box.w + 2;
+  if (!inX) return 0;
+  if (tap.y >= box.y && tap.y <= box.y + box.arrow) return -1;
+  if (tap.y >= box.y + box.h - box.arrow && tap.y <= box.y + box.h) return 1;
+  return 0;
+}
+
 // ---- bars --------------------------------------------------------------
 
 function hpColor(frac) {
@@ -13326,7 +13448,7 @@ function vignette(ctx, w, h, strength = 0.18) {
 
 
 
-__exports(__x, { LINE: () => LINE, rect: () => rect, stroke: () => stroke, window9: () => window9, panel: () => panel, shadeScreen: () => shadeScreen, label: () => label, labelDim: () => labelDim, labelLight: () => labelLight, tickCursor: () => tickCursor, cursor: () => cursor, blink: () => blink, listMenu: () => listMenu, moveCursor: () => moveCursor, hpColor: () => hpColor, hpBar: () => hpBar, expBar: () => expBar, titleBar: () => titleBar, rowHighlight: () => rowHighlight, pill: () => pill, meterBar: () => meterBar, rule: () => rule, typeChip: () => typeChip, statusChip: () => statusChip, genderMark: () => genderMark, vignette: () => vignette, drawText: () => drawText, drawTextCentered: () => drawTextCentered, drawTextRight: () => drawTextRight, textWidth: () => textWidth, CHAR_ADVANCE: () => CHAR_ADVANCE, GLYPH_H: () => GLYPH_H, money: () => formatMoney, PAL: () => PAL, shade: () => shade, typeColor: () => typeColor });
+__exports(__x, { LINE: () => LINE, rect: () => rect, stroke: () => stroke, window9: () => window9, panel: () => panel, shadeScreen: () => shadeScreen, label: () => label, labelDim: () => labelDim, labelLight: () => labelLight, tickCursor: () => tickCursor, cursor: () => cursor, blink: () => blink, listMenu: () => listMenu, moveCursor: () => moveCursor, dragList: () => dragList, scrollbar: () => scrollbar, pageBy: () => pageBy, hitScroll: () => hitScroll, hpColor: () => hpColor, hpBar: () => hpBar, expBar: () => expBar, titleBar: () => titleBar, rowHighlight: () => rowHighlight, pill: () => pill, meterBar: () => meterBar, rule: () => rule, typeChip: () => typeChip, statusChip: () => statusChip, genderMark: () => genderMark, vignette: () => vignette, drawText: () => drawText, drawTextCentered: () => drawTextCentered, drawTextRight: () => drawTextRight, textWidth: () => textWidth, CHAR_ADVANCE: () => CHAR_ADVANCE, GLYPH_H: () => GLYPH_H, money: () => formatMoney, PAL: () => PAL, shade: () => shade, typeColor: () => typeColor });
 
 };
 
@@ -33689,7 +33811,7 @@ const { Screen } = __req('ui/screen.js');
 const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
 const { PAL, shade, typeColor } = __req('render/palette.js');
-const { window9, rect, label, labelDim, cursor, hpBar, expBar, listMenu, moveCursor, drawTextCentered, drawTextRight, drawText, statusChip, genderMark, typeChip, shadeScreen, money, LINE } = __req('ui/kit.js');
+const { window9, rect, label, labelDim, cursor, hpBar, expBar, listMenu, moveCursor, drawTextCentered, drawTextRight, drawText, statusChip, genderMark, typeChip, shadeScreen, money, LINE, scrollbar, hitScroll, dragList, pageBy } = __req('ui/kit.js');
 const { renderMonster } = __req('render/monsterart.js');
 const { drawChar, lookFor } = __req('render/sprites.js');
 const { getSpecies, SPECIES_LIST, SINNOH_ORDER, NATIONAL_ORDER, SINNOH_NUMBER, natureName } = __req('data/species.js');
@@ -34092,7 +34214,15 @@ class BagScreen extends Screen {
     if (this.messageT > 0) { this.messageT -= dt; if (this.messageT <= 0) this.message = null; }
     const items = this.items;
     const rows = Math.floor((this.game.display.height - 46) / LINE);
+    // A finger dragged down the list. The only other way to move through a
+    // full bag on a phone is a D-pad that is not drawn on this screen.
+    if (this.mode !== 'quantity' && dragList(this, items.length, rows)) return;
     const tap = input.consumeTap();
+    if (tap && this.bar && hitScroll(tap, this.bar)) {
+      pageBy(this, items.length, rows, hitScroll(tap, this.bar));
+      audio.sfx('cursor');
+      return;
+    }
     if (tap) {
       const tabW = Math.floor(this.game.display.width / POCKETS.length);
       if (tap.y < 14) {
@@ -34255,6 +34385,7 @@ class BagScreen extends Screen {
     if (!items.length) {
       labelDim(ctx, 'Nothing here.', 10, 20);
     } else {
+      this.bar = scrollbar(ctx, W - 12, 20, rows * LINE + 4, { index: this.scroll, count: items.length, rows });
       items.slice(this.scroll, this.scroll + rows).forEach((e, i) => {
         const idx = this.scroll + i;
         const iy = 20 + i * LINE;
@@ -34418,7 +34549,16 @@ class DexScreen extends Screen {
     const n = this.order.length;
     const rows = Math.floor((this.game.display.height - 24) / LINE);
     const W = this.game.display.width;
+    // Dragging a finger down the list. Without this there is no way to move
+    // through 493 entries on a phone at all — the D-pad is only drawn over
+    // the world, and tapping a row opens it rather than scrolling.
+    if (!this.detail && dragList(this, n, rows)) return;
     const tap = input.consumeTap();
+    if (tap && this.bar && hitScroll(tap, this.bar)) {
+      pageBy(this, n, rows, hitScroll(tap, this.bar));
+      audio.sfx('cursor');
+      return;
+    }
     if (tap && hit(tap, W - 116, 2, 58, 11)) { this._swapMode(rows); return; }
     if (tap && !this.detail) {
       for (let i = 0; i < rows; i++) {
@@ -34466,6 +34606,8 @@ class DexScreen extends Screen {
     const swap = this.mode === 'sinnoh' ? `SINNOH ${order.length}` : `NATIONAL ${order.length}`;
     rect(ctx, W - 116, 2, 58, 11, PAL.uiFrame);
     drawTextCentered(ctx, swap, W - 87, 4, { color: PAL.uiTextLight });
+
+    this.bar = scrollbar(ctx, 130, 14, rows * LINE + 4, { index: this.scroll, count: order.length, rows });
 
     order.slice(this.scroll, this.scroll + rows).forEach((id, i) => {
       const sp = getSpecies(id);
@@ -34994,7 +35136,7 @@ const { drawBackChip } = __req('ui/controls.js');
 const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
 const { PAL, shade } = __req('render/palette.js');
-const { window9, rect, label, labelDim, cursor, moveCursor, drawTextCentered, drawTextRight, drawText, money, LINE } = __req('ui/kit.js');
+const { window9, rect, label, labelDim, cursor, moveCursor, drawTextCentered, drawTextRight, drawText, money, LINE, scrollbar, hitScroll, dragList, pageBy } = __req('ui/kit.js');
 const { getItem, martStock, departmentStock } = __req('data/items.js');
 const { addItem, removeItem, spend, earn, sellPrice, pocketContents } = __req('game/inventory.js');
 const { POCKETS } = __req('data/items.js');
@@ -35080,7 +35222,13 @@ class ShopScreen extends Screen {
   _updateList() {
     const list = this._list();
     const rows = this.rows;
+    if (dragList(this, list.length, rows)) return;
     const tap = input.consumeTap();
+    if (tap && this.bar && hitScroll(tap, this.bar)) {
+      pageBy(this, list.length, rows, hitScroll(tap, this.bar));
+      audio.sfx('cursor');
+      return;
+    }
     if (tap) {
       for (let i = 0; i < Math.min(rows, list.length - this.scroll); i++) {
         if (hit(tap, 6, 22 + i * LINE, this.game.display.width - 12, LINE)) {
@@ -35163,6 +35311,7 @@ class ShopScreen extends Screen {
       const list = this._list();
       const rows = this.rows;
       window9(ctx, 2, 16, W - 4, rows * LINE + 10);
+      this.bar = scrollbar(ctx, W - 12, 22, rows * LINE + 4, { index: this.scroll, count: list.length, rows });
       list.slice(this.scroll, this.scroll + rows).forEach((e, i) => {
         const idx = this.scroll + i;
         const y = 22 + i * LINE;
@@ -36587,7 +36736,7 @@ const { drawBackChip } = __req('ui/controls.js');
 const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
 const { PAL, shade } = __req('render/palette.js');
-const { window9, rect, label, labelDim, cursor, moveCursor, drawTextRight, drawText, money, LINE } = __req('ui/kit.js');
+const { window9, rect, label, labelDim, cursor, moveCursor, drawTextRight, drawText, money, LINE, scrollbar, hitScroll, dragList, pageBy } = __req('ui/kit.js');
 const { SPECIES_LIST } = __req('data/species.js');
 const { ITEM_IDS, getItem } = __req('data/items.js');
 const { MAP_IDS, getMap } = __req('data/maps/index.js');
@@ -36798,12 +36947,18 @@ class DebugScreen extends Screen {
     const visible = Math.floor((this.game.display.height - 40) / LINE);
     const tap = input.consumeTap();
     if (tap) {
+      if (this.bar && hitScroll(tap, this.bar)) {
+        pageBy(this, rows.length, visible, hitScroll(tap, this.bar));
+        audio.sfx('cursor');
+        return;
+      }
       for (let i = 0; i < Math.min(visible, rows.length - this.scroll); i++) {
         if (hit(tap, 6, 24 + i * LINE, this.game.display.width - 12, LINE)) {
           this.index = this.scroll + i; audio.sfx('select'); rows[this.index].a(); return;
         }
       }
     }
+    if (dragList(this, rows.length, visible)) return;
     if (input.repeated('up')) { const r = moveCursor(this.index, rows.length, -1, visible, this.scroll); this.index = r.index; this.scroll = r.scroll; audio.sfx('cursor'); }
     if (input.repeated('down')) { const r = moveCursor(this.index, rows.length, 1, visible, this.scroll); this.index = r.index; this.scroll = r.scroll; audio.sfx('cursor'); }
     if (this.page === 'species') {
@@ -36847,6 +37002,8 @@ class DebugScreen extends Screen {
 
     const rows = this.rows;
     const visible = Math.floor((H - 40) / LINE);
+    this.bar = scrollbar(ctx, this.game.display.width - 12, 24, visible * LINE + 4,
+      { index: this.scroll, count: rows.length, rows: visible });
     rows.slice(this.scroll, this.scroll + visible).forEach((r, i) => {
       const idx = this.scroll + i;
       const y = 24 + i * LINE;
@@ -37690,7 +37847,7 @@ const { Screen } = __req('ui/screen.js');
 const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
 const { PAL, shade } = __req('render/palette.js');
-const { window9, rect, label, labelDim, cursor, drawText, drawTextCentered, drawTextRight, titleBar, rowHighlight, pill, meterBar, rule, moveCursor, money, LINE } = __req('ui/kit.js');
+const { window9, rect, label, labelDim, cursor, drawText, drawTextCentered, drawTextRight, titleBar, rowHighlight, pill, meterBar, rule, moveCursor, money, LINE, dragList } = __req('ui/kit.js');
 const { drawBackChip, hintBar } = __req('ui/controls.js');
 const { drawChar, lookFor } = __req('render/sprites.js');
 const { TOURNAMENTS, RANKS, getPro, getTournament, rankIndex } = __req('data/circuit.js');
@@ -37879,6 +38036,7 @@ class CircuitScreen extends Screen {
     const rows = this._rows();
     const p = this._panel();
     const rowH = this._rowH();
+    if (items.length && dragList(this, items.length, rows, rowH)) return;
     const tap = input.consumeTap();
 
     if (tap) {
@@ -38828,7 +38986,7 @@ const { Screen } = __req('ui/screen.js');
 const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
 const { PAL, shade } = __req('render/palette.js');
-const { window9, rect, label, labelDim, drawText, drawTextCentered, drawTextRight, titleBar, rowHighlight, rule, moveCursor, LINE } = __req('ui/kit.js');
+const { window9, rect, label, labelDim, drawText, drawTextCentered, drawTextRight, titleBar, rowHighlight, rule, moveCursor, LINE, dragList } = __req('ui/kit.js');
 const { drawBackChip, hintBar } = __req('ui/controls.js');
 const { entriesFor, objective } = __req('game/journal.js');
 // The journal screen.
@@ -38907,6 +39065,8 @@ class JournalScreen extends Screen {
     if (this.reading) {
       const lines = this._articleLines();
       const view = this._articleRows();
+      const dragged = input.consumeDragRows(LINE);
+      if (dragged) this.readScroll = Math.max(0, Math.min(Math.max(0, lines.length - view), this.readScroll + dragged));
       if (input.repeated('up')) this.readScroll = Math.max(0, this.readScroll - 1);
       if (input.repeated('down')) this.readScroll = Math.min(Math.max(0, lines.length - view), this.readScroll + 1);
       if (input.pressed('a') || input.pressed('b') || input.consumeTap()) {
@@ -38917,6 +39077,7 @@ class JournalScreen extends Screen {
 
     const items = this.entries;
     const rows = this._rows();
+    if (dragList(this, items.length, rows)) return;
     const tap = input.consumeTap();
     if (tap) {
       for (const r of this._rects()) {
@@ -39232,6 +39393,7 @@ const { display, TILE } = __req('render/canvas.js');
 const { GameLoop } = __req('core/loop.js');
 const { input } = __req('core/input.js');
 const { exportText } = __req('save/backup.js');
+const { ITEM_IDS } = __req('data/items.js');
 const { audio } = __req('core/audio.js');
 const { bus } = __req('core/events.js');
 const { buildTileAtlas } = __req('render/tiles.js');
@@ -39278,6 +39440,7 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
 
 
 
@@ -39822,6 +39985,7 @@ function start() {
   // would otherwise have to reach into module internals for, and it exposes
   // nothing a player could not already do from the menus.
   game.backupText = () => exportText(game.state);
+  game.debugItemIds = () => ITEM_IDS.slice();
   Object.defineProperty(game, 'inputEnabled', { get: () => input.enabled });
 }
 

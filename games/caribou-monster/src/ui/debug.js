@@ -10,6 +10,7 @@ import { audio } from '../core/audio.js';
 import { PAL, shade } from '../render/palette.js';
 import {
   window9, rect, label, labelDim, cursor, moveCursor, drawTextRight, drawText, money, LINE,
+  scrollbar, hitScroll, dragList, pageBy,
 } from './kit.js';
 import { SPECIES_LIST } from '../data/species.js';
 import { ITEM_IDS, getItem } from '../data/items.js';
@@ -200,12 +201,18 @@ export class DebugScreen extends Screen {
     const visible = Math.floor((this.game.display.height - 40) / LINE);
     const tap = input.consumeTap();
     if (tap) {
+      if (this.bar && hitScroll(tap, this.bar)) {
+        pageBy(this, rows.length, visible, hitScroll(tap, this.bar));
+        audio.sfx('cursor');
+        return;
+      }
       for (let i = 0; i < Math.min(visible, rows.length - this.scroll); i++) {
         if (hit(tap, 6, 24 + i * LINE, this.game.display.width - 12, LINE)) {
           this.index = this.scroll + i; audio.sfx('select'); rows[this.index].a(); return;
         }
       }
     }
+    if (dragList(this, rows.length, visible)) return;
     if (input.repeated('up')) { const r = moveCursor(this.index, rows.length, -1, visible, this.scroll); this.index = r.index; this.scroll = r.scroll; audio.sfx('cursor'); }
     if (input.repeated('down')) { const r = moveCursor(this.index, rows.length, 1, visible, this.scroll); this.index = r.index; this.scroll = r.scroll; audio.sfx('cursor'); }
     if (this.page === 'species') {
@@ -249,6 +256,8 @@ export class DebugScreen extends Screen {
 
     const rows = this.rows;
     const visible = Math.floor((H - 40) / LINE);
+    this.bar = scrollbar(ctx, this.game.display.width - 12, 24, visible * LINE + 4,
+      { index: this.scroll, count: rows.length, rows: visible });
     rows.slice(this.scroll, this.scroll + visible).forEach((r, i) => {
       const idx = this.scroll + i;
       const y = 24 + i * LINE;

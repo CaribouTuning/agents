@@ -9,7 +9,7 @@ import { PAL, shade, typeColor } from '../render/palette.js';
 import {
   window9, rect, label, labelDim, cursor, hpBar, expBar, listMenu, moveCursor,
   drawTextCentered, drawTextRight, drawText, statusChip, genderMark, typeChip,
-  shadeScreen, money, LINE,
+  shadeScreen, money, LINE, scrollbar, hitScroll, dragList, pageBy,
 } from './kit.js';
 import { renderMonster } from '../render/monsterart.js';
 import { drawChar, lookFor } from '../render/sprites.js';
@@ -391,7 +391,15 @@ export class BagScreen extends Screen {
     if (this.messageT > 0) { this.messageT -= dt; if (this.messageT <= 0) this.message = null; }
     const items = this.items;
     const rows = Math.floor((this.game.display.height - 46) / LINE);
+    // A finger dragged down the list. The only other way to move through a
+    // full bag on a phone is a D-pad that is not drawn on this screen.
+    if (this.mode !== 'quantity' && dragList(this, items.length, rows)) return;
     const tap = input.consumeTap();
+    if (tap && this.bar && hitScroll(tap, this.bar)) {
+      pageBy(this, items.length, rows, hitScroll(tap, this.bar));
+      audio.sfx('cursor');
+      return;
+    }
     if (tap) {
       const tabW = Math.floor(this.game.display.width / POCKETS.length);
       if (tap.y < 14) {
@@ -554,6 +562,7 @@ export class BagScreen extends Screen {
     if (!items.length) {
       labelDim(ctx, 'Nothing here.', 10, 20);
     } else {
+      this.bar = scrollbar(ctx, W - 12, 20, rows * LINE + 4, { index: this.scroll, count: items.length, rows });
       items.slice(this.scroll, this.scroll + rows).forEach((e, i) => {
         const idx = this.scroll + i;
         const iy = 20 + i * LINE;
@@ -717,7 +726,16 @@ export class DexScreen extends Screen {
     const n = this.order.length;
     const rows = Math.floor((this.game.display.height - 24) / LINE);
     const W = this.game.display.width;
+    // Dragging a finger down the list. Without this there is no way to move
+    // through 493 entries on a phone at all — the D-pad is only drawn over
+    // the world, and tapping a row opens it rather than scrolling.
+    if (!this.detail && dragList(this, n, rows)) return;
     const tap = input.consumeTap();
+    if (tap && this.bar && hitScroll(tap, this.bar)) {
+      pageBy(this, n, rows, hitScroll(tap, this.bar));
+      audio.sfx('cursor');
+      return;
+    }
     if (tap && hit(tap, W - 116, 2, 58, 11)) { this._swapMode(rows); return; }
     if (tap && !this.detail) {
       for (let i = 0; i < rows; i++) {
@@ -765,6 +783,8 @@ export class DexScreen extends Screen {
     const swap = this.mode === 'sinnoh' ? `SINNOH ${order.length}` : `NATIONAL ${order.length}`;
     rect(ctx, W - 116, 2, 58, 11, PAL.uiFrame);
     drawTextCentered(ctx, swap, W - 87, 4, { color: PAL.uiTextLight });
+
+    this.bar = scrollbar(ctx, 130, 14, rows * LINE + 4, { index: this.scroll, count: order.length, rows });
 
     order.slice(this.scroll, this.scroll + rows).forEach((id, i) => {
       const sp = getSpecies(id);

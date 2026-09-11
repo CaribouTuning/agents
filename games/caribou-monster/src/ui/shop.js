@@ -6,7 +6,7 @@ import { audio } from '../core/audio.js';
 import { PAL, shade } from '../render/palette.js';
 import {
   window9, rect, label, labelDim, cursor, moveCursor, drawTextCentered,
-  drawTextRight, drawText, money, LINE,
+  drawTextRight, drawText, money, LINE, scrollbar, hitScroll, dragList, pageBy,
 } from './kit.js';
 import { getItem, martStock, departmentStock } from '../data/items.js';
 import { addItem, removeItem, spend, earn, sellPrice, pocketContents } from '../game/inventory.js';
@@ -83,7 +83,13 @@ export class ShopScreen extends Screen {
   _updateList() {
     const list = this._list();
     const rows = this.rows;
+    if (dragList(this, list.length, rows)) return;
     const tap = input.consumeTap();
+    if (tap && this.bar && hitScroll(tap, this.bar)) {
+      pageBy(this, list.length, rows, hitScroll(tap, this.bar));
+      audio.sfx('cursor');
+      return;
+    }
     if (tap) {
       for (let i = 0; i < Math.min(rows, list.length - this.scroll); i++) {
         if (hit(tap, 6, 22 + i * LINE, this.game.display.width - 12, LINE)) {
@@ -166,6 +172,7 @@ export class ShopScreen extends Screen {
       const list = this._list();
       const rows = this.rows;
       window9(ctx, 2, 16, W - 4, rows * LINE + 10);
+      this.bar = scrollbar(ctx, W - 12, 22, rows * LINE + 4, { index: this.scroll, count: list.length, rows });
       list.slice(this.scroll, this.scroll + rows).forEach((e, i) => {
         const idx = this.scroll + i;
         const y = 22 + i * LINE;

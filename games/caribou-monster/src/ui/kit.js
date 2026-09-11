@@ -3,6 +3,7 @@
 // One place for frames, panels, cursors, bars and chips means the whole game
 // looks like it came from one machine — which is most of what "feels like a
 // DS game" actually is.
+import { input } from '../core/input.js';
 import { PAL, shade, typeColor } from '../render/palette.js';
 import { drawText, drawTextCentered, drawTextRight, textWidth, CHAR_ADVANCE, GLYPH_H } from '../render/font.js';
 import { formatMoney } from '../game/inventory.js';
@@ -143,6 +144,89 @@ export function moveCursor(index, count, delta, rows, scroll) {
   if (i >= s + rows) s = i - rows + 1;
   s = Math.max(0, Math.min(Math.max(0, count - rows), s));
   return { index: i, scroll: s };
+}
+
+/**
+ * Moves a list by however far a finger has just been dragged.
+ *
+ * Scroll moves, and the cursor is carried along only as far as it must be to
+ * stay on screen — dragging a list should let you LOOK at the far end without
+ * losing the thing you had selected.
+ *
+ * Returns true if anything moved, so a caller can play a sound or bail out of
+ * the rest of its input handling.
+ */
+export function dragList(screen, count, rows, step = LINE) {
+  const moved = input.consumeDragRows(step);
+  if (!moved || count <= rows) return false;
+  const max = Math.max(0, count - rows);
+  screen.scroll = Math.max(0, Math.min(max, (screen.scroll || 0) + moved));
+  screen.index = Math.max(screen.scroll, Math.min(screen.scroll + rows - 1, screen.index || 0));
+  return true;
+}
+
+/**
+ * A scrollbar with a tappable arrow at each end, for a list on a phone.
+ *
+ * Long menus had no way to scroll by touch at all: the virtual D-pad is only
+ * drawn over the world, and tapping a row in a list selects it. So the
+ * Pokedex ended at whatever fitted on the screen — which with 493 entries is
+ * most of the Pokedex.
+ *
+ * Returns the boxes it drew so the caller can hit-test them; `hitScroll`
+ * turns a tap into -1, +1 or 0.
+ */
+export function scrollbar(ctx, x, y, h, { index, count, rows }) {
+  const box = { x, y, w: 7, h, arrow: 9, count, rows };
+  if (count <= rows) return box;
+  rect(ctx, x, y, box.w, h, PAL.uiBgAlt);
+
+  // The two arrows, at the ends, always tappable.
+  for (const [ay, up] of [[y, true], [y + h - box.arrow, false]]) {
+    rect(ctx, x, ay, box.w, box.arrow, PAL.uiFrame);
+    ctx.fillStyle = PAL.uiTextLight;
+    for (let i = 0; i < 3; i++) {
+      const w = 1 + i * 2;
+      const ry = up ? ay + 6 - i : ay + 3 + i;
+      ctx.fillRect(Math.round(x + box.w / 2 - w / 2), ry, w, 1);
+    }
+  }
+
+  // The thumb: how far down the list you are, and how much of it you can see.
+  const track = h - box.arrow * 2 - 2;
+  const thumb = Math.max(6, Math.round((rows / count) * track));
+  const span = Math.max(1, count - rows);
+  const at = Math.round((Math.min(index, span) / span) * (track - thumb));
+  rect(ctx, x + 1, y + box.arrow + 1 + at, box.w - 2, thumb, PAL.uiFrameLight);
+  return box;
+}
+
+/**
+ * Moves a list a whole screenful, for the scrollbar arrows.
+ *
+ * `moveCursor` moves the CURSOR and drags the view along behind it, which is
+ * right for a D-pad and wrong for an arrow button: pressing down-arrow moved
+ * the cursor a page and the view a single row. This moves the view, and takes
+ * the cursor with it. It clamps rather than wrapping, because a list that
+ * jumps back to the top when you ask for more is not scrolling.
+ */
+export function pageBy(screen, count, rows, dir) {
+  const max = Math.max(0, count - rows);
+  const before = screen.scroll || 0;
+  screen.scroll = Math.max(0, Math.min(max, before + dir * rows));
+  screen.index = Math.max(screen.scroll, Math.min(screen.scroll + rows - 1,
+    Math.max(0, Math.min(count - 1, (screen.index || 0) + dir * rows))));
+  return screen.scroll !== before;
+}
+
+/** -1 for the up arrow, +1 for the down arrow, 0 for anywhere else. */
+export function hitScroll(tap, box) {
+  if (!tap || !box || box.count <= box.rows) return 0;
+  const inX = tap.x >= box.x - 2 && tap.x <= box.x + box.w + 2;
+  if (!inX) return 0;
+  if (tap.y >= box.y && tap.y <= box.y + box.arrow) return -1;
+  if (tap.y >= box.y + box.h - box.arrow && tap.y <= box.y + box.h) return 1;
+  return 0;
 }
 
 // ---- bars --------------------------------------------------------------
