@@ -1444,6 +1444,34 @@ function checkNothingCountsTheGymsByHand() {
   }
 }
 
+// ---- no trainer is fought with a placeholder in their team -----------------
+// The rival's last Pokémon is written as the string "RIVAL_STARTER:19" and
+// swapped for a real one at battle time, because which one she has depends on
+// which one you took. That works only through the script that does the
+// swapping. Wire one of those trainers to a Gym door or a map NPC instead and
+// the battle starts with a Pokémon whose species is the word "undefined".
+
+function checkNobodyFightsAPlaceholder() {
+  const placeholder = new Set();
+  for (const [id, t] of Object.entries(TRAINERS)) {
+    if ((t.team || []).some((m) => typeof m === 'string')) placeholder.add(id);
+  }
+  if (!placeholder.size) return;
+  for (const map of Object.values(MAPS)) {
+    const wired = [
+      ...(map.npcs || []).map((n) => n.trainer),
+      ...(map.events || []).map((e) => e.trainer),
+    ].filter(Boolean);
+    for (const id of wired) {
+      if (placeholder.has(id)) {
+        err(`[trainer] ` + `${map.id} fights "${id}" directly, but their team has a placeholder in it `
+          + 'that only the rival script fills in');
+      }
+    }
+  }
+}
+
+checkNobodyFightsAPlaceholder();
 checkNothingCountsTheGymsByHand();
 checkThePaperTellsTheTruth();
 checkGymsAgreeWithTheirLeaders();
