@@ -8,16 +8,17 @@ import {
   window9, rect, label, labelDim, cursor, moveCursor, drawTextCentered,
   drawTextRight, drawText, money, LINE,
 } from './kit.js';
-import { getItem, martStock } from '../data/items.js';
+import { getItem, martStock, departmentStock } from '../data/items.js';
 import { addItem, removeItem, spend, earn, sellPrice, pocketContents } from '../game/inventory.js';
 import { POCKETS } from '../data/items.js';
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
 export class ShopScreen extends Screen {
-  constructor(game, onClose) {
+  constructor(game, onClose, kind = 'mart') {
     super(game);
     this.onClose = onClose;
+    this.kind = kind;
     this.mode = 'menu';       // menu | buy | sell | quantity
     this.index = 0;
     this.scroll = 0;
@@ -26,7 +27,11 @@ export class ShopScreen extends Screen {
     this.message = 'Welcome! What can I get you?';
   }
 
-  get stock() { return martStock(this.game.state.badges.length).map((id) => getItem(id)).filter(Boolean); }
+  get stock() {
+    const badges = this.game.state.badges.length;
+    const ids = this.kind === 'department' ? departmentStock(badges) : martStock(badges);
+    return ids.map((id) => getItem(id)).filter(Boolean);
+  }
 
   get sellable() {
     const inv = this.game.state.inventory;

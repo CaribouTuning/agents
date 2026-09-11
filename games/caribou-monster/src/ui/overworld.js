@@ -647,7 +647,7 @@ export class OverworldScreen extends Screen {
         if (hp) st.lastHealPoint = { ...hp };
       },
 
-      openShop: () => new Promise((resolve) => screen.game.openShop(resolve)),
+      openShop: (kind) => new Promise((resolve) => screen.game.openShop(resolve, kind)),
 
       // World Circuit hooks. The screens they open sit above the overworld,
       // so the script resolves immediately and the player is handed over.

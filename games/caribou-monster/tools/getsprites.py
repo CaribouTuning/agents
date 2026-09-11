@@ -13,6 +13,7 @@ import os
 import sys
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'assets', 'sprites')
@@ -24,6 +25,8 @@ ICON_SLUG = {
     'wormadam': 'wormadam-plant',
     'giratina': 'giratina-origin',
     'rotom': 'rotom-normal',
+    'deoxys': 'deoxys-normal',
+    'shaymin': 'shaymin-land',
 }
 
 SETS = {
@@ -68,28 +71,45 @@ def fetch(url, dest, tries=3):
 
 def main():
     species = json.load(open(os.path.join(ROOT, 'src', 'data', '_gen_species.json'), encoding='utf8'))
-    total = 0
-    missing = []
-    for name, path in SETS.items():
+    for name in SETS:
         os.makedirs(os.path.join(OUT, name), exist_ok=True)
-    for i, entry in enumerate(species):
+
+    # One job per image, already-downloaded ones filtered out first, so a
+    # re-run after a patched slug only fetches what is actually missing.
+    # 493 species is 2465 images; serially that is a quarter of an hour of
+    # waiting on one connection at a time.
+    jobs = []
+    have = 0
+    for entry in species:
         slug = slug_for(entry)
         for name, path in SETS.items():
             dest = os.path.join(OUT, name, f"{entry['id']}.png")
             if os.path.exists(dest) and os.path.getsize(dest) > 0:
-                total += os.path.getsize(dest)
+                have += os.path.getsize(dest)
                 continue
             use = ICON_SLUG.get(slug, slug) if name == 'i' else slug
-            n = fetch(f'{BASE}/{path}/{use}.png', dest)
-            if n is None:
-                missing.append(f"{entry['name']}/{name}")
-            else:
-                total += n
-        if (i + 1) % 25 == 0:
-            print(f'  {i + 1}/{len(species)}  {total // 1024} KB')
+            jobs.append((f'{BASE}/{path}/{use}.png', dest, f"{entry['name']}/{name}"))
+
+    total = have
+    missing = []
+    done = 0
+    if jobs:
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            futures = {pool.submit(fetch, url, dest): tag for url, dest, tag in jobs}
+            for fut in as_completed(futures):
+                n = fut.result()
+                if n is None:
+                    missing.append(futures[fut])
+                else:
+                    total += n
+                done += 1
+                if done % 100 == 0:
+                    print(f'  {done}/{len(jobs)}  {total // 1024} KB', flush=True)
+
     print(f'{len(species)} species, {total // 1024} KB on disk')
     if missing:
-        print(f'{len(missing)} missing: {", ".join(missing[:20])}')
+        missing.sort()
+        print(f'{len(missing)} missing: {", ".join(missing[:40])}')
     return 1 if missing else 0
 
 

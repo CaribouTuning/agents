@@ -309,7 +309,7 @@ class Game {
     if (!this.state.circuit.active) return null;
     return this.screens.push(new TournamentScreen(this));
   }
-  openShop(onClose) { this.screens.push(new ShopScreen(this, onClose)); }
+  openShop(onClose, kind = 'mart') { this.screens.push(new ShopScreen(this, onClose, kind)); }
   openDebug() { this.screens.push(new DebugScreen(this)); }
 
   // A wall of rock, and whatever is in it. `cfg` is already a dig from

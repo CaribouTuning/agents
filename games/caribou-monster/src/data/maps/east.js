@@ -767,7 +767,7 @@ export const VEILSTONE_STORE = defineMap('veilstone_store', {
   npcs: [
     {
       id: 'vst_clerk', x: 4, y: 1, look: 'clerk', name: 'Clerk', movement: 'still', facing: 'down',
-      script: 'shop', overCounter: true,
+      script: 'departmentStore', overCounter: true,
       dialogue: [{ lines: ['Four floors, in theory. One floor, in practice. What can I get you?'] }],
     },
     {

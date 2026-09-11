@@ -23,6 +23,10 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'dat
 PLATINUM_VG = 9        # version group
 PLATINUM_VER = 14      # version, for flavour text
 SINNOH_DEX = 6         # extended-sinnoh: the 210-entry Platinum dex
+NATIONAL_DEX = 1       # the National Dex
+# Generation IV ends at Arceus. Everything past 493 is a later game's
+# Pokemon, has no Platinum sprite, and has no business in a Sinnoh story.
+LAST_GEN4 = 493
 EN = 9                 # language
 
 def rows(name):
@@ -43,10 +47,21 @@ shapes    = {int(r['id']): r['identifier'] for r in rows('pokemon_shapes')}
 colors    = {int(r['id']): r['identifier'] for r in rows('pokemon_colors')}
 growths   = {1: 'slow', 2: 'mediumFast', 3: 'fast', 4: 'mediumSlow', 5: 'slow', 6: 'fast'}
 
-dexnums = {}
+# The roster is the National Dex up to Arceus, and the Sinnoh number is kept
+# alongside it so the Pokedex screen can still be read in regional order.
+#
+# It used to be the 210-entry Sinnoh dex alone, which is what Platinum starts
+# you with — but Platinum also has a National Dex, and a game about collecting
+# things that tops out at 210 is a game that ends early.
+dexnums = {}       # species id -> national number
+sinnoh_no = {}     # species id -> Sinnoh number, for the ones that have one
 for r in rows('pokemon_dex_numbers'):
-    if int(r['pokedex_id']) == SINNOH_DEX:
-        dexnums[int(r['species_id'])] = int(r['pokedex_number'])
+    dex = int(r['pokedex_id'])
+    sid = int(r['species_id'])
+    if dex == NATIONAL_DEX and sid <= LAST_GEN4:
+        dexnums[sid] = int(r['pokedex_number'])
+    elif dex == SINNOH_DEX:
+        sinnoh_no[sid] = int(r['pokedex_number'])
 
 # default form only: pokemon.id == species.id for the base form
 default_mon = {}
@@ -185,6 +200,25 @@ LATE_ABILITIES = {ability_names[int(r['id'])] for r in rows('abilities')
                   if int(r['generation_id']) > 4 and int(r['id']) in ability_names}
 ABILITY_OVERRIDE = {
     'gengar': ['Levitate'],      # Cursed Body is generation 7; in Platinum it levitates
+}
+
+# Evolution stones, as the game names them rather than as veekun numbers.
+#
+# This mapping is why stone evolution never once fired: the dex emitted
+# veekun's numeric item id, the bag passes the string on the item, and
+# `ctx.stone === evo.stone` was comparing 82 to 'fire' forever.
+STONE_ITEM = {
+    80: 'sun', 81: 'moon', 82: 'fire', 83: 'thunder', 84: 'water',
+    85: 'leaf', 107: 'shiny', 108: 'dusk', 109: 'dawn',
+}
+
+# Leafeon and Glaceon are stone evolutions in modern data and were never
+# stones in Platinum: they are the Moss Rock in Eterna Forest and the Ice
+# Rock on Route 217. Emitted as location evolutions, which this engine
+# already resolves, rather than as an Ice Stone that generation IV never had.
+ROCK_LOCATION = {
+    470: 'eterna_forest',   # Leafeon, at the Moss Rock
+    471: 'route217',        # Glaceon, at the Ice Rock
 }
 
 STAT_ID = {1: 'hp', 2: 'atk', 3: 'def', 4: 'spa', 5: 'spd', 6: 'spe', 7: 'acc', 8: 'eva'}
@@ -464,7 +498,14 @@ for sid, _dexno in wanted:
             elif trig == 'level-up' and r['minimum_happiness']:
                 evos.append({'method': 'friendship', 'friendship': int(r['minimum_happiness']), 'into': child_id})
             elif trig == 'use-item' and r['trigger_item_id']:
-                evos.append({'method': 'stone', 'stone': num(r['trigger_item_id']), 'into': child_id})
+                if child_id in ROCK_LOCATION:
+                    evos.append({'method': 'location', 'map': ROCK_LOCATION[child_id],
+                                 'level': 1, 'into': child_id})
+                    continue
+                stone = STONE_ITEM.get(num(r['trigger_item_id']))
+                if not stone:
+                    continue     # an item this game does not have; not faked
+                evos.append({'method': 'stone', 'stone': stone, 'into': child_id})
             elif trig == 'trade':
                 evos.append({'method': 'trade', 'into': child_id})
             elif r['minimum_level']:
@@ -496,6 +537,9 @@ for sid, _dexno in wanted:
     out_species.append({
         'id': sid,
         'name': sp_names.get(sid, ident.title()),
+        # Present only for the 210 a Sinnoh trainer meets before the National
+        # Dex; absent means "you had to go looking for this one".
+        'sinnoh': sinnoh_no.get(sid),
         'types': [t.title() for t in tps],
         'base': st,
         'catchRate': int(sp['capture_rate']),

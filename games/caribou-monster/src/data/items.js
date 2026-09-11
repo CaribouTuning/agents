@@ -143,6 +143,13 @@ add('firestone', 'Fire Stone', 'Items', 2100, { kind: 'stone', stone: 'fire' }, 
 add('waterstone', 'Water Stone', 'Items', 2100, { kind: 'stone', stone: 'water' }, 'A stone with a clear blue heart.');
 add('thunderstone', 'Thunder Stone', 'Items', 2100, { kind: 'stone', stone: 'thunder' }, 'A stone with a thunderbolt pattern.');
 add('leafstone', 'Leaf Stone', 'Items', 2100, { kind: 'stone', stone: 'leaf' }, 'A stone with a leaf pattern.');
+// The other five. Without these, a third of the National Dex has an
+// evolution nothing in the world can trigger.
+add('sunstone', 'Sun Stone', 'Items', 2100, { kind: 'stone', stone: 'sun' }, 'A stone that glows like the sun.');
+add('moonstone', 'Moon Stone', 'Items', 2100, { kind: 'stone', stone: 'moon' }, 'A stone as black as the night sky.');
+add('shinystone', 'Shiny Stone', 'Items', 3000, { kind: 'stone', stone: 'shiny' }, 'A stone that shines with its own light.');
+add('duskstone', 'Dusk Stone', 'Items', 3000, { kind: 'stone', stone: 'dusk' }, 'A stone as dark as looking into nothing.');
+add('dawnstone', 'Dawn Stone', 'Items', 3000, { kind: 'stone', stone: 'dawn' }, 'A stone that sparkles like the morning sky.');
 
 // ---- TMs ---------------------------------------------------------------
 const tm = (n, moveId, name, price) =>
@@ -211,6 +218,23 @@ export function isBerry(id) { return !!(ITEMS[id] && ITEMS[id].berry); }
 export const ITEM_IDS = Object.keys(ITEMS);
 
 // Shop stock unlocks with badge count, exactly like the DS games.
+/**
+ * The Veilstone Department Store.
+ *
+ * Every evolution stone in one place, because the alternative is a National
+ * Dex with a third of its evolutions unreachable — and because a big city
+ * shop that sells the same seven things as the corner Mart in Sandgem is not
+ * a department store.
+ */
+export const STONE_STOCK = [
+  'firestone', 'waterstone', 'thunderstone', 'leafstone',
+  'sunstone', 'moonstone', 'shinystone', 'duskstone', 'dawnstone',
+];
+
+export function departmentStock(badges) {
+  return [...martStock(badges), ...STONE_STOCK];
+}
+
 export function martStock(badges) {
   const stock = ['pokeball', 'potion', 'antidote', 'parlyzheal', 'escaperope', 'oranberry', 'cheriberry'];
   if (badges >= 1) stock.push('greatball', 'superpotion', 'repel', 'burnheal', 'iceheal', 'awakening', 'pechaberry', 'rawstberry');

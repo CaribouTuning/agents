@@ -301,6 +301,74 @@ export const ABILITIES = {
       if (ctx.foeHasSuperEffective && ctx.foeHasSuperEffective()) ctx.say(`${ctx.name} shuddered!`);
     },
   },
+
+  // ---- the National Dex arrivals -------------------------------------------
+  // Everything below came in with the other 283 species. Each one is either
+  // implemented here or listed inert underneath with the reason; nothing new
+  // is allowed to quietly do nothing.
+
+  Drought: { describe: 'Summons harsh sunlight on entry.', summons: 'sun' },
+
+  'Quick Feet': {
+    describe: 'Speed rises when it has a status problem.',
+    speedWhenStatus: 1.5,
+    // The point of Quick Feet is that paralysis makes it FASTER, so the
+    // normal quarter-speed cut has to be lifted as well as the bonus applied.
+    ignoresParalysisDrop: true,
+  },
+
+  'Poison Heal': {
+    describe: 'Poison heals it instead of hurting it.',
+    healsFromPoison: 1 / 8,
+  },
+
+  'Anger Point': {
+    describe: 'A critical hit sends its Attack through the roof.',
+    onCritTaken(battle, sideIdx, ctx) {
+      ctx.say(`${ctx.name}'s Anger Point maxed its Attack!`);
+      // Six stages from wherever it is now: "maxed", not "raised".
+      for (let i = 0; i < 6; i++) ctx.statChange(sideIdx, 'atk', 1);
+    },
+  },
+
+  'Skill Link': {
+    describe: 'Multi-strike moves always hit the maximum number of times.',
+    maxMultiHit: true,
+  },
+
+  'Bad Dreams': {
+    describe: 'Hurts a sleeping foe every turn.',
+    onEndOfTurn(battle, sideIdx, ctx) {
+      const foe = ctx.foeMon();
+      if (!foe || foe.status !== 'SLP' || foe.hp <= 0) return;
+      ctx.damageFoe(Math.max(1, Math.floor(maxHp(foe) / 8)),
+        `${displayName(foe)} is tormented by Bad Dreams!`);
+    },
+  },
+
+  Forewarn: {
+    describe: 'Senses the foe’s most dangerous move on entry.',
+    onSwitchIn(battle, sideIdx, ctx) {
+      const foe = ctx.foeMon();
+      if (!foe || !foe.moves || !foe.moves.length) return;
+      let worst = null;
+      let power = -1;
+      for (const slot of foe.moves) {
+        const mv = slot && ctx.move(slot.id);
+        if (!mv) continue;
+        // Status moves read as 0 here, which is what Platinum does too: a
+        // sleep move only gets named if there is nothing with power on the set.
+        const p = mv.power || 0;
+        if (p > power) { power = p; worst = mv; }
+      }
+      if (worst) ctx.say(`${ctx.name}'s Forewarn sensed ${worst.name}!`);
+    },
+  },
+
+  Stall: {
+    describe: 'Always moves last, whatever its Speed.',
+    movesLast: true,
+  },
 };
 
 /**
@@ -336,6 +404,15 @@ export const INERT_ABILITIES = {
   'Shadow Tag': 'no switch-trapping; both trainers may always switch freely',
   'Wonder Guard': 'no species in this Pokédex has it',
   Truant: 'turn-skipping would desync a link battle against a peer that resolved it differently',
+
+  // Arrived with the National Dex. Each of these needs a mechanic this
+  // engine does not have, or does nothing in Platinum either.
+  Illuminate: 'in Platinum, Illuminate only raises the wild encounter rate, and has no effect in a battle',
+  Plus: 'the partner bonus only exists in double battles, and this game has none',
+  Minus: 'the partner bonus only exists in double battles, and this game has none',
+  'Color Change': 'rewriting a Pokémon\u2019s own types mid-battle is a mechanic this engine does not have',
+  Multitype: 'Arceus changes type by held Plate, and no Plate exists in this game',
+  Gluttony: 'a pinch berry is already eaten at half health here, which is what Gluttony does',
   Normalize: 'move types are read from the move table and never rewritten',
   'Slow Start': 'no multi-turn entry counter survives the switch-in event',
   Frisk: 'nothing shows the foe’s held item',
@@ -605,6 +682,48 @@ export function contactChanceOf(target, attacker) {
 export function aftermathFraction(target, attacker) {
   const a = seenAbility(target, attacker);
   return (a && a.aftermath) || 0;
+}
+
+/**
+ * Speed, and what a status problem does to it.
+ *
+ * Two answers in one place because they are the same question: Quick Feet
+ * both adds its own bonus and cancels paralysis's cut, and a caller that got
+ * one without the other would be wrong in one direction or the other.
+ */
+export function statusSpeedMultiplier(mon) {
+  const a = abilityOf(mon);
+  if (!a || !mon || !mon.status) return 1;
+  return a.speedWhenStatus || 1;
+}
+
+export function ignoresParalysisDrop(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.ignoresParalysisDrop);
+}
+
+/** Poison Heal: the fraction of max HP poison restores instead of removing. */
+export function healsFromPoison(mon) {
+  const a = abilityOf(mon);
+  return (a && a.healsFromPoison) || 0;
+}
+
+/** Skill Link: a multi-strike move stops rolling and simply hits the maximum. */
+export function alwaysMaxHits(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.maxMultiHit);
+}
+
+/** Stall: sorts below everything else at the same move priority. */
+export function movesLast(mon) {
+  const a = abilityOf(mon);
+  return !!(a && a.movesLast);
+}
+
+/** Anger Point, when a critical hit lands on this Pokemon. */
+export function onCritTaken(battle, sideIdx, ctx, mon) {
+  const a = abilityOf(mon);
+  if (a && a.onCritTaken) a.onCritTaken(battle, sideIdx, ctx, mon);
 }
 
 // ---- weather ---------------------------------------------------------------

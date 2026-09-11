@@ -338,6 +338,19 @@ SCRIPTS.shop = async (ctx) => {
 };
 
 /**
+ * The Veilstone Department Store, which carries what a Mart does not.
+ *
+ * The stones live here rather than being scattered as one-off field items,
+ * because an evolution you can only reach by having walked over the right
+ * tile once is an evolution most people never see.
+ */
+SCRIPTS.departmentStore = async (ctx) => {
+  await ctx.say('Clerk: Four floors, in theory. One floor, in practice.\fWe do carry the stones, though. Everybody asks.',
+    { instant: true });
+  await ctx.openShop('department');
+};
+
+/**
  * The Trainers' School keeps a drawer of Potions for anyone who sits through
  * the whole lesson. Once each — it is a school, not a shop.
  */

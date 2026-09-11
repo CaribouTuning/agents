@@ -72,10 +72,11 @@ lines = ["""// Species data — generated, do not hand-edit.
 //   tools/gendex.py   veekun CSV dump  ->  _gen_species.json
 //   tools/emitdex.py  _gen_species.json -> this file
 //
-// 210 Pokemon: the extended Sinnoh Pokedex exactly as Platinum ships it,
-// with that game's base stats, abilities, catch rates, growth curves,
-// level-up learnsets, TM compatibility, evolution methods, egg groups and
-// hatch counters.
+// 493 Pokemon: the National Pokedex through the end of generation IV, with
+// Platinum's base stats, abilities, catch rates, growth curves, level-up
+// learnsets, TM compatibility, evolution methods, egg groups and hatch
+// counters. `sinnoh` carries the regional number for the 210 the Sinnoh dex
+// covers, and is absent for everything else.
 //
 // Everything a monster is lives here as plain data. The battle engine, the
 // Pokedex and the sprite generator all read from this one table.
@@ -97,6 +98,7 @@ for s in species:
     b = s['base']
     art = s['art']
     head = (f"  {{ id: {s['id']}, name: {js(s['name'])}, types: {js(s['types'])}, "
+            f"sinnoh: {js(s.get('sinnoh'))}, "
             f"base: S({b['hp']}, {b['atk']}, {b['def']}, {b['spa']}, {b['spd']}, {b['spe']}),")
     lines.append(head)
     lines.append(f"    catchRate: {s['catchRate']}, baseExp: {s['baseExp']}, growth: {js(s['growth'])}, "
@@ -122,11 +124,21 @@ for (const s of list) {
 export const SPECIES_LIST = list;
 export const DEX_COUNT = list.length;
 
-// Sinnoh order (the order the list is generated in) for Pokedex browsing,
-// keyed by national id so save files never store a display position.
-export const SINNOH_ORDER = list.map((s) => s.id);
+// Two orders, because the dex is now the National Dex and 493 entries in
+// national order is not how a Sinnoh trainer thinks about the 210 they
+// actually meet. Both are keyed by national id, so a save never stores a
+// display position and switching order can never move somebody's records.
+export const NATIONAL_ORDER = list.map((s) => s.id);
+export const SINNOH_ORDER = list
+  .filter((s) => s.sinnoh)
+  .slice()
+  .sort((a, b) => a.sinnoh - b.sinnoh)
+  .map((s) => s.id);
 export const SINNOH_NUMBER = {};
-list.forEach((s, i) => { SINNOH_NUMBER[s.id] = i + 1; });
+for (const s of list) if (s.sinnoh) SINNOH_NUMBER[s.id] = s.sinnoh;
+
+/** True for the 210 a Sinnoh trainer meets before the National Dex. */
+export function inSinnohDex(id) { return !!SINNOH_NUMBER[id]; }
 
 export function getSpecies(id) { return SPECIES[id]; }
 

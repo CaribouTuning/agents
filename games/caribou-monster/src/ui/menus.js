@@ -13,7 +13,7 @@ import {
 } from './kit.js';
 import { renderMonster } from '../render/monsterart.js';
 import { drawChar, lookFor } from '../render/sprites.js';
-import { getSpecies, SPECIES_LIST, natureName } from '../data/species.js';
+import { getSpecies, SPECIES_LIST, SINNOH_ORDER, NATIONAL_ORDER, SINNOH_NUMBER, natureName } from '../data/species.js';
 import { getMove } from '../data/moves.js';
 import { getItem, POCKETS } from '../data/items.js';
 import {
@@ -694,27 +694,54 @@ export class DexScreen extends Screen {
     this.index = 0;
     this.scroll = 0;
     this.detail = false;
+    // SINNOH is the 210 a trainer here actually meets; NATIONAL is all 493.
+    // Scrolling 493 entries with a thumb to find a Bidoof is not a Pokedex,
+    // it is a phone book, so the short list is the one it opens on.
+    this.mode = 'sinnoh';
+  }
+
+  get order() { return this.mode === 'sinnoh' ? SINNOH_ORDER : NATIONAL_ORDER; }
+
+  /** Keep the cursor on the same Pokemon when the order changes under it. */
+  _swapMode(rows) {
+    const wasOn = this.order[this.index];
+    this.mode = this.mode === 'sinnoh' ? 'national' : 'sinnoh';
+    const again = this.order.indexOf(wasOn);
+    this.index = again >= 0 ? again : 0;
+    this.scroll = Math.max(0, Math.min(this.index - Math.floor(rows / 2), this.order.length - rows));
+    audio.sfx('select');
   }
 
   update(dt, isTop) {
     if (!isTop) return;
-    const n = SPECIES_LIST.length;
+    const n = this.order.length;
     const rows = Math.floor((this.game.display.height - 24) / LINE);
+    const W = this.game.display.width;
     const tap = input.consumeTap();
+    if (tap && hit(tap, W - 116, 2, 58, 11)) { this._swapMode(rows); return; }
     if (tap && !this.detail) {
       for (let i = 0; i < rows; i++) {
         if (hit(tap, 4, 16 + i * LINE, 130, LINE)) { this.index = this.scroll + i; audio.sfx('select'); this.detail = true; return; }
       }
     } else if (tap && this.detail) { this.detail = false; audio.sfx('back'); return; }
 
+    // Left/right page by a screenful, because 493 entries one row at a time
+    // is a minute of holding down.
+    if (input.repeated('left') || input.repeated('right')) {
+      const step = input.repeated('left') ? -rows : rows;
+      this.index = Math.max(0, Math.min(n - 1, this.index + step));
+      this.scroll = Math.max(0, Math.min(this.index - Math.floor(rows / 2), Math.max(0, n - rows)));
+      audio.sfx('cursor');
+    }
     if (input.repeated('up')) { const r = moveCursor(this.index, n, -1, rows, this.scroll); this.index = r.index; this.scroll = r.scroll; audio.sfx('cursor'); }
     if (input.repeated('down')) { const r = moveCursor(this.index, n, 1, rows, this.scroll); this.index = r.index; this.scroll = r.scroll; audio.sfx('cursor'); }
+    if (input.pressed('select')) { this._swapMode(rows); return; }
     if (input.pressed('a')) {
       audio.sfx('select');
       this.detail = !this.detail;
       if (this.detail) {
-        const sp = SPECIES_LIST[this.index];
-        if (this.game.state.dex.seen[sp.id]) audio.cry(sp.id);
+        const id = this.order[this.index];
+        if (this.game.state.dex.seen[id]) audio.cry(id);
       }
     }
     if (input.pressed('b')) {
@@ -730,22 +757,31 @@ export class DexScreen extends Screen {
     for (let y = 0; y < H; y += 8) rect(ctx, 0, y, W, 4, shade(PAL.uiDanger, -0.4));
 
     const rows = Math.floor((H - 24) / LINE);
+    const order = this.order;
     window9(ctx, 2, 12, 136, rows * LINE + 8);
     drawText(ctx, `SEEN ${seenCount(st.dex)}`, 6, 3, { color: PAL.uiTextLight, shadow: PAL.black });
     drawText(ctx, `CAUGHT ${caughtCount(st.dex)}`, 62, 3, { color: PAL.uiTextLight, shadow: PAL.black });
+    // Which list you are looking at, and the tap target that switches it.
+    const swap = this.mode === 'sinnoh' ? `SINNOH ${order.length}` : `NATIONAL ${order.length}`;
+    rect(ctx, W - 116, 2, 58, 11, PAL.uiFrame);
+    drawTextCentered(ctx, swap, W - 87, 4, { color: PAL.uiTextLight });
 
-    SPECIES_LIST.slice(this.scroll, this.scroll + rows).forEach((sp, i) => {
+    order.slice(this.scroll, this.scroll + rows).forEach((id, i) => {
+      const sp = getSpecies(id);
       const idx = this.scroll + i;
       const iy = 16 + i * LINE;
-      const seen = st.dex.seen[sp.id];
-      const caught = st.dex.caught[sp.id];
+      const seen = st.dex.seen[id];
+      const caught = st.dex.caught[id];
       if (idx === this.index) cursor(ctx, 5, iy);
-      drawText(ctx, String(sp.id).padStart(3, '0'), 13, iy, { color: PAL.uiTextDim });
+      // Sinnoh browsing shows the regional number, because that is the one
+      // written on the signs and said out loud by everybody in the region.
+      const no = this.mode === 'sinnoh' ? (SINNOH_NUMBER[id] || id) : id;
+      drawText(ctx, String(no).padStart(3, '0'), 13, iy, { color: PAL.uiTextDim });
       label(ctx, seen ? sp.name : '----------', 36, iy, { color: seen ? PAL.uiText : PAL.uiShadow });
       if (caught) drawText(ctx, '●', 126, iy, { color: PAL.uiDanger });
     });
 
-    const sp = SPECIES_LIST[this.index];
+    const sp = getSpecies(order[this.index]);
     const seen = st.dex.seen[sp.id];
     const px = 142;
     window9(ctx, px, 12, W - px - 2, H - 24);
@@ -756,6 +792,9 @@ export class DexScreen extends Screen {
     const img = renderMonster(sp.art, { size: 64 });
     ctx.drawImage(img, px + 6, 18);
     label(ctx, sp.name, px + 58, 18);
+    labelDim(ctx, SINNOH_NUMBER[sp.id]
+      ? `No.${String(sp.id).padStart(3, '0')}  SINNOH ${String(SINNOH_NUMBER[sp.id]).padStart(3, '0')}`
+      : `No.${String(sp.id).padStart(3, '0')}`, px + 6, 84);
     let cx = px + 58;
     for (const t of sp.types) cx += typeChip(ctx, t, cx, 28) + 3;
     labelDim(ctx, `HT ${sp.height.toFixed(1)}m`, px + 58, 42);

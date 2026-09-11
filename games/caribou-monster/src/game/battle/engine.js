@@ -110,7 +110,12 @@ export function effectiveStat(battle, sideIdx, key, viewer = null) {
     v = Math.floor(v * ability.weatherStatMultiplier(mon, key, sky));
   }
   if (key === 'atk' && mon.status === 'BRN') v = Math.floor(v / 2);
-  if (key === 'spe' && mon.status === 'PAR') v = Math.floor(v / 4);
+  if (key === 'spe') {
+    // Quick Feet both adds its own bonus and cancels the cut, which is the
+    // whole trick: paralysis makes it faster, not slower.
+    v = Math.floor(v * ability.statusSpeedMultiplier(mon));
+    if (mon.status === 'PAR' && !ability.ignoresParalysisDrop(mon)) v = Math.floor(v / 4);
+  }
   return Math.max(1, v);
 }
 
@@ -194,9 +199,16 @@ function buildOrder(battle, actions) {
     return slot ? getMove(slot.id).priority : 0;
   };
   const speed = (e) => effectiveStat(battle, e.side, 'spe');
+  // Stall goes after everything at the same move priority, however fast it is.
+  const stalls = (e) => {
+    const mon = activeOf(battle.sides[e.side]);
+    return mon && e.action.type === 'move' && ability.movesLast(mon) ? 1 : 0;
+  };
   entries.sort((x, y) => {
     const dr = rank(y) - rank(x);
     if (dr) return dr;
+    const dst = stalls(x) - stalls(y);
+    if (dst) return dst;
     const ds = speed(y) - speed(x);
     if (ds) return ds;
     // Speed ties resolve off the battle RNG, keeping both clients in step.
@@ -225,7 +237,17 @@ function abilityCtx(battle, sideIdx, out, mon) {
     },
     hp: (side, m) => out.push({ t: 'hp', side, uid: m.uid, hp: m.hp }),
     stat: (m, key) => statValue(m, key),
+    move: (id) => getMove(id),
     foeMon: () => activeOf(battle.sides[foeIndex(sideIdx)]),
+    /** Chip the Pokemon on the other side. Bad Dreams is the only user. */
+    damageFoe: (amount, text) => {
+      const other = foeIndex(sideIdx);
+      const foe = activeOf(battle.sides[other]);
+      if (!foe || isFainted(foe)) return;
+      foe.hp = Math.max(0, foe.hp - Math.max(1, Math.floor(amount)));
+      out.push({ t: 'hp', side: other, uid: foe.uid, hp: foe.hp, shake: true });
+      if (text) out.push({ t: 'text', s: text });
+    },
     // Anticipation reads the foe's move list, which is exactly what the real
     // ability does — it is not the AI peeking, it is the ability's whole point.
     foeHasSuperEffective: () => {
@@ -662,8 +684,14 @@ function applyDamagingMove(battle, sideIdx, move, out) {
   const user = activeOf(side);
   const target = activeOf(foeSide);
 
-  const hits = move.effect && move.effect.kind === 'multihit'
-    ? battle.rng.range(move.effect.min, move.effect.max) : 1;
+  let hits = 1;
+  if (move.effect && move.effect.kind === 'multihit') {
+    // The roll happens either way — an ability that overrides a result must
+    // never change how much of the RNG stream a turn consumes, or the two
+    // phones in a link battle stop agreeing on the very next roll.
+    const rolled = battle.rng.range(move.effect.min, move.effect.max);
+    hits = ability.alwaysMaxHits(user) ? move.effect.max : rolled;
+  }
 
   let total = 0;
   let lastEff = 1;
@@ -689,7 +717,15 @@ function applyDamagingMove(battle, sideIdx, move, out) {
     out.push({ t: 'sfx', s: eff >= 2 ? 'supereffective' : eff < 1 ? 'weak' : 'hit' });
     out.push({ t: 'hit', side: foeIndex(sideIdx), eff, crit, move: move.id });
     out.push({ t: 'hp', side: foeIndex(sideIdx), uid: target.uid, hp: target.hp, shake: true });
-    if (crit) out.push({ t: 'text', s: 'A critical hit!' });
+    if (crit) {
+      out.push({ t: 'text', s: 'A critical hit!' });
+      // Anger Point, on the Pokemon that just took it — and only if it is
+      // still standing to be angry about it.
+      if (!isFainted(target)) {
+        const other = foeIndex(sideIdx);
+        ability.onCritTaken(battle, other, abilityCtx(battle, other, out, target), target);
+      }
+    }
   }
 
   if (hits > 1) out.push({ t: 'text', s: `Hit ${hits} time${hits > 1 ? 's' : ''}!` });
@@ -939,7 +975,15 @@ function endOfTurn(battle, out) {
     const mon = activeOf(side);
     if (!mon || isFainted(mon)) continue;
     const guarded = ability.noIndirectDamage(mon);
-    if (mon.status === 'PSN' && !guarded) {
+    const poisonHeals = ability.healsFromPoison(mon);
+    if (mon.status === 'PSN' && !guarded && poisonHeals) {
+      const cap = maxHp(mon);
+      if (mon.hp > 0 && mon.hp < cap) {
+        mon.hp = Math.min(cap, mon.hp + Math.max(1, Math.floor(cap * poisonHeals)));
+        out.push({ t: 'hp', side: i, uid: mon.uid, hp: mon.hp });
+        out.push({ t: 'text', s: `${displayName(mon)}'s Poison Heal restored its health!` });
+      }
+    } else if (mon.status === 'PSN' && !guarded) {
       const frac = mon.badPoison ? Math.min(15, ++mon.statusCounter) / 16 : 1 / 8;
       const dmg = Math.max(1, Math.floor(maxHp(mon) * frac));
       mon.hp = Math.max(0, mon.hp - dmg);

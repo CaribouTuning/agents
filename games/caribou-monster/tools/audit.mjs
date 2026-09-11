@@ -22,7 +22,7 @@ import { PHASES, phaseAt, tintFor } from '../src/game/clock.js';
 import { SPECIES } from '../src/data/species.js';
 import { MOVES } from '../src/data/moves.js';
 import { TYPES } from '../src/data/types.js';
-import { ITEMS } from '../src/data/items.js';
+import { ITEMS, martStock, departmentStock } from '../src/data/items.js';
 import { TRAINERS } from '../src/data/trainers.js';
 import { PROS, TOURNAMENTS, RANKS, PRO_LIST, roundsFor, pointsForFinish } from '../src/data/circuit.js';
 import { HEADLINES, BODIES, PRESS_QUESTIONS, OUTLETS, ANALYSTS } from '../src/data/news.js';
@@ -889,7 +889,53 @@ function checkKeyItemsReachable() {
   }
 }
 
+/**
+ * Every evolution has to be one the world can actually trigger.
+ *
+ * This rule exists because stone evolution in this game never once fired: the
+ * dex emitted veekun's numeric item id, the bag passed the string on the
+ * item, and the two were compared to each other forever. Nothing was broken
+ * enough to crash, so nothing said so.
+ */
+function checkEvolutionsReachable() {
+  const stoneItems = new Map();      // stone key -> item id
+  for (const [id, it] of Object.entries(ITEMS)) {
+    if (it.use && it.use.kind === 'stone') stoneItems.set(it.use.stone, id);
+  }
+  const sold = new Set([...martStock(8), ...departmentStock(8)]);
+  const onGround = new Set();
+  for (const map of Object.values(MAPS)) {
+    for (const o of map.objects || []) if (o.item) onGround.add(o.item);
+  }
+  const givenBy = fs.readFileSync(new URL('../src/game/overworld/scripts.js', import.meta.url), 'utf8');
+
+  const seenStones = new Set();
+  const seenMaps = new Set();
+  for (const sp of Object.values(SPECIES)) {
+    for (const evo of sp.evolutions || []) {
+      if (evo.method === 'stone') {
+        if (!stoneItems.has(evo.stone)) {
+          err(`[species ${sp.name}] evolves with a "${evo.stone}" stone, and no item is one`);
+          continue;
+        }
+        seenStones.add(evo.stone);
+      } else if (evo.method === 'location') {
+        if (!MAPS[evo.map]) seenMaps.add(evo.map);
+      }
+    }
+  }
+  for (const stone of seenStones) {
+    const item = stoneItems.get(stone);
+    const reachable = sold.has(item) || onGround.has(item) || givenBy.includes(`'${item}'`);
+    if (!reachable) err(`[item] the ${stone} stone exists but nothing in the world hands one over`);
+  }
+  for (const m of seenMaps) {
+    warn(`[species] an evolution happens at "${m}", which is not built yet`);
+  }
+}
+
 checkKeyItemsReachable();
+checkEvolutionsReachable();
 checkTownSizes();
 
 // ---- report ---------------------------------------------------------------
