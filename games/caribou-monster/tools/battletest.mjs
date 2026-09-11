@@ -59,3 +59,35 @@ console.log('\n--- sample transcript (seed 7) ---');
 const s = run(7, { verbose: false });
 console.log(s.log.slice(0, 30).join('\n'));
 console.log('...\nresult:', s.result, 'turns:', s.turns);
+
+// 4) A Pokémon with nothing left still has something to do.
+//
+// In a trainer battle there is no running away, so a party with every move
+// at zero PP had no legal action at all: the move menu refused each of the
+// four in turn and the fight could not be finished or left. The engine has
+// always known how to Struggle — this proves the empty-handed case reaches
+// it, and that the battle actually ends.
+{
+  const r = makeRng(99);
+  const mine = team(r, 1, 30), theirs = team(r, 1, 30);
+  for (const m of mine) for (const slot of m.moves) slot.pp = 0;
+  const battle = createBattle({
+    seed: 99, kind: 'trainer', difficulty: 'easy',
+    a: { id: 'p', name: 'Matthew', isPlayer: true, party: mine, trainer: { ai: 1, prize: 10 } },
+    b: { id: 'e', name: 'Trainer', party: theirs, trainer: { name: 'Trainer', ai: 1, prize: 10, defeat: '.' } },
+  });
+  let sawStruggle = false, guard = 0;
+  while (!battle.over && guard++ < 200) {
+    for (let s = 0; s < 2; s++) {
+      if (needsSwitch(battle, s)) { const i = chooseAiSwitch(battle, s); if (i >= 0) forceSwitch(battle, s, i); }
+    }
+    if (battle.over) break;
+    // index -1 is what the menu now submits when nothing has PP left.
+    const events = resolveTurn(battle, [{ type: 'move', index: -1 }, chooseAiAction(battle, 1)]);
+    for (const e of events) if (e.t === 'text' && /Struggle/i.test(String(e.s))) sawStruggle = true;
+  }
+  console.log('\n--- with no PP anywhere ---');
+  console.log(sawStruggle ? '  PASS  an empty-handed Pokemon struggles' : '  FAIL  nothing struggled');
+  console.log(battle.over ? `  PASS  the battle still ended (${battle.result})` : '  FAIL  the battle never ended');
+  if (!sawStruggle || !battle.over) process.exitCode = 1;
+}

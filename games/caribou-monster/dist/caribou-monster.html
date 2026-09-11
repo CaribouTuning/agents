@@ -11388,12 +11388,12 @@ const ROWAN_LAB = defineMap('rowan_lab', {
           when: { flag: 'postGame' },
           pool: [
             ['She has not slept properly since. Not worried — busy.',
-              'Thirty-one years of readings and the last four days of them are\nthe only ones that make sense.',
+              'Thirty-one years of readings, and the last four days of them\nare the only ones that make sense.',
               'She keeps saying "it was holding it" to nobody in particular.'],
             ['Looker has been in twice. He brought a new file and would not say\nwhat was in it.',
               'He did say the old one is closed. He said it like it cost him\nsomething to close it.'],
             ['The light readings went flat the day you came back up.',
-              'Flat, everywhere, for the first time since the instruments were\ninvented. She has a whole wall of it.',
+              'Flat everywhere, for the first time since the instruments\nwere invented. She has a wall of it.',
               'She calls that wall "the quiet". I do not think she is joking.'],
           ],
         },
@@ -11407,7 +11407,7 @@ const ROWAN_LAB = defineMap('rowan_lab', {
           // nothing in the world had noticed it happened.
           when: { all: [{ flag: 'buddyHasStarter' }, { notFlag: 'badge1' }] },
           lines: ['Both of you walked out of here with one. She has been in a good\nmood since, which is unnerving.',
-            'She says two trainers who started the same morning end up measuring\nthemselves against each other whether they mean to or not.',
+            'She says two trainers who start the same morning end up\nmeasuring themselves against each other.',
             'She did not say it like a warning. I think she meant it kindly.'],
         },
         {
@@ -33761,6 +33761,13 @@ class BattleScreen extends Screen {
     const slot = mon.moves[i];
     if (!slot) return;
     if (slot.pp <= 0) {
+      // One empty move is a mistake worth saying out loud. Every move empty
+      // is something else: in a trainer battle there is no running away, so
+      // refusing each of the four in turn leaves the player on a menu with no
+      // legal action and no way out of the fight. The engine has always known
+      // how to Struggle — the menu simply never let anyone reach it.
+      const anyLeft = mon.moves.some((m) => m && m.pp > 0);
+      if (!anyLeft) { this._submit({ type: 'move', index: -1 }); return; }
       audio.sfx('deny');
       this._say('There is no PP left for that move!');
       return;

@@ -424,6 +424,13 @@ export class BattleScreen extends Screen {
     const slot = mon.moves[i];
     if (!slot) return;
     if (slot.pp <= 0) {
+      // One empty move is a mistake worth saying out loud. Every move empty
+      // is something else: in a trainer battle there is no running away, so
+      // refusing each of the four in turn leaves the player on a menu with no
+      // legal action and no way out of the fight. The engine has always known
+      // how to Struggle — the menu simply never let anyone reach it.
+      const anyLeft = mon.moves.some((m) => m && m.pp > 0);
+      if (!anyLeft) { this._submit({ type: 'move', index: -1 }); return; }
       audio.sfx('deny');
       this._say('There is no PP left for that move!');
       return;
