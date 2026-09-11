@@ -66,6 +66,13 @@ page.on('console', (m) => {
 
 await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'load' });
 await page.waitForFunction('!!window.CARIBOU', { timeout: 30000 });
+// Fastest text. A full playthrough is thousands of text boxes, and the
+// typewriter is not what is being tested.
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.settings.textSpeed = 2;
+  g.dialogueForTest.speedIndex = 2;
+});
 
 const wait = (ms) => page.waitForTimeout(ms);
 const hold = async (code, ms) => {
@@ -199,34 +206,45 @@ const facingSomebody = () => page.evaluate(() => {
  * party standing so the run is testing scenes rather than a level curve.
  */
 async function fightToTheEnd() {
-  for (let i = 0; i < 1200; i++) {
-    const alive = await page.evaluate(() => {
+  const started = Date.now();
+  let lastProgress = Date.now();
+  let mark = '';
+  while (Date.now() - started < 120000) {
+    const s = await page.evaluate(() => {
       const g = window.CARIBOU;
       const top = g.screens.top;
-      if (top.constructor.name !== 'BattleScreen') return false;
+      if (top.constructor.name !== 'BattleScreen') return null;
       if (g.healPartyForTest) g.healPartyForTest();
-      // On the move list, aim at something that can actually knock a foe out.
       if (g.bestMoveForTest) {
         const i = g.bestMoveForTest(top);
         if (i >= 0) top.moveIndex = i;
       }
-      return true;
+      const side = top.battle && top.battle.sides[top.foeSide];
+      const foe = side && side.party ? side.party.map((m) => m.hp).join(',') : '';
+      return { turn: top.battle ? top.battle.turn : -1, foe };
     });
-    if (!alive) return;
-    await tap('KeyZ', 1, 35);
+    if (!s) return;
+    const now = `${s.turn}|${s.foe}`;
+    if (now !== mark) { mark = now; lastProgress = Date.now(); }
+    // Twenty seconds with neither the turn counter nor a single point of the
+    // other side's health moving is not a long fight, it is a stuck one.
+    if (Date.now() - lastProgress > 20000) {
+      const detail = await page.evaluate(() => {
+        const g = window.CARIBOU;
+        const top = g.screens.top;
+        const one = (x) => (x && x.party ? x.party.map((m) => `${m.species}@${m.level} ${m.hp}hp`).join(' ') : '?');
+        const me = top.battle && top.battle.sides[top.mySide];
+        return { mode: top.mode, msg: String(top.msg || '').slice(0, 60),
+          moveIndex: top.moveIndex, turn: top.battle && top.battle.turn,
+          mine: one(me), foe: one(top.battle && top.battle.sides[top.foeSide]),
+          moves: me && me.party[me.active] ? me.party[me.active].moves.map((m) => `${m.id}:${m.pp}`) : null };
+      });
+      found('BATTLE', `a battle stopped making progress — ${JSON.stringify(detail)}`);
+      return;
+    }
+    for (let k = 0; k < 5; k++) { await page.keyboard.press('KeyZ'); await wait(30); }
   }
-  const detail = await page.evaluate(() => {
-    const g = window.CARIBOU;
-    const top = g.screens.top;
-    if (top.constructor.name !== 'BattleScreen') return { screen: top.constructor.name };
-    const side = top.battle && top.battle.sides[top.mySide];
-    const foe = top.battle && top.battle.sides[top.foeSide];
-    const one = (s) => s && s.party ? s.party.map((m) => `${m.species}@${m.level} ${m.hp}hp`).join(' ') : '?';
-    return { mode: top.mode, msg: String(top.msg || '').slice(0, 60),
-      moveIndex: top.moveIndex, mine: one(side), foe: one(foe),
-      moves: side && side.party[side.active] ? side.party[side.active].moves : null };
-  });
-  found('BATTLE', `a battle never ended — ${JSON.stringify(detail)}`);
+  found('BATTLE', 'a battle ran for two minutes without finishing');
 }
 
 /**
@@ -341,13 +359,23 @@ async function walkTo(tx, ty, replans = 8) {
 
 /** Checks the place you have just arrived in behaves like a place. */
 async function checkArrival(expected) {
-  const p = await at();
+  // Let the doorway finish. Sampling mid-transition reported an ordinary
+  // walk through a door as arriving in the wrong place and then being thrown
+  // out of it — two findings for something that was simply still moving.
+  let p = await at();
+  for (let i = 0; i < 25; i++) {
+    await wait(120);
+    const now = await at();
+    if (now.map === p.map && !await busy()) break;
+    p = now;
+  }
   if (expected && p.map !== expected) {
     found('WRONG MAP', `expected ${expected}, arrived in ${p.map}`);
   }
   where = p.map || where;
-  // Straight back out again? That is the Hearthome bug.
-  await wait(260);
+  // Standing still and being moved anyway? That is the Hearthome bug: a door
+  // that puts you back outside the moment you walk through it.
+  await wait(600);
   const after = await at();
   if (after.map !== p.map) {
     found('SPAT OUT', `landed in ${p.map} and was immediately moved to ${after.map}`);
@@ -511,6 +539,52 @@ async function runScene(name) {
   return { text, before };
 }
 
+/**
+ * Walks to another map, however many doors away it is.
+ *
+ * `goThrough` only knows about doors on the map you are standing on, so a
+ * run that wandered into a Poké Mart while talking to people then reported
+ * the road out of town as missing — the door was there, it was just two
+ * rooms away. This searches the whole warp graph and walks the doors in
+ * order, which is what a player does without thinking about it.
+ */
+async function goTo(target, hops = 8) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (await busy()) await clear();
+    const here = (await at()).map;
+    if (here === target) return true;
+    const path = await page.evaluate(([from, to, limit]) => {
+      const MAPS = window.CARIBOU.mapsForTest && window.CARIBOU.mapsForTest.MAPS;
+      if (!MAPS) return null;
+      const prev = new Map([[from, null]]);
+      const queue = [from];
+      for (let i = 0; i < queue.length && i < 500; i++) {
+        const id = queue[i];
+        if (id === to) break;
+        const m = MAPS[id];
+        if (!m) continue;
+        for (const w of (m.warps || [])) {
+          if (prev.has(w.to)) continue;
+          prev.set(w.to, id);
+          queue.push(w.to);
+        }
+      }
+      if (!prev.has(to)) return null;
+      const out = [];
+      let cur = to;
+      while (cur !== from) { out.push(cur); cur = prev.get(cur); }
+      return out.reverse().slice(0, limit);
+    }, [here, target, hops]);
+    if (!path) { found('NO WAY THERE', `nothing joins ${here} to ${target}`); return false; }
+    let ok = true;
+    for (const next of path) {
+      if (!await goThrough(next)) { ok = false; break; }
+    }
+    if (ok && (await at()).map === target) return true;
+  }
+  return (await at()).map === target;
+}
+
 /** Finds the door on this map that leads to `to`, and walks through it. */
 async function goThrough(to, expectMap = null) {
   const door = await page.evaluate((t) => {
@@ -562,6 +636,10 @@ await page.evaluate(() => {
   // A team that can win the story's fights, so the run tests SCENES rather
   // than whether a level-5 Turtwig can beat a Gym.
   g.debugGive(387, 60); g.debugGive(392, 60); g.debugGive(398, 60);
+  // Lead with the strongest, the way anybody would. Leading with the level-8
+  // starter turns every Gym into a war of attrition, and this run is testing
+  // whether the scenes and the badges work, not the level curve.
+  g.state.party.sort((a, b) => b.level - a.level);
 });
 await goThrough('twinleaf');
 await goThrough('route201');
@@ -579,7 +657,7 @@ const ROAD = [
   ['oreburgh', 'talk'],
 ];
 for (const [map, mode] of ROAD) {
-  if (!await goThrough(map)) { found('ROUTE BROKEN', `could not walk to ${map}`); break; }
+  if (!await goTo(map)) { found('ROUTE BROKEN', `could not walk to ${map}`); break; }
   if (mode === 'talk') { await talkToEveryone(8); await readEverySign(); }
 }
 
