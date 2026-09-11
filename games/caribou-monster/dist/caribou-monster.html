@@ -8555,12 +8555,15 @@ const GYMS = [
   {
     n: 5, city: 'pastoria', map: 'pastoria_gym', leader: 'Crasher Wake', type: 'Water',
     badge: 'Fen Badge', trainer: 'gym5_leader', tm: 'tm06',
-    field: 'defog', level: 30,
+    // 37, not 30: his team is 34/35/37, and the number here claimed he was
+    // EASIER than Maylene two Gyms after her. The audit now checks this
+    // against the real team and refuses a curve that goes backwards.
+    field: 'defog', level: 37,
   },
   {
     n: 6, city: 'canalave', map: 'canalave_gym', leader: 'Byron', type: 'Steel',
     badge: 'Mine Badge', trainer: 'gym6_leader', tm: 'tm07',
-    field: 'strength', level: 39,
+    field: 'strength', level: 41,
   },
   {
     n: 7, city: 'snowpoint', map: 'snowpoint_gym', leader: 'Candice', type: 'Ice',
@@ -23992,7 +23995,12 @@ add('gym6_c', {
   team: [mon(95, 36, ['rockslide', 'bind', 'irontail']), mon(75, 37, ['rockslide', 'magnitude', 'rocktomb'])],
 });
 add('gym6_leader', {
+  // `tm` was missing, so beating the sixth Gym handed over a badge and
+  // nothing else while the campaign table said TM07. The audit now checks the
+  // two agree, because the Gym record and the trainer record are two places
+  // to write the same fact and one of them was wrong.
   name: 'Byron', cls: 'Leader', look: 'hiker', ai: 5, prize: 6200, badge: 6, badgeName: 'Mine Badge',
+  tm: 'tm07',
   intro: 'You came up the plates. Good. Now come up against something that does not move.',
   defeat: 'Hah! There it is. There is the thing I dig for.',
   team: [
@@ -40156,6 +40164,9 @@ const { input } = __req('core/input.js');
 const { exportText } = __req('save/backup.js');
 const { CreditsScreen } = __req('ui/credits.js');
 const { ITEM_IDS } = __req('data/items.js');
+const { unrenderable } = __req('render/font.js');
+const { objective } = __req('game/journal.js');
+const { builtGyms } = __req('data/campaign.js');
 const { audio } = __req('core/audio.js');
 const { bus } = __req('core/events.js');
 const { buildTileAtlas } = __req('render/tiles.js');
@@ -40202,6 +40213,9 @@ const { PAL } = __req('render/palette.js');
 // `Game` is the only object that knows about every layer. Everything else
 // talks to it, or to the bus, and never to each other. That is what keeps the
 // engine, the network and the UI independently testable.
+
+
+
 
 
 
@@ -40752,6 +40766,14 @@ function start() {
   // nothing a player could not already do from the menus.
   game.backupText = () => exportText(game.state);
   game.debugItemIds = () => ITEM_IDS.slice();
+  // Two readers the full-game play-test uses to check what the player is
+  // being shown: which characters the font cannot draw, and what the guide
+  // bar currently says.
+  game.unrenderableForTest = (t) => unrenderable(String(t));
+  game.objectiveForTest = () => objective(game.state);
+  game.gymsForTest = () => builtGyms(MAPS).map((g) => ({
+    n: g.n, city: g.city, map: g.map, leader: g.leader, badge: g.badge, trainer: g.trainer,
+  }));
   Object.defineProperty(game, 'inputEnabled', { get: () => input.enabled });
 }
 

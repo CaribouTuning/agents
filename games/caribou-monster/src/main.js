@@ -9,6 +9,9 @@ import { input } from './core/input.js';
 import { exportText } from './save/backup.js';
 import { CreditsScreen } from './ui/credits.js';
 import { ITEM_IDS } from './data/items.js';
+import { unrenderable } from './render/font.js';
+import { objective } from './game/journal.js';
+import { builtGyms } from './data/campaign.js';
 import { audio } from './core/audio.js';
 import { bus } from './core/events.js';
 import { buildTileAtlas } from './render/tiles.js';
@@ -553,6 +556,14 @@ function start() {
   // nothing a player could not already do from the menus.
   game.backupText = () => exportText(game.state);
   game.debugItemIds = () => ITEM_IDS.slice();
+  // Two readers the full-game play-test uses to check what the player is
+  // being shown: which characters the font cannot draw, and what the guide
+  // bar currently says.
+  game.unrenderableForTest = (t) => unrenderable(String(t));
+  game.objectiveForTest = () => objective(game.state);
+  game.gymsForTest = () => builtGyms(MAPS).map((g) => ({
+    n: g.n, city: g.city, map: g.map, leader: g.leader, badge: g.badge, trainer: g.trainer,
+  }));
   Object.defineProperty(game, 'inputEnabled', { get: () => input.enabled });
 }
 

@@ -413,7 +413,12 @@ add('gym6_c', {
   team: [mon(95, 36, ['rockslide', 'bind', 'irontail']), mon(75, 37, ['rockslide', 'magnitude', 'rocktomb'])],
 });
 add('gym6_leader', {
+  // `tm` was missing, so beating the sixth Gym handed over a badge and
+  // nothing else while the campaign table said TM07. The audit now checks the
+  // two agree, because the Gym record and the trainer record are two places
+  // to write the same fact and one of them was wrong.
   name: 'Byron', cls: 'Leader', look: 'hiker', ai: 5, prize: 6200, badge: 6, badgeName: 'Mine Badge',
+  tm: 'tm07',
   intro: 'You came up the plates. Good. Now come up against something that does not move.',
   defeat: 'Hah! There it is. There is the thing I dig for.',
   team: [

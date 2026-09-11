@@ -1300,6 +1300,54 @@ function checkEveryExitIsNamed() {
   }
 }
 
+/**
+ * The badge curve has to go one way.
+ *
+ * Every Gym carries a `level` meant to say how hard it is. Crasher Wake's
+ * said 30 while his team was 34/35/37 — claiming he was EASIER than Maylene,
+ * two Gyms earlier, when he is in fact five levels harder than her hardest.
+ * A number that describes the game has to be checked against the game.
+ */
+function checkTheBadgeCurve() {
+  let last = 0;
+  for (const g of builtGyms(MAPS)) {
+    const t = TRAINERS[g.trainer];
+    if (!t || !t.team) continue;
+    const top = Math.max(...t.team.filter((e) => typeof e !== 'string').map((e) => e.level));
+    if (g.level !== top) {
+      err(`[gym ${g.n}] ${g.leader} is listed at level ${g.level} and fields a level ${top}`);
+    }
+    if (top < last) {
+      err(`[gym ${g.n}] ${g.leader} at ${top} is easier than the Gym before it (${last})`);
+    }
+    last = top;
+  }
+}
+
+/**
+ * A Gym's record and its leader's record are two places to write the same
+ * fact, so they have to be checked against each other.
+ *
+ * Byron's trainer entry had no `tm`, while the campaign table said TM07 — so
+ * beating the sixth Gym gave you a badge and silently nothing else. Nothing
+ * was broken enough to notice; the line that hands the TM over simply never
+ * ran.
+ */
+function checkGymsAgreeWithTheirLeaders() {
+  for (const g of builtGyms(MAPS)) {
+    const t = TRAINERS[g.trainer];
+    if (!t) { err(`[gym ${g.n}] names trainer "${g.trainer}", who does not exist`); continue; }
+    if (t.badge !== g.n) err(`[gym ${g.n}] ${g.leader} awards badge ${t.badge}`);
+    if (t.badgeName !== g.badge) err(`[gym ${g.n}] gives the "${t.badgeName}", not the "${g.badge}"`);
+    if (g.tm && t.tm !== g.tm) {
+      err(`[gym ${g.n}] ${g.leader} should hand over ${g.tm} and hands over ${t.tm || 'nothing'}`);
+    }
+    if (t.tm && !ITEMS[t.tm]) err(`[gym ${g.n}] hands over "${t.tm}", which is not an item`);
+  }
+}
+
+checkGymsAgreeWithTheirLeaders();
+checkTheBadgeCurve();
 checkEveryExitIsNamed();
 checkEveryScriptIsReachable();
 checkNobodyMisstatesTheRoad();

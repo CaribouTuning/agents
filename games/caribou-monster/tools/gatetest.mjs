@@ -16,6 +16,7 @@ import { MAPS } from '../src/data/maps/index.js';
 import { ITEMS } from '../src/data/items.js';
 import { MOVES } from '../src/data/moves.js';
 import { tileDef } from '../src/render/tiles.js';
+import { SCRIPTS } from '../src/game/overworld/scripts.js';
 
 let fails = 0;
 const check = (ok, msg, extra = '') => {
@@ -192,6 +193,57 @@ console.log('\n--- the spine ---');
   const badgeBeats = BEATS.filter((b) => /^badge\d$/.test(b.flag));
   check(badgeBeats.length === 8, 'all eight badges are beats in the story', String(badgeBeats.length));
   check(badgeBeats.every((b, i) => b.flag === `badge${i + 1}`), 'and they happen in order');
+}
+
+// ---- the whole road, walked as a graph ------------------------------------
+//
+// Not "is this gate wired up" but "can a save that starts with nothing get
+// all the way to the last Gym". It opens the world one step at a time, grants
+// the story flags as the map that grants them becomes reachable, and asks
+// whether the Gyms arrive in order — which is the only question that matters
+// about progression and the one no single-gate test can answer.
+{
+  const GRANT = {
+    twinleaf: ['gotStarter', 'mumSentYouOff', 'buddyJoined'],
+    route201: ['leftTown', 'beatRival1'],
+    route202: ['enteredForest'],
+    oreburgh: ['reachedOreburgh'],
+    oreburgh_gate: ['beatCommander', 'knowsTwist', 'gotCharm', 'enteredCave'],
+    veilstone: ['galacticHQ'],
+    lake_valor: ['lakeValor'],
+    celestic: ['celestic'],
+    lake_verity: ['lakeVerity'],
+    canalave: ['canalaveTruth'],
+  };
+  const built = builtGyms(MAPS);
+  const flags = {};
+  const seen = new Set(['twinleaf']);
+  for (let round = 0; round < 60; round++) {
+    let grew = false;
+    for (const id of [...seen]) {
+      for (const f of GRANT[id] || []) if (!flags[f]) { flags[f] = true; grew = true; }
+      const m = MAPS[id];
+      if (!m) continue;
+      for (const w of m.warps) {
+        if (w.requires && !flags[w.requires]) continue;
+        if (!seen.has(w.to)) { seen.add(w.to); grew = true; }
+      }
+    }
+    for (const g of built) if (seen.has(g.map)) flags[`badge${g.n}`] = true;
+    if (!grew) break;
+  }
+  for (const g of built) {
+    check(seen.has(g.map), `a fresh save can reach ${g.leader}'s Gym in ${g.city}`);
+  }
+  // A map nothing warps into is fine only if a script walks you there.
+  const scriptEntered = new Set(['everlight_chamber', 'underground', 'secret_base', 'iron_island']);
+  const stranded = Object.keys(MAPS).filter((id) => !seen.has(id) && !scriptEntered.has(id));
+  check(stranded.length === 0, 'and no map is left with no way in at all', stranded.join(' '));
+  for (const id of scriptEntered) {
+    check(Object.values(SCRIPTS).some((fn) => String(fn).includes(`'${id}'`))
+      || Object.values(MAPS).some((m) => m.warps.some((w) => w.to === id)),
+    `${id} is entered by a script, since no warp leads there`);
+  }
 }
 
 console.log(fails === 0 ? '\ngates: all checks passed' : `\ngates: ${fails} CHECK(S) FAILED`);

@@ -43,12 +43,15 @@ export const GYMS = [
   {
     n: 5, city: 'pastoria', map: 'pastoria_gym', leader: 'Crasher Wake', type: 'Water',
     badge: 'Fen Badge', trainer: 'gym5_leader', tm: 'tm06',
-    field: 'defog', level: 30,
+    // 37, not 30: his team is 34/35/37, and the number here claimed he was
+    // EASIER than Maylene two Gyms after her. The audit now checks this
+    // against the real team and refuses a curve that goes backwards.
+    field: 'defog', level: 37,
   },
   {
     n: 6, city: 'canalave', map: 'canalave_gym', leader: 'Byron', type: 'Steel',
     badge: 'Mine Badge', trainer: 'gym6_leader', tm: 'tm07',
-    field: 'strength', level: 39,
+    field: 'strength', level: 41,
   },
   {
     n: 7, city: 'snowpoint', map: 'snowpoint_gym', leader: 'Candice', type: 'Ice',
