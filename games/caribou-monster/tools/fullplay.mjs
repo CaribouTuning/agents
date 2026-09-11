@@ -731,7 +731,13 @@ await clear();
 await checkArrival('oreburgh_gate');
 await talkToEveryone(8);
 
-await runScene('commander');
+// Mars is a person standing in the Gate, and her scene reads her trainer
+// record off the NPC. Calling the scene with nobody attached throws before it
+// says a word, which is a fact about how this harness called it and not about
+// the game. Go and fight her.
+if ((await talkTo('cave_commander')) === null) {
+  found('STORY BREAK', 'Mars is not somebody you can walk up to in the Gate');
+}
 const hasCharm = await page.evaluate(() => !!window.CARIBOU.state.flags.beatCommander);
 if (!hasCharm) found('STORY BREAK', 'beating Mars did not set beatCommander');
 await runScene('charmFound');
@@ -751,11 +757,19 @@ await wait(500);
 await clear();
 await checkArrival('canalave_library');
 await talkToEveryone(8);
-await page.evaluate(() => {
-  const g = window.CARIBOU;
-  g.state.flags.readVolume1 = true; g.state.flags.readVolume2 = true;
+// Three volumes, and then the man at the far table who has read two of them
+// four times each. Two volumes and no conversation is not the revelation.
+for (const volume of [1, 2, 3]) {
+  await page.evaluate((v) => window.CARIBOU.overworld.runScript('libraryBook', { volume }), volume);
+  await wait(200);
+  await inspect(await clear(120));
+}
+const read = await page.evaluate(() => {
+  const f = window.CARIBOU.state.flags;
+  return !!(f.readVolume1 && f.readVolume2 && f.readVolume3);
 });
-await runScene('libraryBook');
+if (!read) found('STORY BREAK', 'reading all three volumes did not record them');
+if ((await talkTo('lib_looker')) === null) await runScene('lookerLibrary');
 const truth = await page.evaluate(() => !!window.CARIBOU.state.flags.canalaveTruth);
 if (!truth) found('STORY BREAK', 'reading the library did not set canalaveTruth');
 

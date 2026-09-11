@@ -1498,6 +1498,61 @@ function checkNoTextIsStranded() {
   }
 }
 
+// ---- every fight in a Gym can actually be walked to ------------------------
+// A Gym Leader you cannot reach is a badge you cannot earn, and a badge you
+// cannot earn is a game that cannot be finished. Canalave's Gym is three
+// sealed bands joined only by its lifts, so tile-walking alone says Byron is
+// unreachable — the lifts are warps back into the same map, and standing on
+// one is a move like any other. This walks the Gym the way a player does,
+// from the front door, taking the lifts, and insists that every trainer in
+// the room can be got to.
+
+function insideReach(m, starts) {
+  const solid = (x, y) => (x < 0 || y < 0 || x >= m.width || y >= m.height)
+    || !!tileDef(m.tiles[y][x]).solid;
+  const key = (x, y) => `${x},${y}`;
+  const lifts = new Map();
+  for (const w of (m.warps || [])) if (w.to === m.id) lifts.set(key(w.x, w.y), [w.tx, w.ty]);
+  const seen = new Set();
+  const queue = [];
+  for (const [x, y] of starts) if (!seen.has(key(x, y))) { seen.add(key(x, y)); queue.push([x, y]); }
+  for (let i = 0; i < queue.length && i < 40000; i++) {
+    const [x, y] = queue[i];
+    const lift = lifts.get(key(x, y));
+    if (lift && !seen.has(key(lift[0], lift[1]))) { seen.add(key(lift[0], lift[1])); queue.push(lift); }
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nx = x + dx, ny = y + dy;
+      if (seen.has(key(nx, ny)) || solid(nx, ny)) continue;
+      seen.add(key(nx, ny)); queue.push([nx, ny]);
+    }
+  }
+  return seen;
+}
+
+function checkEveryGymFightIsWalkableTo() {
+  for (const g of builtGyms(MAPS)) {
+    const m = MAPS[g.map];
+    if (!m) continue;
+    const doors = [];
+    for (const other of Object.values(MAPS)) {
+      if (other.id === g.map) continue;
+      for (const w of (other.warps || [])) if (w.to === g.map) doors.push([w.tx, w.ty]);
+    }
+    if (!doors.length) { err(`[gym ${g.n}] ` + `${g.map} has no way in from anywhere`); continue; }
+    const seen = insideReach(m, doors);
+    const nextTo = (n) => [[0, -1], [0, 1], [-1, 0], [1, 0]]
+      .some(([dx, dy]) => seen.has(`${n.x + dx},${n.y + dy}`));
+    for (const n of (m.npcs || [])) {
+      if (!n.trainer) continue;
+      if (nextTo(n)) continue;
+      const who = n.trainer === g.trainer ? `${g.leader}, the Leader` : n.id;
+      err(`[gym ${g.n}] ` + `${who} stands at (${n.x},${n.y}) in ${g.map}, where nobody walking in `
+        + 'from the door can get to them');
+    }
+  }
+}
+
+checkEveryGymFightIsWalkableTo();
 checkNoTextIsStranded();
 checkNobodyFightsAPlaceholder();
 checkNothingCountsTheGymsByHand();
