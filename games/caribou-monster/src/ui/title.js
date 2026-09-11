@@ -17,7 +17,7 @@ import { PLAYERS } from '../game/players.js';
 const DIALGA = 483;
 import { MUSIC } from '../data/music.js';
 import { formatPlayTime } from '../game/state.js';
-import { importFromFile } from '../save/backup.js';
+import { openRestorePanel } from '../save/restoreui.js';
 import { slotForLook } from '../save/SaveManager.js';
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
@@ -157,7 +157,10 @@ export class TitleScreen extends Screen {
    */
   async _restore() {
     this.note = 'pick your backup file...';
-    const got = await importFromFile();
+    // A real DOM panel, because the file picker will not open from inside the
+    // game loop: by the time a tap reaches this code the browser no longer
+    // counts a gesture as in progress, and the picker is silently refused.
+    const got = await openRestorePanel();
     if (!got.ok) { this.note = got.text; audio.sfx('deny'); return; }
     this.note = 'restoring...';
     const res = await this.game.save.restore(got.raw);

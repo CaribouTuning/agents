@@ -6,9 +6,10 @@
 // file on their phone is a save they own.
 //
 // Export goes through the `downloads` capability (frame code cannot start a
-// download directly in the artifact sandbox). Import is a plain file input,
-// which needs no capability at all — so even if nothing else works, a save
-// can always be read back.
+// download directly in the artifact sandbox), with a plain anchor and then
+// the clipboard behind it. Reading a backup back in lives in `restoreui.js`,
+// which needs a real DOM control the player taps themselves — see the note
+// at the top of that file for why a synthetic click could never work.
 import { SAVE_SLOT, SAVE_VERSION } from './SaveManager.js';
 import { serializeState } from '../game/state.js';
 
@@ -97,52 +98,6 @@ async function saveViaClipboard(text) {
     await navigator.clipboard.writeText(text);
     return true;
   } catch { return false; }
-}
-
-/**
- * Reads a backup file the player picks, and hands back the payload.
- *
- * A plain `<input type=file>`, created and clicked and thrown away. No
- * capability, no permission, nothing to go wrong except the file being the
- * wrong file — which is checked before anything is overwritten.
- */
-export function importFromFile() {
-  return new Promise((resolve) => {
-    if (typeof document === 'undefined') { resolve({ ok: false, text: 'No file picker here.' }); return; }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json,.json';
-    input.style.position = 'fixed';
-    input.style.left = '-1000px';
-    document.body.appendChild(input);
-    const done = (r) => { try { input.remove(); } catch { /* gone already */ } resolve(r); };
-    input.addEventListener('change', () => {
-      const file = input.files && input.files[0];
-      if (!file) { done({ ok: false, text: 'No file chosen.' }); return; }
-      const reader = new FileReader();
-      reader.onerror = () => done({ ok: false, text: 'Could not read that file.' });
-      reader.onload = () => {
-        try {
-          const raw = JSON.parse(String(reader.result));
-          if (!raw || !raw.state || !raw.meta) {
-            done({ ok: false, text: 'That is not a Caribou Monster save.' });
-            return;
-          }
-          done({ ok: true, raw, text: `Found ${raw.meta.name}, ${raw.meta.badges} badge(s).` });
-        } catch {
-          done({ ok: false, text: 'That file is not readable.' });
-        }
-      };
-      reader.readAsText(file);
-    });
-    // Cancelling a file picker fires nothing at all, so the promise would
-    // hang forever. Give up quietly if the window comes back with no file.
-    const bail = () => setTimeout(() => {
-      if (!input.files || !input.files.length) done({ ok: false, text: 'Restore cancelled.' });
-    }, 1200);
-    window.addEventListener('focus', bail, { once: true });
-    input.click();
-  });
 }
 
 export { SAVE_SLOT };

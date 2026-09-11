@@ -24,7 +24,7 @@ import { BANDIT, companionLines } from '../data/story.js';
 import { acceptShared, shareable, GOODS } from '../game/underground/base.js';
 import { refusalText } from '../game/fieldmoves.js';
 import { BASE_BOARD, BASE_ORIGIN } from '../data/maps/underground.js';
-import { addItem, removeItem } from '../game/inventory.js';
+import { addItem, removeItem, hasItem } from '../game/inventory.js';
 import { recordSeen, recordCaught } from '../game/pokedex.js';
 import { awardBadge, healParty, setStoryFlag, progress } from '../game/state.js';
 import { scriptFor } from '../game/overworld/scripts.js';
@@ -151,7 +151,10 @@ export class OverworldScreen extends Screen {
     let running = false;
     if (!blocked) {
       moveDir = input.direction();
-      running = input.isDown('b') && this.game.state.flags.hasRunningShoes !== false;
+      // The shoes are a real item Mum hands over with a small speech, so
+      // holding B before you have them should do nothing. It used to run
+      // regardless, which made the scene a lie and the item decoration.
+      running = input.isDown('b') && hasItem(this.game.state.inventory, 'runningshoes');
     }
     this.world.update(dt, !blocked, moveDir, running);
     this.camera.follow(this.world, display.width, display.height);

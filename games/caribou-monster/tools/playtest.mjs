@@ -248,6 +248,50 @@ console.log('\n--- the map ---');
   });
   check(opened === 'TownMapScreen', 'and it opens', opened);
   await page.screenshot({ path: path.join(OUT, 'map.png') });
+
+  // The whole region is on the paper from the first morning, but a place you
+  // have not stood in has no name on it and no way to travel to it.
+  const m = await page.evaluate(() => {
+    const s = window.CARIBOU.screens.top;
+    const byId = (id) => s.places.find((p) => p.id === id);
+    return {
+      total: s.places.length,
+      known: s.places.filter((p) => s._known(p.id)).length,
+      hasFarTown: !!byId('snowpoint') || !!byId('veilstone'),
+      veilstoneKnown: s._known('veilstone'),
+      canGoVeilstone: s._canTravelTo(byId('veilstone')),
+      canGoHome: s._canTravelTo(byId('twinleaf')),
+      routeIsNotADestination: s._canTravelTo(byId('route201')),
+    };
+  });
+  check(m.total > m.known, 'the whole region is drawn, not only what you have walked',
+    `${m.known} known of ${m.total}`);
+  check(m.hasFarTown, 'including cities you have never been near');
+  check(!m.veilstoneKnown, 'a town you have not stood in stays undiscovered');
+  check(!m.canGoVeilstone, 'and you cannot travel to it');
+  check(!m.routeIsNotADestination, 'a route is not somewhere you travel to');
+
+  // Having stood somewhere is the whole unlock.
+  const after = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    g.state.visited.veilstone = true;
+    const s = g.screens.top;
+    return s._canTravelTo(s.places.find((p) => p.id === 'veilstone'));
+  });
+  check(after, 'once you have stood there, you can travel back to it');
+
+  // Test mode sees everything, because that is what test mode is for.
+  const inTest = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    delete g.state.visited.veilstone;
+    g.state.settings.testMode = true;
+    const s = g.screens.top;
+    const ok = s._canTravelTo(s.places.find((p) => p.id === 'veilstone'));
+    g.state.settings.testMode = false;
+    return ok;
+  });
+  check(inTest, 'test mode can travel anywhere without walking it first');
+
   await page.evaluate(() => { while (window.CARIBOU.screens.stack.length > 1) window.CARIBOU.screens.pop(); });
   await wait(200);
 }
@@ -305,6 +349,11 @@ await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
 await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
 await wait(500);
 
+// Taken while the played game is still in memory. Taking it after the reload
+// would export the blank state the title screen sits on, which is exactly the
+// mistake that makes a restore quietly wipe a playthrough.
+const backupText = await page.evaluate(() => window.CARIBOU.backupText());
+
 await page.reload({ waitUntil: 'load' });
 await page.waitForFunction('!!window.CARIBOU', { timeout: 30000 });
 await wait(1500);
@@ -339,6 +388,15 @@ const onTitle = await page.evaluate(() => {
 });
 check(onTitle.options.some((k) => k.startsWith('continue')),
   'after a reload the title offers CONTINUE', JSON.stringify(onTitle.options));
+
+// --- LOAD BACKUP actually opens something you can use ---
+//
+// It did nothing at all before, and the reason is the reason this block is
+// here: every tap is consumed on the next logic tick, so by the time the
+// title screen acted on LOAD BACKUP the browser no longer considered a
+// gesture in progress, and a file picker opened from there is silently
+// refused. Reasoning about that got it wrong twice. Pressing the button and
+// looking at the page does not.
 check(onTitle.save && onTitle.save.name === 'Matthew',
   'and it is the game we were playing', JSON.stringify(onTitle.save));
 
@@ -349,6 +407,56 @@ const loaded = await page.evaluate(async () => {
 });
 check(loaded.money === 4242 && loaded.party > 0,
   'and continuing puts the whole game back', JSON.stringify(loaded));
+
+console.log('\n--- loading a backup back in ---');
+{
+  // Back to the title, because LOAD BACKUP lives there and that is where
+  // somebody who has just lost a save actually is.
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction('!!window.CARIBOU', { timeout: 30000 });
+  await wait(1500);
+  // Wipe the device copy so the restore is genuinely doing the work.
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) if (k.startsWith('caribou:')) localStorage.removeItem(k);
+  });
+
+  await page.evaluate(() => {
+    const t = window.CARIBOU.screens.top;
+    t.index = t.options.findIndex((o) => o.key === 'restore');
+    t._pick('restore');
+  });
+  await wait(500);
+
+  const panel = await page.evaluate(() => {
+    const root = document.querySelector('.cbm-restore');
+    if (!root) return null;
+    return {
+      file: !!root.querySelector('input[type=file]'),
+      paste: !!root.querySelector('.cbm-paste'),
+      cancel: !!root.querySelector('.cbm-cancel'),
+      inputOff: !window.CARIBOU.inputEnabled,
+    };
+  });
+  check(!!panel, 'LOAD BACKUP opens a panel you can actually touch', JSON.stringify(panel));
+  if (panel) {
+    check(panel.file, 'with a real file button the browser will honour');
+    check(panel.paste && panel.cancel, 'a paste box, and a way out');
+  }
+
+  if (backupText) {
+    const loaded = await page.evaluate(async (text) => {
+      const root = document.querySelector('.cbm-restore');
+      root.querySelector('textarea').value = text;
+      root.querySelector('.cbm-paste').click();
+      await new Promise((r) => setTimeout(r, 900));
+      const g = window.CARIBOU;
+      return { screen: g.screens.top.constructor.name, map: g.state.player.map, money: g.state.inventory.money };
+    }, backupText);
+    check(loaded.money === 4242, 'pasting a backup puts the game back', JSON.stringify(loaded));
+  } else {
+    check(false, 'could not read a backup out of the running game to paste back');
+  }
+}
 
 if (errs.length) { console.log(`\n  page errors: ${errs.slice(0, 5).join(' | ')}`); fails += errs.length; }
 console.log(fails ? `\n${fails} PROBLEM(S)` : '\nthe opening plays correctly');

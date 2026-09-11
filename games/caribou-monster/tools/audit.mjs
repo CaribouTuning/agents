@@ -934,9 +934,233 @@ function checkEvolutionsReachable() {
   }
 }
 
+// ---- logic that does not make sense ---------------------------------------
+//
+// This block exists because of Hearthome. You walked in from the south, took
+// one step, and were standing in a park — because the Amity Square door was
+// on the arrival tile's doorstep and the building it belonged to blocked the
+// entire road. Nothing in the audit was wrong about it, because nothing in
+// the audit was looking at what a person actually does when they arrive.
+//
+// So these rules are written from the player's side: walk in, and check that
+// what happens next makes sense.
+
+/** No door may be waiting on the tile you arrive on, or the one after it. */
+function checkDoorsInYourFace() {
+  for (const map of Object.values(MAPS)) {
+    const warpAt = new Map();
+    for (const w of map.warps) warpAt.set(key(w), w);
+    for (const src of Object.values(MAPS)) {
+      for (const w of src.warps) {
+        if (w.to !== map.id) continue;
+        const landed = { x: w.tx, y: w.ty };
+        const here = warpAt.get(key(landed));
+        if (here) {
+          err(`[${map.id}] arriving from ${src.id} lands ON the door to ${here.to}`);
+          continue;
+        }
+        for (const n of neighbours(landed)) {
+          const other = warpAt.get(key(n));
+          // A door back the way you came is correct and expected; any other
+          // door one step from where you land is a trap.
+          if (other && other.to !== src.id) {
+            err(`[${map.id}] arriving from ${src.id} at ${w.tx},${w.ty} puts the door to `
+              + `${other.to} one step away at ${n.x},${n.y}`);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Every door on a map has to be reachable from every way into it, on foot.
+ *
+ * The old rule checked reachability from one arbitrary reference tile, which
+ * is fine for proving a map is not in two halves and useless for proving you
+ * can get from the south gate to the Gym.
+ */
+function checkEveryDoorReachableFromEveryEntrance() {
+  for (const map of Object.values(MAPS)) {
+    const entries = entryPoints(map);
+    if (!entries.length) continue;
+    for (const e of entries) {
+      const seen = reachable(map, e, { strict: false });
+      if (!seen.has(key(e))) continue;      // the entry itself is broken; said elsewhere
+      for (const w of map.warps) {
+        if (seen.has(key(w))) continue;
+        // A gated warp you cannot reach yet is a gate, not a bug.
+        if (w.requires) continue;
+        err(`[${map.id}] you cannot walk from the ${e.from} entrance to the door at ${w.x},${w.y} `
+          + `(to ${w.to}) without going through another door`);
+      }
+    }
+  }
+}
+
+/** Somebody standing in a doorway is somebody blocking a doorway. */
+function checkNobodyBlocksADoor() {
+  for (const map of Object.values(MAPS)) {
+    for (const n of map.npcs) {
+      const d = at(map, n.x, n.y);
+      if (!d) { err(`[${map.id}] ${n.id} stands outside the map at ${n.x},${n.y}`); continue; }
+      // `overCounter` NPCs are meant to be standing on scenery: a shop clerk
+      // behind a counter is the whole point of them.
+      if (d.solid && !n.overCounter) {
+        err(`[${map.id}] ${n.id} stands inside a solid '${d.name}' at ${n.x},${n.y}`);
+      }
+      const w = map.warps.find((ww) => ww.x === n.x && ww.y === n.y);
+      if (w && !n.goneWhen && !n.removeAfter) {
+        err(`[${map.id}] ${n.id} is standing in the doorway to ${w.to}`);
+      }
+    }
+  }
+}
+
+/**
+ * Flags that nothing sets, and flags that nothing reads.
+ *
+ * A gate waiting on a flag no script ever sets is a door that never opens; a
+ * flag set by a script and read by nobody is a scene that changes nothing.
+ * Both read as "the game is broken" long before anyone can say why.
+ */
+function checkFlagsJoinUp() {
+  const src = [
+    fs.readFileSync(new URL('../src/game/overworld/scripts.js', import.meta.url), 'utf8'),
+    fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8'),
+    fs.readFileSync(new URL('../src/ui/overworld.js', import.meta.url), 'utf8'),
+    fs.readFileSync(new URL('../src/game/state.js', import.meta.url), 'utf8'),
+    fs.readFileSync(new URL('../src/game/fieldmoves.js', import.meta.url), 'utf8'),
+    fs.readFileSync(new URL('../src/ui/battle.js', import.meta.url), 'utf8'),
+  ].join('\n');
+
+  const set = new Set();
+  // Flags can be set four ways, and a rule that only knows one of them
+  // reports three quarters of the game as broken.
+  for (const m of src.matchAll(/setFlag\(\s*'([A-Za-z0-9_]+)'/g)) set.add(m[1]);
+  for (const m of src.matchAll(/setStoryFlag\([^,]+,\s*'([A-Za-z0-9_]+)'/g)) set.add(m[1]);
+  for (const m of src.matchAll(/setFlag\(\s*FLAGS\.([A-Z0-9_]+)/g)) {
+    if (FLAGS[m[1]]) set.add(FLAGS[m[1]]);
+  }
+  for (const m of src.matchAll(/flags\.([A-Za-z0-9_]+)\s*=/g)) set.add(m[1]);
+  // Flags built from a template — `readVolume${n}`, `${id}_read` — cannot be
+  // named statically, so the fixed part of the name is recorded as a pattern
+  // and anything matching it counts as set.
+  const patterns = [];
+  for (const m of src.matchAll(/setFlag\(\s*`([^`]+)`/g)) {
+    const lit = m[1].replace(/\$\{[^}]*\}/g, '\u0000');
+    patterns.push(new RegExp(`^${lit.split('\u0000').map(escapeRe).join('[A-Za-z0-9_]+')}$`));
+  }
+  // A gym badge sets its own flag through the campaign, not through a script.
+  for (let i = 1; i <= 8; i++) set.add(`badge${i}`);
+  for (const id of Object.keys(TRAINERS)) set.add(`beat_${id}`);
+  // A map event's `flag` is its own once-only marker: the event system writes
+  // it the moment the event fires, so it is set by definition.
+  for (const map of Object.values(MAPS)) {
+    for (const ev of map.events || []) if (ev.flag) set.add(ev.flag);
+  }
+  const isSet = (f) => set.has(f) || patterns.some((re) => re.test(f));
+
+  const read = new Set();
+  for (const map of Object.values(MAPS)) {
+    for (const w of map.warps) if (w.requires) read.add(w.requires);
+    for (const n of map.npcs) {
+      for (const k of ['goneWhen', 'onlyWhen', 'removeAfter']) if (n[k]) read.add(n[k]);
+      for (const d of [...(n.dialogue || []), ...(n.after || [])]) collectFlags(d && d.when, read);
+    }
+    for (const ev of map.events || []) if (ev.flag) read.add(ev.flag);
+  }
+  for (const m of src.matchAll(/flags\.([A-Za-z0-9_]+)/g)) read.add(m[1]);
+  for (const m of src.matchAll(/FLAGS\.([A-Z0-9_]+)/g)) if (FLAGS[m[1]]) read.add(FLAGS[m[1]]);
+  // `storyflags.js` inside an import path is not a flag called "js".
+  read.delete('js');
+
+  for (const f of read) {
+    if (!isSet(f)) err(`[flag] "${f}" is waited on, but nothing in the game ever sets it`);
+  }
+  for (const f of Object.values(FLAGS)) {
+    if (isSet(f) && !read.has(f)) warn(`[flag] "${f}" is set but nothing ever reads it`);
+  }
+}
+
+const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function collectFlags(when, into) {
+  if (!when) return;
+  const clauses = Array.isArray(when) ? when : [when];
+  for (const c of clauses) {
+    for (const [k, v] of Object.entries(c)) {
+      if (k === 'all' || k === 'any') { for (const sub of v) collectFlags(sub, into); continue; }
+      if (k === 'not') { collectFlags(v, into); continue; }
+      if (k === 'flag' || k === 'notFlag') into.add(v);
+    }
+  }
+}
+
+/** Every script a map names has to exist, and every trainer has to be fightable. */
+function checkScriptsAndTrainers() {
+  for (const map of Object.values(MAPS)) {
+    const named = [
+      ...map.npcs.map((n) => [n.id, n.script]),
+      ...(map.events || []).map((e, i) => [`event ${i}`, e.script]),
+      ...(map.objects || []).map((o) => [o.id, o.script]),
+    ];
+    for (const [who, sc] of named) {
+      if (sc && !SCRIPTS[sc]) err(`[${map.id}] ${who} runs a script "${sc}" that does not exist`);
+    }
+    for (const n of map.npcs) {
+      if (!n.trainer) continue;
+      const t = TRAINERS[n.trainer];
+      if (!t) { err(`[${map.id}] ${n.id} is trainer "${n.trainer}", who does not exist`); continue; }
+      if (!t.team || !t.team.length) err(`[trainer ${n.trainer}] has no Pokemon to send out`);
+    }
+  }
+  for (const [id, t] of Object.entries(TRAINERS)) {
+    for (const e of t.team || []) {
+      // The rival's starter is not known until the player picks theirs, so it
+      // is carried as `RIVAL_STARTER:<level>` and resolved at battle time.
+      if (typeof e === 'string') {
+        const m = /^RIVAL_STARTER:(\d+)$/.exec(e);
+        if (!m) err(`[trainer ${id}] has an unreadable team entry "${e}"`);
+        else if (!(+m[1] > 0 && +m[1] <= 100)) err(`[trainer ${id}] rival starter at level ${m[1]}`);
+        continue;
+      }
+      if (!SPECIES[e.species]) err(`[trainer ${id}] has unknown species ${e.species}`);
+      for (const mv of e.moves || []) {
+        if (!MOVES[mv]) err(`[trainer ${id}] knows a move "${mv}" that does not exist`);
+      }
+      if (!(e.level > 0 && e.level <= 100)) err(`[trainer ${id}] has a Pokemon at level ${e.level}`);
+    }
+  }
+}
+
+/** A town you can heal in has to heal you somewhere you can stand. */
+function checkHealPointsBelongToTheirTown() {
+  for (const map of Object.values(MAPS)) {
+    const hp = map.healPoint;
+    if (!hp) continue;
+    const home = MAPS[hp.map];
+    if (!home) continue;   // said elsewhere
+    // Healing in Hearthome must not put you in Solaceon. The heal point is
+    // either this map or a building that warps back into it.
+    if (hp.map !== map.id) {
+      const comesBack = home.warps.some((w) => w.to === map.id);
+      if (!comesBack) {
+        err(`[${map.id}] heals you into ${hp.map}, which has no way back here`);
+      }
+    }
+  }
+}
+
 checkKeyItemsReachable();
 checkEvolutionsReachable();
 checkTownSizes();
+checkDoorsInYourFace();
+checkEveryDoorReachableFromEveryEntrance();
+checkNobodyBlocksADoor();
+checkFlagsJoinUp();
+checkScriptsAndTrainers();
+checkHealPointsBelongToTheirTown();
 
 // ---- report ---------------------------------------------------------------
 

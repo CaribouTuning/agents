@@ -208,10 +208,10 @@ export const SOLACEON = defineMap('solaceon', {
     'T..S..;..OOO;;....**.....T',
     'T.....;.....;;....**.....T',
     'T.....;.....;;...........T',
-    'T.....;...BBBBBB.........T',
-    'T.....;...BBBBBB.........T',
-    'T.....;...VVVVVV.........T',
-    'T.....;;;;#WWDWW.........T',
+    'T.....;.....;;..BBBBBB...T',
+    'T.....;.....;;..BBBBBB...T',
+    'T.....;.....;;..VVVVVV...T',
+    'T.....;;;;;;;;..#WWDWW...T',
     'T...........;;..........ST',
     'TTTTTTTTTTTT;;TTTTTTTTTTTT',
   ],
@@ -223,11 +223,11 @@ export const SOLACEON = defineMap('solaceon', {
     { x: 13, y: 0, to: 'route210', tx: 13, ty: 20, dir: 'up', edge: true },
     { x: 7, y: 5, to: 'solaceon_center', tx: 6, ty: 6, dir: 'up' },
     { x: 21, y: 4, to: 'solaceon_house', tx: 5, ty: 5, dir: 'up' },
-    { x: 13, y: 15, to: 'solaceon_ruins', tx: 9, ty: 11, dir: 'up' },
+    { x: 19, y: 15, to: 'solaceon_ruins', tx: 9, ty: 11, dir: 'up' },
   ],
   labels: [
     { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
-    { x: 10, y: 14, w: 6, text: 'THE RUINS' },
+    { x: 16, y: 14, w: 6, text: 'THE RUINS' },
   ],
   signs: [
     { x: 3, y: 9, text: 'SOLACEON TOWN\n"Older underneath than on top."\nThe ruins were here first. The town is\nthe recent part.' },
@@ -237,7 +237,7 @@ export const SOLACEON = defineMap('solaceon', {
   healPoint: { map: 'solaceon_center', x: 6, y: 7 },
   npcs: [
     {
-      id: 'so_digger', x: 16, y: 12, look: 'scientist', name: 'Ora', movement: 'still', facing: 'left',
+      id: 'so_digger', x: 22, y: 12, look: 'scientist', name: 'Ora', movement: 'still', facing: 'left',
       dialogue: [
         {
           when: { flag: 'knowsTwist' },
@@ -309,8 +309,8 @@ export const SOLACEON_RUINS = defineMap('solaceon_ruins', {
     'CCCCCCCCCccCCCCCCCCC',
   ],
   warps: [
-    { x: 9, y: 12, to: 'solaceon', tx: 13, ty: 16, dir: 'down' },
-    { x: 10, y: 12, to: 'solaceon', tx: 13, ty: 16, dir: 'down' },
+    { x: 9, y: 12, to: 'solaceon', tx: 19, ty: 16, dir: 'down' },
+    { x: 10, y: 12, to: 'solaceon', tx: 19, ty: 16, dir: 'down' },
   ],
   signs: [
     { x: 11, y: 12, text: 'The wall is covered in characters. They are\nnot letters. They are looking back.' },

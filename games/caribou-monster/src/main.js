@@ -6,6 +6,7 @@
 import { display, TILE } from './render/canvas.js';
 import { GameLoop } from './core/loop.js';
 import { input } from './core/input.js';
+import { exportText } from './save/backup.js';
 import { audio } from './core/audio.js';
 import { bus } from './core/events.js';
 import { buildTileAtlas } from './render/tiles.js';
@@ -542,6 +543,11 @@ function start() {
     if (e.key === '`' && game.debugEnabled) game.openDebug();
   });
   globalThis.CARIBOU = game;
+  // A small hatch for the play-testing harness. It reads state the tests
+  // would otherwise have to reach into module internals for, and it exposes
+  // nothing a player could not already do from the menus.
+  game.backupText = () => exportText(game.state);
+  Object.defineProperty(game, 'inputEnabled', { get: () => input.enabled });
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);

@@ -173,6 +173,14 @@ const ROWAN_LAB = defineMap('rowan_lab', {
             'That noise means she is impressed and would rather not say so.'],
         },
         {
+          // The other one taking a starter was a whole scene, and until now
+          // nothing in the world had noticed it happened.
+          when: { all: [{ flag: 'buddyHasStarter' }, { notFlag: 'badge1' }] },
+          lines: ['Both of you walked out of here with one. She has been in a good\nmood since, which is unnerving.',
+            'She says two trainers who started the same morning end up measuring\nthemselves against each other whether they mean to or not.',
+            'She did not say it like a warning. I think she meant it kindly.'],
+        },
+        {
           when: { caught: 5 },
           lines: ['{caught} caught and {seen} seen so far. The Pokédex logs all of it automatically.',
             'The professor pretends it is for science. It is mostly for bragging.'],

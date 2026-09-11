@@ -571,6 +571,15 @@ export const SANDGEM = defineMap('sandgem', {
       script: 'oldRod',
       dialogue: [
         {
+          // Walking back out of Route 202 is the first time most people have
+          // been in tall grass with something of their own. Somebody should
+          // notice.
+          when: { all: [{ flag: 'enteredForest' }, { notFlag: 'badge1' }] },
+          lines: ['Been up through the grass on 202 already? You have got the walk of it.',
+            'Everybody comes back down that road quieter than they went up.',
+            'The beach goes on for miles and the water is full of things I cannot name.'],
+        },
+        {
           lines: ['The beach goes on for miles and the water is full of things I cannot name.'],
         },
       ],

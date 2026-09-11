@@ -59,6 +59,9 @@ function withBandit(st) {
 
 function withStarter(st) {
   st.flags.gotStarter = true;
+  // The other one took a starter in the same scene, and the world is allowed
+  // to have noticed. Every save that has a starter has this.
+  st.flags.buddyHasStarter = true;
   st.starterBase = 1;
   st.party = [createMonster(387, 5)];
   return st;
@@ -233,9 +236,16 @@ function midEvent(st) {
   return st;
 }
 
+/** Out through the grass on 202 and back — the first road anybody walks. */
+function walkedTheGrass(st) {
+  st.flags.enteredForest = true;
+  return st;
+}
+
 const STAGES = [
   ['fresh save', () => baseState()],
   ['got a starter', () => withStarter(baseState())],
+  ['been up through the grass', () => walkedTheGrass(withStarter(baseState()))],
   ['Sammy, with Bandit', () => withBandit(withStarter(baseState('Sammy')))],
   ['Sammy, on her own', () => withStarter(baseState('Sammy'))],
   // Co-op: Matthew playing, with Sammy and her dog actually along. Bandit is
