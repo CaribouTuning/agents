@@ -103,7 +103,7 @@ export const COMMANDS = [
   ['/level <n>', 'set the whole party to a level'],
   ['/heal', 'heal the party'],
   ['/badge [n]', 'award a badge, or the next one'],
-  ['/badges', 'award all eight'],
+  ['/badges', 'award every badge there is'],
   ['/hms', 'every HM, so every obstacle answers'],
   ['/money <n>', 'set the wallet'],
   ['/flag <name> [off]', 'set or clear a story flag'],
@@ -236,7 +236,7 @@ export function runCommand(game, line) {
 
     case 'badges':
       for (const g of GYMS) awardBadge(st, g.n, g.badge);
-      return ok('all eight badges awarded');
+      return ok(`all ${GYMS.length} badges awarded`);
 
     case 'hms': {
       if (!HM_IDS.length) return no('no HMs exist yet');

@@ -1039,6 +1039,22 @@ function readAllSource() {
   return out;
 }
 
+/** The same sweep, but keeping track of which file each line came from. */
+function readAllSourceFiles() {
+  const out = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const at = new URL(`${e.name}${e.isDirectory() ? '/' : ''}`, dir);
+      if (e.isDirectory()) walk(at);
+      else if (e.name.endsWith('.js') && !e.name.startsWith('_gen_')) {
+        out.push({ file: `src/${at.href.split('/src/')[1]}`, text: fs.readFileSync(at, 'utf8') });
+      }
+    }
+  };
+  walk(new URL('../src/', import.meta.url));
+  return out;
+}
+
 function checkFlagsJoinUp() {
   // The WHOLE of the game and UI source, not a hand-kept list of six files.
   //
@@ -1399,6 +1415,36 @@ function checkThePaperTellsTheTruth() {
   }
 }
 
+// ---- nothing counts the Gyms by hand ---------------------------------------
+// The game has as many Gyms as are built, and that number has changed twice.
+// Every time it does, a line somewhere still says the old one — the player
+// was told to collect eight badges in a game with six. A written-out number
+// of badges or Gyms in anything the player can read is therefore an error
+// whenever it disagrees with what is actually built; the text should ask the
+// campaign how many there are instead of remembering.
+
+function checkNothingCountsTheGymsByHand() {
+  const built = builtGyms(MAPS).length;
+  const WORDS = {
+    one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+    seven: 7, eight: 8, nine: 9, ten: 10,
+  };
+  const re = new RegExp(
+    '\\b(one|two|three|four|five|six|seven|eight|nine|ten|[0-9]{1,2})\\s+'
+    + '(gyms?|badges?|gym badges?)\\b', 'gi');
+  for (const { file, text } of readAllSourceFiles()) {
+    for (const m of text.matchAll(re)) {
+      const raw = m[1].toLowerCase();
+      const n = WORDS[raw] !== undefined ? WORDS[raw] : parseInt(raw, 10);
+      // "one badge" and "two badges" are ordinary counting, not a claim
+      // about how many there are in the world.
+      if (n <= 2 || n === built) continue;
+      err(`[count] ` + `${file} says "${m[0]}" when ${built} Gyms are built`);
+    }
+  }
+}
+
+checkNothingCountsTheGymsByHand();
 checkThePaperTellsTheTruth();
 checkGymsAgreeWithTheirLeaders();
 checkTheBadgeCurve();

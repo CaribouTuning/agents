@@ -105,7 +105,7 @@ export function gymTownOf(leader, maps) {
 /** How far through them the player is. */
 export function badgeCount(state) { return (state.badges || []).length; }
 
-/** The next Gym to go and find, or null once all eight are done. */
+/** The next Gym to go and find, or null once every one is done. */
 export function nextGym(state) {
   return GYMS.find((g) => !state.flags[`badge${g.n}`]) || null;
 }
