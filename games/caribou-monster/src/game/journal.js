@@ -200,7 +200,7 @@ export const ENTRIES = [
     id: 'metCass',
     title: 'Cass Wren',
     body: [
-      'Cass from four doors down was waiting on Route 201. She started a year\nbefore me and has never once let me forget it.',
+      'Cass from four doors down was waiting on Route 201. Started a year\nbefore me, and has never once let me forget it.',
       'She got up at seven to take the starter that beats mine. On purpose.',
     ],
     next: 'North through Sandgem and Jubilife to Oreburgh.',

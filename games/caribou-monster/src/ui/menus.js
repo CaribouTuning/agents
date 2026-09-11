@@ -805,8 +805,15 @@ export class DexScreen extends Screen {
     const seen = st.dex.seen[sp.id];
     const px = 142;
     window9(ctx, px, 12, W - px - 2, H - 24);
+    // An entry you have not met shows nothing but the empty panel — and then
+    // this used to RETURN, which skipped the BACK chip at the bottom of this
+    // method. On a phone there is no B key, so a Pokedex opened with the
+    // cursor on an unseen entry — which is most of them, most of the time —
+    // was a screen with no way out of it at all. Whatever else is drawn, the
+    // way out is drawn.
     if (!seen) {
       labelDim(ctx, 'No data.', px + 8, 24);
+      drawBackChip(ctx, W - 52, 2);
       return;
     }
     const img = renderMonster(sp.art, { size: 64 });

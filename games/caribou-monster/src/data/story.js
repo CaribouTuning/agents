@@ -20,8 +20,23 @@
 // She is the same Cass Wren who is rated 1180 on the World Circuit. One person,
 // one relationship, from a dirt road in Twinleaf to the World Finals.
 
+/**
+ * Which Cass you grew up four doors down from.
+ *
+ * A boy when Matthew is holding the phone, a girl when Sammy is. The two of
+ * them play this game side by side and each of them should have their own
+ * rival to run into rather than sharing one — and "Cass" is the same name
+ * either way, which is why it was chosen.
+ */
+export function cassLook(state) {
+  const look = state && state.player && state.player.look;
+  return look === 'sammy' ? 'rivalGirl' : 'rivalBoy';
+}
+
 export const CASS = {
   name: 'Cass Wren',
+  // The default, for anything that asks before a game has been started. Every
+  // live use goes through `cassLook(state)`.
   look: 'rivalGirl',
 
   // Route 201, minutes after you get your first Pokémon.
@@ -376,10 +391,14 @@ export const BANDIT = {
   gender: 'F',
 
   // In the lab, once the starter is chosen, if it is Sammy holding the phone.
+  //
+  // She walked up the hill AT YOUR HEEL — she has been beside you since the
+  // doorstep — so the Professor cannot be told she has been waiting outside.
+  // He is talking about the dog standing in his lab, in front of him.
   arrives: [
-    '*Something scratches at the lab door. Twice. Then harder.*',
-    'Prof. Rowan: That will be the Houndour.',
-    'Prof. Rowan: She has been sitting outside since you went in.\fShe followed you up the hill.',
+    '*The Houndour who followed you up the hill sits down in the middle of the\nlab floor, as though she has been invited.*',
+    'Prof. Rowan: And that will be the Houndour.',
+    'Prof. Rowan: She came up the hill with you. I watched the pair of you\nfrom the window.',
     'Sammy: That is Bandit. She is not mine exactly. She just lives at our house.',
     'Prof. Rowan: I have been doing this forty years.\fShe is yours exactly.',
     'Prof. Rowan: A Pokémon that picks a person has already made the decision.\fThe paperwork only ever catches up.',

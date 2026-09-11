@@ -14,6 +14,7 @@ import { weightedPick } from '../../core/rng.js';
 import { TILE } from '../../render/canvas.js';
 import { currentPhase } from '../clock.js';
 import { buddyPlayerOf } from '../players.js';
+import { cassLook } from '../../data/story.js';
 
 export const WALK_FRAMES = 14;    // logic ticks to cross one tile
 export const RUN_FRAMES = 8;
@@ -134,8 +135,13 @@ export class World {
       // walking around, so the stand-in has to get out of the way; when it
       // is not, they are here, because they live here.
       if (npc.soloOnly && this.linkedNow()) continue;
-      // And a stand-in has to look like whoever you are NOT playing.
-      const look = npc.look === 'buddy' ? buddyPlayerOf(this.state).look : npc.look;
+      // And a stand-in has to look like whoever you are NOT playing. The
+      // rival resolves the same way: Cass is a boy when Matthew is holding
+      // the phone and a girl when Sammy is, so the two of them playing side
+      // by side each have their own rival rather than sharing one.
+      let look = npc.look;
+      if (look === 'buddy') look = buddyPlayerOf(this.state).look;
+      else if (look === 'rival') look = cassLook(this.state);
       const e = makeEntity({ ...npc, look, kind: 'npc' });
       // An NPC that is a Pokemon rather than a person — the Psyduck sitting
       // in the fog road. It draws from the same artwork the walking partner
@@ -427,14 +433,24 @@ export class World {
    * Reads the lead Pokemon off the party. Called on map load and whenever the
    * party changes, so swapping your lead swaps who is walking with you.
    */
+  /**
+   * The lead Pokemon does NOT walk behind you.
+   *
+   * It used to, and with the dog and the other protagonist both walking too
+   * there were three bodies in the line and no room to read any of them. Worse,
+   * putting Bandit at the front of the party drew her twice at once — once as
+   * the party's lead and once as the dog she is — and two Bandits is plainly
+   * wrong however you look at it.
+   *
+   * So the line is people and the dog: whoever is walking with you, and Bandit,
+   * who belongs to Sammy. The party lead stays in its ball.
+   */
   refreshFollower() {
     const f = this.follower;
     if (!f) return;
-    // An Egg does not walk beside you, and a fainted one is in its ball.
-    const lead = (this.state.party || []).find((m) => m && !m.isEgg && m.hp > 0) || null;
-    f.mon = lead;
-    f.visible = !!lead && this.map && this.map.kind !== 'indoor';
-    if (!f.visible) return;
+    f.mon = null;
+    f.visible = false;
+    f.trail = [];
     this._placeChain();
   }
 

@@ -190,6 +190,44 @@ for (const [name, open] of [
 // list longer than the screen simply ended there — with 493 species, that is
 // most of the Pokedex. A way in and a way out is not enough; a list you
 // cannot move through is a list you cannot use.
+// --- and the way out survives whatever the screen is showing ------------
+//
+// A BACK chip drawn at the END of a render method is only drawn when the
+// method reaches the end of itself. The Pokedex returned early whenever the
+// highlighted entry was one you had not met — which is most of them, most of
+// the time — and skipped its own way out. On a phone there is no B key, so
+// that was a screen with no exit. Opening a screen in its happy state proves
+// nothing; these are the awkward ones.
+console.log('\n--- the way out is drawn whatever the screen is showing ---');
+for (const [name, opener, setup, why] of [
+  ['DexScreen', 'openDex', () => {
+    const g = window.CARIBOU;
+    g.state.dex.seen = {}; g.state.dex.caught = {};
+  }, 'with an empty Pokedex'],
+  ['DexScreen', 'openDex', () => {
+    const g = window.CARIBOU;
+    g.state.dex.seen = { 387: true }; g.state.dex.caught = { 387: true };
+  }, 'with the cursor on an entry you have never met'],
+  ['BagScreen', 'openBag', () => { window.CARIBOU.state.inventory.items = {}; }, 'with an empty bag'],
+  ['PartyScreen', 'openParty', () => { window.CARIBOU.state.party.length = 0; }, 'with no party at all'],
+]) {
+  const base = await depth();
+  await page.evaluate(setup);
+  await page.evaluate((o) => window.CARIBOU[o](), opener);
+  await wait(340);
+  const nowTop = await top();
+  const chip = await backChip();
+  check(nowTop === name && !!chip, `${name} still draws a way out ${why}`,
+    chip ? `${Math.round(chip.x)},${Math.round(chip.y)}` : 'NO CHIP');
+  if (chip) {
+    await page.mouse.click(chip.x, chip.y);
+    await wait(340);
+    check(await depth() === base, `${name} still closes on that chip ${why}`);
+  }
+  await page.evaluate((d) => { while (window.CARIBOU.screens.stack.length > d) window.CARIBOU.screens.pop(); }, base);
+  await wait(160);
+}
+
 console.log('\n--- every long list scrolls by touch alone ---');
 // A bag with one Potion in it has no list to scroll, so fill it with enough
 // of one pocket to be longer than the screen — which is the only case the

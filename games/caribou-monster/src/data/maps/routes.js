@@ -93,7 +93,9 @@ export const ROUTE201 = defineMap('route201', {
     // entity that already has the id, the scene picks HER up rather than
     // putting a second one behind you.
     {
-      id: 'rival', x: 13, y: 24, look: 'rivalGirl', name: 'Cass Wren',
+      // 'rival' is the look the world resolves per player, the same way the
+      // other protagonist's stand-in does: a boy for Matthew, a girl for Sammy.
+      id: 'rival', x: 13, y: 24, look: 'rival', name: 'Cass Wren',
       movement: 'still', facing: 'down',
       onlyWhen: 'metRival', goneWhen: 'beatRival1',
       script: 'rival1',

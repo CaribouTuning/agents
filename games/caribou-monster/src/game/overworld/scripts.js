@@ -33,7 +33,7 @@ import {
 import { weightedPick } from '../../core/rng.js';
 import { spend, formatMoney as money } from '../inventory.js';
 import { FLAGS } from '../storyflags.js';
-import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } from '../../data/story.js';
+import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT, cassLook } from '../../data/story.js';
 import { playerByLook, buddyOf, playerOf, buddyPlayerOf } from '../players.js';
 
 // The thing in the chamber: Dialga, by national dex number.
@@ -141,7 +141,7 @@ async function cassTakesHers(ctx, playerBase) {
 
   await ctx.wait(0.4);
   const cass = ctx.spawnNpc({
-    id: 'cass_lab', look: CASS.look, x: ctx.player.x + 1, y: ctx.player.y,
+    id: 'cass_lab', look: cassLook(ctx.state), x: ctx.player.x + 1, y: ctx.player.y,
     dir: 'left', name: CASS.name,
   });
   ctx.sfx('bump');
@@ -202,6 +202,9 @@ async function banditJoins(ctx) {
 
 function rivalTeam(st, trainerId) {
   const t = { ...getTrainer(trainerId) };
+  // The rival in the battle looks like the rival on the map: a boy for
+  // Matthew, a girl for Sammy.
+  t.look = cassLook(st);
   const base = rivalStarterBase(st.starterBase || 1);
   t.team = t.team.map((entry) => {
     if (typeof entry !== 'string') return entry;
@@ -223,7 +226,7 @@ SCRIPTS.rival1 = async (ctx) => {
   if (!st.flags[FLAGS.GOT_STARTER] || st.flags[FLAGS.BEAT_RIVAL_1]) return;
 
   const cass = ctx.spawnNpc({
-    id: 'rival', look: CASS.look, x: ctx.player.x, y: ctx.player.y - 3,
+    id: 'rival', look: cassLook(ctx.state), x: ctx.player.x, y: ctx.player.y - 3,
     dir: 'down', name: CASS.name,
   });
   ctx.sfx('bump');
@@ -259,7 +262,7 @@ SCRIPTS.rival2 = async (ctx) => {
     return;
   }
   const cass = ctx.spawnNpc({
-    id: 'rival', look: CASS.look, x: ctx.player.x, y: ctx.player.y - 2,
+    id: 'rival', look: cassLook(ctx.state), x: ctx.player.x, y: ctx.player.y - 2,
     dir: 'down', name: CASS.name,
   });
   await ctx.wait(0.3);
@@ -290,7 +293,7 @@ SCRIPTS.rival3 = async (ctx) => {
   if (st.flags[FLAGS.BEAT_RIVAL_3]) return;
 
   const cass = ctx.spawnNpc({
-    id: 'rival', look: CASS.look, x: ctx.player.x, y: ctx.player.y - 2,
+    id: 'rival', look: cassLook(ctx.state), x: ctx.player.x, y: ctx.player.y - 2,
     dir: 'down', name: CASS.name,
   });
   ctx.exclaim(cass);
