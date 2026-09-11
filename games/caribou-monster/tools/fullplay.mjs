@@ -221,10 +221,14 @@ async function fightToTheEnd() {
       }
       const side = top.battle && top.battle.sides[top.foeSide];
       const foe = side && side.party ? side.party.map((m) => m.hp).join(',') : '';
-      return { turn: top.battle ? top.battle.turn : -1, foe };
+      // The wrap-up — "was defeated", the speech, the badge, the EXP — has no
+      // turns left to count and no health left to change, and it is the part
+      // that hands over the badge. Watching only the turn counter called it a
+      // stuck fight and walked away before the Leader gave anything up.
+      return { turn: top.battle ? top.battle.turn : -1, foe, msg: String(top.msg || '') };
     });
     if (!s) return;
-    const now = `${s.turn}|${s.foe}`;
+    const now = `${s.turn}|${s.foe}|${s.msg}`;
     if (now !== mark) { mark = now; lastProgress = Date.now(); }
     // Twenty seconds with neither the turn counter nor a single point of the
     // other side's health moving is not a long fight, it is a stuck one.
@@ -281,6 +285,15 @@ async function routeTo(tx, ty) {
         if (!(nx === gx && ny === gy) && !w.canEnter(p, nx, ny)) continue;
         from.set(key(nx, ny), { x, y, d });
         queue.push([nx, ny]);
+        // Canalave's Gym is three sealed bands joined only by its lifts. A
+        // lift is a warp back into the same map, and stepping onto one is a
+        // move like any other — without this the Leader is unreachable and
+        // the harness reports a badge that cannot be earned.
+        const lift = (w.map.warps || []).find((z) => z.to === w.mapId && z.x === nx && z.y === ny);
+        if (lift && !from.has(key(lift.tx, lift.ty))) {
+          from.set(key(lift.tx, lift.ty), { x: nx, y: ny, d, lift: true });
+          queue.push([lift.tx, lift.ty]);
+        }
       }
     }
     if (!goal) return null;
@@ -343,6 +356,8 @@ async function walkTo(tx, ty, replans = 8) {
     if (p.x === tx && p.y === ty) return true;
     const steps = await routeTo(tx, ty);
     if (!steps) return false;                    // genuinely no way there
+    const DELTA = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let expect = { x: p.x, y: p.y };
     for (const d of steps) {
       const ok = await step(d);
       if (await busy()) break;                   // a scene, a battle, a door
@@ -350,6 +365,10 @@ async function walkTo(tx, ty, replans = 8) {
       if (q.map !== p.map) return true;          // we went through something
       if (q.x === tx && q.y === ty) return true;
       if (!ok) break;                            // blocked: plan again
+      expect = { x: expect.x + DELTA[d][0], y: expect.y + DELTA[d][1] };
+      // A lift puts us somewhere the rest of this route knows nothing about,
+      // so throw the route away and plan again from wherever we landed.
+      if (q.x !== expect.x || q.y !== expect.y) break;
     }
     const q = await at();
     if (q.x === tx && q.y === ty || q.map !== p.map) return true;
@@ -659,13 +678,13 @@ stage('matthew_house');
 // --- the prologue, walked ---
 stage('the prologue');
 await clear();
-await goThrough('twinleaf');
+await goTo('twinleaf');
 await wait(700);
 await clear();                                   // the doorstep scene
 await talkToEveryone(6);
 await readEverySign();
 
-await goThrough('rowan_lab');
+await goTo('rowan_lab');
 await runScene('starter');
 await page.evaluate(() => {
   const g = window.CARIBOU;
@@ -677,10 +696,10 @@ await page.evaluate(() => {
   // whether the scenes and the badges work, not the level curve.
   g.state.party.sort((a, b) => b.level - a.level);
 });
-await goThrough('twinleaf');
-await goThrough('route201');
+await goTo('twinleaf');
+await goTo('route201');
 await clear();                                   // Cass, at the north gate
-await goThrough('sandgem');
+await goTo('sandgem');
 await talkToEveryone(6);
 await readEverySign();
 
