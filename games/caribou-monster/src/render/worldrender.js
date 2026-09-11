@@ -493,19 +493,40 @@ export function drawGuideBar(ctx, text, W, H, opts = {}) {
   // The MENU and LINK chips own the top-right corner, so the bar stops short
   // of them rather than sliding underneath.
   const maxChars = Math.max(8, Math.floor((W - 76) / 6));
-  const line = text.length > maxChars ? `${text.slice(0, maxChars - 1)}…` : text;
-  const w = line.length * 6 + 16;
+
+  // WRAP, do not truncate.
+  //
+  // The narrowest screen this runs on fits thirty characters here, and the
+  // bar used to cut the line off with an ellipsis: "Leave Twinleaf to the n…"
+  // is not an instruction, it is the first half of one. The whole point of
+  // this bar is that somebody picking the game up after three weeks knows
+  // what they were doing, so it takes the room it needs — up to three lines,
+  // which is more than anything it says.
+  const words = String(text).replace(/\n/g, ' ').split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (next.length <= maxChars) { line = next; continue; }
+    if (line) lines.push(line);
+    line = word.length > maxChars ? `${word.slice(0, maxChars - 1)}…` : word;
+  }
+  if (line) lines.push(line);
+  while (lines.length > 3) lines.pop();
+
+  const w = Math.max(...lines.map((l) => l.length)) * 6 + 16;
+  const h = 4 + lines.length * 9;
   const x = 4;
   const y = yBelow;
   ctx.globalAlpha = 0.86;
   ctx.fillStyle = PAL.uiFrame;
-  ctx.fillRect(x, y, w, 13);
+  ctx.fillRect(x, y, w, h);
   ctx.fillStyle = shade(PAL.uiFrame, 0.22);
   ctx.fillRect(x, y, w, 1);
   ctx.globalAlpha = 1;
   // A small chevron, so it reads as an instruction rather than a caption.
   drawText(ctx, '\u25b8', x + 4, y + 3, { color: PAL.uiHighlight });
-  drawText(ctx, line, x + 11, y + 3, { color: PAL.uiTextLight });
+  lines.forEach((l, i) => drawText(ctx, l, x + 11, y + 3 + i * 9, { color: PAL.uiTextLight }));
   void H;
 }
 

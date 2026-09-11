@@ -9,11 +9,25 @@
 // what happened, and the top of the screen always says what you are doing now.
 // Nothing here gates anything — it is a record, not a quest system.
 import { FLAGS } from './storyflags.js';
-import { leagueBadges } from '../data/campaign.js';
+import { leagueBadges, builtGyms } from '../data/campaign.js';
 import { MAPS } from '../data/maps/index.js';
 
 // How many badges this build's League asks for. Read, never written.
 const LEAGUE_BADGES = leagueBadges(MAPS);
+
+/** The Gyms this build actually has, in order. */
+const THE_GYMS = builtGyms(MAPS);
+
+/** The next badge the player has not won, or null once they are all in. */
+function nextBadge(st) {
+  return THE_GYMS.find((g) => !(st.flags || {})[`badge${g.n}`]) || null;
+}
+
+/** A town's proper name, for saying out loud. */
+function townName(id) {
+  const m = MAPS[id];
+  return (m && m.name) || id;
+}
 
 /**
  * Entries in story order. `id` is what a script passes to ctx.journal().
@@ -458,9 +472,29 @@ const RULES = [
   [(f) => !f.gotCharm, 'Take the Aurora Charm from the dig site.'],
   [(f) => !f.everlightOpened, "The sealed seam is in the Gate's north wall."],
   [(f) => !f.everlightSeen, 'Enter the Everlight Chamber.'],
-  // The middle of the game: the road, the badges, and the thing the region
-  // has been trying to say since the first act.
-  [(f) => !f.canalaveTruth, 'What it wanted you to see is not in that room.\nKeep going. Somebody wrote it down.'],
+
+  // --- the middle of the game, which is the Gyms ---
+  //
+  // After the chamber the guide bar used to say "keep going, somebody wrote it
+  // down" and then say nothing else for the whole middle of the campaign —
+  // every Gym after the first one. The badges are the road
+  // through the middle of this game and the bar never once named one. It names
+  // the next Leader, their badge and their town, and changes its wording once
+  // the player is standing in that town, so it is an instruction rather than a
+  // riddle.
+  [(f, st) => nextBadge(st) && st.player.map === `${nextBadge(st).city}_gym`,
+    (f, st) => `Beat ${nextBadge(st).leader} for the ${nextBadge(st).badge}.`],
+  [(f, st) => nextBadge(st) && st.player.map === nextBadge(st).city,
+    (f, st) => `Challenge ${nextBadge(st).leader} at the ${townName(nextBadge(st).city)} GYM.`],
+  [(f, st) => nextBadge(st),
+    (f, st) => `Win the ${nextBadge(st).badge} from ${nextBadge(st).leader}, `
+      + `in ${townName(nextBadge(st).city)}.`],
+
+  // Every badge is in. What the chamber was pointing at is written down in
+  // Canalave, and the way across the channel is Surf.
+  [(f, st) => !f.canalaveTruth && st.player.map === 'canalave_library',
+    'Read all three volumes, then talk to the man at the far table.'],
+  [(f) => !f.canalaveTruth, 'Somebody wrote it down. Canalave library.'],
   [(f) => !f.everlightResolved, 'You know what the three points are now.\nGo back under Oreburgh Gate.'],
   [(f) => !f.rowanDebriefed, 'Prof. Rowan is waiting outside the Gate.'],
   [(f) => !f.wentHome, 'Go home to Twinleaf.'],
@@ -472,7 +506,8 @@ export function objective(state) {
   const f = (state && state.flags) || {};
   const st = state || { player: {}, flags: {} };
   for (const [when, text] of RULES) {
-    if (when(f, st)) return text;
+    if (!when(f, st)) continue;
+    return typeof text === 'function' ? text(f, st) : text;
   }
   // Past the story's end the journal takes over: whatever the last recorded
   // entry says to do next, then the circuit, which never runs out.
