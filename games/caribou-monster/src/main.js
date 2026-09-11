@@ -38,7 +38,7 @@ import { SCRIPTS } from './game/overworld/scripts.js';
 import { forceHour, currentPhase, shiftHours } from './game/clock.js';
 import { addItem } from './game/inventory.js';
 import { randomSeed } from './core/rng.js';
-import { saveManager } from './save/SaveManager.js';
+import { saveManager, saveReady } from './save/SaveManager.js';
 import { net } from './net/NetworkManager.js';
 import { RoomManager, TRADE_STATE, PVP_STATE } from './net/RoomManager.js';
 import { MUSIC } from './data/music.js';
@@ -97,8 +97,17 @@ class Game {
     this.rooms = new RoomManager(this.state);
     this._wireSessions();
 
-    const meta = await this.save.peek();
-    this.screens.push(new TitleScreen(this, meta));
+    // The title comes up immediately on whatever is stored locally, then
+    // upgrades itself once the durable store answers. Blocking the first
+    // paint on a network round trip is how a game ends up looking broken on
+    // a phone with a slow connection.
+    const title = new TitleScreen(this, await this.save.peekFast());
+    this.screens.push(title);
+    saveReady().then(async (db) => {
+      this.saveIsDurable = !!db;
+      const meta = await this.save.peek();
+      if (title.setSave) title.setSave(meta);
+    });
 
     this.loop = new GameLoop({
       update: (dt) => this.update(dt),
@@ -106,9 +115,30 @@ class Game {
     });
     this.loop.start();
 
-    window.addEventListener('beforeunload', () => {
-      if (this.overworld && this.state.flags.gotStarter) this.save.save(this.state);
-    });
+    // Flushing the save on the way out. On a phone the artifact is closed by
+    // switching away from it, and `beforeunload` does not reliably fire for
+    // that — `pagehide` and a hidden `visibilitychange` do. All three are
+    // wired because between them they cover every way this page is left,
+    // and saving twice costs nothing.
+    const flush = () => {
+      if (this.overworld && this.state.flags.gotStarter && this.canSaveNow()) {
+        this.save.save(this.state);
+      }
+    };
+    window.addEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+  }
+
+  /**
+   * Whether a save taken right now would be a coherent one. A save captured
+   * mid-battle or mid-trade is worse than no save, so the flush on the way
+   * out declines in exactly the places the autosave does.
+   */
+  canSaveNow() {
+    return this.screens.contains('OverworldScreen')
+      && !this.screens.contains('BattleScreen')
+      && !this.screens.contains('TradeScreen');
   }
 
   // ---- frame ---------------------------------------------------------------

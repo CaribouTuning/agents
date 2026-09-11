@@ -1241,6 +1241,13 @@ SCRIPTS.saturn = async (ctx, npc) => {
   ctx.journal('galacticHQ');
   ctx.sfx('badge');
   await ctx.say('Saturn: Go to Pastoria. Go anywhere. It changes nothing —\fbut you will feel better for having gone.');
+
+  // He empties a drawer at you on the way past. It is the only thing in this
+  // building anybody in Sinnoh will ever need, and he does not know that.
+  await ctx.say('Saturn: And take this out of my drawer. Somebody in Celestic sends it every\nmonth and I have never once wanted it.');
+  ctx.give('secretpotion', 1);
+  ctx.sfx('buy');
+  await ctx.say('You received the SECRET POTION!');
   void npc;
 };
 
@@ -1284,6 +1291,132 @@ SCRIPTS.lakeValor = async (ctx) => {
   ctx.setFlag('lakeValor', true);
   ctx.shareMilestone('lakeValor');
   ctx.journal('lakeValor');
+  ctx.autosave();
+};
+
+// ---------------------------------------------------------------------------
+// The fog road, the shrine, and the wall with the whole plot on it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Four Psyduck with headaches, sitting in the narrowest part of Route 210.
+ *
+ * The gate is the Secret Potion, which Saturn shrugs at you in Veilstone on
+ * his way out — so the road opens because of something that happened two
+ * towns back, not because a door decided to be open.
+ */
+SCRIPTS.psyducks = async (ctx) => {
+  await ctx.say('*Four Psyduck are sitting in the road with their hands on their heads.*');
+  await ctx.say('*None of them are going to move on their own.*');
+
+  if (!ctx.hasItem('secretpotion')) {
+    await ctx.say('*You have nothing that would help, and shoving a Psyduck with a headache\nis how people end up asleep in a ditch.*');
+    await ctx.say('*Somebody said Celestic makes a remedy for this. Celestic is the far side\nof the ducks.*');
+    return;
+  }
+
+  await ctx.say('*You still have the Secret Potion Saturn shrugged at you in Veilstone.*');
+  await ctx.say('*It smells appalling. The nearest Psyduck opens one eye.*');
+  ctx.sfx('heal');
+  await ctx.wait(0.6);
+  await ctx.say('Psyduck: ...Psy?');
+  await ctx.say('*One by one they get up and wander off into the fog, entirely unbothered,\nas though none of this had ever been happening.*');
+  ctx.setFlag('psyducks', true);
+  ctx.autosave();
+  await ctx.say('The road north is clear.');
+};
+
+/**
+ * Two grey coats in the shrine doorway. Beating the one who talks clears both
+ * and opens the room behind them.
+ */
+SCRIPTS.celesticGrunt = async (ctx, npc) => {
+  const t = getTrainer('celestic_grunt1');
+  await ctx.say('Grunt: You do not want to be here. Nothing here is being taken.', { speaker: 'Galactic Grunt' });
+  await ctx.say('Grunt: We are copying a wall. That is all this is. Copying a wall.');
+  if (ctx.state.flags.lakeValor) {
+    await ctx.say('Grunt: You were at Valor. Everyone who was has that face.\fThen you know we are not making any of this up.');
+  }
+  await ctx.say('Grunt: Elder. Step aside.');
+  await ctx.say('Elder: No.', { speaker: 'Elder Carolina' });
+  await ctx.say('Elder: I have been stood here since Tuesday and you have not managed it yet.');
+  await ctx.say('Grunt: Fine. YOU, then, since she will not be moved.');
+
+  const won = await ctx.battle({ trainer: t, kind: 'trainer' });
+  if (!won) return;
+
+  await ctx.say(`Grunt: ${t.defeat}`, { speaker: 'Galactic Grunt' });
+  await ctx.say('*The pair of them go down the road without hurrying, which is somehow\nthe worst part of it.*');
+  await ctx.say('Elder: Forty years I have wanted somebody to do that.', { speaker: 'Elder Carolina' });
+  await ctx.say('Elder: Come up to the shrine. You have earned the wall.');
+  ctx.setFlag('celestic', true);
+  ctx.shareMilestone('celestic');
+  ctx.journal('celestic');
+  ctx.sfx('badge');
+  ctx.autosave();
+  void npc;
+};
+
+/** Elder Carolina, in front of the mural, explaining what it is. */
+SCRIPTS.celesticElder = async (ctx) => {
+  const st = ctx.state;
+  if (!st.flags.celestic) {
+    await ctx.say('Elder: Not while they are stood in my doorway.', { speaker: 'Elder Carolina' });
+    return;
+  }
+  if (st.flags.celesticRead) {
+    await ctx.say('Elder: Read it again. It says the same thing. That is rather the point.', { speaker: 'Elder Carolina' });
+    return;
+  }
+  await ctx.say('Elder: Everyone calls it a legend because it is old. Old is not the same\nas made up.', { speaker: 'Elder Carolina' });
+  await ctx.say('Elder: Three waters. Three small ones asleep in them, one to a lake.\fKnowledge, emotion, willpower. That is what they are for.');
+  await ctx.say('Elder: And above them the fourth. No face. Nobody has ever drawn it a face\nbecause nobody agreed what it was looking at.');
+  await ctx.say('Elder: The three are not its servants. They are its locks.');
+  await ctx.wait(0.5);
+  await ctx.say('Elder: Those two in grey worked that out about a month ago.');
+  await ctx.say('Elder: They are not robbers, child. They want to take the locks off.');
+  if (st.flags.knowsTwist) {
+    await ctx.say('Elder: You have been under Oreburgh. Then you have seen what it looks like\nwhen the world is asked to hold still.');
+  }
+  await ctx.say('Elder: Whatever is behind that door, they think the world would be better\nmade again without any of us in it.');
+  await ctx.say('Elder: They are quite sincere. That is the frightening part.');
+  ctx.setFlag('celesticRead', true);
+  ctx.autosave();
+};
+
+/**
+ * Lake Verity, after Valor. This one you get to in time to watch, which is
+ * worse — Mars is already leaving and there is nothing to stop.
+ */
+SCRIPTS.lakeVerity = async (ctx) => {
+  const st = ctx.state;
+  ctx.sfx('warp');
+  await ctx.wait(0.5);
+  await ctx.say('*There are lorries on the shore of Lake Verity. There is a lake, still,\nwhich is more than Valor has.*');
+  await ctx.say('*Nobody is stopping you. Nobody is looking at you.*');
+
+  const t = getTrainer('lv_mars');
+  await ctx.say('Mars: Oh, it is YOU. Honestly, at this point you are practically staff.',
+    { speaker: 'Mars' });
+  await ctx.say('Mars: You are four minutes late, by the way. Four. We were quick.');
+  await ctx.say('Mars: The small one that lives here is in a box on that lorry\fand the lorry is going to Veilstone, and you are going to be four\nminutes late for that as well.');
+  if (st.flags.celestic) {
+    await ctx.say('Mars: You have been to the shrine. Good. Then you can stop pretending\nnot to understand what this is for.');
+  }
+  await ctx.say('Mars: I am not going to explain it. I am going to beat you and drive off.');
+
+  const won = await ctx.battle({ trainer: t, kind: 'trainer' });
+  if (!won) return;
+
+  await ctx.say(`Mars: ${t.defeat}`, { speaker: 'Mars' });
+  await ctx.say('Mars: Fine. FINE. It does not matter, that is the thing about it,\fit genuinely does not matter whether you win these.');
+  await ctx.say('*She gets into the lorry. The lorry leaves. The lake sits there being\na lake, with nothing in it.*');
+  await ctx.wait(0.6);
+  await ctx.say('*Two down. Acuity is the far north, past the mountain, in the snow.*');
+
+  ctx.setFlag('lakeVerity', true);
+  ctx.shareMilestone('lakeVerity');
+  ctx.journal('lakeVerity');
   ctx.autosave();
 };
 

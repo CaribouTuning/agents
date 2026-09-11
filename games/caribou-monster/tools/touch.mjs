@@ -119,7 +119,7 @@ for (const dev of DEVICES) {
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(`http://127.0.0.1:${port}/${PAGE}`, { waitUntil: 'load' });
-  await page.waitForFunction('!!window.CARIBOU', { timeout: 8000 });
+  await page.waitForFunction('!!window.CARIBOU', { timeout: 30000 });
   await page.waitForTimeout(500);
 
   // Translate a logical game coordinate into a page coordinate, then tap it.

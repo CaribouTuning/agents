@@ -31,6 +31,19 @@ export class TitleScreen extends Screen {
     }));
   }
 
+  /**
+   * The durable store answering after the first paint. CONTINUE appears
+   * (or, on a genuinely fresh save, stays away) without the boot having had
+   * to wait for the network. The cursor is kept on whatever the player was
+   * already pointing at rather than jumping under their thumb.
+   */
+  setSave(meta) {
+    const wasOn = this.options[this.index] && this.options[this.index].key;
+    this.saveMeta = meta || null;
+    const again = this.options.findIndex((o) => o.key === wasOn);
+    this.index = again >= 0 ? again : 0;
+  }
+
   get options() {
     const out = [];
     if (this.saveMeta) out.push({ key: 'continue', text: 'CONTINUE' });

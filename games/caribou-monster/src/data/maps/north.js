@@ -754,6 +754,12 @@ export const LAKE_VERITY = defineMap('lake_verity', {
   warps: [
     { x: 19, y: 7, to: 'route201', tx: 1, ty: 13, dir: 'right', edge: true },
   ],
+  // The second lake. It only happens once Valor has gone, which is what
+  // `requires` is for — walk in before that and it is just a lake.
+  events: [
+    { x: 17, y: 7, flag: 'lakeVerity', requires: 'lakeValor', script: 'lakeVerity' },
+    { x: 17, y: 8, flag: 'lakeVerity', requires: 'lakeValor', script: 'lakeVerity' },
+  ],
   signs: [
     { x: 15, y: 12, text: 'LAKE VERITY\nThe water has never once been measured\nall the way to the bottom.' },
   ],

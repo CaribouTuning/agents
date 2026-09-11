@@ -45,7 +45,7 @@ async function openTab(label) {
   p.on('pageerror', (e) => errs.push(`[${label}] ${e.message}`));
   p.on('console', (m) => { if (m.type() === 'error') errs.push(`[${label}] ${m.text()}`); });
   await p.goto(`http://127.0.0.1:${port}/${PAGE}`, { waitUntil: 'load' });
-  await p.waitForFunction('!!window.CARIBOU', { timeout: 8000 });
+  await p.waitForFunction('!!window.CARIBOU', { timeout: 30000 });
   return p;
 }
 

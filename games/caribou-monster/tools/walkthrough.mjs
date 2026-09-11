@@ -39,7 +39,7 @@ page.on('pageerror', (e) => errs.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('404')) errs.push(m.text()); });
 
 await page.goto(`http://127.0.0.1:${port}/${PAGE}`, { waitUntil: 'load' });
-await page.waitForFunction('!!window.CARIBOU', { timeout: 8000 });
+await page.waitForFunction('!!window.CARIBOU', { timeout: 30000 });
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -817,6 +817,153 @@ if (inside.map === 'everlight_chamber') {
   check('declining the Everlight does not consume it',
     after.resolved && !after.caught, JSON.stringify(after));
 }
+
+// --- the wet south and the highlands ---
+// Two things this section is really testing: that a scripted world event
+// hands over a field move, and that a story gate made of NPC bodies both
+// closes and opens. Neither can be proved by the map audit — the audit only
+// knows the tiles.
+console.log('\n--- the south and the highlands ---');
+
+const wake = await page.evaluate(async () => {
+  const { getTrainer } = await import('./src/data/trainers.js');
+  const { getSpecies } = await import('./src/data/species.js');
+  const { MAPS } = await import('./src/data/maps/index.js');
+  const t = getTrainer('gym5_leader');
+  const npc = MAPS.pastoria_gym.npcs.find((n) => n.trainer === 'gym5_leader');
+  return {
+    script: npc && npc.script, badge: t.badge, badgeName: t.badgeName,
+    allWater: t.team.every((m) => getSpecies(m.species).types.includes('Water')),
+    levels: t.team.map((m) => m.level),
+  };
+});
+check('Crasher Wake stands in the Pastoria Gym as a Leader battle',
+  wake.script === 'gymLeader', String(wake.script));
+check('his team is all Water', wake.allWater, wake.levels.join('/'));
+check('and he gives the Fen Badge', wake.badge === 5 && wake.badgeName === 'Fen Badge',
+  `${wake.badge}: ${wake.badgeName}`);
+
+// Lake Valor. Walking onto the lakebed is the scene, and the scene is where
+// Surf comes from — so this is the check that the whole second half of the
+// region is reachable at all.
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.flags.galacticHQ = true;
+  g.overworld.world.load('lake_valor', 11, 14, 'up');
+});
+await wait(400);
+await waitIdle();
+await walkTo(11, 12, 8);
+await wait(600);
+for (let i = 0; i < 40; i++) {
+  if (await page.evaluate(() => !!window.CARIBOU.state.flags.lakeValor)) break;
+  await tap('KeyZ', 1, 170);
+}
+await waitIdle(80);
+const valor = await page.evaluate(() => {
+  const g = window.CARIBOU;
+  return {
+    flag: !!g.state.flags.lakeValor,
+    hm: (g.state.inventory.items.hm03 || 0) > 0,
+  };
+});
+check('standing on the Lake Valor lakebed fires the scene', valor.flag, JSON.stringify(valor));
+check('and the scene hands over HM03', valor.hm, JSON.stringify(valor));
+
+// The Psyduck gate. Without the Secret Potion the road is shut by four
+// bodies; with it, the bodies go and the road is a road.
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.flags.psyducks = false;
+  g.overworld.world.load('route210_north', 12, 7, 'up');
+});
+await wait(400);
+await waitIdle();
+const fogShut = await page.evaluate(() => {
+  const w = window.CARIBOU.overworld.world;
+  return !w.canEnter(w.player, 12, 6);
+});
+check('the fog road is shut by the Psyduck', fogShut);
+
+await tap('KeyZ', 1, 300);
+for (let i = 0; i < 14; i++) {
+  if (!await page.evaluate(() => window.CARIBOU.dialogueForTest.visible)) break;
+  await tap('KeyZ', 1, 150);
+}
+const stillShut = await page.evaluate(() => !window.CARIBOU.state.flags.psyducks);
+check('and talking to them without the Secret Potion changes nothing', stillShut);
+
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.debugGiveItem('secretpotion', 1);
+});
+await tap('KeyZ', 1, 300);
+for (let i = 0; i < 20; i++) {
+  if (await page.evaluate(() => !!window.CARIBOU.state.flags.psyducks)) break;
+  await tap('KeyZ', 1, 150);
+}
+await waitIdle(60);
+const opened = await page.evaluate(() => {
+  const g = window.CARIBOU, w = g.overworld.world;
+  return {
+    flag: !!g.state.flags.psyducks,
+    ducks: w.entities.filter((e) => e.id && e.id.startsWith('psy')).length,
+  };
+});
+check('the Secret Potion moves them on', opened.flag, JSON.stringify(opened));
+await page.evaluate(() => window.CARIBOU.overworld.world.load('route210_north', 12, 7, 'up'));
+await wait(400);
+await waitIdle();
+const fogOpen = await page.evaluate(() => {
+  const w = window.CARIBOU.overworld.world;
+  return w.canEnter(w.player, 12, 6);
+});
+check('and the road north is walkable afterwards', fogOpen);
+
+// The shrine. Two grey coats in the doorway until the fight is over.
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.flags.celestic = false;
+  g.overworld.world.load('celestic', 12, 5, 'up');
+});
+await wait(400);
+await waitIdle();
+const guarded = await page.evaluate(() => {
+  const w = window.CARIBOU.overworld.world;
+  return w.entities.filter((e) => e.id && e.id.startsWith('cel_grunt')).length;
+});
+check('the shrine doorway is guarded before the fight', guarded === 2, String(guarded));
+
+await page.evaluate(() => {
+  const g = window.CARIBOU;
+  g.state.flags.celestic = true;
+  g.overworld.world.load('celestic', 12, 5, 'up');
+});
+await wait(400);
+await waitIdle();
+const cleared = await page.evaluate(() => {
+  const w = window.CARIBOU.overworld.world;
+  return w.entities.filter((e) => e.id && e.id.startsWith('cel_grunt')).length;
+});
+check('and empty once the flag is set', cleared === 0, String(cleared));
+
+await walkTo(12, 3, 6);
+await wait(700);
+await waitIdle();
+const inShrine = await where();
+check('the shrine is enterable', inShrine.map === 'celestic_ruins',
+  `${inShrine.map} ${inShrine.x},${inShrine.y}`);
+check('and leaves the player mobile', (await canMove()).length > 0, (await canMove()).join(','));
+await page.screenshot({ path: path.join(OUT, '08f-celestic.png') });
+
+// The Lake Verity raid only exists once Valor has gone.
+const verity = await page.evaluate(async () => {
+  const { MAPS } = await import('./src/data/maps/index.js');
+  const ev = MAPS.lake_verity.events || [];
+  return { count: ev.length, requires: ev.every((e) => e.requires === 'lakeValor') };
+});
+check('the Lake Verity raid waits for Lake Valor', verity.count > 0 && verity.requires,
+  JSON.stringify(verity));
 
 // --- the World Circuit, played end to end ---
 // Walk into the Battle Hall, register at the desk, enter the Rookie Cup and

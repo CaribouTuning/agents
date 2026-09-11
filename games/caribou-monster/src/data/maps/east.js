@@ -359,6 +359,8 @@ export const ROUTE210 = defineMap('route210', {
     { x: 12, y: 21, to: 'solaceon', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 13, y: 21, to: 'solaceon', tx: 13, ty: 1, dir: 'down', edge: true },
     { x: 0, y: 7, to: 'route215', tx: 30, ty: 8, dir: 'left', edge: true },
+    { x: 12, y: 0, to: 'route210_north', tx: 12, ty: 18, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'route210_north', tx: 13, ty: 18, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 19, text: 'ROUTE 210\nSOLACEON TOWN — SOUTH\nROUTE 215 — WEST, toward Veilstone.\nThe fog is permanent. Mind the trainers.' },

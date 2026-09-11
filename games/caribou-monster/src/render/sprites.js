@@ -243,6 +243,7 @@ export const LOOKS = {
   gruntF: makeLook({ hair: '#20242e', shirt: '#2b3450', pants: '#20242e', longHair: true, boots: '#101420', outlineColor: '#080a12' }),
   leaderRock: makeLook({ hair: '#8a5a30', shirt: '#a86840', pants: '#5a4a3a', boots: '#3a2a1a' }),
   oldMan: makeLook({ hair: '#d0d0d8', shirt: '#8a9aa8', pants: '#5a6070', boots: '#4a4a52' }),
+  oldWoman: makeLook({ hair: '#e0e0e8', shirt: '#b08aa8', pants: '#6a5a70', longHair: true, boots: '#4a4a52' }),
   kid: makeLook({ hair: '#4a3020', shirt: '#f0d060', pants: '#68a048', boots: '#8a5a30' }),
   sailor: makeLook({ hair: '#20304a', shirt: '#f0f0f8', pants: '#2b3450', hat: '#f0f0f8', boots: '#20283a' }),
   scientist: makeLook({ hair: '#3a3a48', shirt: '#f4f4f8', pants: '#8a9aa8', boots: '#4a4a52' }),

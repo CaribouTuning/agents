@@ -93,7 +93,18 @@ export class World {
 
     for (const npc of this.map.npcs) {
       if (npc.trainer && this.state.flags[`beat_${npc.trainer}`] && npc.removeAfter) continue;
-      this.entities.push(makeEntity({ ...npc, kind: 'npc' }));
+      // Two general switches, so a scene can put somebody in the road and
+      // then take them out of it without the map needing two copies.
+      // `goneWhen` is somebody who leaves; `onlyWhen` is somebody who
+      // has not turned up yet.
+      if (npc.goneWhen && this.state.flags[npc.goneWhen]) continue;
+      if (npc.onlyWhen && !this.state.flags[npc.onlyWhen]) continue;
+      const e = makeEntity({ ...npc, kind: 'npc' });
+      // An NPC that is a Pokemon rather than a person — the Psyduck sitting
+      // in the fog road. It draws from the same artwork the walking partner
+      // uses, so there is no second sprite pipeline to keep in step.
+      if (npc.species) e.mon = { species: npc.species, shiny: false };
+      this.entities.push(e);
     }
     for (const obj of this.map.objects) {
       if (this.state.flags[`item_${obj.id}`]) continue;

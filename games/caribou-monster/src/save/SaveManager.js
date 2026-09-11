@@ -5,6 +5,7 @@
 // across the two players' phones) drops in behind the same three methods
 // without any game code changing.
 import { storage } from '../core/storage.js';
+import { ArtifactDbBackend } from './artifactdb.js';
 import { serializeState, deserializeState } from '../game/state.js';
 import { MIGRATIONS } from './migrations.js';
 
@@ -96,6 +97,20 @@ export class SaveManager {
     } catch { return null; }
   }
 
+  /**
+   * A peek that never waits on the network. Used for the first paint of the
+   * title screen: showing the menu instantly and adding CONTINUE a moment
+   * later beats staring at a blank screen for ten seconds.
+   */
+  async peekFast(slot = SAVE_SLOT) {
+    try {
+      const b = this.backend;
+      const raw = typeof b.readLocal === 'function' ? await b.readLocal(slot) : await b.read(slot);
+      if (!raw || !raw.state) return null;
+      return { ...raw.meta, savedAt: raw.savedAt, version: raw.v };
+    } catch { return null; }
+  }
+
   async hasSave(slot = SAVE_SLOT) { return !!(await this.peek(slot)); }
 
   async erase(slot = SAVE_SLOT) { return this.backend.remove(slot); }
@@ -132,4 +147,14 @@ export class SaveManager {
   }
 }
 
-export const saveManager = new SaveManager();
+// The default backend keeps a local copy AND, when the page is running as a
+// claude.ai artifact, a server-side one. Inside the artifact viewer the local
+// copy alone is not durable — closing the artifact can drop it — which is why
+// the durable half exists at all.
+export const saveManager = new SaveManager(new ArtifactDbBackend(new LocalBackend()));
+
+/** Resolves once we know whether durable storage is available. */
+export function saveReady() {
+  const b = saveManager.backend;
+  return b && typeof b.ready === 'function' ? b.ready() : Promise.resolve(null);
+}

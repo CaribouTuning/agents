@@ -372,6 +372,47 @@ add('r15_hiker', {
   ],
 });
 
+add('lv_mars', {
+  name: 'Commander Mars', cls: 'Galactic Commander', look: 'gruntF', ai: 4, prize: 3200,
+  intro: 'Four minutes. You were four minutes late. I am going to keep saying it.',
+  defeat: 'That changed nothing and I want you to sit with that.',
+  team: [mon(431, 34, ['fakeout', 'furyswipes', 'hypnosis']), mon(198, 34, ['pursuit', 'feintattack', 'torment']),
+    mon(429, 36, ['confuseray', 'psybeam', 'shadowball'])],
+});
+
+// ---- the fog road and the highlands ---------------------------------------
+add('r10n_hiker', {
+  name: 'Hiker Doran', cls: 'Hiker', look: 'hiker', ai: 3, prize: 1120,
+  intro: 'I can hear you. I cannot see you. That is how this road works.',
+  defeat: 'Fought you blind and lost. That tracks.',
+  team: [mon(74, 28, ['rockthrow', 'magnitude', 'rollout']), mon(95, 30, ['rockthrow', 'bind', 'screech'])],
+});
+add('r10n_lass', {
+  name: 'Lass Peri', cls: 'Lass', look: 'lass', ai: 3, prize: 960,
+  intro: 'The fog is fine. The fog is lovely. Everyone else is wrong about the fog.',
+  defeat: 'Fine. It is a bit much.',
+  team: [mon(441, 29, ['peck', 'mirrormove', 'featherdance']), mon(55, 30, ['confusion', 'watergun', 'disable'])],
+});
+add('celestic_grunt1', {
+  name: 'Galactic Grunt', cls: 'Galactic', look: 'grunt', ai: 3, prize: 1520,
+  intro: 'That wall is a thousand years of somebody writing down what we are going to do.',
+  defeat: 'It is still going to happen. We are just late.',
+  team: [mon(431, 32, ['fakeout', 'furyswipes', 'hypnosis']), mon(198, 32, ['pursuit', 'feintattack', 'torment']),
+    mon(453, 32, ['revenge', 'mudslap', 'poisonsting'])],
+});
+add('r11_hiker', {
+  name: 'Hiker Sable', cls: 'Hiker', look: 'hiker', ai: 3, prize: 1200,
+  intro: 'I walk to the mountain door and back. Twice a day. For the legs.',
+  defeat: 'Legs are fine. Everything else took a knock.',
+  team: [mon(95, 31, ['rockthrow', 'bind', 'screech']), mon(74, 31, ['magnitude', 'rollout', 'rocktomb'])],
+});
+add('r11_youngster', {
+  name: 'Youngster Bly', cls: 'Youngster', look: 'youngster', ai: 3, prize: 1000,
+  intro: 'Nobody comes this way except lorries and me.',
+  defeat: 'And now you. That is three things.',
+  team: [mon(396, 30, ['quickattack', 'wingattack', 'doubleteam']), mon(307, 31, ['confusion', 'detect', 'lightscreen'])],
+});
+
 // ---- the Galactic buildings -----------------------------------------------------
 add('gw_grunt', {
   name: 'Galactic Grunt', cls: 'Galactic', look: 'grunt', ai: 2, prize: 1280,

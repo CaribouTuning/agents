@@ -147,6 +147,28 @@ export const ENTRIES = [
     next: 'Two lakes left. Get to one of them first.',
   },
   {
+    id: 'celestic',
+    title: 'The wall in Celestic',
+    body: [
+      'Two grey coats had been stood at the Celestic shrine since Tuesday, not\nstealing anything. Reading. Taking notes off a thousand-year-old wall.',
+      'The elder stood in front of them the whole time and would not move first.\nNinety-one years old.',
+      'I moved them on for her, and she let me in to look at what they had been\nreading.',
+      'Three figures at three waters. Above them a fourth, larger, with no face\ndrawn on it. Behind all four, the world rolled up like a sheet being\ntaken off a bed.',
+    ],
+    next: 'They are not trying to rule anything. They are trying to start again.',
+  },
+  {
+    id: 'lakeVerity',
+    title: 'Four minutes',
+    body: [
+      'Lake Verity still has water in it. That is the only good thing I can say\nabout the state I found it in.',
+      'There were lorries on the shore and Mars was already getting into one.\nShe told me I was four minutes late and she was not wrong.',
+      'I beat her. She drove off anyway. She said it genuinely does not matter\nwhether I win these, and I think she believes it.',
+      'The one that lived in this lake is in a box on a lorry going to Veilstone.',
+    ],
+    next: 'One lake left. Acuity, past the mountain, in the snow.',
+  },
+  {
     id: 'metCass',
     title: 'Cass Wren',
     body: [

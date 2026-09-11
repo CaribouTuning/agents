@@ -58,6 +58,11 @@ export const WORLD_POS = {
   route214:       { x: 14, y: 12, kind: 'route' },
   valor_lakefront: { x: 14, y: 10, kind: 'route' },
   lake_valor:     { x: 14, y: 8, kind: 'special' },
+  // The highlands, above everything: the fog road, the oldest town, and the
+  // road west from it toward the far side of the mountain.
+  route210_north: { x: 12, y: 1, kind: 'route' },
+  celestic:       { x: 12, y: 0, kind: 'town' },
+  route211:       { x: 10, y: 0, kind: 'route' },
   // Underneath all of it. A Secret Base is a room off these tunnels rather
   // than a place in the region, so it has no position on the paper at all.
   underground:    { x: 2, y: 16, kind: 'underground' },

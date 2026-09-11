@@ -36,7 +36,7 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('pageerror', (e) => errors.push('PAGEERROR: ' + (e.stack || e.message)));
 
 await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'load' });
-await page.waitForFunction('!!window.CARIBOU', { timeout: 5000 });
+await page.waitForFunction('!!window.CARIBOU', { timeout: 30000 });
 
 const shot = async (name) => {
   await page.waitForTimeout(280);

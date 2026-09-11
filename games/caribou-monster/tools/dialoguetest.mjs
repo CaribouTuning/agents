@@ -85,6 +85,21 @@ function afterLakeValor(st) {
   return st;
 }
 
+/** The ducks are off the fog road, which means Celestic is reachable. */
+function pastThePsyduck(st) {
+  st.flags.psyducks = true;
+  return st;
+}
+
+/** The grey coats are off the shrine steps and the mural has been read. */
+function afterCelestic(st) {
+  st.flags.psyducks = true;
+  st.flags.celestic = true;
+  st.flags.celesticRead = true;
+  st.flags.beat_celestic_grunt1 = true;
+  return st;
+}
+
 function insideGalactic(st) {
   st.flags.metLooker = true;
   st.flags.galacticHQ = true;
@@ -215,6 +230,9 @@ const STAGES = [
   // The wet south: Pastoria, the marsh, and the lake that stopped being one.
   ['fifth badge', () => withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))))],
   ['saw Lake Valor go', () => afterLakeValor(withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState())))))))],
+  // The highlands: the fog road opening, and the shrine after it.
+  ['past the Psyduck', () => pastThePsyduck(afterLakeValor(withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))))))],
+  ['read the mural', () => afterCelestic(afterLakeValor(withFifthBadge(withFourthBadge(withThirdBadge(withSecondBadge(withBadge(withStarter(baseState()))))))))],
 ];
 
 // ---- 1. every NPC answers, at every stage ----------------------------------

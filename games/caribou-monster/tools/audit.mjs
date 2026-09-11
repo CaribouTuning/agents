@@ -48,6 +48,11 @@ function blockers(map, { strict }) {
   const set = new Set();
   for (const o of map.objects) set.add(`${o.x},${o.y}`);
   for (const n of map.npcs) {
+    // Somebody who walks off when a flag flips is a locked door, not a wall.
+    // Same reasoning as a cuttable tree: the player gets past them eventually,
+    // so the loose pass treats them as passable and the strict pass does not —
+    // which is what makes the "only reachable if an NPC moves" warning useful.
+    if (!strict && n.goneWhen) continue;
     if (strict || (n.movement || 'still') === 'still') set.add(`${n.x},${n.y}`);
   }
   return set;
@@ -96,6 +101,19 @@ function reachable(map, start, opts = { strict: false }) {
     }
   }
   return seen;
+}
+
+// Which edge of a map a warp landing sits against. A landing is always a
+// tile or two inside the border — you arrive next to the seam, not on it —
+// so this is a band test. Anything further in than BAND is not an edge
+// landing at all, which is its own (softer) complaint.
+const BAND = 3;
+function landingEdge(map, x, y) {
+  const d = [
+    ['north', y], ['south', map.height - 1 - y],
+    ['west', x], ['east', map.width - 1 - x],
+  ].filter(([, v]) => v >= 0 && v <= BAND).sort((a, b) => a[1] - b[1]);
+  return d.length ? d[0][0] : null;
 }
 
 const key = (p) => `${p.x},${p.y}`;
@@ -222,6 +240,26 @@ for (const map of Object.values(MAPS)) {
     const back = reachable(dest, { x: w.tx, y: w.ty });
     if (!dest.warps.some((b) => back.has(key(b)) && b.to === map.id)) {
       warn(`${tag} warp to ${w.to} has no reachable way back to ${map.id}`);
+    }
+
+    // Walking north off the top of a map has to put you at the BOTTOM of the
+    // next one. Landing on the same side you left from is the bug that made
+    // the region feel like one road that kept extending north: you stepped
+    // off Route 201 heading up and arrived at the top of Sandgem, facing a
+    // town you had just walked past the far side of.
+    // Only region seams. A door out of a shop is on the building's south
+    // wall too, and there is nothing wrong with that.
+    const leaves = w.edge ? edgeOf(map, w) : null;
+    if (leaves) {
+      const want = OPPOSITE[leaves];
+      const got = landingEdge(dest, w.tx, w.ty);
+      if (got && got !== want) {
+        err(`${tag} warp at ${w.x},${w.y} leaves the ${leaves} edge but lands on the `
+          + `${got} edge of ${w.to} — it should land ${want}`);
+      } else if (!got) {
+        warn(`${tag} warp at ${w.x},${w.y} leaves the ${leaves} edge but lands in the `
+          + `middle of ${w.to} at ${w.tx},${w.ty}`);
+      }
     }
   }
 

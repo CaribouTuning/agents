@@ -197,6 +197,8 @@ add('oldrod', 'Old Rod', 'Key Items', 0, { kind: 'rod' },
   'An old fishing rod. Use it at the water’s edge.', { key: true });
 add('explorerkit', 'Explorer Kit', 'Key Items', 0, { kind: 'dig' },
   'A bag of digging tools. Use it outdoors to go under Sinnoh.', { key: true });
+add('secretpotion', 'Secret Potion', 'Key Items', 0, { kind: 'story' },
+  'A Celestic remedy for headaches nothing else touches. Smells appalling.', { key: true });
 add('auroracharm', 'Aurora Charm', 'Key Items', 0, { kind: 'story' },
   'A cold, faintly glowing charm. It hums near old stone.', { key: true });
 add('gymbadge1', 'Coal Badge', 'Key Items', 0, null,

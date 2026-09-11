@@ -169,6 +169,8 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
   for (const e of world.entities) {
     if (!e.visible) continue;
     if (e.kind === 'item') { drawables.push({ e, sortY: e.y, item: true }); continue; }
+    // An NPC that is a Pokemon draws through the partner path.
+    if (e.mon) { drawables.push({ e, sortY: e.y, partner: true }); continue; }
     drawables.push({ e, sortY: e.y });
   }
   for (const r of world.remotesHere()) drawables.push({ e: r, sortY: r.y, remote: true });
