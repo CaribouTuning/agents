@@ -2,28 +2,25 @@ import { defineMap } from './define.js';
 import { TILES } from '../../render/tiles.js';
 
 const TWINLEAF_ROWS = [
-    'TTTTTTTTTTTTTT::TTTTTTTTTTTTTT',
-    'TTTTTTTTTTTTTT::TTTTTTTTTTTTTT',
-    'T..........,..::..,..........T',
-    'T..GGGGGGG....::.............T',
-    'T..GGGGGGG....::..,..........T',
-    'T..VVVVVVV....::.............T',
-    'T..#W#D#W#....::.............T',
-    'T..:::::::::::::.............T',
-    'T....*........::....TTT......T',
-    'T....*........::...TTTTT.....T',
-    'T.............::....TTT......T',
-    'T..AAAAA......::....BBBBB....T',
-    'T..AAAAA......::....BBBBB....T',
-    'T..#WDW#......::....#WDW#....T',
-    'T....:........::......:......T',
-    'T....:::::::::::::::::.......T',
-    'T...OOO.......::.............T',
-    'T..S..........::..........S..T',
-    'T.,...........::...........,.T',
-    'T.............::.............T',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
-  ];
+  'TTTTTTTTTT::TTTTTTTTTT',
+  'T.........::.........T',
+  'T.GGGGG...::.........T',
+  'T.GGGGG...::.........T',
+  'T.VVVVV...::.........T',
+  'T.#WDW#...::.........T',
+  'T...:.....::.........T',
+  'T...::::::::::::::...T',
+  'T.........::.........T',
+  'T.AAAAA...::.BBBBB...T',
+  'T.AAAAA...::.BBBBB...T',
+  'T.VVVVV...::.VVVVV...T',
+  'T.#WDW#...::.#WDW#...T',
+  'T...:.....::...:.....T',
+  'T...::::::::::::::...T',
+  'T..S..OOO.::.......S.T',
+  'T.........::.........T',
+  'TTTTTTTTTTTTTTTTTTTTTT',
+];
 
 export const TWINLEAF = defineMap('twinleaf', {
   name: 'Twinleaf Town', kind: 'town', music: 'town',
@@ -35,36 +32,36 @@ export const TWINLEAF = defineMap('twinleaf', {
   // tiles the doors land on: arriving on a tile does not count as stepping
   // onto it, so a trigger on the doormat is a scene that never fires. Every
   // route out of either house crosses this row.
-  events: TWINLEAF_ROWS[15].split('').map((ch, x) => (
+  events: TWINLEAF_ROWS[14].split('').map((ch, x) => (
     TILES[ch] && !TILES[ch].solid
-      ? { x, y: 15, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' }
+      ? { x, y: 14, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' }
       : null
   )).filter(Boolean),
   warps: [
     // Shut until Rowan has handed a Pokemon over. You can wander the whole
     // town, go in every house and talk to everybody — the one thing you
     // cannot do is walk into tall grass with nothing to send out.
-    { x: 14, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true,
+    { x: 10, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true,
       requires: 'gotStarter',
       refuse: 'There is tall grass past the sign, and nothing in your bag but a\nphone.\fGo and see Professor Rowan first.' },
-    { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true,
+    { x: 11, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true,
       requires: 'gotStarter',
       refuse: 'There is tall grass past the sign, and nothing in your bag but a\nphone.\fGo and see Professor Rowan first.' },
-    { x: 5, y: 13, to: 'matthew_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 22, y: 13, to: 'sammy_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 6, y: 6, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
+    { x: 4, y: 12, to: 'matthew_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 15, y: 12, to: 'sammy_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 4, y: 5, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
   ],
   labels: [
-    { x: 3, y: 5, w: 7, text: "ROWAN'S LAB" },
+    { x: 2, y: 4, w: 5, text: "ROWAN'S LAB" },
   ],
   signs: [
-    { x: 3, y: 17, text: 'TWINLEAF TOWN\n"Fresh and free!"\nWhere every road out is uphill.' },
-    { x: 26, y: 17, text: 'ROUTE 201 — NORTH\nTall grass ahead. Wild Pokémon live in it.\nDo not walk in without a Pokémon.' },
+    { x: 3, y: 15, text: 'TWINLEAF TOWN\n"Fresh and free!"\nThree buildings and one road out of it.' },
+    { x: 19, y: 15, text: 'ROUTE 201 — NORTH\nTall grass ahead. Wild Pokémon live in it.\nDo not walk in without a Pokémon.' },
   ],
   npcs: [
     // Bandit. Sammy's dog, and she has opinions about who she belongs to.
     {
-      id: 'tw_bandit', x: 22, y: 16, species: 228, name: 'Bandit',
+      id: 'tw_bandit', x: 16, y: 13, species: 228, name: 'Bandit',
       movement: 'lookAround', facing: 'up',
       dialogue: [
         {
@@ -87,7 +84,7 @@ export const TWINLEAF = defineMap('twinleaf', {
     {
       // Tam is the town's circuit superfan. Whoever is actually top of the
       // world ranking is who he has posters of — including, eventually, you.
-      id: 'bv_kid', x: 10, y: 8, look: 'kid', name: 'Tam', movement: 'wander', facing: 'down',
+      id: 'bv_kid', x: 8, y: 8, look: 'kid', name: 'Tam', movement: 'wander', facing: 'down',
       dialogue: [
         {
           when: { champion: true },
@@ -160,14 +157,14 @@ export const TWINLEAF = defineMap('twinleaf', {
     {
       // She keeps the beds at the end of the lane, and she has decided the two
       // of you are going to keep one too.
-      id: 'bv_gardener', x: 7, y: 16, look: 'mom', name: 'Nel', movement: 'still', facing: 'left',
+      id: 'bv_gardener', x: 9, y: 15, look: 'mom', name: 'Nel', movement: 'still', facing: 'left',
       script: 'berryGift',
       dialogue: [
         { lines: ['Soft soil, that. Anything goes in it.'] },
       ],
     },
     {
-      id: 'bv_oldman', x: 20, y: 15, look: 'oldMan', name: 'Hollis', movement: 'lookAround', facing: 'left',
+      id: 'bv_oldman', x: 17, y: 15, look: 'oldMan', name: 'Hollis', movement: 'lookAround', facing: 'left',
       dialogue: [
         {
           when: { flag: 'caughtEverlight' },
@@ -207,7 +204,7 @@ export const TWINLEAF = defineMap('twinleaf', {
       ],
     },
     {
-      id: 'bv_woman', x: 24, y: 8, look: 'mom', name: 'Bev', movement: 'still', facing: 'down',
+      id: 'bv_woman', x: 18, y: 8, look: 'mom', name: 'Bev', movement: 'still', facing: 'down',
       dialogue: [
         {
           when: { caught: 15 },
@@ -228,7 +225,7 @@ export const TWINLEAF = defineMap('twinleaf', {
     {
       // The other half of the fan conversation: someone who has been following
       // the circuit long enough to be unimpressed by it.
-      id: 'bv_postman', x: 8, y: 17, look: 'worker', name: 'Postman', movement: 'lookAround', facing: 'down',
+      id: 'bv_postman', x: 6, y: 16, look: 'worker', name: 'Postman', movement: 'lookAround', facing: 'down',
       dialogue: [
         {
           when: { titles: 1 },
@@ -496,43 +493,49 @@ export const OREBURGH = defineMap('oreburgh', {
 export const SANDGEM = defineMap('sandgem', {
   name: 'Sandgem Town', kind: 'town', music: 'town',
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
-    'T...........::...........T',
-    'T..AAAAAAAA.::...........T',
-    'T..AAAAAAAA.::....BBBBBB.T',
-    'T..VVVVVVVV.::....BBBBBB.T',
-    'T..#WFFDFFW.::....VVVVVV.T',
-    'T.....:::::::::::.#WJDJW.T',
-    'T.....:.....::...:.......T',
-    'T.....:.....::...:.......T',
-    'T..S..:..GGGGG...:.ssssssT',
-    'T.....:..GGGGG...:.ssssssT',
-    'T.....:..#WDW#...:.~~~~~~T',
-    'T.....:::::::::::::~~~~~~T',
-    'T...........::.....~~~~~~T',
-    'T...........::.....~~~~~~T',
-    'T...........::.......OOO.T',
-    'T..S........::..........ST',
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTTTT',
+    'T...........::.................T',
+    'T..AAAAAAA..::.....BBBBBB......T',
+    'T..AAAAAAA..::.....BBBBBB......T',
+    'T..VVVVVVV..::.....VVVVVV......T',
+    'T..#WFFDFW..::.....#WJDJW......T',
+    'T......:....::........:........T',
+    'T......:....::........:........T',
+    'T.....::::::::::::::::::::::...T',
+    'T.....:.....::........:........T',
+    'T..S..:.....::........:........T',
+    'T.....:.....::.GGGGG..:........T',
+    'T.....:.....::.GGGGG..:........T',
+    'T.....:.....::.#WDW#..:........T',
+    'T.....:.....::...:....:........T',
+    'T.....::::::::::::::::::::::...T',
+    'T...........::.......ssssssssssT',
+    'T...........::.....sssssssssss.T',
+    'T...........::...sssssss~~~~~~~~',
+    'T..OOO......::..ssss~~~~~~~~~~~~',
+    'T...........::..ss~~~~~~~~~~~~~~',
+    'T..S........::..ss~~~~~~~~~~~~~~',
+    'T...........::..sss............T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTTTT',
   ],
+
   warps: [
     { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
-    { x: 12, y: 17, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 13, y: 17, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 23, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
     { x: 7, y: 5, to: 'sandgem_center', tx: 6, ty: 6, dir: 'up' },
-    { x: 21, y: 6, to: 'sandgem_mart', tx: 5, ty: 5, dir: 'up' },
-    { x: 11, y: 11, to: 'sandgem_daycare', tx: 5, ty: 6, dir: 'up' },
+    { x: 22, y: 5, to: 'sandgem_mart', tx: 5, ty: 5, dir: 'up' },
+    { x: 17, y: 13, to: 'sandgem_daycare', tx: 5, ty: 6, dir: 'up' },
   ],
   labels: [
-    { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
-    { x: 18, y: 5, w: 6, text: 'POKéMON MART' },
-    { x: 9, y: 10, w: 5, text: 'DAY CARE', tone: '#f8e070' },
+    { x: 3, y: 4, w: 7, text: 'POKéMON CENTER' },
+    { x: 19, y: 4, w: 6, text: 'POKéMON MART' },
+    { x: 15, y: 12, w: 5, text: 'DAY CARE', tone: '#f8e070' },
   ],
   signs: [
-    { x: 3, y: 9, text: 'SANDGEM TOWN\n"Where the sand shines."\nCENTER — west. MART — east.\nROUTE 202 runs north to Jubilife.' },
-    { x: 3, y: 16, text: 'ROUTE 201 — SOUTH\nTwinleaf Town is back that way.' },
-    { x: 24, y: 16, text: 'The beach is closed to trainers\nwithout a fishing licence.\nThe sea does not check.' },
+    { x: 3, y: 10, text: 'SANDGEM TOWN\n"Where the sand shines."\nCENTER — west. MART — east.\nROUTE 202 runs north to Jubilife.' },
+    { x: 3, y: 21, text: 'THE BEACH\nThe sea goes on past the end of the map,\nwhich is more than can be said for most things.' },
   ],
   // Nothing lives in the grass in a town, but there is a sea at the bottom
   // of it, and the man on the beach will give you a rod if you ask nicely.
@@ -545,7 +548,7 @@ export const SANDGEM = defineMap('sandgem', {
       // The catching lesson. In the DS games somebody demonstrates this at you
       // whether you want it or not, and it is the reason nobody ever had to
       // guess how a Poke Ball works.
-      id: 'sg_catcher', x: 8, y: 7, look: 'youngster', name: 'Riko',
+      id: 'sg_catcher', x: 9, y: 7, look: 'youngster', name: 'Riko',
       movement: 'lookAround', facing: 'down',
       dialogue: [
         {
@@ -564,7 +567,7 @@ export const SANDGEM = defineMap('sandgem', {
       ],
     },
     {
-      id: 'sg_fisher', x: 20, y: 15, look: 'sailor', name: 'Bram', movement: 'still', facing: 'down',
+      id: 'sg_fisher', x: 19, y: 18, look: 'sailor', name: 'Bram', movement: 'still', facing: 'down',
       script: 'oldRod',
       dialogue: [
         {
@@ -573,7 +576,7 @@ export const SANDGEM = defineMap('sandgem', {
       ],
     },
     {
-      id: 'sg_gran', x: 4, y: 13, look: 'mom', name: 'Enna', movement: 'still', facing: 'right',
+      id: 'sg_gran', x: 4, y: 12, look: 'mom', name: 'Enna', movement: 'still', facing: 'right',
       dialogue: [
         {
           when: { alone: true },
@@ -602,40 +605,45 @@ export const SANDGEM = defineMap('sandgem', {
 export const JUBILIFE = defineMap('jubilife', {
   name: 'Jubilife City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
-    'T...........::...............T',
-    'T..AAAAAAAA.::......BBBBBBBB.T',
-    'T..AAAAAAAA.::......BBBBBBBB.T',
-    'T..VVVVVVVV.::......VVVVVVVV.T',
-    'T..#WFFDFFW.::......#WJJDJJW.T',
-    'T.....:.....::..........:....T',
-    ':.....::::::::::::::::::::::::',
-    ':.....:.....::..........::::::',
-    'T..S..:.....::..........:....T',
-    'T.....:.EEEEEEEEEEEE....:....T',
-    'T.....:.EEEEEEEEEEEE....:....T',
-    'T.....:.VVVVVVVVVVVV....:....T',
-    'T.....:.#WW#WWDDWW#WW...:....T',
-    'T.....:........::.......:....T',
-    'T.....::::::::::::::::::::...T',
-    'T..............::............T',
-    'T..GGGGG.......::....GGGGG...T',
-    'T..GGGGG.......::....GGGGG...T',
-    'T..#WDW#.......::....#WDW#...T',
-    'T.....:........::......:.....T',
-    'T.....::::::::::::::::::.....T',
-    'T..S...........::...........ST',
-    'TTTTTTTTTTTT::::::TTTTTTTTTTTT',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTT....T',
+    'T...........::...................T',
+    'T..AAAAAAAA.::......BBBBBBBB.....T',
+    'T..AAAAAAAA.::......BBBBBBBB.....T',
+    'T..VVVVVVVV.::......VVVVVVVV.....T',
+    'T..#WFFDFFW.::......#WJJDJJW.....T',
+    'T.....:.....::..........:........T',
+    ':.....:::::::::::::::::::::::....:',
+    ':.....:.....::..........:::::....:',
+    'T..S..:.....::..........:........T',
+    'T.....:.EEEEEEEEEEEE....:........T',
+    'T.....:.EEEEEEEEEEEE....:........T',
+    'T.....:.VVVVVVVVVVVV....:........T',
+    'T.....:.#WW#WWDDWW#WW...:........T',
+    'T.....:........::.......:........T',
+    'T.....::::::::::::::::::::.......T',
+    'T..............::................T',
+    'T..GGGGG.......::....GGGGG.......T',
+    'T..GGGGG.......::....GGGGG.......T',
+    'T..#WDW#.......::....#WDW#.......T',
+    'T.....:........::......:.........T',
+    'T.....::::::::::::::::::.........T',
+    'T..S...........::...........S....T',
+    'T................................T',
+    'T................................T',
+    'T................................T',
+    'T................................T',
+    'TTTTTTTTTTTT::::::TTTTTTTTTTT....T',
   ],
+
   warps: [
     { x: 12, y: 0, to: 'route204', tx: 12, ty: 22, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'route204', tx: 13, ty: 22, dir: 'up', edge: true },
-    { x: 15, y: 23, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 16, y: 23, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 15, y: 27, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 16, y: 27, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
     { x: 0, y: 7, to: 'route218', tx: 29, ty: 5, dir: 'left', edge: true },
     { x: 0, y: 8, to: 'route218', tx: 29, ty: 10, dir: 'left', edge: true },
-    { x: 29, y: 7, to: 'route203', tx: 1, ty: 6, dir: 'right', edge: true },
-    { x: 29, y: 8, to: 'route203', tx: 1, ty: 7, dir: 'right', edge: true },
+    { x: 33, y: 7, to: 'route203', tx: 1, ty: 6, dir: 'right', edge: true },
+    { x: 33, y: 8, to: 'route203', tx: 1, ty: 7, dir: 'right', edge: true },
     { x: 7, y: 5, to: 'jubilife_center', tx: 6, ty: 6, dir: 'up' },
     { x: 24, y: 5, to: 'jubilife_mart', tx: 5, ty: 5, dir: 'up' },
     { x: 14, y: 13, to: 'jubilife_school', tx: 7, ty: 11, dir: 'up' },

@@ -218,17 +218,17 @@ await wait(400);
 let w = await where();
 check('walked out into the town', w.map === 'twinleaf', `${w.map} ${w.x},${w.y}`);
 
-// Town path: down to the main road, east to the crossroads, north to the
-// lab's front path, then west to the door at (6,6).
-await walkTo(5, 15);
-await walkTo(14, 15);
-await walkTo(14, 7);
-// Settle onto row 7 before turning west. A long vertical hold can overshoot
-// by a tile or two, and walkTo closes the x gap before the y one — so from
-// row 4 it would set off west straight into the side of the lab and then
-// spend its whole budget sidestepping around a building.
-await walkTo(14, 7);
-await walkTo(6, 7);
+// To the lab. The door is looked up rather than walked to by memorised
+// coordinates: Twinleaf has been resized once already, and a test that
+// encodes a town's old shape fails for a reason that has nothing to do with
+// what it is testing.
+await page.evaluate(() => {
+  const { MAPS } = window.CARIBOU.mapsForTest;
+  const door = MAPS.twinleaf.warps.find((wp) => wp.to === 'rowan_lab');
+  window.CARIBOU.overworld.world.load('twinleaf', door.x, door.y + 1, 'up');
+});
+await wait(400);
+await waitIdle();
 await hold('ArrowUp', 500);
 await wait(900);
 w = await where();
@@ -505,12 +505,14 @@ await page.evaluate(() => {
   g.state.party[g.state.party.length - 2].gender = 'M';
   g.state.party[g.state.party.length - 1].gender = 'F';
   g.state.repelSteps = 9999;
-  g.overworld.world.load('sandgem', 11, 12, 'up');
+  const door = g.mapsForTest.MAPS.sandgem.warps.find((wp) => wp.to === 'sandgem_daycare');
+  g.overworld.world.load('sandgem', door.x, door.y + 1, 'up');
 });
 await wait(500);
 await waitIdle();
 const partyBefore = await page.evaluate(() => window.CARIBOU.state.party.length);
-await walkTo(11, 11, 4);
+await hold('ArrowUp', 450);
+await wait(500);
 await wait(500);
 const inDaycare = await where();
 check('the Day Care door opens', inDaycare.map === 'sandgem_daycare', inDaycare.map);
@@ -1112,11 +1114,12 @@ await page.evaluate(() => {
   const g = window.CARIBOU;
   g.state.flags.gotStarter = false;
   g.state.party.length = 0;
-  g.overworld.world.load('twinleaf', 14, 2, 'up');
+  const gate = g.mapsForTest.MAPS.twinleaf.warps.find((wp) => wp.to === 'route201');
+  g.overworld.world.load('twinleaf', gate.x, gate.y + 2, 'up');
 });
 await wait(400);
 await waitIdle();
-await walkTo(14, 0, 6);
+await hold('ArrowUp', 900);
 await wait(700);
 const stopped = await where();
 check('you cannot leave Twinleaf without a Pokémon', stopped.map === 'twinleaf',
@@ -1150,11 +1153,12 @@ await page.evaluate(() => {
   const g = window.CARIBOU;
   g.state.flags.gotStarter = true;
   g.debugGive(387, 5);
-  g.overworld.world.load('twinleaf', 14, 2, 'up');
+  const gate = g.mapsForTest.MAPS.twinleaf.warps.find((wp) => wp.to === 'route201');
+  g.overworld.world.load('twinleaf', gate.x, gate.y + 2, 'up');
 });
 await wait(400);
 await waitIdle();
-await walkTo(14, 0, 6);
+await hold('ArrowUp', 900);
 await wait(800);
 await waitIdle();
 const through = await where();

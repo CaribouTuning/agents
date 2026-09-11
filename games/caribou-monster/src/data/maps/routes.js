@@ -60,10 +60,10 @@ export const ROUTE201 = defineMap('route201', {
 
   warps: [
     { x: 0, y: 13, to: 'lake_verity', tx: 18, ty: 7, dir: 'left', edge: true },
-    { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
-    { x: 13, y: 27, to: 'twinleaf', tx: 15, ty: 2, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 16, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 16, dir: 'up', edge: true },
+    { x: 12, y: 27, to: 'twinleaf', tx: 10, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 27, to: 'twinleaf', tx: 11, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 22, dir: 'up', edge: true },
   ],
   // Cass is waiting a few tiles up the road, exactly as she said she would be.
   //
@@ -234,8 +234,8 @@ export const ROUTE203 = defineMap('route203', {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 0, y: 6, to: 'jubilife', tx: 28, ty: 7, dir: 'left', edge: true },
-    { x: 0, y: 7, to: 'jubilife', tx: 28, ty: 8, dir: 'left', edge: true },
+    { x: 0, y: 6, to: 'jubilife', tx: 32, ty: 7, dir: 'left', edge: true },
+    { x: 0, y: 7, to: 'jubilife', tx: 32, ty: 8, dir: 'left', edge: true },
     { x: 33, y: 7, to: 'oreburgh', tx: 1, ty: 8, dir: 'right', edge: true },
     { x: 33, y: 8, to: 'oreburgh', tx: 1, ty: 9, dir: 'right', edge: true },
   ],

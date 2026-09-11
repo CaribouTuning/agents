@@ -165,6 +165,52 @@ function entryPoints(map) {
   return pts;
 }
 
+// ---- how big a place ought to feel -----------------------------------------
+//
+// Twinleaf was larger than Sandgem, which meant the two-house village the
+// game opens in sprawled and the coastal town with the beach felt cramped.
+// Footprint is most of what makes a place read as a village or a city, so
+// the intended order is written down rather than left to whoever last edited
+// a tile grid. The bands are deliberately loose — this catches "these two are
+// the wrong way round", not "this is forty tiles out".
+const SIZE_BANDS = {
+  village: ['twinleaf', 'floaroma', 'celestic', 'solaceon'],
+  town: ['sandgem', 'pastoria', 'oreburgh'],
+  city: ['eterna', 'canalave', 'hearthome', 'veilstone', 'jubilife'],
+};
+
+function checkTownSizes() {
+  const area = (id) => (MAPS[id] ? MAPS[id].width * MAPS[id].height : null);
+  const biggest = (band) => Math.max(...SIZE_BANDS[band].map(area).filter(Boolean));
+  const smallest = (band) => Math.min(...SIZE_BANDS[band].map(area).filter(Boolean));
+
+  if (biggest('village') >= smallest('town')) {
+    for (const v of SIZE_BANDS.village) {
+      for (const t of SIZE_BANDS.town) {
+        if (area(v) && area(t) && area(v) >= area(t)) {
+          err(`[size] ${v} (${area(v)}) is not smaller than ${t} (${area(t)}) — a village should not sprawl further than a town`);
+        }
+      }
+    }
+  }
+  if (biggest('town') >= smallest('city')) {
+    for (const t of SIZE_BANDS.town) {
+      for (const c of SIZE_BANDS.city) {
+        if (area(t) && area(c) && area(t) >= area(c)) {
+          warn(`[size] ${t} (${area(t)}) is not smaller than ${c} (${area(c)})`);
+        }
+      }
+    }
+  }
+  // Twinleaf is where the game starts and the smallest thing in it.
+  const smallestTown = Object.values(MAPS)
+    .filter((m) => m.kind === 'town' || m.kind === 'city')
+    .sort((a, b) => a.width * a.height - b.width * b.height)[0];
+  if (smallestTown && smallestTown.id !== 'twinleaf') {
+    err(`[size] ${smallestTown.id} is smaller than twinleaf — Twinleaf should be the smallest place in Sinnoh`);
+  }
+}
+
 // ---- checks ---------------------------------------------------------------
 
 for (const map of Object.values(MAPS)) {
@@ -793,6 +839,8 @@ for (const t of TOURNAMENTS) checkText(`[event ${t.id}]`, [t.name, t.short, t.ve
 checkText('[news]', [HEADLINES, BODIES, PRESS_QUESTIONS, ANALYSTS]);
 for (const o of OUTLETS) checkText(`[outlet ${o.id}]`, o.name);
 
+checkTownSizes();
+
 // ---- report ---------------------------------------------------------------
 
 for (const w of warnings) console.log(`  WARN  ${w}`);
@@ -866,4 +914,5 @@ for (const e of errors) console.log(`  ERR   ${e}`);
 }
 
 console.log(`\n${errors.length} error(s), ${warnings.length} warning(s) across ${Object.keys(MAPS).length} maps`);
+
 process.exit(errors.length ? 1 : 0);

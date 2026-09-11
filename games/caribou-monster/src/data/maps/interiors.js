@@ -12,7 +12,7 @@ const MATTHEW_HOUSE = defineMap('matthew_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 5, ty: 14, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 4, ty: 13, dir: 'down' }],
   // Mum catches you on the mat. Fires once, before the door, so the first
   // thing that happens in the game is somebody who loves you talking to you.
   events: [
@@ -101,7 +101,7 @@ const SAMMY_HOUSE = defineMap('sammy_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 22, ty: 14, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 15, ty: 13, dir: 'down' }],
   // Mum catches you on the mat. Fires once, before the door, so the first
   // thing that happens in the game is somebody who loves you talking to you.
   events: [
@@ -188,7 +188,7 @@ const ROWAN_LAB = defineMap('rowan_lab', {
     '|__p_________|',
     '||||||D|||||||',
   ],
-  warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 6, ty: 7, dir: 'down' }],
+  warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 4, ty: 6, dir: 'down' }],
   npcs: [
     {
       id: 'lab_aspen', x: 6, y: 2, look: 'professor', name: 'Prof. Rowan', movement: 'still', facing: 'down',
@@ -901,7 +901,7 @@ const SANDGEM_DAYCARE = defineMap('sandgem_daycare', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'sandgem', tx: 11, ty: 12, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'sandgem', tx: 17, ty: 14, dir: 'down' }],
   signs: [
     { x: 10, y: 1, text: 'DAY CARE NOTICE\nLeave two and we will look after them.\nThey may come back knowing more than\nthey left with. We do not ask.' },
   ],

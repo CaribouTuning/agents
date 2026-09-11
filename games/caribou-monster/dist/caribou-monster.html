@@ -7649,6 +7649,9 @@ const FLAGS = {
   CANALAVE_TRUTH: 'canalaveTruth',
   RILEY_DONE: 'rileyDone',
   BUDDY_HAS_STARTER: 'buddyHasStarter',
+  MUM_SENT_YOU_OFF: 'mumSentYouOff',
+  BUDDY_JOINED: 'buddyJoined',
+  BANDIT_HELLO: 'banditHello',
   MET_RIVAL: 'metRival',
   BEAT_RIVAL_1: 'beatRival1',
   LEFT_TOWN: 'leftTown',
@@ -7670,7 +7673,7 @@ const FLAGS = {
 
 // Milestones that co-op partners keep in step, in the order they happen.
 const SHARED_MILESTONES = [
-  FLAGS.GOT_STARTER, FLAGS.LEFT_TOWN, FLAGS.ENTERED_FOREST, FLAGS.FOREST_GRUNT,
+  FLAGS.BUDDY_JOINED, FLAGS.GOT_STARTER, FLAGS.LEFT_TOWN, FLAGS.ENTERED_FOREST, FLAGS.FOREST_GRUNT,
   FLAGS.REACHED_ALDERMERE, FLAGS.BADGE_1, FLAGS.ENTERED_CAVE, FLAGS.BEAT_COMMANDER,
   FLAGS.GALACTIC_HQ, FLAGS.LAKE_VALOR, FLAGS.CELESTIC, FLAGS.LAKE_VERITY, FLAGS.CANALAVE_TRUTH,
   FLAGS.CAUGHT_EVERLIGHT,
@@ -10890,6 +10893,9 @@ function createGameState(opts = {}) {
     playTimeMs: 0,
     startedAt: Date.now(),
     lastHealPoint: { map: home, x: 5, y: 6 },
+    // Who is walking with you. A generic slot: usually the other one, but
+    // the story hands it to Looker and to Riley too.
+    companion: { look: null, name: null, key: null, active: false },
     repelSteps: 0,
     starterBase: null,
     stats: { battlesWon: 0, caught: 0, steps: 0 },
@@ -11032,6 +11038,7 @@ function serializeState(st) {
     starterBase: st.starterBase,
     stats: { ...st.stats },
     settings: { ...st.settings },
+    companion: { ...(st.companion || {}) },
     circuit: serializeCircuit(st.circuit),
     journal: serializeJournal(st.journal),
     daycare: serializeDaycare(st.daycare),
@@ -11066,6 +11073,7 @@ function deserializeState(raw) {
   st.starterBase = raw.starterBase ?? null;
   Object.assign(st.stats, raw.stats || {});
   Object.assign(st.settings, raw.settings || {});
+  if (raw.companion) Object.assign(st.companion, raw.companion);
   st.circuit = reviveCircuit(raw.circuit);
   st.journal = reviveJournal(raw.journal);
   st.daycare = reviveDaycare(raw.daycare, reviveMonster);
@@ -11906,92 +11914,71 @@ __exports(__x, { defineMap: () => defineMap });
 
 __defs['data/maps/towns.js'] = function (__x, __req) {
 const { defineMap } = __req('data/maps/define.js');
+const { TILES } = __req('render/tiles.js');
 
+
+
+const TWINLEAF_ROWS = [
+  'TTTTTTTTTT::TTTTTTTTTT',
+  'T.........::.........T',
+  'T.GGGGG...::.........T',
+  'T.GGGGG...::.........T',
+  'T.VVVVV...::.........T',
+  'T.#WDW#...::.........T',
+  'T...:.....::.........T',
+  'T...::::::::::::::...T',
+  'T.........::.........T',
+  'T.AAAAA...::.BBBBB...T',
+  'T.AAAAA...::.BBBBB...T',
+  'T.VVVVV...::.VVVVV...T',
+  'T.#WDW#...::.#WDW#...T',
+  'T...:.....::...:.....T',
+  'T...::::::::::::::...T',
+  'T..S..OOO.::.......S.T',
+  'T.........::.........T',
+  'TTTTTTTTTTTTTTTTTTTTTT',
+];
 
 const TWINLEAF = defineMap('twinleaf', {
   name: 'Twinleaf Town', kind: 'town', music: 'town',
-  tiles: [
-    'TTTTTTTTTTTTTT::TTTTTTTTTTTTTT',
-    'TTTTTTTTTTTTTT::TTTTTTTTTTTTTT',
-    'T..........,..::..,..........T',
-    'T..GGGGGGG....::.............T',
-    'T..GGGGGGG....::..,..........T',
-    'T..VVVVVVV....::.............T',
-    'T..#W#D#W#....::.............T',
-    'T..:::::::::::::.............T',
-    'T....*........::....TTT......T',
-    'T....*........::...TTTTT.....T',
-    'T.............::....TTT......T',
-    'T..AAAAA......::....BBBBB....T',
-    'T..AAAAA......::....BBBBB....T',
-    'T..#WDW#......::....#WDW#....T',
-    'T....:........::......:......T',
-    'T....:::::::::::::::::.......T',
-    'T...OOO.......::.............T',
-    'T..S..........::..........S..T',
-    'T.,...........::...........,.T',
-    'T.............::.............T',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
-  ],
+  tiles: TWINLEAF_ROWS,
+
+  // The other one is on the step.
+  //
+  // The trigger is the whole of the path row BELOW the two houses, not the
+  // tiles the doors land on: arriving on a tile does not count as stepping
+  // onto it, so a trigger on the doormat is a scene that never fires. Every
+  // route out of either house crosses this row.
+  events: TWINLEAF_ROWS[14].split('').map((ch, x) => (
+    TILES[ch] && !TILES[ch].solid
+      ? { x, y: 14, flag: 'buddyJoined', requires: 'mumSentYouOff', script: 'buddyWaiting' }
+      : null
+  )).filter(Boolean),
   warps: [
     // Shut until Rowan has handed a Pokemon over. You can wander the whole
     // town, go in every house and talk to everybody — the one thing you
     // cannot do is walk into tall grass with nothing to send out.
-    { x: 14, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true,
+    { x: 10, y: 0, to: 'route201', tx: 12, ty: 26, dir: 'up', edge: true,
       requires: 'gotStarter',
       refuse: 'There is tall grass past the sign, and nothing in your bag but a\nphone.\fGo and see Professor Rowan first.' },
-    { x: 15, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true,
+    { x: 11, y: 0, to: 'route201', tx: 13, ty: 26, dir: 'up', edge: true,
       requires: 'gotStarter',
       refuse: 'There is tall grass past the sign, and nothing in your bag but a\nphone.\fGo and see Professor Rowan first.' },
-    { x: 5, y: 13, to: 'matthew_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 22, y: 13, to: 'sammy_house', tx: 5, ty: 6, dir: 'up' },
-    { x: 6, y: 6, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
+    { x: 4, y: 12, to: 'matthew_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 15, y: 12, to: 'sammy_house', tx: 5, ty: 6, dir: 'up' },
+    { x: 4, y: 5, to: 'rowan_lab', tx: 6, ty: 7, dir: 'up' },
   ],
   labels: [
-    { x: 3, y: 5, w: 7, text: "ROWAN'S LAB" },
+    { x: 2, y: 4, w: 5, text: "ROWAN'S LAB" },
   ],
   signs: [
-    { x: 3, y: 17, text: 'TWINLEAF TOWN\n"Fresh and free!"\nWhere every road out is uphill.' },
-    { x: 26, y: 17, text: 'ROUTE 201 — NORTH\nTall grass ahead. Wild Pokémon live in it.\nDo not walk in without a Pokémon.' },
+    { x: 3, y: 15, text: 'TWINLEAF TOWN\n"Fresh and free!"\nThree buildings and one road out of it.' },
+    { x: 19, y: 15, text: 'ROUTE 201 — NORTH\nTall grass ahead. Wild Pokémon live in it.\nDo not walk in without a Pokémon.' },
   ],
   npcs: [
-    // The other one. In single player they are stood outside their own front
-    // door, because they live there and because they were waiting for you.
-    // The moment the link comes up they stop being an NPC and start being a
-    // person, so `soloOnly` takes them off the map.
-    {
-      id: 'tw_buddy', x: 21, y: 15, look: 'buddy', name: '{buddy}',
-      movement: 'lookAround', facing: 'left', soloOnly: true,
-      dialogue: [
-        {
-          when: { flag: 'badge5' },
-          lines: ['Five badges. FIVE. And you came home.',
-            'I know exactly why you came home and it is not for the badges.',
-            'Go on then. Say hello to your mum before you say hello to me.'],
-        },
-        {
-          when: { flag: 'badge1' },
-          lines: ['You got the Coal Badge and I found out from Tam. TAM.',
-            'Next time you ring me first. I mean it. I will be insufferable about it.',
-            'Come here. ...Right. Off you go.'],
-        },
-        {
-          when: { flag: 'gotStarter' },
-          lines: ['Rowan gave you one as well, then.',
-            'Route 201 is straight up past the sign.',
-            'I have been three times already and I have not gone in yet,\nbecause I said I would wait.',
-            'I did say I would wait. I am saying it again so you notice.'],
-        },
-        {
-          lines: ['There you are. I have been stood on this step for an hour.',
-            'Rowan wants us both at the lab. BOTH of us, she was specific.',
-            'Do not go on ahead. We are doing this bit together.'],
-        },
-      ],
-    },
     // Bandit. Sammy's dog, and she has opinions about who she belongs to.
     {
-      id: 'tw_bandit', x: 22, y: 16, species: 228, name: 'Bandit',
+      id: 'tw_bandit', x: 16, y: 13, species: 228, name: 'Bandit',
       movement: 'lookAround', facing: 'up',
       dialogue: [
         {
@@ -12014,7 +12001,7 @@ const TWINLEAF = defineMap('twinleaf', {
     {
       // Tam is the town's circuit superfan. Whoever is actually top of the
       // world ranking is who he has posters of — including, eventually, you.
-      id: 'bv_kid', x: 10, y: 8, look: 'kid', name: 'Tam', movement: 'wander', facing: 'down',
+      id: 'bv_kid', x: 8, y: 8, look: 'kid', name: 'Tam', movement: 'wander', facing: 'down',
       dialogue: [
         {
           when: { champion: true },
@@ -12087,14 +12074,14 @@ const TWINLEAF = defineMap('twinleaf', {
     {
       // She keeps the beds at the end of the lane, and she has decided the two
       // of you are going to keep one too.
-      id: 'bv_gardener', x: 7, y: 16, look: 'mom', name: 'Nel', movement: 'still', facing: 'left',
+      id: 'bv_gardener', x: 9, y: 15, look: 'mom', name: 'Nel', movement: 'still', facing: 'left',
       script: 'berryGift',
       dialogue: [
         { lines: ['Soft soil, that. Anything goes in it.'] },
       ],
     },
     {
-      id: 'bv_oldman', x: 20, y: 15, look: 'oldMan', name: 'Hollis', movement: 'lookAround', facing: 'left',
+      id: 'bv_oldman', x: 17, y: 15, look: 'oldMan', name: 'Hollis', movement: 'lookAround', facing: 'left',
       dialogue: [
         {
           when: { flag: 'caughtEverlight' },
@@ -12134,7 +12121,7 @@ const TWINLEAF = defineMap('twinleaf', {
       ],
     },
     {
-      id: 'bv_woman', x: 24, y: 8, look: 'mom', name: 'Bev', movement: 'still', facing: 'down',
+      id: 'bv_woman', x: 18, y: 8, look: 'mom', name: 'Bev', movement: 'still', facing: 'down',
       dialogue: [
         {
           when: { caught: 15 },
@@ -12155,7 +12142,7 @@ const TWINLEAF = defineMap('twinleaf', {
     {
       // The other half of the fan conversation: someone who has been following
       // the circuit long enough to be unimpressed by it.
-      id: 'bv_postman', x: 8, y: 17, look: 'worker', name: 'Postman', movement: 'lookAround', facing: 'down',
+      id: 'bv_postman', x: 6, y: 16, look: 'worker', name: 'Postman', movement: 'lookAround', facing: 'down',
       dialogue: [
         {
           when: { titles: 1 },
@@ -12423,43 +12410,49 @@ const OREBURGH = defineMap('oreburgh', {
 const SANDGEM = defineMap('sandgem', {
   name: 'Sandgem Town', kind: 'town', music: 'town',
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
-    'T...........::...........T',
-    'T..AAAAAAAA.::...........T',
-    'T..AAAAAAAA.::....BBBBBB.T',
-    'T..VVVVVVVV.::....BBBBBB.T',
-    'T..#WFFDFFW.::....VVVVVV.T',
-    'T.....:::::::::::.#WJDJW.T',
-    'T.....:.....::...:.......T',
-    'T.....:.....::...:.......T',
-    'T..S..:..GGGGG...:.ssssssT',
-    'T.....:..GGGGG...:.ssssssT',
-    'T.....:..#WDW#...:.~~~~~~T',
-    'T.....:::::::::::::~~~~~~T',
-    'T...........::.....~~~~~~T',
-    'T...........::.....~~~~~~T',
-    'T...........::.......OOO.T',
-    'T..S........::..........ST',
-    'TTTTTTTTTTTT::TTTTTTTTTTTT',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTTTT',
+    'T...........::.................T',
+    'T..AAAAAAA..::.....BBBBBB......T',
+    'T..AAAAAAA..::.....BBBBBB......T',
+    'T..VVVVVVV..::.....VVVVVV......T',
+    'T..#WFFDFW..::.....#WJDJW......T',
+    'T......:....::........:........T',
+    'T......:....::........:........T',
+    'T.....::::::::::::::::::::::...T',
+    'T.....:.....::........:........T',
+    'T..S..:.....::........:........T',
+    'T.....:.....::.GGGGG..:........T',
+    'T.....:.....::.GGGGG..:........T',
+    'T.....:.....::.#WDW#..:........T',
+    'T.....:.....::...:....:........T',
+    'T.....::::::::::::::::::::::...T',
+    'T...........::.......ssssssssssT',
+    'T...........::.....sssssssssss.T',
+    'T...........::...sssssss~~~~~~~~',
+    'T..OOO......::..ssss~~~~~~~~~~~~',
+    'T...........::..ss~~~~~~~~~~~~~~',
+    'T..S........::..ss~~~~~~~~~~~~~~',
+    'T...........::..sss............T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTTTT',
   ],
+
   warps: [
     { x: 12, y: 0, to: 'route202', tx: 12, ty: 22, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'route202', tx: 13, ty: 22, dir: 'up', edge: true },
-    { x: 12, y: 17, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 13, y: 17, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 23, to: 'route201', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 23, to: 'route201', tx: 13, ty: 1, dir: 'down', edge: true },
     { x: 7, y: 5, to: 'sandgem_center', tx: 6, ty: 6, dir: 'up' },
-    { x: 21, y: 6, to: 'sandgem_mart', tx: 5, ty: 5, dir: 'up' },
-    { x: 11, y: 11, to: 'sandgem_daycare', tx: 5, ty: 6, dir: 'up' },
+    { x: 22, y: 5, to: 'sandgem_mart', tx: 5, ty: 5, dir: 'up' },
+    { x: 17, y: 13, to: 'sandgem_daycare', tx: 5, ty: 6, dir: 'up' },
   ],
   labels: [
-    { x: 3, y: 4, w: 8, text: 'POKéMON CENTER' },
-    { x: 18, y: 5, w: 6, text: 'POKéMON MART' },
-    { x: 9, y: 10, w: 5, text: 'DAY CARE', tone: '#f8e070' },
+    { x: 3, y: 4, w: 7, text: 'POKéMON CENTER' },
+    { x: 19, y: 4, w: 6, text: 'POKéMON MART' },
+    { x: 15, y: 12, w: 5, text: 'DAY CARE', tone: '#f8e070' },
   ],
   signs: [
-    { x: 3, y: 9, text: 'SANDGEM TOWN\n"Where the sand shines."\nCENTER — west. MART — east.\nROUTE 202 runs north to Jubilife.' },
-    { x: 3, y: 16, text: 'ROUTE 201 — SOUTH\nTwinleaf Town is back that way.' },
-    { x: 24, y: 16, text: 'The beach is closed to trainers\nwithout a fishing licence.\nThe sea does not check.' },
+    { x: 3, y: 10, text: 'SANDGEM TOWN\n"Where the sand shines."\nCENTER — west. MART — east.\nROUTE 202 runs north to Jubilife.' },
+    { x: 3, y: 21, text: 'THE BEACH\nThe sea goes on past the end of the map,\nwhich is more than can be said for most things.' },
   ],
   // Nothing lives in the grass in a town, but there is a sea at the bottom
   // of it, and the man on the beach will give you a rod if you ask nicely.
@@ -12472,7 +12465,7 @@ const SANDGEM = defineMap('sandgem', {
       // The catching lesson. In the DS games somebody demonstrates this at you
       // whether you want it or not, and it is the reason nobody ever had to
       // guess how a Poke Ball works.
-      id: 'sg_catcher', x: 8, y: 7, look: 'youngster', name: 'Riko',
+      id: 'sg_catcher', x: 9, y: 7, look: 'youngster', name: 'Riko',
       movement: 'lookAround', facing: 'down',
       dialogue: [
         {
@@ -12491,7 +12484,7 @@ const SANDGEM = defineMap('sandgem', {
       ],
     },
     {
-      id: 'sg_fisher', x: 20, y: 15, look: 'sailor', name: 'Bram', movement: 'still', facing: 'down',
+      id: 'sg_fisher', x: 19, y: 18, look: 'sailor', name: 'Bram', movement: 'still', facing: 'down',
       script: 'oldRod',
       dialogue: [
         {
@@ -12500,7 +12493,7 @@ const SANDGEM = defineMap('sandgem', {
       ],
     },
     {
-      id: 'sg_gran', x: 4, y: 13, look: 'mom', name: 'Enna', movement: 'still', facing: 'right',
+      id: 'sg_gran', x: 4, y: 12, look: 'mom', name: 'Enna', movement: 'still', facing: 'right',
       dialogue: [
         {
           when: { alone: true },
@@ -12529,40 +12522,45 @@ const SANDGEM = defineMap('sandgem', {
 const JUBILIFE = defineMap('jubilife', {
   name: 'Jubilife City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
-    'T...........::...............T',
-    'T..AAAAAAAA.::......BBBBBBBB.T',
-    'T..AAAAAAAA.::......BBBBBBBB.T',
-    'T..VVVVVVVV.::......VVVVVVVV.T',
-    'T..#WFFDFFW.::......#WJJDJJW.T',
-    'T.....:.....::..........:....T',
-    ':.....::::::::::::::::::::::::',
-    ':.....:.....::..........::::::',
-    'T..S..:.....::..........:....T',
-    'T.....:.EEEEEEEEEEEE....:....T',
-    'T.....:.EEEEEEEEEEEE....:....T',
-    'T.....:.VVVVVVVVVVVV....:....T',
-    'T.....:.#WW#WWDDWW#WW...:....T',
-    'T.....:........::.......:....T',
-    'T.....::::::::::::::::::::...T',
-    'T..............::............T',
-    'T..GGGGG.......::....GGGGG...T',
-    'T..GGGGG.......::....GGGGG...T',
-    'T..#WDW#.......::....#WDW#...T',
-    'T.....:........::......:.....T',
-    'T.....::::::::::::::::::.....T',
-    'T..S...........::...........ST',
-    'TTTTTTTTTTTT::::::TTTTTTTTTTTT',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTT....T',
+    'T...........::...................T',
+    'T..AAAAAAAA.::......BBBBBBBB.....T',
+    'T..AAAAAAAA.::......BBBBBBBB.....T',
+    'T..VVVVVVVV.::......VVVVVVVV.....T',
+    'T..#WFFDFFW.::......#WJJDJJW.....T',
+    'T.....:.....::..........:........T',
+    ':.....:::::::::::::::::::::::....:',
+    ':.....:.....::..........:::::....:',
+    'T..S..:.....::..........:........T',
+    'T.....:.EEEEEEEEEEEE....:........T',
+    'T.....:.EEEEEEEEEEEE....:........T',
+    'T.....:.VVVVVVVVVVVV....:........T',
+    'T.....:.#WW#WWDDWW#WW...:........T',
+    'T.....:........::.......:........T',
+    'T.....::::::::::::::::::::.......T',
+    'T..............::................T',
+    'T..GGGGG.......::....GGGGG.......T',
+    'T..GGGGG.......::....GGGGG.......T',
+    'T..#WDW#.......::....#WDW#.......T',
+    'T.....:........::......:.........T',
+    'T.....::::::::::::::::::.........T',
+    'T..S...........::...........S....T',
+    'T................................T',
+    'T................................T',
+    'T................................T',
+    'T................................T',
+    'TTTTTTTTTTTT::::::TTTTTTTTTTT....T',
   ],
+
   warps: [
     { x: 12, y: 0, to: 'route204', tx: 12, ty: 22, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'route204', tx: 13, ty: 22, dir: 'up', edge: true },
-    { x: 15, y: 23, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
-    { x: 16, y: 23, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
+    { x: 15, y: 27, to: 'route202', tx: 12, ty: 1, dir: 'down', edge: true },
+    { x: 16, y: 27, to: 'route202', tx: 13, ty: 1, dir: 'down', edge: true },
     { x: 0, y: 7, to: 'route218', tx: 29, ty: 5, dir: 'left', edge: true },
     { x: 0, y: 8, to: 'route218', tx: 29, ty: 10, dir: 'left', edge: true },
-    { x: 29, y: 7, to: 'route203', tx: 1, ty: 6, dir: 'right', edge: true },
-    { x: 29, y: 8, to: 'route203', tx: 1, ty: 7, dir: 'right', edge: true },
+    { x: 33, y: 7, to: 'route203', tx: 1, ty: 6, dir: 'right', edge: true },
+    { x: 33, y: 8, to: 'route203', tx: 1, ty: 7, dir: 'right', edge: true },
     { x: 7, y: 5, to: 'jubilife_center', tx: 6, ty: 6, dir: 'up' },
     { x: 24, y: 5, to: 'jubilife_mart', tx: 5, ty: 5, dir: 'up' },
     { x: 14, y: 13, to: 'jubilife_school', tx: 7, ty: 11, dir: 'up' },
@@ -12700,10 +12698,10 @@ const ROUTE201 = defineMap('route201', {
 
   warps: [
     { x: 0, y: 13, to: 'lake_verity', tx: 18, ty: 7, dir: 'left', edge: true },
-    { x: 12, y: 27, to: 'twinleaf', tx: 14, ty: 2, dir: 'down', edge: true },
-    { x: 13, y: 27, to: 'twinleaf', tx: 15, ty: 2, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 16, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 16, dir: 'up', edge: true },
+    { x: 12, y: 27, to: 'twinleaf', tx: 10, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 27, to: 'twinleaf', tx: 11, ty: 1, dir: 'down', edge: true },
+    { x: 12, y: 0, to: 'sandgem', tx: 12, ty: 22, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'sandgem', tx: 13, ty: 22, dir: 'up', edge: true },
   ],
   // Cass is waiting a few tiles up the road, exactly as she said she would be.
   //
@@ -12874,8 +12872,8 @@ const ROUTE203 = defineMap('route203', {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
   warps: [
-    { x: 0, y: 6, to: 'jubilife', tx: 28, ty: 7, dir: 'left', edge: true },
-    { x: 0, y: 7, to: 'jubilife', tx: 28, ty: 8, dir: 'left', edge: true },
+    { x: 0, y: 6, to: 'jubilife', tx: 32, ty: 7, dir: 'left', edge: true },
+    { x: 0, y: 7, to: 'jubilife', tx: 32, ty: 8, dir: 'left', edge: true },
     { x: 33, y: 7, to: 'oreburgh', tx: 1, ty: 8, dir: 'right', edge: true },
     { x: 33, y: 8, to: 'oreburgh', tx: 1, ty: 9, dir: 'right', edge: true },
   ],
@@ -12954,8 +12952,8 @@ const ROUTE202 = defineMap('route202', {
   warps: [
     { x: 12, y: 23, to: 'sandgem', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 13, y: 23, to: 'sandgem', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 12, y: 0, to: 'jubilife', tx: 15, ty: 22, dir: 'up', edge: true },
-    { x: 13, y: 0, to: 'jubilife', tx: 16, ty: 22, dir: 'up', edge: true },
+    { x: 12, y: 0, to: 'jubilife', tx: 15, ty: 26, dir: 'up', edge: true },
+    { x: 13, y: 0, to: 'jubilife', tx: 16, ty: 26, dir: 'up', edge: true },
   ],
   signs: [
     { x: 10, y: 22, text: 'ROUTE 202\nStay on the path and you will come out the other side.' },
@@ -13125,7 +13123,13 @@ const MATTHEW_HOUSE = defineMap('matthew_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 5, ty: 14, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 4, ty: 13, dir: 'down' }],
+  // Mum catches you on the mat. Fires once, before the door, so the first
+  // thing that happens in the game is somebody who loves you talking to you.
+  events: [
+    { x: 5, y: 6, flag: 'mumSentYouOff', script: 'mumDoor' },
+    { x: 6, y: 6, flag: 'mumSentYouOff', script: 'mumDoor' },
+  ],
   npcs: [
     {
       id: 'ph_mom', x: 3, y: 4, look: 'mom', name: 'Mum', movement: 'still', facing: 'down',
@@ -13208,7 +13212,13 @@ const SAMMY_HOUSE = defineMap('sammy_house', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 22, ty: 14, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'twinleaf', tx: 15, ty: 13, dir: 'down' }],
+  // Mum catches you on the mat. Fires once, before the door, so the first
+  // thing that happens in the game is somebody who loves you talking to you.
+  events: [
+    { x: 5, y: 6, flag: 'mumSentYouOff', script: 'mumDoor' },
+    { x: 6, y: 6, flag: 'mumSentYouOff', script: 'mumDoor' },
+  ],
   healPoint: { map: 'sammy_house', x: 5, y: 6 },
   npcs: [
     {
@@ -13289,37 +13299,8 @@ const ROWAN_LAB = defineMap('rowan_lab', {
     '|__p_________|',
     '||||||D|||||||',
   ],
-  warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 6, ty: 7, dir: 'down' }],
+  warps: [{ x: 6, y: 8, to: 'twinleaf', tx: 4, ty: 6, dir: 'down' }],
   npcs: [
-    // The other one, waiting by the table, because Mum said Rowan called
-    // them both down and that has to be true when you get here. They go
-    // once you have yours — you meet them again on the road.
-    {
-      id: 'lab_buddy', x: 4, y: 4, look: 'buddy', name: '{buddy}', movement: 'still',
-      facing: 'right', soloOnly: true, goneWhen: 'gotStarter',
-      dialogue: [
-        {
-          lines: ['{buddy}: I have been stood here twenty minutes not touching anything.',
-            '{buddy}: She said do not touch them until you got here. Both of us, she said.',
-            '{buddy}: Go on, you pick first.',
-            '{buddy}: I do not mind. I will mind enormously if you take\nthe one I want.'],
-        },
-      ],
-    },
-    // Cass, on the bench, up since seven, waiting to see which one you take.
-    // She was a voice with no body here, which is why the line about meeting
-    // at the north gate went nowhere.
-    {
-      id: 'lab_cass', x: 9, y: 4, look: 'rivalGirl', name: 'Cass Wren', movement: 'still',
-      facing: 'left', goneWhen: 'gotStarter',
-      dialogue: [
-        {
-          lines: ['Cass: Do not mind me. I am not in the way, I am WAITING.',
-            'Cass: Rowan will not let me have one until you have had yours.\fApparently that is fair.',
-            'Cass: I have been on this bench since seven. Take your time. Really.'],
-        },
-      ],
-    },
     {
       id: 'lab_aspen', x: 6, y: 2, look: 'professor', name: 'Prof. Rowan', movement: 'still', facing: 'down',
       script: 'starter',
@@ -14031,7 +14012,7 @@ const SANDGEM_DAYCARE = defineMap('sandgem_daycare', {
     '|__________|',
     '|||||D||||||',
   ],
-  warps: [{ x: 5, y: 7, to: 'sandgem', tx: 11, ty: 12, dir: 'down' }],
+  warps: [{ x: 5, y: 7, to: 'sandgem', tx: 17, ty: 14, dir: 'down' }],
   signs: [
     { x: 10, y: 1, text: 'DAY CARE NOTICE\nLeave two and we will look after them.\nThey may come back knowing more than\nthey left with. We do not ask.' },
   ],
@@ -14656,8 +14637,8 @@ const ETERNA_FOREST = defineMap('eterna_forest', {
   warps: [
     { x: 9, y: 17, to: 'route205', tx: 12, ty: 1, dir: 'down', edge: true },
     { x: 10, y: 17, to: 'route205', tx: 13, ty: 1, dir: 'down', edge: true },
-    { x: 9, y: 0, to: 'eterna', tx: 14, ty: 20, dir: 'up', edge: true },
-    { x: 10, y: 0, to: 'eterna', tx: 15, ty: 20, dir: 'up', edge: true },
+    { x: 9, y: 0, to: 'eterna', tx: 12, ty: 24, dir: 'up', edge: true },
+    { x: 10, y: 0, to: 'eterna', tx: 13, ty: 24, dir: 'up', edge: true },
   ],
   signs: [],
   objects: [
@@ -14682,33 +14663,38 @@ const ETERNA_FOREST = defineMap('eterna_forest', {
 const ETERNA = defineMap('eterna', {
   name: 'Eterna City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
-    'T............................T',
-    'T..AAAAAAAA.........BBBBBBBB.T',
-    'T..AAAAAAAA.........BBBBBBBB.T',
-    'T..VVVVVVVV.........VVVVVVVV.T',
-    'T..#WFFDFFW.........#WJJDJJW.T',
-    'T.....:...................:..T',
-    'T.....:::::::::::::::::::::::.',
-    'T.....:...................:..T',
-    'T..S..:....II.........II..:..T',
-    'T.....:...................:..T',
-    'T.....:...KKKKKKKKKK......:..T',
-    'T.....:...KKKKKKKKKK......:..T',
-    'T.....:...VVVVVVVVVV......:..T',
-    'T.....:...NQNNddNNQN......:..T',
-    'T.....:...I.S....S.I......:..T',
-    'T.....:::::::::::::::::::::..T',
-    'T............................T',
-    'T..OOO....**......**.....OOO.T',
-    'T.........**......**.........T',
-    'T............::..............T',
-    'TTTTTTTTTTTT::TTTTTTTTTTTTTTTT',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'T..............................T',
+    'T..AAAAAAAA.........BBBBBBBB...T',
+    'T..AAAAAAAA.........BBBBBBBB...T',
+    'T..VVVVVVVV.........VVVVVVVV...T',
+    'T..#WFFDFFW.........#WJJDJJW...T',
+    'T.....:...................:....T',
+    'T.....:::::::::::::::::::::::...',
+    'T.....:...................:....T',
+    'T..S..:....II.........II..:....T',
+    'T.....:...................:....T',
+    'T.....:...KKKKKKKKKK......:....T',
+    'T.....:...KKKKKKKKKK......:....T',
+    'T.....:...VVVVVVVVVV......:....T',
+    'T.....:...NQNNddNNQN......:....T',
+    'T.....:...I.S....S.I......:....T',
+    'T.....:::::::::::::::::::::....T',
+    'T..............................T',
+    'T..OOO....**......**.....OOO...T',
+    'T.........**......**...........T',
+    'T............::................T',
+    'T..............................T',
+    'T..............................T',
+    'T..............................T',
+    'T..............................T',
+    'TTTTTTTTTTTT::TTTTTTTTTTTTTTT..T',
   ],
+
   warps: [
-    { x: 12, y: 21, to: 'eterna_forest', tx: 9, ty: 1, dir: 'down', edge: true },
-    { x: 13, y: 21, to: 'eterna_forest', tx: 10, ty: 1, dir: 'down', edge: true },
-    { x: 29, y: 7, to: 'route206', tx: 1, ty: 6, dir: 'right', edge: true },
+    { x: 12, y: 25, to: 'eterna_forest', tx: 9, ty: 1, dir: 'down', edge: true },
+    { x: 13, y: 25, to: 'eterna_forest', tx: 10, ty: 1, dir: 'down', edge: true },
+    { x: 31, y: 7, to: 'route206', tx: 1, ty: 6, dir: 'right', edge: true },
     { x: 7, y: 5, to: 'eterna_center', tx: 6, ty: 6, dir: 'up' },
     { x: 24, y: 5, to: 'eterna_mart', tx: 4, ty: 5, dir: 'up' },
     { x: 14, y: 14, to: 'eterna_gym', tx: 7, ty: 14, dir: 'up' },
@@ -14796,7 +14782,7 @@ const ROUTE206 = defineMap('route206', {
     'TTTTTTTTTTTT::TTTTTTTTTTTT',
   ],
   warps: [
-    { x: 0, y: 6, to: 'eterna', tx: 28, ty: 7, dir: 'left', edge: true },
+    { x: 0, y: 6, to: 'eterna', tx: 30, ty: 7, dir: 'left', edge: true },
     { x: 12, y: 16, to: 'route207', tx: 4, ty: 1, dir: 'down', edge: true },
     { x: 13, y: 16, to: 'route207', tx: 5, ty: 1, dir: 'down', edge: true },
   ],
@@ -18781,6 +18767,20 @@ class World {
     this.follower.trail = [];
     this.refreshFollower();
 
+    // The walking companion: a *person* who comes with you.
+    //
+    // Deliberately a generic slot rather than "the other protagonist". Most
+    // of the time it is Sammy or Matthew, but the story wants Looker to
+    // escort you across a city and Riley to walk you out of a mine, and
+    // neither of those should need its own machinery. Like the Pokemon
+    // follower it is a rendering body, never in a collision test, so it can
+    // never wedge the player against scenery or desync a link.
+    this.companion = makeEntity({
+      id: 'companion', kind: 'companion', x, y, dir, look: null, solid: false,
+    });
+    this.companion.trail = [];
+    this.refreshCompanion();
+
     for (const npc of this.map.npcs) {
       if (npc.trainer && this.state.flags[`beat_${npc.trainer}`] && npc.removeAfter) continue;
       // Two general switches, so a scene can put somebody in the road and
@@ -18917,12 +18917,19 @@ class World {
     entity.moveT = 0;
     entity.moveDur = (run ? RUN_FRAMES : WALK_FRAMES) * (hop ? 1.6 : 1);
     entity.hopping = hop;
-    if (entity.kind === 'player' && this.follower && this.follower.visible) {
-      this.follower.trail.push({
-        x: entity.fromX, y: entity.fromY, dur: entity.moveDur, hop: 0,
-      });
-      // One tile of slack. Any more and the partner trails off the screen.
-      while (this.follower.trail.length > 2) this.follower.trail.shift();
+    if (entity.kind === 'player') {
+      const step = { x: entity.fromX, y: entity.fromY, dur: entity.moveDur, hop: 0 };
+      // The person walks a tile behind you and the Pokemon a tile behind
+      // them, so the three of you read as a line rather than a pile.
+      if (this.companion && this.companion.visible) {
+        this.companion.trail.push({ ...step });
+        while (this.companion.trail.length > 2) this.companion.trail.shift();
+      }
+      if (this.follower && this.follower.visible) {
+        this.follower.trail.push({ ...step });
+        const slack = this.companion && this.companion.visible ? 3 : 2;
+        while (this.follower.trail.length > slack) this.follower.trail.shift();
+      }
     }
     return true;
   }
@@ -18930,6 +18937,42 @@ class World {
   face(entity, dirName) { if (!entity.moving) entity.dir = dirName; }
 
   // ---- the walking partner ---------------------------------------------------
+
+  /**
+   * Puts the companion where it belongs for this map.
+   *
+   * Hidden the moment a real second player is on the link: a stand-in walking
+   * around while the person it stands in for is also on screen is the one
+   * thing that would make co-op feel worse rather than better.
+   */
+  refreshCompanion() {
+    const c = this.companion;
+    if (!c) return;
+    const slot = this.state.companion;
+    c.visible = !!(slot && slot.active && slot.look) && !this.linkedNow();
+    c.look = slot ? slot.look : null;
+    c.name = slot ? slot.name : null;
+    if (!c.visible) { c.trail = []; return; }
+    // Folded into the player to begin with, so it does not slide in from
+    // whatever corner the last map left it in.
+    c.x = this.player.x; c.y = this.player.y;
+    c.fromX = c.x; c.fromY = c.y;
+    c.dir = this.player.dir;
+    c.moving = false;
+    c.trail = [];
+  }
+
+  /** Somebody starts walking with you. `who` is {look, name, key}. */
+  companionJoin(who) {
+    this.state.companion = { ...who, active: true };
+    this.refreshCompanion();
+  }
+
+  /** And stops. The slot remembers who it was, for a later rejoin. */
+  companionLeave() {
+    if (this.state.companion) this.state.companion.active = false;
+    this.refreshCompanion();
+  }
 
   /**
    * Reads the lead Pokemon off the party. Called on map load and whenever the
@@ -18956,8 +18999,8 @@ class World {
    * left. The trail is a queue of the player's last positions, so the partner
    * traces the player's path rather than cutting corners through walls.
    */
-  _followerStep() {
-    const f = this.follower;
+  _followerStep(which) {
+    const f = which || this.follower;
     if (!f || !f.visible || f.moving) return;
     const next = f.trail.shift();
     if (!next) return;
@@ -18988,16 +19031,17 @@ class World {
     if (this.animTimer > 0.22) { this.animTimer -= 0.22; this.animFrame = (this.animFrame + 1) % 4; }
     if (this.encounterCooldown > 0) this.encounterCooldown--;
 
-    // The partner, first, so it is already moving on the frame the player
-    // starts its step and the two look like one procession.
-    const f = this.follower;
-    if (f && f.visible) {
+    // The people and the Pokemon walking behind you, first, so they are
+    // already moving on the frame the player starts its step and the whole
+    // line reads as one procession rather than three things twitching.
+    for (const f of [this.companion, this.follower]) {
+      if (!f || !f.visible) continue;
       if (f.moving) {
         f.moveT++;
         f.frame = 1 + (Math.floor((f.moveT / f.moveDur) * 2) % 2);
         if (f.moveT >= f.moveDur) { f.moving = false; f.frame = 0; f.hopping = 0; }
       }
-      if (!f.moving) this._followerStep();
+      if (!f.moving) this._followerStep(f);
     }
 
     // Player.
@@ -19195,6 +19239,10 @@ class World {
 
     // The walking partner is not in the collision set, so it has to be
     // checked by hand — otherwise you would talk straight through it.
+    const c = this.companion;
+    if (c && c.visible && c.x === tx && c.y === ty) {
+      return { type: 'companion', entity: c };
+    }
     const f = this.follower;
     if (f && f.visible && f.mon && f.x === tx && f.y === ty) {
       return { type: 'partner', mon: f.mon, entity: f };
@@ -19514,6 +19562,10 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
   // behind a tree and in front of the grass exactly as the player does.
   if (world.follower && world.follower.visible && world.follower.mon) {
     drawables.push({ e: world.follower, sortY: world.follower.y - 0.01, partner: true });
+  }
+  // The person walking with you sorts by their feet like everybody else.
+  if (world.companion && world.companion.visible && world.companion.look) {
+    drawables.push({ e: world.companion, sortY: world.companion.y - 0.005 });
   }
   drawables.sort((a, b) => a.sortY - b.sortY || (a.e.kind === 'player' ? 1 : -1));
 
@@ -20238,7 +20290,59 @@ const BANDIT = {
   ],
 };
 
-__exports(__x, { CASS: () => CASS, ROWAN: () => ROWAN, MARS: () => MARS, EVERLIGHT: () => EVERLIGHT, DOCUMENTS: () => DOCUMENTS, BANDIT: () => BANDIT });
+// ---- the person walking with you --------------------------------------------
+
+/**
+ * What your companion says when you turn round and talk to them.
+ *
+ * Conditional like any other NPC's dialogue, so it tracks the story without
+ * a special case per beat. The name is filled in by the caller — this is the
+ * same list whichever of the two of them is the one following.
+ */
+function companionLines(state) {
+  const slot = (state && state.companion) || {};
+  // Anybody who is not one of the two gets their own short list; the long
+  // one below is written for the person the player is actually with.
+  if (slot.key && slot.key !== 'matthew' && slot.key !== 'sammy') {
+    return [{ lines: ['They give you a nod and keep walking.'] }];
+  }
+  return [
+    {
+      when: { flag: 'canalaveTruth' },
+      lines: ['I keep thinking about the third book. The four lines somebody added.',
+        'Somebody had already done this once. Whatever it was, somebody survived it\nand went back and wrote a warning in the margin.',
+        'I do not find that as comforting as I would like to.'],
+    },
+    {
+      when: { flag: 'lakeValor' },
+      lines: ['You have not said anything since the lakebed.',
+        'You do not have to. I was stood next to you.',
+        '...Right. Come on.'],
+    },
+    {
+      when: { flag: 'badge1' },
+      pool: [
+        ['One badge. ONE. And you are already walking like that.'],
+        ['I am fine. My team is fine. Everything is fine.',
+          'Ask me again after the next one.'],
+        ['Do you want to stop? We can stop. I am not saying I want to stop.'],
+      ],
+    },
+    {
+      when: { flag: 'gotStarter' },
+      pool: [
+        ['Right. So we are doing this.', 'We are actually doing this.'],
+        ['I keep checking it is still in the bag. It is still in the bag.'],
+        ['Cass has gone on ahead, obviously. She has been gone twenty minutes.',
+          'She will be stood somewhere looking annoyed. It is her whole thing.'],
+        ['If you get eaten by something in the grass I am going home and\nnot telling anyone.'],
+      ],
+    },
+    { lines: ['Lead on, then. I am right behind you.'] },
+  ];
+}
+
+__exports(__x, { CASS: () => CASS, ROWAN: () => ROWAN, MARS: () => MARS, EVERLIGHT: () => EVERLIGHT, DOCUMENTS: () => DOCUMENTS, BANDIT: () => BANDIT, companionLines: () => companionLines });
 
 };
 
@@ -20539,7 +20643,7 @@ const { weightedPick } = __req('core/rng.js');
 const { spend, formatMoney: money } = __req('game/inventory.js');
 const { FLAGS } = __req('game/storyflags.js');
 const { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT } = __req('data/story.js');
-const { playerByLook, buddyOf } = __req('game/players.js');
+const { playerByLook, buddyOf, playerOf, buddyPlayerOf } = __req('game/players.js');
 // Story scripts.
 //
 // A script is an async function that receives a small `ctx` of primitives —
@@ -20643,6 +20747,9 @@ SCRIPTS.starter = async (ctx) => {
 async function buddyTakesTheirs(ctx) {
   const st = ctx.state;
   if (st.link && st.link.connected && st.link.partner) return;
+  // On the link they are a real player and pick for themselves; solo, they
+  // are the person who walked in here with you and there is one left.
+  if (!ctx.companionHere()) return;
   const who = buddyOf(st);
   await ctx.wait(0.3);
   await ctx.say(`${who}: Right. Me next, then.`, { speaker: who });
@@ -20668,7 +20775,12 @@ async function cassTakesHers(ctx, playerBase) {
   const theirs = getSpecies(hers);
 
   await ctx.wait(0.4);
-  await ctx.say('*Cass gets up off the bench.*');
+  const cass = ctx.spawnNpc({
+    id: 'cass_lab', look: CASS.look, x: ctx.player.x + 1, y: ctx.player.y,
+    dir: 'left', name: CASS.name,
+  });
+  ctx.sfx('bump');
+  await ctx.say('*Somebody has been sat on the bench by the door this whole time,\nand gets up.*');
   await ctx.say(`Cass: Right. That is the ${mine.name} gone, then.`, { speaker: 'Cass Wren' });
   await ctx.say('Cass: I have been sat there since seven waiting to see which one\nyou would take.');
   await ctx.showMonster(hers);
@@ -20682,6 +20794,8 @@ async function cassTakesHers(ctx, playerBase) {
   await ctx.say('Cass: Route 201. The north gate. Twenty minutes.');
   await ctx.say('Cass: Do not make me stand there for an hour. I will, and I will\nbring it up for years.');
   await ctx.say('*She goes out of the door without waiting for an answer.*');
+  await ctx.walk(cass, 'down', 5);
+  ctx.despawn(cass);
   ctx.sfx('door');
   ctx.setFlag(FLAGS.MET_RIVAL);
 }
@@ -22159,6 +22273,74 @@ SCRIPTS.riley = async (ctx) => {
   ctx.autosave();
 };
 
+// ---------------------------------------------------------------------------
+// The opening, as the two of them actually live it.
+//
+// Whichever one you picked is the one holding the phone; the other is a real
+// person in the world who was waiting on the step. Every line below is
+// written to read correctly in both directions, because it is the same code
+// in both directions — there is no Matthew version and no Sammy version.
+// ---------------------------------------------------------------------------
+
+/** Your mum, catching you at the door before you get out of it. */
+SCRIPTS.mumDoor = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.mumSentYouOff) return;
+  const who = buddyOf(st);
+  ctx.sfx('bump');
+  await ctx.say('Mum: Not out the door without me saying something at you first.',
+    { speaker: 'Mum' });
+  await ctx.say('Mum: Professor Rowan rang. She wants you at the lab. She wants BOTH\nof you at the lab, she was very clear about it.');
+  await ctx.say(`Mum: ${who} is already outside. Has been for a while, I think.\fThey did not knock. They never knock, they just stand there.`);
+  await ctx.wait(0.3);
+  await ctx.say('Mum: Go on. Take your time and do not take too long, which I am aware\nis two different instructions.');
+  ctx.setFlag('mumSentYouOff', true);
+  ctx.autosave();
+};
+
+/**
+ * The other one, waiting on the step, joining you.
+ *
+ * If you are Sammy then Bandit gets in first, because she always does, and
+ * because a dog does not wait politely for a conversation to finish.
+ */
+SCRIPTS.buddyWaiting = async (ctx) => {
+  const st = ctx.state;
+  if (st.flags.buddyJoined) return;
+  const me = playerOf(st);
+  const them = buddyPlayerOf(st);
+
+  // Bandit first, if she is yours.
+  if (me.key === 'sammy' && !st.flags.banditHello) {
+    ctx.sfx('bump');
+    await ctx.say('*Something hits you at knee height before you have finished\nshutting the door.*');
+    ctx.cry(BANDIT.species);
+    await ctx.say('Bandit: *She has been sat on the step since it got light and she is\nnot going to let you forget it.*', { speaker: 'Bandit' });
+    await ctx.say('*She does a full circuit of you, twice, and then sits down on your\nfoot to make the arrangement official.*');
+    ctx.setFlag('banditHello', true);
+  }
+
+  await ctx.wait(0.3);
+  await ctx.say(`${them.name}: There you are.`, { speaker: them.name });
+  await ctx.say(`${them.name}: I have been stood on this step for an hour and your mum has\nlooked out of that window four times.`);
+  if (me.key === 'matthew') {
+    await ctx.say(`${them.name}: She waved. I waved. It got worse each time.`);
+  } else {
+    await ctx.say(`${them.name}: I did wave at her. I do not think that helped.`);
+    await ctx.say('*Bandit leans on their leg. They pretend not to notice and then\nscratch her ear without looking down.*');
+  }
+  await ctx.wait(0.3);
+  await ctx.say(`${them.name}: Rowan wants us both. Both, she said, like she thought one of us\nwould try to go without the other.`);
+  await ctx.say(`${them.name}: As if.`);
+  await ctx.say(`${them.name}: Right. You lead. You always know where you are going and I\nalways pretend I do.`);
+
+  ctx.companionJoin({ look: them.look, name: them.name, key: them.key });
+  ctx.setFlag('buddyJoined', true);
+  ctx.shareMilestone('buddyJoined');
+  ctx.autosave();
+  await ctx.say(`${them.name} is coming with you!`);
+};
+
 function scriptFor(name) { return SCRIPTS[name] || null; }
 
 __exports(__x, { SCRIPTS: () => SCRIPTS, scriptFor: () => scriptFor });
@@ -23257,7 +23439,7 @@ const { getTrainer } = __req('data/trainers.js');
 const { getItem } = __req('data/items.js');
 const { getSpecies } = __req('data/species.js');
 const { partnerLine } = __req('game/monster.js');
-const { BANDIT } = __req('data/story.js');
+const { BANDIT, companionLines } = __req('data/story.js');
 const { acceptShared, shareable, GOODS } = __req('game/underground/base.js');
 const { refusalText } = __req('game/fieldmoves.js');
 const { BASE_BOARD, BASE_ORIGIN } = __req('data/maps/underground.js');
@@ -23464,6 +23646,7 @@ class OverworldScreen extends Screen {
       this.say(fillText(target.sign.text, this.game.state, net.snapshot()));
       return;
     }
+    if (target.type === 'companion') { this._companionTalk(); return; }
     if (target.type === 'flavour') { this.say(target.text); return; }
     if (target.type === 'soil') { this.runScript('berryPatch', { data: { tile: target } }); return; }
     if (target.type === 'dig') { this.runScript('digWall', { data: { tile: target } }); return; }
@@ -23574,6 +23757,20 @@ class OverworldScreen extends Screen {
     // filling it, the nameplate read "{buddy}" out loud.
     const speaker = d.name ? fillText(d.name, this.game.state, link) : null;
     this.say(lines.join('\f'), { speaker });
+  }
+
+  /**
+   * A word with whoever is walking with you.
+   *
+   * Reads from the same conditional-dialogue machinery as any other NPC, so
+   * what they say tracks the story without a special case per beat.
+   */
+  _companionTalk() {
+    const st = this.game.state;
+    const slot = st.companion || {};
+    const lines = resolveDialogue(companionLines(st), st, 0, net.snapshot());
+    this.say((lines && lines.length ? lines : ['...']).join('\f'),
+      { speaker: fillText(slot.name || '{buddy}', st, net.snapshot()) });
   }
 
   _trainerTalk(e) {
@@ -23873,6 +24070,12 @@ class OverworldScreen extends Screen {
       setFlag: (k, v = true) => setStoryFlag(st, k, v),
 
       shareMilestone: (k) => net.sendStoryEvent(k),
+
+      // Somebody starts, or stops, walking with you. `who` is a plain
+      // {look, name, key} so any character can take the slot.
+      companionJoin: (who) => screen.world.companionJoin(who),
+      companionLeave: () => screen.world.companionLeave(),
+      companionHere: () => !!(screen.world.companion && screen.world.companion.visible),
 
       awardBadge: (n, name) => awardBadge(st, n, name),
 

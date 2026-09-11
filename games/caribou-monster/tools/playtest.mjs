@@ -172,8 +172,13 @@ async function playOpening(me) {
   });
   check(trailing.visible && trailing.dist <= 2, 'and walks along behind you', JSON.stringify(trailing));
 
-  // To the lab.
-  await page.evaluate(() => window.CARIBOU.overworld.world.load('twinleaf', 6, 7, 'up'));
+  // To the lab. The door is looked up rather than hard-coded, so resizing
+  // the town cannot quietly turn this test into a test of nothing.
+  await page.evaluate(() => {
+    const { MAPS } = window.CARIBOU.mapsForTest;
+    const door = MAPS.twinleaf.warps.find((wp) => wp.to === 'rowan_lab');
+    window.CARIBOU.overworld.world.load('twinleaf', door.x, door.y + 1, 'up');
+  });
   await wait(400);
   w = await walkUntilMapChanges('ArrowUp');
   check(w.map === 'rowan_lab', 'the lab is enterable', `${w.map} ${w.x},${w.y}`);
