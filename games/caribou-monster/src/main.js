@@ -39,7 +39,7 @@ import { SCRIPTS } from './game/overworld/scripts.js';
 import { forceHour, currentPhase, shiftHours } from './game/clock.js';
 import { addItem } from './game/inventory.js';
 import { randomSeed } from './core/rng.js';
-import { saveManager, saveReady } from './save/SaveManager.js';
+import { saveManager, saveReady, durableSaveReady } from './save/SaveManager.js';
 import { net } from './net/NetworkManager.js';
 import { RoomManager, TRADE_STATE, PVP_STATE } from './net/RoomManager.js';
 import { MUSIC } from './data/music.js';
@@ -113,13 +113,24 @@ class Game {
     // version of this failed. So the title paints on whatever is in this tab
     // and then corrects itself, rather than deciding "no save" before the
     // stores have had a chance to speak.
-    saveReady().then(async () => {
+    // Twice: the moment the durable store answers, and again once every
+    // provider has. The first pass is the one that matters — waiting for the
+    // slowest provider to give up meant CONTINUE appeared long after the
+    // player had already tapped NEW GAME over the top of their save.
+    const refreshTitle = async () => {
       const b = this.save.backend;
       this.saveIsDurable = !!(b.durable && b.durable());
       this.saveProviders = b.providers ? b.providers() : [];
-      console.info('[caribou] storage:', this.saveProviders.map((p) => `${p.name}=${p.up ? 'up' : 'no'}`).join(' '));
       const saves = await this.save.peekAll();
       if (title.setSave) title.setSave(saves);
+      return saves;
+    };
+    durableSaveReady().then(refreshTitle);
+    saveReady().then(async () => {
+      const saves = await refreshTitle();
+      console.info('[caribou] storage:',
+        this.saveProviders.map((p) => `${p.name}=${p.up ? 'up' : 'no'}`).join(' '),
+        `saves=${saves.map((s) => s.slot).join(',') || 'none'}`);
     });
 
     this.loop = new GameLoop({

@@ -4,7 +4,7 @@
 // implementation is LocalBackend; a cloud backend (per-account slots synced
 // across the two players' phones) drops in behind the same three methods
 // without any game code changing.
-import { storage, storageReady, isDurable, providerReport, saveDiagnosis } from '../core/storage.js';
+import { storage, storageReady, durableReady, isDurable, providerReport, saveDiagnosis } from '../core/storage.js';
 import { serializeState, deserializeState } from '../game/state.js';
 import { MIGRATIONS } from './migrations.js';
 
@@ -47,6 +47,7 @@ export class LocalBackend {
   constructor() { this.name = 'storage'; }
   available() { return storage.available(); }
   ready() { return storageReady(); }
+  durableReady() { return durableReady(); }
   durable() { return isDurable(); }
   providers() { return providerReport(); }
   diagnose() { return saveDiagnosis(); }
@@ -308,3 +309,6 @@ export const saveManager = new SaveManager(new LocalBackend());
 
 /** Resolves once every storage provider that exists has come up. */
 export function saveReady() { return storageReady(); }
+
+/** Resolves as soon as the store that outlives the tab has answered. */
+export function durableSaveReady() { return durableReady(); }

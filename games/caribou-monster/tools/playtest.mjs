@@ -308,6 +308,26 @@ await wait(500);
 await page.reload({ waitUntil: 'load' });
 await page.waitForFunction('!!window.CARIBOU', { timeout: 30000 });
 await wait(1500);
+// How long the title takes to find out whether a saved game exists.
+//
+// This is the bug the players actually hit: every provider was polled for
+// fifteen seconds and the title waited for all of them, so CONTINUE did not
+// appear until long after they had tapped NEW GAME over the top of their
+// save. The save was never lost. It was just never offered in time.
+const settledIn = await page.evaluate(() => {
+  const t0 = performance.now();
+  return new Promise((resolve) => {
+    const tick = () => {
+      if (window.CARIBOU && window.CARIBOU.saveProviders !== undefined) resolve(performance.now() - t0);
+      else if (performance.now() - t0 > 20000) resolve(Infinity);
+      else setTimeout(tick, 50);
+    };
+    tick();
+  });
+});
+check(settledIn < 4000, 'the title learns whether a save exists in the first few seconds',
+  `${Math.round(settledIn)}ms`);
+
 const onTitle = await page.evaluate(() => {
   const g = window.CARIBOU;
   const t = g.screens.top;

@@ -30,10 +30,23 @@ const PREFIX = 'caribou:';
 export const HOST_KEY = 'monsterGameSave';
 
 // How long to keep looking for a provider before deciding there is not one.
-// Generous on purpose: a slow phone on a bad connection is the exact case
-// this whole file exists for.
-const PROVIDER_DEADLINE_MS = 15000;
-const POLL_MS = 150;
+//
+// These are short on purpose, and that is a correction. They used to be 15
+// seconds each, and `storageReady()` waits for ALL of them, so the title
+// screen could not know whether a saved game existed for fifteen seconds
+// after it painted — while a provider that does not exist in this runtime at
+// all was patiently polled 100 times. Nobody waits fifteen seconds staring at
+// a title screen. They tap NEW GAME, and the save they had is gone.
+//
+// `window.claude` is documented to exist before any of our script runs when
+// the page is framed, so a second of polling is already generous; `use()`
+// itself has its own 10-second answer deadline and is raced separately.
+// `window.storage` is not part of this runtime at all — it is probed briefly
+// in case a future host has one, and then dropped.
+const PROVIDER_DEADLINE_MS = 10000;
+const HOST_PROBE_MS = 1000;
+const CLAUDE_PROBE_MS = 1500;
+const POLL_MS = 100;
 
 const now = () => Date.now();
 
@@ -65,7 +78,7 @@ const hostProvider = {
   ready: null,
   handle: null,
   async init() {
-    this.handle = await waitFor(hostStore);
+    this.handle = await waitFor(hostStore, HOST_PROBE_MS);
     return this.handle;
   },
   async read(slot) {
@@ -116,7 +129,7 @@ const dbProvider = {
   _asked: false,
 
   async init() {
-    const c = await waitFor(claudeUse);
+    const c = await waitFor(claudeUse, CLAUDE_PROBE_MS);
     if (!c) { durableState.permission = 'unavailable'; return null; }
 
     // `state` never prompts, so it is safe at boot and tells us whether a
@@ -234,6 +247,12 @@ const PROVIDERS = [hostProvider, dbProvider, localProvider];
 // ---- the layer -------------------------------------------------------------
 
 let readyPromise = null;
+let durablePromise = null;
+
+function bring(p) {
+  if (!p._up) p._up = (async () => { try { await p.init(); } catch { p.handle = null; } return p; })();
+  return p._up;
+}
 
 /**
  * Brings up every provider that exists. Safe to call as often as you like;
@@ -241,12 +260,22 @@ let readyPromise = null;
  */
 export function storageReady() {
   if (!readyPromise) {
-    readyPromise = Promise.all(PROVIDERS.map(async (p) => {
-      try { await p.init(); } catch { p.handle = null; }
-      return p;
-    })).then(() => PROVIDERS.filter((p) => p.handle));
+    readyPromise = Promise.all(PROVIDERS.map(bring)).then(() => PROVIDERS.filter((p) => p.handle));
   }
   return readyPromise;
+}
+
+/**
+ * Resolves as soon as the store that outlives the tab has answered, without
+ * waiting for the others.
+ *
+ * This is what the title screen waits on. Waiting for every provider meant
+ * waiting for the slowest one to give up, and CONTINUE appeared long after
+ * the player had already started a new game over the top of their save.
+ */
+export function durableReady() {
+  if (!durablePromise) durablePromise = Promise.all([bring(dbProvider), bring(localProvider)]);
+  return durablePromise;
 }
 
 /** Which providers came up. Shown in test mode so a failure is visible. */
