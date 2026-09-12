@@ -843,7 +843,24 @@ await page.evaluate(() => { window.CARIBOU.overworld.world.player.dir = 'right';
 await tap('KeyZ', 1, 150);
 await clear(60);
 if (!await page.evaluate(() => (window.CARIBOU.state.inventory.items.auroracharm || 0) > 0)) {
-  found('STORY BREAK', 'the Aurora Charm could not be picked up after beating Mars');
+  // Say WHICH of the two it is. "Could not be picked up" has meant, on
+  // different runs, that the ball was not there and that the harness was
+  // standing in the wrong place with a dialogue box open — and those are a
+  // game bug and a harness bug respectively.
+  const why = await page.evaluate(() => {
+    const g = window.CARIBOU;
+    const w = g.overworld.world;
+    const ball = (w.entities || []).find((e) => e.kind === 'item' && e.data && e.data.item === 'auroracharm');
+    return {
+      onTheFloor: !!ball, at: ball ? `${ball.x},${ball.y}` : null,
+      me: `${w.player.x},${w.player.y} ${w.player.dir}`,
+      facing: (() => { const t = w.facingTarget(); return t ? `${t.type}:${(t.entity && t.entity.id) || ''}` : 'nothing'; })(),
+      beatCommander: !!g.state.flags.beatCommander,
+      busy: !!g.overworld.script || g.dialogueForTest.visible,
+    };
+  });
+  found(why.onTheFloor ? 'HARNESS' : 'STORY BREAK',
+    `the Aurora Charm was not picked up — ${JSON.stringify(why)}`);
 }
 await runScene('everlight');
 await wait(400);
