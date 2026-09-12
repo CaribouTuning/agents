@@ -114,7 +114,37 @@ const opened = await page.evaluate(() => ({
 }));
 check(opened.open, 'and opens once they are all in', JSON.stringify(opened));
 
-console.log(fails ? `\n${fails} failure(s)` : '\nevolution and the Hall: all checks passed');
+// ---- two of the same, one ready and one not --------------------------------
+//
+// The notice used to be keyed on the species. Carrying a Turtwig that could
+// change and a Turtwig that could not made the two of them take it in turns —
+// the young one cleared the mark, the old one set it again — and the box came
+// back for ever. This is that exact party.
+{
+  console.log('\n--- a spare of the same species does not trap you ---');
+  await page.evaluate(() => {
+    const g = window.CARIBOU;
+    g.startNewGame({ name: 'Matthew', look: 'matthew', difficulty: 'easy' });
+    g.state.flags.gotStarter = true;
+    g.state.party = [];
+    g.debugGive(387, 30);       // ready to change
+    g.debugGive(387, 5);        // not
+    g.teleport('twinleaf', 10, 8);
+  });
+  await page.waitForTimeout(700);
+  let seen = 0;
+  for (let i = 0; i < 40; i++) {
+    const up = await page.evaluate(() => window.CARIBOU.dialogueForTest.visible);
+    if (up) { seen++; await page.keyboard.press('KeyZ'); await page.waitForTimeout(90); await page.keyboard.press('KeyZ'); }
+    await page.waitForTimeout(80);
+  }
+  const stuck = await page.evaluate(() => window.CARIBOU.dialogueForTest.visible);
+  check(seen <= 3, 'the notice comes once, not on a loop', `${seen} boxes`);
+  check(!stuck, 'and the world is walkable again afterwards');
+}
+
+console.log(fails ? `\n${fails} failed` : '\nall good');
+
 await browser.close();
 server.close();
 process.exit(fails ? 1 : 0);

@@ -30542,7 +30542,13 @@ class OverworldScreen extends Screen {
     for (const mon of st.party) {
       if (!mon || mon.isEgg) continue;
       const e = evolutionFor(mon, 'level');
-      const key = `${mon.id || mon.species}:${mon.species}`;
+      // Keyed on the individual, not on the species.
+      //
+      // It used to be the species, and two of the same one — a Turtwig ready
+      // to change and a Turtwig that is not — took it in turns: the young one
+      // cleared the mark, the old one set it again, and the notice fired for
+      // ever. A box you cannot get out of, from carrying a spare.
+      const key = `${mon.uid || mon.species}:${mon.species}`;
       if (!e) { delete st.noticedEvolve[key]; continue; }
       if (st.noticedEvolve[key]) continue;
       st.noticedEvolve[key] = true;
