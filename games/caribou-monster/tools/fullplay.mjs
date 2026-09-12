@@ -169,7 +169,14 @@ async function clear(budget = 220) {
     // fires. The loop would run its whole budget and report a softlock that
     // is really a conversation. After a fair few presses in a row with a
     // box up and somebody beside us, turn away and walk on.
-    if (i > 24 && await facingSomebody()) {
+    //
+    // Never while a SCENE is running, though. A Gym Leader's speech is a
+    // script, the player is standing right in front of them when it plays,
+    // and the badge is handed over at the end of it: walking away from
+    // Crasher Wake and Byron half way through their speech is exactly how
+    // this reported that they had not given a badge up.
+    if (i > 24 && !(await page.evaluate(() => !!(window.CARIBOU.overworld && window.CARIBOU.overworld.script)))
+      && await facingSomebody()) {
       await page.evaluate(() => window.CARIBOU.dialogueForTest.hide());
       await wait(120);
       if (!await busy()) return seen.join(' ');
