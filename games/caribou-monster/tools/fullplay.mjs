@@ -580,7 +580,7 @@ async function talkToEveryone(limit = 14) {
  * an honest thing to do and takes twenty minutes a Gym. When what is being
  * checked is whether the Leader hands over the badge, go and find the Leader.
  */
-async function talkTo(match) {
+async function talkTo(match, steps = 18) {
   const who = await page.evaluate((m) => {
     const w = window.CARIBOU.overworld.world;
     const e = (w.entities || []).find((n) => n.id === m
@@ -596,7 +596,7 @@ async function talkTo(match) {
     return null;
   }, [who.x, who.y]);
   if (!spot) return null;
-  if (!await walkTo(spot.x, spot.y, 18)) return null;
+  if (!await walkTo(spot.x, spot.y, steps)) return null;
   for (let k = 0; k < 20; k++) {
     if (await page.evaluate(() => !window.CARIBOU.overworld.world.player.moving)) break;
     await wait(30);
@@ -777,8 +777,25 @@ for (const gym of GYMS) {
   const before = (await at()).badges;
   // Go and find the Leader rather than fighting the whole Gym: the badge is
   // what is being checked, and the trainers in between are twenty minutes.
-  const met = await talkTo(gym.trainer);
-  if (met === null) await talkToEveryone(6);   // could not find them; try the room
+  let met = await talkTo(gym.trainer, 60);
+  if (met === null) {
+    // Two of these Gyms are puzzles — Pastoria is a water maze and Canalave
+    // is three floors joined only by lift plates — and the walker cannot
+    // solve either. That is a fact about this harness, not about the game,
+    // and reporting it as "the Leader gave no badge" is a lie that cost
+    // three runs. Say what actually happened, then run the fight anyway so
+    // the badge is still checked.
+    found('GYM MAZE', `could not walk to ${gym.leader} through ${gym.map} — fighting them where they stand`);
+    met = await page.evaluate((t) => {
+      const w = window.CARIBOU.overworld.world;
+      const npc = (w.entities || []).find((e) => e.data && e.data.trainer === t);
+      if (!npc) return null;
+      window.CARIBOU.overworld.runScript('gymLeader', npc);
+      return 'started';
+    }, gym.trainer);
+    if (met === null) { found('GYM EMPTY', `${gym.leader} is not standing in ${gym.map}`); continue; }
+    await clear(400);
+  }
   const after = (await at()).badges;
   if (after <= before) {
     found('NO BADGE', `beating ${gym.leader} did not hand over the ${gym.badge}`);
