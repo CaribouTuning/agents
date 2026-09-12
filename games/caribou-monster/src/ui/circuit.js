@@ -17,7 +17,7 @@ import {
   window9, rect, label, labelDim, cursor, drawText, drawTextCentered, drawTextRight,
   titleBar, rowHighlight, pill, meterBar, rule, moveCursor, money, LINE, dragList,
 } from './kit.js';
-import { drawBackChip, hintBar } from './controls.js';
+import { drawBackChip, hintBar, getBackChip } from './controls.js';
 import { drawChar, lookFor } from '../render/sprites.js';
 import { TOURNAMENTS, RANKS, getPro, getTournament, rankIndex } from '../data/circuit.js';
 import { standings, rankProgress, headToHead, roundName } from '../game/circuit/circuit.js';

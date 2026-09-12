@@ -50,6 +50,10 @@ const MODE = {
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
 export class BattleScreen extends Screen {
+  // A root: it owns the whole screen and there is nothing behind it to go
+  // back to, so the stack does not hang a BACK chip on it.
+  isRoot = true;
+
   constructor(game, battle, opts = {}) {
     super(game);
     this.battle = battle;

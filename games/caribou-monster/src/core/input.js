@@ -198,6 +198,9 @@ class Input {
   // Pops the oldest unhandled tap, if any. Screens call this once per frame
   // and hit-test it against whatever they have on screen.
   consumeTap() { return this.taps.length ? this.taps.shift() : null; }
+
+  /** The next tap, without taking it. Lets the screen stack look first. */
+  peekTap() { return this.taps.length ? this.taps[0] : null; }
   clearTaps() { this.taps.length = 0; }
 
   /**

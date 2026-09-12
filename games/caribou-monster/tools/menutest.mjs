@@ -198,6 +198,54 @@ for (const [name, open] of [
 // the time — and skipped its own way out. On a phone there is no B key, so
 // that was a screen with no exit. Opening a screen in its happy state proves
 // nothing; these are the awkward ones.
+// --- a screen that draws no chip of its own still gets one ------------------
+//
+// The list further down used to be kept by hand, and six screens had grown up
+// outside it with no way off them but a keyboard: the tournament bracket, the
+// press room, the move-forgetting prompt, the title options, the character
+// select and the trade screen. Every one answered the B KEY, and on a phone
+// there is no B key — the virtual pad is only drawn over the world.
+//
+// The fix was not six more chips, it was the screen stack drawing one for any
+// screen that has not drawn its own. This proves that: a bare screen, with no
+// chip and no tap handling of its own, still gets a chip and still closes when
+// it is tapped. Anything added tomorrow is covered the moment it is pushed.
+console.log('\n--- a screen that draws nothing still has a way off it ---');
+{
+  const base = await depth();
+  await page.evaluate(() => {
+    const g = window.CARIBOU;
+    const Base = Object.getPrototypeOf(Object.getPrototypeOf(g.screens.top)).constructor;
+    class BareScreen extends Base {
+      render(ctx) {
+        const { width: W, height: H } = this.game.display;
+        ctx.fillStyle = '#202840';
+        ctx.fillRect(0, 0, W, H);
+      }
+      update(dt, isTop) {
+        void dt;
+        if (!isTop) return;
+        // The only way out it knows is the B key, like the six that were broken.
+        if (window.CARIBOU.inputForTest.pressed('b')) this.game.screens.pop();
+      }
+    }
+    g.screens.push(new BareScreen(g));
+  });
+  await wait(360);
+  const pushed = await top();
+  check(pushed === 'BareScreen', 'a screen that draws nothing can be pushed', pushed);
+  const chip = await backChip();
+  check(!!chip, 'the stack draws it a BACK chip anyway',
+    chip ? `${Math.round(chip.x)},${Math.round(chip.y)}` : 'NO CHIP');
+  if (chip) {
+    await page.mouse.click(chip.x, chip.y);
+    await wait(380);
+    check(await depth() === base, 'and tapping that chip closes it');
+  }
+  await page.evaluate((d) => { while (window.CARIBOU.screens.stack.length > d) window.CARIBOU.screens.pop(); }, base);
+  await wait(160);
+}
+
 console.log('\n--- the way out is drawn whatever the screen is showing ---');
 for (const [name, opener, setup, why] of [
   ['DexScreen', 'openDex', () => {

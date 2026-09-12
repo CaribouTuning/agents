@@ -35,6 +35,10 @@ import { musicFor } from '../data/music.js';
 import { net } from '../net/NetworkManager.js';
 
 export class OverworldScreen extends Screen {
+  // A root: it owns the whole screen and there is nothing behind it to go
+  // back to, so the stack does not hang a BACK chip on it.
+  isRoot = true;
+
   constructor(game) {
     super(game);
     this.world = new World(game.state);

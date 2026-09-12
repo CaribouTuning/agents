@@ -607,6 +607,9 @@ function start() {
   // What a piece of authored text actually reads as on screen, slots and
   // all. The play-test needs it because a sign's stored text still says
   // "{leagueBadges}" — the filling happens on the way to the box.
+  // The input layer, so the menu suite can push a screen that answers only the
+  // B key — which is exactly the shape the six trapped screens had.
+  game.inputForTest = input;
   game.fillForTest = (t) => fillText(String(t), game.state, net.snapshot());
   game.healPartyForTest = () => { for (const m of game.state.party) healFully(m); };
   game.bestMoveForTest = (screen) => {

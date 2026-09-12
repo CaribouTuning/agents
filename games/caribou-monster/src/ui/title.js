@@ -1,5 +1,6 @@
 // Title, new game and character creation.
 import { Screen, FADE } from './screen.js';
+import { drawBackChip, getBackChip } from './controls.js';
 import { KEY_ROWS, keyGrid } from './naming.js';
 import { input } from '../core/input.js';
 import { audio } from '../core/audio.js';
@@ -23,6 +24,10 @@ import { slotForLook } from '../save/SaveManager.js';
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 
 export class TitleScreen extends Screen {
+  // A root: it owns the whole screen and there is nothing behind it to go
+  // back to, so the stack does not hang a BACK chip on it.
+  isRoot = true;
+
   constructor(game, saves) {
     super(game);
     // `saves` is one entry per character who has a game here — the store is

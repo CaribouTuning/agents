@@ -26,7 +26,7 @@ import { tryStone } from '../game/evolution.js';
 import { abilityDescription } from '../game/battle/abilities.js';
 import { friendshipLabel } from '../game/friendship.js';
 import { net } from '../net/NetworkManager.js';
-import { drawControls, drawBackChip } from './controls.js';
+import { drawControls, drawBackChip, getBackChip } from './controls.js';
 import { exportToFile } from '../save/backup.js';
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;

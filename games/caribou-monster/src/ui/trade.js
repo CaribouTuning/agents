@@ -5,6 +5,7 @@
 // live once both monsters are on the table, and the swap itself is performed
 // by the session — this screen cannot move a monster on its own.
 import { Screen } from './screen.js';
+import { drawBackChip, getBackChip } from './controls.js';
 import { input } from '../core/input.js';
 import { audio } from '../core/audio.js';
 import { PAL, shade } from '../render/palette.js';

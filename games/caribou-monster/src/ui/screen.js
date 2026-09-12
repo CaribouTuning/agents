@@ -6,6 +6,7 @@
 import { input } from '../core/input.js';
 import { PAL } from '../render/palette.js';
 import { rect } from './kit.js';
+import { drawBackChip, getBackChip } from './controls.js';
 
 export class Screen {
   constructor(game) {
@@ -106,6 +107,27 @@ export class ScreenManager {
       // Input is swallowed during a transition.
       return;
     }
+    // The way out, before anything else gets a look at the tap.
+    //
+    // Every screen in this game already closes on the B key. On a phone there
+    // is no B key: the virtual gamepad is only drawn over the world, so a
+    // screen that answers B and nothing else is a screen a thumb cannot leave.
+    // Rather than remembering to put a chip on each one — which is how half a
+    // dozen of them came to be missing it — the manager draws the chip for any
+    // screen that has not drawn its own, and a tap on it presses B for them.
+    const top = this.top;
+    if (top && !top.isRoot) {
+      const chip = getBackChip();
+      if (chip) {
+        const tap = input.peekTap();
+        if (tap && tap.x >= chip.x && tap.x <= chip.x + chip.w
+          && tap.y >= chip.y && tap.y <= chip.y + chip.h) {
+          input.consumeTap();
+          input.press('b');
+        }
+      }
+    }
+
     // Update from the topmost screen down until one pauses those below.
     for (let i = this.stack.length - 1; i >= 0; i--) {
       const s = this.stack[i];
@@ -119,6 +141,11 @@ export class ScreenManager {
     let start = this.stack.length - 1;
     while (start > 0 && this.stack[start].seeThrough) start--;
     for (let i = start; i < this.stack.length; i++) this.stack[i].render(ctx);
+    // Anything that is not a root and did not draw its own way out gets one.
+    const top = this.top;
+    if (top && !top.isRoot && !getBackChip()) {
+      drawBackChip(ctx, this.display.width - 52, 2);
+    }
     if (this.transition) this._renderTransition(ctx);
   }
 
