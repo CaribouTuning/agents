@@ -69,6 +69,37 @@ console.log('--- a ball the story has not put there yet ---');
   check(after.includes('auroracharm'), 'and it is there once she is', after.join(', '));
 }
 
+console.log('\n--- and it appears in the room you are standing in ---');
+{
+  // Mars is fought inside Oreburgh Gate. Spawning gated items only at map
+  // load meant you won the fight, walked round the corner, and found bare
+  // rock: the charm did not exist until you left the cave and came back, and
+  // nothing on screen said so.
+  await fresh();
+  await wait(400);
+  await page.evaluate(() => window.CARIBOU.teleport('oreburgh_gate', 11, 1));
+  await wait(700);
+  const before = await page.evaluate(() => {
+    const w = window.CARIBOU.overworld.world;
+    return (w.entities || []).filter((e) => e.kind === 'item').length;
+  });
+  // Flip the flag the way beating her does, then end a scene.
+  await page.evaluate(() => {
+    const g = window.CARIBOU;
+    g.state.flags.beatCommander = true;
+    g.overworld.runScript(null, null, async () => {});
+  });
+  await wait(600);
+  const after = await page.evaluate(() => {
+    const w = window.CARIBOU.overworld.world;
+    return (w.entities || []).filter((e) => e.kind === 'item')
+      .map((e) => (e.data && e.data.item) || e.id);
+  });
+  check(after.includes('auroracharm'),
+    'the charm is on the floor the moment the scene ends, without leaving the cave',
+    `${before} -> ${after.length}: ${after.join(', ')}`);
+}
+
 console.log('\n--- the door under the hill ---');
 {
   await fresh();

@@ -149,20 +149,7 @@ export class World {
       if (npc.species) e.mon = { species: npc.species, shiny: false };
       this.entities.push(e);
     }
-    for (const obj of this.map.objects) {
-      if (this.state.flags[`item_${obj.id}`]) continue;
-      // A ball the story has not put there yet.
-      //
-      // The Aurora Charm sits on the tile behind Mars, and the top corridor
-      // of Oreburgh Gate runs right past her: you could walk round, pick it
-      // up without fighting her, and open the Everlight door before the act
-      // that is supposed to end with it. An object may now name the flag
-      // that puts it on the floor.
-      if (obj.requires && !this.state.flags[obj.requires]) continue;
-      this.entities.push(makeEntity({
-        ...obj, kind: 'item', look: null, movement: 'still', solid: true,
-      }));
-    }
+    this.refreshObjects();
     this.state.player.map = mapId;
     this.state.player.x = x;
     this.state.player.y = y;
@@ -847,6 +834,32 @@ export class World {
   removeEntity(id) {
     const i = this.entities.findIndex((e) => e.id === id);
     if (i >= 0) this.entities.splice(i, 1);
+  }
+
+  /**
+   * Puts the ground items that belong on this floor on it.
+   *
+   * Run at load AND whenever a cutscene ends, because an object can be gated
+   * on a flag that the cutscene just set. The Aurora Charm is exactly that:
+   * it lies on the tile behind Mars and only exists once she has been beaten,
+   * and she is fought in the same room. Spawning only at load meant you won
+   * the fight, walked round the corner, and found bare rock — the story
+   * stopped dead until you happened to leave the cave and come back.
+   */
+  refreshObjects() {
+    const here = new Set(this.entities.filter((e) => e.kind === 'item').map((e) => e.id));
+    for (const obj of this.map.objects) {
+      if (here.has(obj.id)) continue;
+      if (this.state.flags[`item_${obj.id}`]) continue;
+      // A ball the story has not put there yet. Without this, the top
+      // corridor of Oreburgh Gate walks straight past Mars to the charm, and
+      // the Everlight door opens before the act that is supposed to end with
+      // it — six badges of story, skipped by taking a corner.
+      if (obj.requires && !this.state.flags[obj.requires]) continue;
+      this.entities.push(makeEntity({
+        ...obj, kind: 'item', look: null, movement: 'still', solid: true,
+      }));
+    }
   }
 
   // ---- remote players ---------------------------------------------------------

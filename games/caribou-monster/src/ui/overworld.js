@@ -548,6 +548,10 @@ export class OverworldScreen extends Screen {
         // A cutscene can change the party — a starter, an Egg, a trade — so
         // whoever is walking beside you is re-read once it ends.
         this.world.refreshFollower();
+        // And it can unlock something lying on this floor. Beating Mars puts
+        // the Aurora Charm on the tile behind her, in the room you are
+        // already standing in.
+        this.world.refreshObjects();
         if (this.game.save) this.game.save.markDirty();
       });
   }
