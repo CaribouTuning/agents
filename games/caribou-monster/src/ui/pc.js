@@ -11,7 +11,7 @@ import { renderMonster } from '../render/monsterart.js';
 import { drawBackChip } from './controls.js';
 import { getSpecies } from '../data/species.js';
 import { maxHp, displayName, isFainted, natureOf } from '../game/monster.js';
-import { partyToBox, boxToParty, releaseFromBox, BOX_SIZE } from '../game/state.js';
+import { partyToBox, boxToParty, releaseFromBox, BOX_SIZE, MAX_PARTY } from '../game/state.js';
 
 const hit = (tap, x, y, w, h) => !!tap && tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
 const COLS = 6;
@@ -24,7 +24,7 @@ export class PCScreen extends Screen {
     this.pane = 'box';        // box | party
     this.partyIdx = 0;
     this.held = null;         // { from:'box'|'party', index }
-    this.message = 'Move Pokémon between your party and the boxes.';
+    this.message = 'Pick one up, then choose where it goes.';
     this.confirmRelease = null;
   }
 
@@ -74,6 +74,7 @@ export class PCScreen extends Screen {
   _changeBox(d) {
     const n = this.game.state.boxes.length;
     this.box = (this.box + d + n) % n;
+    this.cursorIdx = Math.min(this.cursorIdx, Math.max(0, this.boxData.mons.length - 1));
     audio.sfx('cursor');
   }
 
@@ -86,7 +87,12 @@ export class PCScreen extends Screen {
         if (box.mons.length >= BOX_SIZE) { audio.sfx('deny'); this.message = 'This box is full.'; return; }
         if (this.game.state.party.length <= 1) { audio.sfx('deny'); this.message = 'You need at least one Pokémon with you!'; return; }
         partyToBox(this.game.state, this.held.index, this.box);
-        this.message = 'Stored.';
+        // A box fills from the front, so the one you just put down is at the
+        // end of the row and not under the cursor you dropped it with. Move
+        // the cursor onto it: a player who cannot see where their monster
+        // went assumes it is gone.
+        this.cursorIdx = Math.max(0, box.mons.length - 1);
+        this.message = `Stored in ${box.name}, space ${this.cursorIdx + 1}.`;
       } else {
         this.message = 'Put it back.';
       }
@@ -97,7 +103,9 @@ export class PCScreen extends Screen {
     }
     if (!mon) { audio.sfx('deny'); return; }
     audio.sfx('select');
-    this.held = { from: 'box', index: this.cursorIdx };
+    // Remember which box it came out of, not just which space: changing box
+    // while carrying one used to take a different monster out of the new box.
+    this.held = { from: 'box', index: this.cursorIdx, box: this.box };
     this.message = `${displayName(mon)} picked up. Choose a party slot.`;
     this.pane = 'party';
   }
@@ -106,9 +114,15 @@ export class PCScreen extends Screen {
     const st = this.game.state;
     if (this.held) {
       if (this.held.from === 'box') {
-        if (st.party.length >= 6) { audio.sfx('deny'); this.message = 'Your party is full.'; return; }
-        boxToParty(st, this.box, this.held.index);
-        this.message = 'Added to your party.';
+        if (st.party.length >= MAX_PARTY) { audio.sfx('deny'); this.message = `Your team is full — ${MAX_PARTY} is the most you can carry.`; return; }
+        const from = this.held.box === undefined ? this.box : this.held.box;
+        boxToParty(st, from, this.held.index);
+        // Taking one out closes the gap behind it, so a cursor left where the
+        // monster used to be is now pointing past the end of the row.
+        const left = st.boxes[from].mons.length;
+        if (from === this.box) this.cursorIdx = Math.min(this.cursorIdx, Math.max(0, left - 1));
+        this.partyIdx = st.party.length - 1;
+        this.message = 'Added to your team.';
         this.held = null;
         audio.sfx('select');
         if (this.game.save) this.game.save.markDirty();
@@ -165,7 +179,7 @@ export class PCScreen extends Screen {
 
   _partyCell(i) {
     const { height: H } = this.game.display;
-    return { x: 8 + i * 24, y: H - 30, w: 22, h: 26 };
+    return { x: 8 + i * 24, y: H - 28, w: 22, h: 26 };
   }
 
   render(ctx) {
@@ -180,8 +194,8 @@ export class PCScreen extends Screen {
     drawTextCentered(ctx, '<', g.prevX + 7, g.tabY + 2);
     rect(ctx, g.nextX, g.tabY, 14, 11, PAL.uiBgAlt);
     drawTextCentered(ctx, '>', g.nextX + 7, g.tabY + 2);
-    drawTextCentered(ctx, this.boxData.name, (g.prevX + g.nextX) / 2 + 7, g.tabY + 2,
-      { color: PAL.uiTextLight, shadow: PAL.black });
+    drawTextCentered(ctx, `${this.boxData.name}  ${this.boxData.mons.length}/${BOX_SIZE}`,
+      (g.prevX + g.nextX) / 2 + 7, g.tabY + 2, { color: PAL.uiTextLight, shadow: PAL.black });
 
     // Box grid.
     const rows = Math.ceil(BOX_SIZE / COLS);
@@ -197,16 +211,21 @@ export class PCScreen extends Screen {
       }
     }
 
-    // Party strip.
-    window9(ctx, 4, H - 34, W - 8, 32);
-    st.party.forEach((m, i) => {
+    // The team, along the bottom. Every slot is drawn, empty ones included:
+    // five is the rule the whole box system exists for, and a player should
+    // be able to see it rather than discover it when something is refused.
+    window9(ctx, 4, H - 42, W - 8, 40);
+    labelDim(ctx, `YOUR TEAM  ${st.party.length}/${MAX_PARTY}`, 8, H - 38);
+    for (let i = 0; i < MAX_PARTY; i++) {
+      const m = st.party[i];
       const c = this._partyCell(i);
       const sel = this.pane === 'party' && i === this.partyIdx;
-      rect(ctx, c.x, c.y, c.w, c.h, sel ? PAL.uiHighlight : PAL.uiBgAlt);
+      rect(ctx, c.x, c.y, c.w, c.h, sel ? PAL.uiHighlight : m ? PAL.uiBgAlt : shade(PAL.uiBgAlt, -0.12));
+      if (!m) { drawTextCentered(ctx, '-', c.x + c.w / 2, c.y + 8, { color: PAL.uiTextDim }); continue; }
       const img = renderMonster(getSpecies(m.species).art, { size: 20, shiny: m.shiny, egg: m.isEgg });
       ctx.drawImage(img, c.x + 1, c.y + 1);
       hpBar(ctx, c.x + 2, c.y + 22, 18, m.hp / maxHp(m), { h: 2 });
-    });
+    }
 
     // Info panel for whatever is under the cursor.
     const focus = this.pane === 'box' ? this.boxData.mons[this.cursorIdx] : st.party[this.partyIdx];
@@ -230,7 +249,10 @@ export class PCScreen extends Screen {
 
     // Held monster follows the cursor.
     if (this.held) {
-      const src = this.held.from === 'box' ? this.boxData.mons[this.held.index] : st.party[this.held.index];
+      const heldBox = this.held.box === undefined ? this.box : this.held.box;
+      const src = this.held.from === 'box'
+        ? (st.boxes[heldBox] || this.boxData).mons[this.held.index]
+        : st.party[this.held.index];
       if (src) {
         const c = this.pane === 'box' ? this._cell(this.cursorIdx) : this._partyCell(this.partyIdx);
         const img = renderMonster(getSpecies(src.species).art, { size: 20, shiny: src.shiny, egg: src.isEgg });

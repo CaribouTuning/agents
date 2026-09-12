@@ -890,6 +890,232 @@ function waterfallTile(c, f) {
 }
 
 
+// ---- street furniture ------------------------------------------------
+//
+// Props that stand on made ground. Every one of them paints its own bed
+// first — paving under a bench, turf under a hedge — because a prop drawn on
+// a bare green square is what made every city in this region read as a lawn
+// with buildings dropped onto it.
+
+/** A short ornamental tree in an iron grate. One tile: no crown overhang. */
+function streetTree(c) {
+  paving(c);
+  const grate = '#6e6a62';
+  c.fillStyle = grate; px(c, 3, 11, 10, 4);
+  c.fillStyle = shade(grate, 0.22); px(c, 4, 12, 8, 1); px(c, 4, 14, 8, 1);
+  c.fillStyle = PAL.treeTrunk; px(c, 7, 8, 2, 4);
+  c.fillStyle = shade(PAL.treeTrunk, -0.3); px(c, 9, 9, 1, 3);
+  const blob = (cx, cy, rx, ry, col) => {
+    c.fillStyle = col;
+    for (let y = -ry; y <= ry; y++) {
+      const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2)));
+      px(c, cx - half, cy + y, half * 2 + 1, 1);
+    }
+  };
+  blob(8, 5, 6, 5, PAL.treeLeafDark);
+  blob(8, 5, 5, 4, PAL.treeLeaf);
+  blob(6, 3, 2, 2, PAL.treeLeafLight);
+  c.fillStyle = PAL.treeLeafDark; px(c, 11, 7, 2, 1);
+}
+
+/** A cast-iron lamp on a plinth. The glass reads warm even by day. */
+function lampPost(c) {
+  paving(c);
+  const iron = '#3c3f4a';
+  c.fillStyle = shade('#b9b4ab', -0.3); px(c, 5, 14, 6, 2);
+  c.fillStyle = iron; px(c, 6, 13, 4, 2); px(c, 7, 4, 2, 10);
+  c.fillStyle = shade(iron, 0.3); px(c, 7, 4, 1, 10);
+  c.fillStyle = iron; px(c, 5, 2, 6, 3);
+  c.fillStyle = '#ffe9a8'; px(c, 6, 3, 4, 2);
+  c.fillStyle = '#fff6d8'; px(c, 6, 3, 2, 1);
+  c.fillStyle = shade(iron, -0.3); px(c, 5, 1, 6, 1); px(c, 7, 0, 2, 1);
+}
+
+/** A slatted bench, seat toward the viewer. */
+function bench(c) {
+  paving(c);
+  const wood = '#a97a44';
+  c.fillStyle = shade('#b9b4ab', -0.25); px(c, 2, 13, 12, 2);
+  c.fillStyle = shade(wood, -0.35); px(c, 2, 5, 12, 8);
+  c.fillStyle = wood; px(c, 2, 5, 12, 2); px(c, 2, 8, 12, 3);
+  c.fillStyle = shade(wood, 0.2); px(c, 2, 5, 12, 1); px(c, 2, 8, 12, 1);
+  c.fillStyle = '#4a4640'; px(c, 3, 11, 2, 3); px(c, 11, 11, 2, 3);
+}
+
+/** A stone fountain. The jet and the ring both move on the frame. */
+function fountain(c, f) {
+  paving(c);
+  const stone = '#a8a196';
+  c.fillStyle = shade(stone, -0.35); px(c, 1, 3, 14, 12); px(c, 0, 5, 16, 8);
+  c.fillStyle = stone; px(c, 2, 4, 12, 10); px(c, 1, 6, 14, 6);
+  c.fillStyle = PAL.waterDark; px(c, 3, 6, 10, 6); px(c, 2, 7, 12, 4);
+  c.fillStyle = PAL.water; px(c, 3, 6, 10, 5); px(c, 2, 7, 12, 3);
+  // Ripple rings, spreading outward one pixel per frame.
+  c.fillStyle = PAL.waterLight;
+  const rr = 2 + (f % 4);
+  px(c, 8 - rr, 9, 1, 1); px(c, 7 + rr, 9, 1, 1);
+  px(c, 8, 9 - Math.round(rr / 2), 1, 1); px(c, 8, 8 + Math.round(rr / 2), 1, 1);
+  // The jet.
+  c.fillStyle = shade(stone, 0.18); px(c, 7, 5, 2, 4);
+  c.fillStyle = PAL.waterLight;
+  px(c, 7, 1 + (f % 2), 2, 4);
+  c.fillStyle = '#e8f4ff'; px(c, 7, 2 + (f % 2), 1, 2);
+}
+
+/**
+ * A stack of shipping crates, for a dock or a pit yard. Drawn edge to edge
+ * on purpose: it is the one prop that stands on paving, dirt and planking
+ * alike, and nothing of its bed shows through to give the lie away.
+ */
+function crates(c) {
+  const wood = '#9a7040';
+  c.fillStyle = shade(wood, -0.5); px(c, 0, 0, 16, 16);
+  // One crate: a lit lid face, a shaded front, a rope band across it.
+  const box = (x, y, w, hh) => {
+    c.fillStyle = shade(wood, -0.5); px(c, x, y, w, hh);
+    c.fillStyle = shade(wood, 0.24); px(c, x + 1, y + 1, w - 2, 3);
+    c.fillStyle = wood; px(c, x + 1, y + 4, w - 2, hh - 5);
+    c.fillStyle = shade(wood, -0.2); px(c, x + w - 3, y + 4, 2, hh - 5);
+    c.fillStyle = shade(wood, -0.34);
+    px(c, x + 1, y + 4, w - 2, 1);
+    px(c, x + Math.floor(w / 2) - 1, y + 5, 1, hh - 6);
+    c.fillStyle = '#c9b384'; px(c, x + 2, y + hh - 4, w - 4, 1);
+  };
+  box(0, 9, 10, 7);
+  box(10, 7, 6, 9);
+  box(1, 1, 8, 8);
+  box(9, 0, 7, 7);
+}
+
+/** A planter box in bloom. The blossoms shift on the frame. */
+function planter(c, f) {
+  paving(c);
+  const wood = '#8a6238';
+  c.fillStyle = shade(wood, -0.35); px(c, 0, 6, 16, 10);
+  c.fillStyle = wood; px(c, 1, 7, 14, 8);
+  c.fillStyle = shade(wood, 0.16); px(c, 1, 7, 14, 1);
+  c.fillStyle = '#5a3f24'; px(c, 2, 8, 12, 3);
+  c.fillStyle = PAL.treeLeaf; px(c, 2, 4, 12, 5);
+  c.fillStyle = PAL.treeLeafDark; px(c, 4, 7, 9, 2);
+  c.fillStyle = PAL.treeLeafLight; px(c, 3, 4, 4, 2);
+  const cols = [PAL.flowerRed, PAL.flowerYellow, PAL.flowerPink, PAL.flowerWhite];
+  [[3, 5], [7, 3], [11, 5], [13, 7]].forEach((s, i) => {
+    c.fillStyle = cols[(i + f) % cols.length];
+    px(c, s[0], s[1]); px(c, s[0] + 1, s[1]); px(c, s[0], s[1] + 1); px(c, s[0] + 1, s[1] + 1);
+  });
+}
+
+/** A clipped hedge. Turf underneath, so it edges a garden cleanly. */
+function hedge(c) {
+  grass(c, 0, 41);
+  c.fillStyle = shade(PAL.grass, -0.3); px(c, 1, 13, 14, 3);
+  c.fillStyle = PAL.treeLeafDark; px(c, 0, 0, 16, 15);
+  c.fillStyle = PAL.treeLeaf; px(c, 0, 1, 16, 13);
+  for (let y = 1; y < 14; y++) for (let x = 0; x < 16; x++) {
+    const r = h(x, y, 43);
+    if (r > 0.84) { c.fillStyle = PAL.treeLeafLight; px(c, x, y); }
+    else if (r < 0.14) { c.fillStyle = PAL.treeLeafDark; px(c, x, y); }
+  }
+  c.fillStyle = PAL.treeLeafLight; px(c, 0, 0, 16, 1);
+}
+
+/** A stack of split logs, sawn ends out, under a plank lid. */
+function woodpile(c) {
+  grass(c, 0, 47);
+  c.fillStyle = shade(PAL.grass, -0.3); px(c, 1, 13, 14, 3);
+  // One sawn end: a dark ring, a pale heartwood face, a couple of rings.
+  const end = (cx, cy, r) => {
+    c.fillStyle = shade(PAL.treeTrunk, -0.45);
+    for (let y = -r; y <= r; y++) {
+      const half = Math.round(r * Math.sqrt(Math.max(0, 1 - (y / r) ** 2)));
+      px(c, cx - half, cy + y, half * 2 + 1, 1);
+    }
+    c.fillStyle = '#d8b078';
+    for (let y = -r + 1; y <= r - 1; y++) {
+      const half = Math.round((r - 1) * Math.sqrt(Math.max(0, 1 - (y / (r - 1)) ** 2)));
+      px(c, cx - half, cy + y, half * 2 + 1, 1);
+    }
+    c.fillStyle = shade('#d8b078', -0.22); px(c, cx - 1, cy, 2, 1); px(c, cx, cy - 1, 1, 2);
+    c.fillStyle = shade('#d8b078', 0.22); px(c, cx - 1, cy - 2, 2, 1);
+  };
+  // Three courses, each offset half a log, the way a stack actually sits.
+  end(3, 12, 3); end(9, 12, 3); end(14, 12, 2);
+  end(6, 8, 3); end(12, 8, 3); end(1, 8, 2);
+  end(4, 5, 2); end(9, 5, 2); end(13, 5, 2);
+  // The plank keeping the rain off.
+  c.fillStyle = shade(PAL.treeTrunk, 0.12); px(c, 0, 0, 16, 4);
+  c.fillStyle = shade(PAL.treeTrunk, 0.3); px(c, 0, 0, 16, 1);
+  c.fillStyle = shade(PAL.treeTrunk, -0.45); px(c, 0, 4, 16, 1);
+}
+
+// ---- worn ground -----------------------------------------------------
+//
+// Never written into a map by hand: the scatter pass in `defineMap` sprinkles
+// these over their plain counterparts so a paved street is not 400 copies of
+// one square. Each is walkable and triggers nothing, exactly like its base.
+
+function pavingWorn(c) {
+  paving(c);
+  const base = '#b9b4ab';
+  c.fillStyle = shade(base, -0.3);
+  px(c, 3, 2, 1, 4); px(c, 4, 6, 1, 2); px(c, 4, 8, 3, 1);
+  px(c, 11, 10, 1, 5); px(c, 10, 12, 1, 1);
+  c.fillStyle = PAL.grassDark; px(c, 12, 3, 1, 2); px(c, 13, 4, 1, 1);
+  c.fillStyle = PAL.grass; px(c, 12, 2, 1, 1);
+  c.fillStyle = shade(base, -0.14); px(c, 6, 13, 3, 1); px(c, 2, 10, 2, 1);
+}
+
+function cobbleMossy(c) {
+  cobble(c);
+  // Moss creeps along the joints, not over the stones: a couple of runs in
+  // the gaps and a single tuft is the whole effect.
+  c.fillStyle = shade(PAL.grassTall, -0.1);
+  px(c, 0, 5, 7, 1); px(c, 9, 0, 1, 6); px(c, 10, 10, 6, 1); px(c, 3, 11, 1, 5);
+  c.fillStyle = PAL.grassTall;
+  px(c, 1, 5, 4, 1); px(c, 9, 1, 1, 3); px(c, 12, 10, 3, 1);
+  c.fillStyle = shade(PAL.grassTall, 0.22);
+  px(c, 6, 13, 2, 1); px(c, 7, 12, 1, 1); px(c, 13, 4, 1, 1);
+}
+
+function dirtPebbled(c) {
+  dirt(c);
+  for (let i = 0; i < 6; i++) {
+    const sx = 1 + Math.floor(h(i, 3, 117) * 13);
+    const sy = 1 + Math.floor(h(i, 7, 117) * 13);
+    c.fillStyle = PAL.rockDark; px(c, sx, sy, 2, 2);
+    c.fillStyle = PAL.rockLight; px(c, sx, sy, 1, 1);
+  }
+}
+
+function sandShells(c) {
+  sand(c);
+  // A scallop with its ribs, a small spiral, and a drag mark left by a tide.
+  c.fillStyle = shade(PAL.sand, -0.3); px(c, 3, 8, 5, 1);
+  c.fillStyle = '#fbf4ea'; px(c, 3, 5, 4, 1); px(c, 2, 6, 6, 2); px(c, 3, 4, 2, 1);
+  c.fillStyle = shade('#fbf4ea', -0.3); px(c, 4, 5, 1, 3); px(c, 6, 5, 1, 3);
+  c.fillStyle = '#e6a880'; px(c, 11, 10, 3, 1); px(c, 10, 11, 4, 2); px(c, 11, 13, 3, 1);
+  c.fillStyle = shade('#e6a880', -0.35); px(c, 11, 11, 2, 1); px(c, 12, 12, 1, 1);
+  c.fillStyle = shade('#e6a880', 0.3); px(c, 10, 11, 1, 1);
+  c.fillStyle = shade(PAL.sand, -0.14); px(c, 1, 14, 6, 1); px(c, 7, 2, 5, 1); px(c, 12, 3, 2, 1);
+}
+
+function boardwalkWorn(c) {
+  boardwalk(c);
+  const wood = '#b08a52';
+  // One plank has been replaced and has not weathered to match yet, and the
+  // old boards either side have split.
+  c.fillStyle = shade(wood, 0.14); px(c, 0, 6, 16, 4);
+  c.fillStyle = shade(wood, 0.26); px(c, 0, 6, 16, 1);
+  c.fillStyle = shade(wood, -0.3); px(c, 0, 9, 16, 1);
+  c.fillStyle = shade(wood, -0.45);
+  px(c, 2, 6, 1, 4); px(c, 13, 6, 1, 4);       // the nails at each end
+  px(c, 4, 2, 6, 1); px(c, 6, 13, 7, 1);       // splits in the old boards
+  // A knot in the grain.
+  c.fillStyle = shade(wood, -0.4); px(c, 10, 11, 3, 2); px(c, 11, 10, 1, 4);
+  c.fillStyle = shade(wood, -0.15); px(c, 11, 11, 1, 2);
+}
+
+
 function voidTile(c) {
   c.fillStyle = PAL.black; px(c, 0, 0, 16, 16);
 }
@@ -978,6 +1204,27 @@ export const TILES = {
   'X': { name: 'dig wall', draw: digWall(false), solid: true, dig: 'shallow', anim: 4 },
   'Z': { name: 'deep dig wall', draw: digWall(true), solid: true, dig: 'deep', anim: 4 },
   'U': { name: 'base wall', draw: baseWall, solid: true, base: true },
+
+  // Street furniture. Solid props that stand on made ground; each paints its
+  // own bed, so they may only be authored on the surface they were drawn for
+  // (paving for the town ones, turf for the two rural ones).
+  't': { name: 'street tree', draw: streetTree, solid: true, casts: true, ground: 'path' },
+  'l': { name: 'lamp post', draw: lampPost, solid: true, casts: true, ground: 'path' },
+  'y': { name: 'bench', draw: bench, solid: true, ground: 'path' },
+  '0': { name: 'fountain', draw: fountain, solid: true, anim: 4, ground: 'path' },
+  '8': { name: 'crates', draw: crates, solid: true, casts: true, ground: 'path' },
+  '9': { name: 'planter', draw: planter, solid: true, anim: 4, ground: 'path' },
+  '(': { name: 'hedge', draw: hedge, solid: true, casts: true, ground: 'grass' },
+  ')': { name: 'woodpile', draw: woodpile, solid: true, casts: true, ground: 'grass' },
+
+  // Worn ground. Scattered automatically over the plain version by
+  // `defineMap`, never authored: walkable, and identical in every way that
+  // matters to the tile it replaces.
+  '3': { name: 'worn paving', draw: pavingWorn, ground: 'path' },
+  '4': { name: 'mossy cobble', draw: cobbleMossy, ground: 'path' },
+  '5': { name: 'pebbled dirt', draw: dirtPebbled, ground: 'dirt' },
+  '6': { name: 'shelly sand', draw: sandShells, ground: 'sand' },
+  '7': { name: 'worn boardwalk', draw: boardwalkWorn, ground: 'path' },
 };
 
 export const MAX_ANIM = 4;

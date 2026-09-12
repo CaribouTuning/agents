@@ -45,7 +45,8 @@ export class CreditsScreen extends Screen {
     const them = buddyOf(st);
     const f = st.flags || {};
     const out = [
-      L('CARIBOU MONSTER', { big: true }),
+      L('POK\u00e9MON', { big: true }),
+      L('FOR SAMMY & MATT', { big: true }),
       L('Sinnoh Region'),
       L(''),
       L('— what happened —', { dim: true }),

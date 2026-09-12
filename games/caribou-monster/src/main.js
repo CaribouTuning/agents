@@ -37,7 +37,7 @@ import { resolveDialogue, worldSnapshot } from './game/overworld/gossip.js';
 import { NicknameScreen, TextEntryScreen } from './ui/naming.js';
 import { JournalScreen } from './ui/journal.js';
 import * as journalApi from './game/journal.js';
-import { createGameState, healParty, setStoryFlag, awardBadge } from './game/state.js';
+import { createGameState, healParty, setStoryFlag, awardBadge, receiveMonster } from './game/state.js';
 import { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } from './game/monster.js';
 import { createBattle } from './game/battle/engine.js';
 import { getSpecies } from './data/species.js';
@@ -368,12 +368,15 @@ class Game {
   // the integration tests both need a way to hand the player something.
   debugGiveItem(id, qty = 1) { return addItem(this.state.inventory, id, qty); }
 
-  // Adds a monster to the party — used by the debug menu and by tools/coop.mjs.
+  // Adds a monster — used by the debug menu and by tools/coop.mjs. It goes
+  // through the same door a caught one does, so the five-to-a-team rule and
+  // the boxes hold here too: a debug tool that can build an illegal party is
+  // a debug tool that hides the bug you were looking for.
   debugGive(speciesId, level = 5) {
     const mon = createMonster(speciesId, level);
     mon.ot = this.state.player.name;
     mon.otId = this.state.player.id;
-    if (this.state.party.length < 6) this.state.party.push(mon);
+    receiveMonster(this.state, mon);
     return mon;
   }
 

@@ -35,7 +35,7 @@ import {
   maxHp, displayName, isFainted, expProgress, learnMove, knowsMove, typesOf,
 } from '../game/monster.js';
 import { removeItem, battleUsable } from '../game/inventory.js';
-import { receiveMonster } from '../game/state.js';
+import { receiveMonster, MAX_PARTY } from '../game/state.js';
 import { recordSeen, recordCaught } from '../game/pokedex.js';
 import { battleMusic, battleMusicKey, MUSIC } from '../data/music.js';
 import { evolveNow, evolutionFor } from '../game/evolution.js';
@@ -86,6 +86,11 @@ export class BattleScreen extends Screen {
     this.flash = [0, 0];
     this.slide = [1, 1];        // 0 = off-screen, 1 = in place
     this.faintDrop = [0, 0];
+    // A hit that lands: the attacker leans in, the ground jolts, and pixels
+    // come off. Without these a move is a white flash and a number.
+    this.lunge = [0, 0];
+    this.hitBits = [];
+    this.jolt = 0;
     this.ballAnim = null;
     this.introT = 0;
     this.learnData = null;
@@ -160,8 +165,10 @@ export class BattleScreen extends Screen {
     if (!isTop) return;
     this.introT += dt;
     this.t = (this.t || 0) + dt;
+    this._tickHitBits(dt);
     for (let i = 0; i < 2; i++) {
       if (this.shake[i] > 0) this.shake[i] = Math.max(0, this.shake[i] - dt * 4);
+      if (this.lunge[i] > 0) this.lunge[i] = Math.max(0, this.lunge[i] - dt * 6);
       if (this.flash[i] > 0) this.flash[i] = Math.max(0, this.flash[i] - dt * 5);
       if (this.slide[i] < 1) this.slide[i] = Math.min(1, this.slide[i] + dt * 4.5);
     }
@@ -245,11 +252,18 @@ export class BattleScreen extends Screen {
         this.msgHold = 0;
         break;
       case 'sfx': audio.sfx(e.s); this.current = null; break;
-      case 'hit':
+      case 'hit': {
         this.shake[e.side] = 1;
         this.flash[e.side] = 1;
+        // Whoever threw it leans in. It is the difference between a sprite
+        // that is hit and two sprites in a fight.
+        this.lunge[e.side === this.mySide ? this.foeSide : this.mySide] = 1;
+        const power = e.eff >= 2 ? 1.6 : e.eff > 0 && e.eff < 1 ? 0.5 : 1;
+        this.jolt = Math.max(this.jolt, e.eff >= 2 ? 1 : 0.35);
+        this._spawnHitBits(e.side, power);
         e.dur = e.eff >= 2 ? 0.32 : 0.22;
         break;
+      }
       case 'hp': e.dur = 0.05; break;
       case 'faint':
         this.faintDrop[e.side] = 1;
@@ -765,7 +779,12 @@ export class BattleScreen extends Screen {
       if (this.game.save) this.game.save.touch(st);
       if (newEntry) this.queue.push({ t: 'text', s: `${displayName(mon)}'s data was added to the Pokédex.` });
       if (dest && dest.where === 'box') {
-        this.queue.push({ t: 'text', s: `Your party is full, so ${displayName(mon)}\nwas sent to ${dest.boxName}.` });
+        // Say where it went AND how to get it back. A monster that vanishes
+        // into a named box the player has never heard of is a monster the
+        // player thinks they have lost.
+        this.queue.push({ t: 'text', s: `You are already carrying ${MAX_PARTY}, so ${displayName(mon)}\nwas sent to ${dest.boxName}.\fUse the PC in any Pokémon Center to swap who comes\nwith you.` });
+      } else if (!dest) {
+        this.queue.push({ t: 'text', s: `There is no room anywhere — every box is full.\n${displayName(mon)} had to be let go.` });
       }
       // The moment it stops being a species and becomes yours.
       this.queue.push({ t: 'nickname', mon });
@@ -888,7 +907,9 @@ export class BattleScreen extends Screen {
       const art = getSpecies(foe.species).art;
       const img = renderMonster(art, { size: MON, shiny: foe.shiny });
       const p = this._platforms(W, H).foe;
-      const sx = p.x - MON / 2 + this._shakeOffset(this.foeSide) + (1 - this.slide[this.foeSide]) * 60;
+      const sx = p.x - MON / 2 + this._shakeOffset(this.foeSide) + this._joltOffset()
+        + (1 - this.slide[this.foeSide]) * 60
+        - this.lunge[this.foeSide] * 10;
       const sy = p.y - spriteFoot(art.key, false, MON) + this.faintDrop[this.foeSide] * 34;
       this._drawSprite(ctx, img, sx, sy, this.flash[this.foeSide], this.faintDrop[this.foeSide]);
     }
@@ -896,10 +917,13 @@ export class BattleScreen extends Screen {
       const art = getSpecies(me.species).art;
       const img = renderMonster(art, { size: MON, back: true, shiny: me.shiny });
       const p = this._platforms(W, H).player;
-      const sx = p.x - MON / 2 + this._shakeOffset(this.mySide) - (1 - this.slide[this.mySide]) * 80;
+      const sx = p.x - MON / 2 + this._shakeOffset(this.mySide) + this._joltOffset()
+        - (1 - this.slide[this.mySide]) * 80
+        + this.lunge[this.mySide] * 10;
       const sy = p.y - spriteFoot(art.key, true, MON) + this.faintDrop[this.mySide] * 40;
       this._drawSprite(ctx, img, sx, sy, this.flash[this.mySide], this.faintDrop[this.mySide]);
     }
+    this._drawHitBits(ctx);
     if (this.ballAnim) this._drawBall(ctx, W, H);
   }
 
@@ -979,6 +1003,57 @@ export class BattleScreen extends Screen {
       ctx.fillRect(x, y, img.width, img.height);
     }
     ctx.restore();
+  }
+
+  /** A burst of pixels off whoever just took it. */
+  _spawnHitBits(side, power) {
+    const { width: W, height: H } = this.game.display;
+    const p = this._platforms(W, H)[side === this.foeSide ? 'foe' : 'player'];
+    const n = Math.round(10 + power * 12);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = (24 + Math.random() * 70) * power;
+      this.hitBits.push({
+        x: p.x + (Math.random() - 0.5) * 26,
+        y: p.y - 26 + (Math.random() - 0.5) * 26,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 24,
+        life: 0.24 + Math.random() * 0.22,
+        t: 0,
+        big: power > 1.2 && i % 3 === 0,
+      });
+    }
+    if (this.hitBits.length > 160) this.hitBits.splice(0, this.hitBits.length - 160);
+  }
+
+  _tickHitBits(dt) {
+    if (this.jolt > 0) this.jolt = Math.max(0, this.jolt - dt * 5);
+    for (let i = this.hitBits.length - 1; i >= 0; i--) {
+      const b = this.hitBits[i];
+      b.t += dt;
+      if (b.t >= b.life) { this.hitBits.splice(i, 1); continue; }
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.vy += 260 * dt;          // they fall
+      b.vx *= 0.96;
+    }
+  }
+
+  _drawHitBits(ctx) {
+    for (const b of this.hitBits) {
+      const k = 1 - b.t / b.life;
+      ctx.globalAlpha = Math.max(0, k);
+      ctx.fillStyle = b.big ? '#fff4c0' : '#ffffff';
+      const s = b.big ? 3 : 2;
+      ctx.fillRect(Math.round(b.x), Math.round(b.y), s, s);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** How far the whole field is thrown by the last impact. */
+  _joltOffset() {
+    if (this.jolt <= 0) return 0;
+    return Math.round(Math.sin(this.jolt * 52) * this.jolt * 3);
   }
 
   _shakeOffset(side) {

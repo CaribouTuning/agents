@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{background:#2b3450;margin:0;padding:8px;font-family:monospace;color:#fff}
+canvas{image-rendering:pixelated;display:block}
+</style></head><body>
+<canvas id="c" width="1100" height="560"></canvas>
+<script type="module">
+import { buildTileAtlas, drawTile } from '../src/render/tiles.js';
+const c = document.getElementById('c').getContext('2d');
+c.imageSmoothingEnabled = false;
+c.fillStyle = '#2b3450'; c.fillRect(0,0,1100,560);
+buildTileAtlas();
+const news = ['t','l','y','0','8','9','(',')','3','4','5','6','7'];
+const olds = ['q','z',';','s','j','.','T','R','o','/','I','S','*'];
+const S = 4;
+function row(keys, yy, label){
+  c.fillStyle='#fff'; c.font='12px monospace'; c.fillText(label, 8, yy-6);
+  keys.forEach((k,i)=>{
+    const x = 10 + i*(16*S+10);
+    for(let ty=0;ty<2;ty++)for(let tx=0;tx<2;tx++){
+      c.save(); c.translate(x+tx*16*S, yy+ty*16*S); c.scale(S,S); drawTile(c,k,0,0,0); c.restore();
+    }
+    c.fillStyle='#fff'; c.fillText(k, x+2, yy+16*S*2+14);
+  });
+}
+row(news, 30, 'NEW');
+row(olds, 220, 'EXISTING');
+// a strip: paving street with furniture
+const strip = ['q','t','q','y','q','l','q','0','q','9','q','8','q','3','q'];
+c.fillStyle='#fff'; c.fillText('street strip', 8, 404);
+strip.forEach((k,i)=>{ for(let ty=0;ty<3;ty++){ c.save(); c.translate(10+i*16*S, 414+ty*16*S); c.scale(S,S); drawTile(c, ty===1?k:'q',0,0,0); c.restore(); } });
+window.__ready=true;
+</script></body></html>

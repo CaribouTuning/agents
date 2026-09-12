@@ -53,7 +53,7 @@ const CSS = `
 function validate(text) {
   let raw;
   try { raw = JSON.parse(String(text).trim()); } catch { return { ok: false, text: 'That is not readable as a save.' }; }
-  if (!raw || !raw.state || !raw.meta) return { ok: false, text: 'That is not a Caribou Monster save.' };
+  if (!raw || !raw.state || !raw.meta) return { ok: false, text: 'That is not a save from this game.' };
   const who = raw.meta.name || 'Trainer';
   const badges = raw.meta.badges || 0;
   return { ok: true, raw, text: `Found ${who}, ${badges} badge${badges === 1 ? '' : 's'}.` };
@@ -81,7 +81,7 @@ export function openRestorePanel() {
     root.innerHTML = `
       <div class="cbm-restore-card">
         <h2>LOAD BACKUP</h2>
-        <p>Pick the <b>caribou-monster-save.json</b> you saved from this game.</p>
+        <p>Pick the <b>pokemon-sammy-and-matt-save.json</b> you saved from this game.</p>
         <label class="cbm-file">CHOOSE FILE<input type="file" accept="application/json,.json,text/plain"></label>
         <div class="cbm-note"></div>
         <hr>

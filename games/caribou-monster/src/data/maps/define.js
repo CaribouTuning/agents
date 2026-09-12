@@ -17,20 +17,28 @@ function hash(id, x, y) {
   return ((n ^ (n >>> 15)) >>> 0) / 4294967296;
 }
 
-// Plain grass that a map author left blank. Scattering tufts and flowers over
-// it turns an empty green field into somewhere, and costs no map editing.
-// Both replacements are walkable and trigger nothing, so a scatter can never
-// change where a player may go — which is what makes doing it automatically
-// safe. Tiles anything is standing on, warping through or scripted on are
-// left alone anyway.
-const SCATTER_FROM = '.';
-const SCATTER_TO = [
-  [0.10, ','],   // a denser clump of turf
-  [0.04, '*'],   // flowers
-];
+// Ground a map author left plain, and the worn variants that get sprinkled
+// over it.
+//
+// Scattering tufts and cracks over a blank field turns it into somewhere, and
+// costs no map editing. Every replacement is walkable, triggers nothing and
+// keeps the same ground kind as its base, so a scatter can never change where
+// a player may go — which is what makes doing it automatically safe. Tiles
+// anything is standing on, warping through or scripted on are left alone.
+const SCATTER = {
+  '.': [[0.10, ','], [0.04, '*']],   // turf clumps and wildflowers
+  'q': [[0.07, '3']],                // cracked slabs in a paved street
+  'z': [[0.11, '4']],                // moss between old cobbles
+  ';': [[0.10, '5']],                // pebbles pressed into a dirt road
+  's': [[0.08, '6']],                // shells and drift on a beach
+  'j': [[0.07, '7']],                // a rope coil on the planks
+};
 
 function scatter(id, rows, def) {
   if (def.scatter === false) return rows;
+  // A map may thicken or thin any row of the table — Floaroma wants flowers
+  // everywhere, a swept plaza wants nothing.
+  const table = { ...SCATTER, ...(def.scatter && typeof def.scatter === 'object' ? def.scatter : {}) };
   const taken = new Set();
   const claim = (o) => { if (o && o.x !== undefined) taken.add(`${o.x},${o.y}`); };
   (def.warps || []).forEach(claim);
@@ -47,11 +55,17 @@ function scatter(id, rows, def) {
     let out = '';
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
-      if (ch !== SCATTER_FROM || taken.has(`${x},${y}`)) { out += ch; continue; }
+      const list = table[ch];
+      if (!list || taken.has(`${x},${y}`)) { out += ch; continue; }
+      // Clumping. Weeds, moss and shells grow in patches, not in an even
+      // spray of single pixels: a coarse field over 3x3 blocks roughly
+      // doubles the odds inside a patch and halves them outside, so the same
+      // overall density reads as a meadow instead of as noise.
+      const clump = 0.45 + hash(id, Math.floor(x / 3), Math.floor(y / 3)) * 1.5;
       const r = hash(id, x, y);
       let acc = 0;
       let pick = ch;
-      for (const [p, t] of SCATTER_TO) { acc += p; if (r < acc) { pick = t; break; } }
+      for (const [p, t] of list) { acc += p * clump; if (r < acc) { pick = t; break; } }
       out += pick;
     }
     return out;

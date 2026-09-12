@@ -20,7 +20,10 @@ import { createPatches, serializePatches, revivePatches } from './berries.js';
 import { createUnderground, serializeUnderground, reviveUnderground } from './underground/site.js';
 import { serializeCleared, reviveCleared } from './fieldmoves.js';
 
-export const MAX_PARTY = 6;
+// Five to a team. Six is what the licensed games use; five is what this one
+// uses, so a party fits one screen on a phone and there is a genuine reason
+// to keep the boxes — you cannot carry everything you catch.
+export const MAX_PARTY = 5;
 export const BOX_COUNT = 8;
 export const BOX_SIZE = 30;
 

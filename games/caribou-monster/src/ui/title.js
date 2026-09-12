@@ -222,8 +222,8 @@ export class TitleScreen extends Screen {
     const cx = W / 2;
     drawTextCentered(ctx, 'POK\u00e9MON', cx - 1, 20, { color: '#0a0e18', scale: 3 });
     drawTextCentered(ctx, 'POK\u00e9MON', cx, 18, { color: '#f8e070', scale: 3 });
-    drawTextCentered(ctx, 'CARIBOU VERSION', cx - 1, 42, { color: '#0a0e18', scale: 1 });
-    drawTextCentered(ctx, 'CARIBOU VERSION', cx, 41, { color: '#e8f4ff', scale: 1 });
+    drawTextCentered(ctx, 'FOR SAMMY & MATT', cx - 1, 42, { color: '#0a0e18', scale: 1 });
+    drawTextCentered(ctx, 'FOR SAMMY & MATT', cx, 41, { color: '#e8f4ff', scale: 1 });
     drawTextCentered(ctx, 'S I N N O H   R E G I O N', cx, 54, { color: '#9ab8ff' });
 
     const { x, y, w } = this._menuBox();
@@ -245,7 +245,7 @@ export class TitleScreen extends Screen {
       labelDim(ctx, `Badges ${meta.badges}`, 9, H - 27);
       labelDim(ctx, `Time ${formatPlayTime(meta.playTimeMs || 0)}`, 9, H - 18);
     }
-    drawTextCentered(ctx, 'A private fan project for two.', cx, H - 12, { color: '#5a6a94' });
+    drawTextCentered(ctx, 'A private fan project, for the two of us.', cx, H - 12, { color: '#5a6a94' });
   }
 }
 

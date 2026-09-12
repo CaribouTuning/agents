@@ -209,31 +209,90 @@ export class TownMapScreen extends Screen {
     };
   }
 
-  render(ctx) {
-    const L = this._layout();
-    const { W, H } = L;
-    rect(ctx, 0, 0, W, H, '#2f4f73');
-    for (let y = 0; y < H; y += 6) rect(ctx, 0, y, W, 3, '#2a4869');
-
-    const seen = (id) => this._known(id);
-
-    // Roads first, so the places sit on top of them. A road between two
-    // places you have not walked is drawn faintly: the region is all there,
-    // but only the parts you have been through are drawn in ink.
+  /**
+   * Every road on the paper, as pairs of screen points.
+   *
+   * Used twice — once to grow the land under them, once to ink them in — so
+   * the coastline and the roads can never disagree about where the region is.
+   */
+  _roads(L) {
+    const out = [];
     for (const p of this.places) {
       const a = this._at(L, p);
       for (const [, to] of linksOf(p.id)) {
         const q = this.places.find((n) => n.id === to);
         if (!q) continue;
-        const b = this._at(L, q);
-        const walked = seen(p.id) && seen(to);
-        ctx.strokeStyle = walked ? '#d9c290' : '#3d5f86';
-        ctx.lineWidth = walked ? 2 : 1;
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
+        out.push([a, this._at(L, q), p.id, to]);
       }
+    }
+    return out;
+  }
+
+  /**
+   * The land.
+   *
+   * Sinnoh is not a constellation of dots in the sea, and drawing it as one
+   * was the single thing that stopped this screen reading as a map. The
+   * coast is grown out of the graph rather than drawn by hand: a fat round
+   * stroke along every road and a blob at every place, painted first in the
+   * shore colour and then, a little thinner, in the land colour. It cannot
+   * disagree with the world, because it IS the world, thickened.
+   */
+  _drawLand(ctx, L) {
+    const roads = this._roads(L);
+    const pass = (width, colour, radius) => {
+      ctx.strokeStyle = colour;
+      ctx.fillStyle = colour;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (const [a, b] of roads) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+      ctx.stroke();
+      for (const p of this.places) {
+        const { x, y } = this._at(L, p);
+        const r = radius + (p.kind === 'city' ? 4 : p.kind === 'town' ? 2 : 0);
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+    pass(34, '#dcc79a', 17);   // the shallows and the shore
+    pass(27, '#7fae63', 13);   // grass
+    pass(17, '#8fbc6e', 9);    // the lighter inland
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
+  }
+
+  render(ctx) {
+    const L = this._layout();
+    const { W, H } = L;
+    rect(ctx, 0, 0, W, H, '#2f4f73');
+    for (let y = 0; y < H; y += 6) rect(ctx, 0, y, W, 3, '#2a4869');
+    // A few longer swells, so the sea is not a striped wallpaper.
+    ctx.fillStyle = '#3a5c85';
+    for (let i = 0; i < 14; i++) {
+      const x = (i * 977) % W;
+      const y = ((i * 613) % (H - 20)) + 10;
+      ctx.fillRect(x, y, 9, 1);
+      ctx.fillRect(x + 3, y + 2, 6, 1);
+    }
+
+    this._drawLand(ctx, L);
+
+    const seen = (id) => this._known(id);
+
+    // Roads on top of the land. A road between two places you have not
+    // walked is drawn faintly: the region is all there, but only the parts
+    // you have been through are drawn in ink.
+    for (const [a, b, from, to] of this._roads(L)) {
+      const walked = seen(from) && seen(to);
+      ctx.strokeStyle = walked ? '#d9c290' : '#6f9159';
+      ctx.lineWidth = walked ? 2 : 1;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
     }
 
     const hereId = this.game.state.player.map;
@@ -262,8 +321,12 @@ export class TownMapScreen extends Screen {
     }
 
     const knownCount = this.places.filter((p) => seen(p.id)).length;
-    drawText(ctx, 'SINNOH', 6, 4, { color: '#f8f4e4', shadow: '#1b2a40' });
-    drawTextRight(ctx, `${knownCount}/${this.places.length}`, W - 44, 4, { color: '#a8c4e4' });
+    // The title sits on its own band. Written straight onto the sea it was
+    // legible; written over the coast, which is where it lands on a narrow
+    // phone, it was not.
+    rect(ctx, 0, 0, W, 13, 'rgba(16,28,46,0.72)');
+    drawText(ctx, 'SINNOH', 6, 3, { color: '#f8f4e4', shadow: '#1b2a40' });
+    drawText(ctx, `${knownCount}/${this.places.length} walked`, 52, 3, { color: '#a8c4e4', shadow: '#1b2a40' });
     drawBackChip(ctx, W - 40, 3, 'CLOSE');
 
     // The plate along the bottom: what the cursor is on, and how to leave it.

@@ -13,7 +13,7 @@
 import { SAVE_SLOT, SAVE_VERSION } from './SaveManager.js';
 import { serializeState } from '../game/state.js';
 
-const FILENAME = 'caribou-monster-save.json';
+const FILENAME = 'pokemon-sammy-and-matt-save.json';
 
 /** The same payload shape the storage layer writes, as text. */
 export function exportText(state) {

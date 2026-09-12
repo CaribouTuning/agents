@@ -193,7 +193,7 @@ def main() -> int:
     style = re.search(r"<style>(.*?)</style>", shell, re.S).group(1)
 
     out = f"""<meta charset="utf-8">
-<title>Caribou Monster</title>
+<title>Pokemon for Sammy &amp; Matt</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">

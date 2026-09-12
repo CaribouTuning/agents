@@ -13,7 +13,7 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(0, r));
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
 const page = await (await browser.newContext({ viewport: { width: 667, height: 375 }, hasTouch: true })).newPage();
-page.on('pageerror', (e) => console.log('  PAGE ERROR', e.message));
+page.on('pageerror', (e) => console.log('PAGE ERROR', e.message));
 await page.goto(`http://127.0.0.1:${server.address().port}/index.html`, { waitUntil: 'load' });
 await page.waitForFunction('!!window.CARIBOU', { timeout: 30000 });
 const wait = (ms) => page.waitForTimeout(ms);
@@ -21,25 +21,22 @@ await page.evaluate(() => {
   const g = window.CARIBOU;
   g.startNewGame({ name: 'Matthew', look: 'matthew', difficulty: 'easy' });
   g.state.flags.gotStarter = true;
-  g.debugGive(387, 20);   // a Turtwig well past its evolution level
+  g.debugGive(392, 30);
 });
-await wait(1500);
-console.log('does the character notice?', JSON.stringify(await page.evaluate(() => {
-  const d = window.CARIBOU.dialogueForTest;
-  return { visible: d.visible, text: (d.pages || []).flat().join(' ').slice(0, 90) };
-})));
-// Clear it, then use the party menu to evolve.
-for (let i = 0; i < 12; i++) { await page.keyboard.press('KeyZ'); await wait(90); }
-await page.evaluate(() => window.CARIBOU.openParty());
-await wait(500);
-await page.keyboard.press('KeyZ'); await wait(400);
-console.log('party actions:', JSON.stringify(await page.evaluate(() => window.CARIBOU.screens.top.sub)));
-await page.keyboard.press('KeyZ'); await wait(500);
-console.log('after choosing the first action:', await page.evaluate(() => window.CARIBOU.screens.top.constructor.name));
-for (let i = 0; i < 90; i++) {
-  const t = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
-  if (t !== 'EvolveScreen') break;
-  await wait(120);
+await wait(900);
+await page.evaluate(() => window.CARIBOU.startWildBattle(387, 28));
+await wait(2600);
+// Attack, then catch the frame while the pixels are still in the air.
+for (let i = 0; i < 24; i++) { await page.keyboard.press('KeyZ'); await wait(60); }
+for (let i = 0; i < 60; i++) {
+  const bits = await page.evaluate(() => {
+    const t = window.CARIBOU.screens.top;
+    return t.hitBits ? t.hitBits.length : -1;
+  });
+  if (bits > 4) { console.log('particles in the air:', bits); break; }
+  await page.keyboard.press('KeyZ');
+  await wait(60);
 }
-console.log('party now:', JSON.stringify(await page.evaluate(() => window.CARIBOU.state.party.map(m => `${m.species}@${m.level}`))));
+await page.screenshot({ path: '/tmp/hit.png' });
+console.log('shot -> /tmp/hit.png');
 await browser.close(); server.close();

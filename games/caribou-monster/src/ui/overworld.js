@@ -689,6 +689,12 @@ export class OverworldScreen extends Screen {
 
       fishTable: () => (screen.world.map.encounters && screen.world.map.encounters.fish) || null,
 
+      // Whether anybody in the bag could actually take a bite. Grass and
+      // trainers already ask this before they start anything; fishing did
+      // not, which meant a rod and a fainted team could open a battle
+      // nobody could fight.
+      canBattle: () => screen.world.canBattle(),
+
       // Hands the player a wall of rock and resolves with what came out of
       // it. The screen above owns the minigame; this just awaits its answer.
       dig: (cfg) => new Promise((resolve) => { screen.game.openDig(cfg, resolve); }),

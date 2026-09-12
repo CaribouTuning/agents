@@ -233,6 +233,34 @@ export function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     }
   }
 
+  // --- the street lamps come on ---
+  // Painted over the night tint rather than under it, so a lamp is a light
+  // and not just a slightly paler patch of dark. Only the lamp posts glow:
+  // a town where every window blazes reads as a fire, not as an evening.
+  if (map.kind !== 'cave' && map.kind !== 'indoor') {
+    const tint = tintFor();
+    if (tint.alpha > 0.12) {
+      const strength = Math.min(1, (tint.alpha - 0.12) / 0.35);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          if (map.tiles[y][x] !== 'l') continue;
+          const cx = x * TILE - camera.x + 8;
+          const cy = y * TILE - camera.y + 4;
+          const r = 30;
+          const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, r);
+          g.addColorStop(0, `rgba(255,226,150,${0.42 * strength})`);
+          g.addColorStop(0.45, `rgba(255,206,120,${0.16 * strength})`);
+          g.addColorStop(1, 'rgba(255,200,110,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        }
+      }
+      ctx.restore();
+    }
+  }
+
   // --- caves are lit only near the player ---
   if (map.kind === 'cave' && opts.caveLight !== false) {
     const p = world.renderPos(world.player);

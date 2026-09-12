@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{background:#111;margin:0;padding:0}canvas{image-rendering:pixelated;display:block}
+</style></head><body><canvas id="c"></canvas>
+<script type="module">
+import { MAPS } from '../src/data/maps/index.js';
+import { buildTileAtlas, drawTile, tileDef, drawEdge, drawCastShadow, groundOf, groundRank, EDGE_DIRS } from '../src/render/tiles.js';
+const id = new URLSearchParams(location.search).get('m') || 'jubilife';
+const S = Number(new URLSearchParams(location.search).get('s') || 2);
+const map = MAPS[id];
+const T = 16;
+const cv = document.getElementById('c');
+cv.width = map.width*T*S; cv.height = map.height*T*S;
+const c = cv.getContext('2d'); c.imageSmoothingEnabled=false; c.scale(S,S);
+buildTileAtlas();
+const at=(x,y)=> (y>=0&&y<map.height&&x>=0&&x<map.width)?map.tiles[y][x]:null;
+for(let y=0;y<map.height;y++)for(let x=0;x<map.width;x++) drawTile(c,map.tiles[y][x],x*T,y*T,0);
+for(let y=0;y<map.height;y++)for(let x=0;x<map.width;x++){
+  const mine=groundOf(map.tiles[y][x]); if(!mine)continue;
+  const rank=groundRank(mine);
+  for(let d=0;d<EDGE_DIRS.length;d++){
+    const ch=at(x+EDGE_DIRS[d][0],y+EDGE_DIRS[d][1]); if(ch===null)continue;
+    const theirs=groundOf(ch); if(!theirs||theirs===mine||groundRank(theirs)<=rank)continue;
+    if(d>=4){const[dx,dy]=EDGE_DIRS[d];const a=groundOf(at(x+dx,y)),b=groundOf(at(x,y+dy));if(a===theirs||b===theirs)continue;}
+    drawEdge(c,theirs,d,x*T,y*T);
+  }
+}
+for(let y=0;y<=map.height;y++)for(let x=0;x<map.width;x++){
+  const ch=at(x,y); const def=ch&&tileDef(ch); if(!def||!def.over)continue;
+  drawTile(c,def.over,x*T,(y-1)*T,0);
+}
+window.__ready=true;
+</script></body></html>

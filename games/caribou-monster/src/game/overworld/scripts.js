@@ -35,6 +35,7 @@ import { spend, formatMoney as money } from '../inventory.js';
 import { FLAGS } from '../storyflags.js';
 import { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT, cassLook } from '../../data/story.js';
 import { playerByLook, buddyOf, playerOf, buddyPlayerOf } from '../players.js';
+import { MAX_PARTY } from '../state.js';
 
 // The thing in the chamber: Dialga, by national dex number.
 const EVERLIGHT_SPECIES = 483;
@@ -463,7 +464,7 @@ SCRIPTS.daycare = async (ctx) => {
       const yes = await ctx.ask(`Day-Care Lady: ${name} has come on nicely.\fThat will be ${money(fee)}.`, ['Pay', 'Not now']);
       if (yes !== 0) continue;
       if (st.inventory.money < fee) { await ctx.say('Day-Care Lady: You are a bit short, I am afraid.'); continue; }
-      if (st.party.length >= 6) { await ctx.say('Day-Care Lady: Your team is full. Make room first.'); continue; }
+      if (st.party.length >= MAX_PARTY) { await ctx.say('Day-Care Lady: Your team is full. Make room first.'); continue; }
       spend(st.inventory, fee);
       const mon = withdraw(d, which);
       st.party.push(mon);
@@ -473,7 +474,7 @@ SCRIPTS.daycare = async (ctx) => {
     }
 
     if (pick === 'Take the Egg') {
-      if (st.party.length >= 6) { await ctx.say('Day-Care Lady: You have no room for it. Come back.'); continue; }
+      if (st.party.length >= MAX_PARTY) { await ctx.say('Day-Care Lady: You have no room for it. Come back.'); continue; }
       const egg = collectEgg(d, st.player);
       st.party.push(egg);
       ctx.sfx('caught');
@@ -1000,6 +1001,13 @@ SCRIPTS.oldRod = async (ctx) => {
 SCRIPTS.fish = async (ctx) => {
   const table = ctx.fishTable();
   if (!table) { await ctx.say('You cast the line.\f...Nothing lives in this water.'); return; }
+  // Walking into grass with a fainted team is already refused. Casting a
+  // line was not, and a bite you cannot fight is a battle that ends the
+  // moment it starts.
+  if (ctx.canBattle && !ctx.canBattle()) {
+    await ctx.say('You reach for the rod.\f...Not with everyone in this state. Find a\nPokémon Center first.');
+    return;
+  }
 
   ctx.sfx('select');
   await ctx.say('You cast the Old Rod into the water.');

@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Caribou Monster</title>
+<title>Pokemon for Sammy &amp; Matt</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -2386,6 +2386,232 @@ function waterfallTile(c, f) {
 }
 
 
+// ---- street furniture ------------------------------------------------
+//
+// Props that stand on made ground. Every one of them paints its own bed
+// first — paving under a bench, turf under a hedge — because a prop drawn on
+// a bare green square is what made every city in this region read as a lawn
+// with buildings dropped onto it.
+
+/** A short ornamental tree in an iron grate. One tile: no crown overhang. */
+function streetTree(c) {
+  paving(c);
+  const grate = '#6e6a62';
+  c.fillStyle = grate; px(c, 3, 11, 10, 4);
+  c.fillStyle = shade(grate, 0.22); px(c, 4, 12, 8, 1); px(c, 4, 14, 8, 1);
+  c.fillStyle = PAL.treeTrunk; px(c, 7, 8, 2, 4);
+  c.fillStyle = shade(PAL.treeTrunk, -0.3); px(c, 9, 9, 1, 3);
+  const blob = (cx, cy, rx, ry, col) => {
+    c.fillStyle = col;
+    for (let y = -ry; y <= ry; y++) {
+      const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2)));
+      px(c, cx - half, cy + y, half * 2 + 1, 1);
+    }
+  };
+  blob(8, 5, 6, 5, PAL.treeLeafDark);
+  blob(8, 5, 5, 4, PAL.treeLeaf);
+  blob(6, 3, 2, 2, PAL.treeLeafLight);
+  c.fillStyle = PAL.treeLeafDark; px(c, 11, 7, 2, 1);
+}
+
+/** A cast-iron lamp on a plinth. The glass reads warm even by day. */
+function lampPost(c) {
+  paving(c);
+  const iron = '#3c3f4a';
+  c.fillStyle = shade('#b9b4ab', -0.3); px(c, 5, 14, 6, 2);
+  c.fillStyle = iron; px(c, 6, 13, 4, 2); px(c, 7, 4, 2, 10);
+  c.fillStyle = shade(iron, 0.3); px(c, 7, 4, 1, 10);
+  c.fillStyle = iron; px(c, 5, 2, 6, 3);
+  c.fillStyle = '#ffe9a8'; px(c, 6, 3, 4, 2);
+  c.fillStyle = '#fff6d8'; px(c, 6, 3, 2, 1);
+  c.fillStyle = shade(iron, -0.3); px(c, 5, 1, 6, 1); px(c, 7, 0, 2, 1);
+}
+
+/** A slatted bench, seat toward the viewer. */
+function bench(c) {
+  paving(c);
+  const wood = '#a97a44';
+  c.fillStyle = shade('#b9b4ab', -0.25); px(c, 2, 13, 12, 2);
+  c.fillStyle = shade(wood, -0.35); px(c, 2, 5, 12, 8);
+  c.fillStyle = wood; px(c, 2, 5, 12, 2); px(c, 2, 8, 12, 3);
+  c.fillStyle = shade(wood, 0.2); px(c, 2, 5, 12, 1); px(c, 2, 8, 12, 1);
+  c.fillStyle = '#4a4640'; px(c, 3, 11, 2, 3); px(c, 11, 11, 2, 3);
+}
+
+/** A stone fountain. The jet and the ring both move on the frame. */
+function fountain(c, f) {
+  paving(c);
+  const stone = '#a8a196';
+  c.fillStyle = shade(stone, -0.35); px(c, 1, 3, 14, 12); px(c, 0, 5, 16, 8);
+  c.fillStyle = stone; px(c, 2, 4, 12, 10); px(c, 1, 6, 14, 6);
+  c.fillStyle = PAL.waterDark; px(c, 3, 6, 10, 6); px(c, 2, 7, 12, 4);
+  c.fillStyle = PAL.water; px(c, 3, 6, 10, 5); px(c, 2, 7, 12, 3);
+  // Ripple rings, spreading outward one pixel per frame.
+  c.fillStyle = PAL.waterLight;
+  const rr = 2 + (f % 4);
+  px(c, 8 - rr, 9, 1, 1); px(c, 7 + rr, 9, 1, 1);
+  px(c, 8, 9 - Math.round(rr / 2), 1, 1); px(c, 8, 8 + Math.round(rr / 2), 1, 1);
+  // The jet.
+  c.fillStyle = shade(stone, 0.18); px(c, 7, 5, 2, 4);
+  c.fillStyle = PAL.waterLight;
+  px(c, 7, 1 + (f % 2), 2, 4);
+  c.fillStyle = '#e8f4ff'; px(c, 7, 2 + (f % 2), 1, 2);
+}
+
+/**
+ * A stack of shipping crates, for a dock or a pit yard. Drawn edge to edge
+ * on purpose: it is the one prop that stands on paving, dirt and planking
+ * alike, and nothing of its bed shows through to give the lie away.
+ */
+function crates(c) {
+  const wood = '#9a7040';
+  c.fillStyle = shade(wood, -0.5); px(c, 0, 0, 16, 16);
+  // One crate: a lit lid face, a shaded front, a rope band across it.
+  const box = (x, y, w, hh) => {
+    c.fillStyle = shade(wood, -0.5); px(c, x, y, w, hh);
+    c.fillStyle = shade(wood, 0.24); px(c, x + 1, y + 1, w - 2, 3);
+    c.fillStyle = wood; px(c, x + 1, y + 4, w - 2, hh - 5);
+    c.fillStyle = shade(wood, -0.2); px(c, x + w - 3, y + 4, 2, hh - 5);
+    c.fillStyle = shade(wood, -0.34);
+    px(c, x + 1, y + 4, w - 2, 1);
+    px(c, x + Math.floor(w / 2) - 1, y + 5, 1, hh - 6);
+    c.fillStyle = '#c9b384'; px(c, x + 2, y + hh - 4, w - 4, 1);
+  };
+  box(0, 9, 10, 7);
+  box(10, 7, 6, 9);
+  box(1, 1, 8, 8);
+  box(9, 0, 7, 7);
+}
+
+/** A planter box in bloom. The blossoms shift on the frame. */
+function planter(c, f) {
+  paving(c);
+  const wood = '#8a6238';
+  c.fillStyle = shade(wood, -0.35); px(c, 0, 6, 16, 10);
+  c.fillStyle = wood; px(c, 1, 7, 14, 8);
+  c.fillStyle = shade(wood, 0.16); px(c, 1, 7, 14, 1);
+  c.fillStyle = '#5a3f24'; px(c, 2, 8, 12, 3);
+  c.fillStyle = PAL.treeLeaf; px(c, 2, 4, 12, 5);
+  c.fillStyle = PAL.treeLeafDark; px(c, 4, 7, 9, 2);
+  c.fillStyle = PAL.treeLeafLight; px(c, 3, 4, 4, 2);
+  const cols = [PAL.flowerRed, PAL.flowerYellow, PAL.flowerPink, PAL.flowerWhite];
+  [[3, 5], [7, 3], [11, 5], [13, 7]].forEach((s, i) => {
+    c.fillStyle = cols[(i + f) % cols.length];
+    px(c, s[0], s[1]); px(c, s[0] + 1, s[1]); px(c, s[0], s[1] + 1); px(c, s[0] + 1, s[1] + 1);
+  });
+}
+
+/** A clipped hedge. Turf underneath, so it edges a garden cleanly. */
+function hedge(c) {
+  grass(c, 0, 41);
+  c.fillStyle = shade(PAL.grass, -0.3); px(c, 1, 13, 14, 3);
+  c.fillStyle = PAL.treeLeafDark; px(c, 0, 0, 16, 15);
+  c.fillStyle = PAL.treeLeaf; px(c, 0, 1, 16, 13);
+  for (let y = 1; y < 14; y++) for (let x = 0; x < 16; x++) {
+    const r = h(x, y, 43);
+    if (r > 0.84) { c.fillStyle = PAL.treeLeafLight; px(c, x, y); }
+    else if (r < 0.14) { c.fillStyle = PAL.treeLeafDark; px(c, x, y); }
+  }
+  c.fillStyle = PAL.treeLeafLight; px(c, 0, 0, 16, 1);
+}
+
+/** A stack of split logs, sawn ends out, under a plank lid. */
+function woodpile(c) {
+  grass(c, 0, 47);
+  c.fillStyle = shade(PAL.grass, -0.3); px(c, 1, 13, 14, 3);
+  // One sawn end: a dark ring, a pale heartwood face, a couple of rings.
+  const end = (cx, cy, r) => {
+    c.fillStyle = shade(PAL.treeTrunk, -0.45);
+    for (let y = -r; y <= r; y++) {
+      const half = Math.round(r * Math.sqrt(Math.max(0, 1 - (y / r) ** 2)));
+      px(c, cx - half, cy + y, half * 2 + 1, 1);
+    }
+    c.fillStyle = '#d8b078';
+    for (let y = -r + 1; y <= r - 1; y++) {
+      const half = Math.round((r - 1) * Math.sqrt(Math.max(0, 1 - (y / (r - 1)) ** 2)));
+      px(c, cx - half, cy + y, half * 2 + 1, 1);
+    }
+    c.fillStyle = shade('#d8b078', -0.22); px(c, cx - 1, cy, 2, 1); px(c, cx, cy - 1, 1, 2);
+    c.fillStyle = shade('#d8b078', 0.22); px(c, cx - 1, cy - 2, 2, 1);
+  };
+  // Three courses, each offset half a log, the way a stack actually sits.
+  end(3, 12, 3); end(9, 12, 3); end(14, 12, 2);
+  end(6, 8, 3); end(12, 8, 3); end(1, 8, 2);
+  end(4, 5, 2); end(9, 5, 2); end(13, 5, 2);
+  // The plank keeping the rain off.
+  c.fillStyle = shade(PAL.treeTrunk, 0.12); px(c, 0, 0, 16, 4);
+  c.fillStyle = shade(PAL.treeTrunk, 0.3); px(c, 0, 0, 16, 1);
+  c.fillStyle = shade(PAL.treeTrunk, -0.45); px(c, 0, 4, 16, 1);
+}
+
+// ---- worn ground -----------------------------------------------------
+//
+// Never written into a map by hand: the scatter pass in `defineMap` sprinkles
+// these over their plain counterparts so a paved street is not 400 copies of
+// one square. Each is walkable and triggers nothing, exactly like its base.
+
+function pavingWorn(c) {
+  paving(c);
+  const base = '#b9b4ab';
+  c.fillStyle = shade(base, -0.3);
+  px(c, 3, 2, 1, 4); px(c, 4, 6, 1, 2); px(c, 4, 8, 3, 1);
+  px(c, 11, 10, 1, 5); px(c, 10, 12, 1, 1);
+  c.fillStyle = PAL.grassDark; px(c, 12, 3, 1, 2); px(c, 13, 4, 1, 1);
+  c.fillStyle = PAL.grass; px(c, 12, 2, 1, 1);
+  c.fillStyle = shade(base, -0.14); px(c, 6, 13, 3, 1); px(c, 2, 10, 2, 1);
+}
+
+function cobbleMossy(c) {
+  cobble(c);
+  // Moss creeps along the joints, not over the stones: a couple of runs in
+  // the gaps and a single tuft is the whole effect.
+  c.fillStyle = shade(PAL.grassTall, -0.1);
+  px(c, 0, 5, 7, 1); px(c, 9, 0, 1, 6); px(c, 10, 10, 6, 1); px(c, 3, 11, 1, 5);
+  c.fillStyle = PAL.grassTall;
+  px(c, 1, 5, 4, 1); px(c, 9, 1, 1, 3); px(c, 12, 10, 3, 1);
+  c.fillStyle = shade(PAL.grassTall, 0.22);
+  px(c, 6, 13, 2, 1); px(c, 7, 12, 1, 1); px(c, 13, 4, 1, 1);
+}
+
+function dirtPebbled(c) {
+  dirt(c);
+  for (let i = 0; i < 6; i++) {
+    const sx = 1 + Math.floor(h(i, 3, 117) * 13);
+    const sy = 1 + Math.floor(h(i, 7, 117) * 13);
+    c.fillStyle = PAL.rockDark; px(c, sx, sy, 2, 2);
+    c.fillStyle = PAL.rockLight; px(c, sx, sy, 1, 1);
+  }
+}
+
+function sandShells(c) {
+  sand(c);
+  // A scallop with its ribs, a small spiral, and a drag mark left by a tide.
+  c.fillStyle = shade(PAL.sand, -0.3); px(c, 3, 8, 5, 1);
+  c.fillStyle = '#fbf4ea'; px(c, 3, 5, 4, 1); px(c, 2, 6, 6, 2); px(c, 3, 4, 2, 1);
+  c.fillStyle = shade('#fbf4ea', -0.3); px(c, 4, 5, 1, 3); px(c, 6, 5, 1, 3);
+  c.fillStyle = '#e6a880'; px(c, 11, 10, 3, 1); px(c, 10, 11, 4, 2); px(c, 11, 13, 3, 1);
+  c.fillStyle = shade('#e6a880', -0.35); px(c, 11, 11, 2, 1); px(c, 12, 12, 1, 1);
+  c.fillStyle = shade('#e6a880', 0.3); px(c, 10, 11, 1, 1);
+  c.fillStyle = shade(PAL.sand, -0.14); px(c, 1, 14, 6, 1); px(c, 7, 2, 5, 1); px(c, 12, 3, 2, 1);
+}
+
+function boardwalkWorn(c) {
+  boardwalk(c);
+  const wood = '#b08a52';
+  // One plank has been replaced and has not weathered to match yet, and the
+  // old boards either side have split.
+  c.fillStyle = shade(wood, 0.14); px(c, 0, 6, 16, 4);
+  c.fillStyle = shade(wood, 0.26); px(c, 0, 6, 16, 1);
+  c.fillStyle = shade(wood, -0.3); px(c, 0, 9, 16, 1);
+  c.fillStyle = shade(wood, -0.45);
+  px(c, 2, 6, 1, 4); px(c, 13, 6, 1, 4);       // the nails at each end
+  px(c, 4, 2, 6, 1); px(c, 6, 13, 7, 1);       // splits in the old boards
+  // A knot in the grain.
+  c.fillStyle = shade(wood, -0.4); px(c, 10, 11, 3, 2); px(c, 11, 10, 1, 4);
+  c.fillStyle = shade(wood, -0.15); px(c, 11, 11, 1, 2);
+}
+
+
 function voidTile(c) {
   c.fillStyle = PAL.black; px(c, 0, 0, 16, 16);
 }
@@ -2474,6 +2700,27 @@ const TILES = {
   'X': { name: 'dig wall', draw: digWall(false), solid: true, dig: 'shallow', anim: 4 },
   'Z': { name: 'deep dig wall', draw: digWall(true), solid: true, dig: 'deep', anim: 4 },
   'U': { name: 'base wall', draw: baseWall, solid: true, base: true },
+
+  // Street furniture. Solid props that stand on made ground; each paints its
+  // own bed, so they may only be authored on the surface they were drawn for
+  // (paving for the town ones, turf for the two rural ones).
+  't': { name: 'street tree', draw: streetTree, solid: true, casts: true, ground: 'path' },
+  'l': { name: 'lamp post', draw: lampPost, solid: true, casts: true, ground: 'path' },
+  'y': { name: 'bench', draw: bench, solid: true, ground: 'path' },
+  '0': { name: 'fountain', draw: fountain, solid: true, anim: 4, ground: 'path' },
+  '8': { name: 'crates', draw: crates, solid: true, casts: true, ground: 'path' },
+  '9': { name: 'planter', draw: planter, solid: true, anim: 4, ground: 'path' },
+  '(': { name: 'hedge', draw: hedge, solid: true, casts: true, ground: 'grass' },
+  ')': { name: 'woodpile', draw: woodpile, solid: true, casts: true, ground: 'grass' },
+
+  // Worn ground. Scattered automatically over the plain version by
+  // `defineMap`, never authored: walkable, and identical in every way that
+  // matters to the tile it replaces.
+  '3': { name: 'worn paving', draw: pavingWorn, ground: 'path' },
+  '4': { name: 'mossy cobble', draw: cobbleMossy, ground: 'path' },
+  '5': { name: 'pebbled dirt', draw: dirtPebbled, ground: 'dirt' },
+  '6': { name: 'shelly sand', draw: sandShells, ground: 'sand' },
+  '7': { name: 'worn boardwalk', draw: boardwalkWorn, ground: 'path' },
 };
 
 const MAX_ANIM = 4;
@@ -2672,20 +2919,28 @@ function hash(id, x, y) {
   return ((n ^ (n >>> 15)) >>> 0) / 4294967296;
 }
 
-// Plain grass that a map author left blank. Scattering tufts and flowers over
-// it turns an empty green field into somewhere, and costs no map editing.
-// Both replacements are walkable and trigger nothing, so a scatter can never
-// change where a player may go — which is what makes doing it automatically
-// safe. Tiles anything is standing on, warping through or scripted on are
-// left alone anyway.
-const SCATTER_FROM = '.';
-const SCATTER_TO = [
-  [0.10, ','],   // a denser clump of turf
-  [0.04, '*'],   // flowers
-];
+// Ground a map author left plain, and the worn variants that get sprinkled
+// over it.
+//
+// Scattering tufts and cracks over a blank field turns it into somewhere, and
+// costs no map editing. Every replacement is walkable, triggers nothing and
+// keeps the same ground kind as its base, so a scatter can never change where
+// a player may go — which is what makes doing it automatically safe. Tiles
+// anything is standing on, warping through or scripted on are left alone.
+const SCATTER = {
+  '.': [[0.10, ','], [0.04, '*']],   // turf clumps and wildflowers
+  'q': [[0.07, '3']],                // cracked slabs in a paved street
+  'z': [[0.11, '4']],                // moss between old cobbles
+  ';': [[0.10, '5']],                // pebbles pressed into a dirt road
+  's': [[0.08, '6']],                // shells and drift on a beach
+  'j': [[0.07, '7']],                // a rope coil on the planks
+};
 
 function scatter(id, rows, def) {
   if (def.scatter === false) return rows;
+  // A map may thicken or thin any row of the table — Floaroma wants flowers
+  // everywhere, a swept plaza wants nothing.
+  const table = { ...SCATTER, ...(def.scatter && typeof def.scatter === 'object' ? def.scatter : {}) };
   const taken = new Set();
   const claim = (o) => { if (o && o.x !== undefined) taken.add(`${o.x},${o.y}`); };
   (def.warps || []).forEach(claim);
@@ -2702,11 +2957,17 @@ function scatter(id, rows, def) {
     let out = '';
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
-      if (ch !== SCATTER_FROM || taken.has(`${x},${y}`)) { out += ch; continue; }
+      const list = table[ch];
+      if (!list || taken.has(`${x},${y}`)) { out += ch; continue; }
+      // Clumping. Weeds, moss and shells grow in patches, not in an even
+      // spray of single pixels: a coarse field over 3x3 blocks roughly
+      // doubles the odds inside a patch and halves them outside, so the same
+      // overall density reads as a meadow instead of as noise.
+      const clump = 0.45 + hash(id, Math.floor(x / 3), Math.floor(y / 3)) * 1.5;
       const r = hash(id, x, y);
       let acc = 0;
       let pick = ch;
-      for (const [p, t] of SCATTER_TO) { acc += p; if (r < acc) { pick = t; break; } }
+      for (const [p, t] of list) { acc += p * clump; if (r < acc) { pick = t; break; } }
       out += pick;
     }
     return out;
@@ -2771,28 +3032,36 @@ const { TILES } = __req('render/tiles.js');
 
 const TWINLEAF_ROWS = [
   'TTTTTTTTTT::TTTTTTTTTT',
-  'T.........::.........T',
-  'T.GGGGG...::.........T',
-  'T.GGGGG...::.........T',
-  'T.VVVVV...::.........T',
-  'T.#WDW#...::.........T',
-  'T...:.....::.........T',
+  'T.........::.T.......T',
+  'T.GGGGG...::...~~~~.TT',
+  'T.GGGGG.T.::..~~~~~~.T',
+  'T.VVVVV...::..~~~~~~.T',
+  'T.#WDW#...::...~~~~.TT',
+  'T...:.....::.*.....*.T',
   'T...::::::::::::::...T',
   'T.........::.........T',
   'T.AAAAA...::.BBBBB...T',
-  'T.AAAAA...::.BBBBB...T',
+  'T.AAAAA.T.::.BBBBB...T',
   'T.VVVVV...::.VVVVV...T',
   'T.#WDW#...::.#WDW#...T',
   'T...:.....::...:.....T',
   'T...::::::::::::::...T',
-  'T..S..OOO.::.......S.T',
-  'T.........::.........T',
+  'T..S./OOO.::.......S.T',
+  'T...././//::.)......TT',
   'TTTTTTTTTTTTTTTTTTTTTT',
 ];
 
 const TWINLEAF = defineMap('twinleaf', {
   name: 'Twinleaf Town', kind: 'town', music: 'town',
   tiles: TWINLEAF_ROWS,
+
+  // The pond behind the houses. Small things, and not many of them: this is
+  // a village pond, not a lake, and the first fish anybody here ever caught
+  // came out of it.
+  encounters: {
+    fish: { min: 2, max: 6, table: [[129, 60], [118, 30], [283, 10]] },
+    surf: { min: 3, max: 7, table: [[129, 70], [118, 30]] },
+  },
 
   // The other one is on the step, and the scene fires the moment you come out
   // of your own front door.
@@ -3059,30 +3328,30 @@ const TWINLEAF = defineMap('twinleaf', {
 const OREBURGH = defineMap('oreburgh', {
   name: 'Oreburgh City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTTTT;;TTTTTTTTTTTTTTTT',
-    'TTTTTTTTTTTTTT;;TTTTTTTTTTTTTTTT',
-    'T.............;;...............T',
-    'T..AAAAAAAA...;;.....BBBBBBBB..T',
-    'T..AAAAAAAA...;;.....BBBBBBBB..T',
-    'T..VVVVVVVV...;;.....VVVVVVVV..T',
-    'T..#WFFDFFW#..;;.....#WJJDJJW#.T',
-    'T......;......;;........;......T',
+    '^^^^^^^^^^^^^^;;^^^^^^^^^^^^^^^^',
+    '^^^^^^^^^^^^^^;;^^^^^^^^^^^^^^^^',
+    '^........R....;;....R..........^',
+    '^.oAAAAAAAA...;;.....BBBBBBBB.8^',
+    '^..AAAAAAAA...;;.....BBBBBBBB..^',
+    '^..VVVVVVVV...;;.....VVVVVVVV..^',
+    '^..#WFFDFFW#..;;.....#WJJDJJW#.^',
+    '^......;......;;........;......^',
     ';;;;;;;;;;;;;;;;;;;;;;;;;;.....T',
     ';.............;;..EEEEEEEE.....T',
-    'T....*........;;..EEEEEEEE.....T',
-    'T.............;;..#WWDDWW#.....T',
-    'T..GGGGG......;;.S.............T',
-    'T..GGGGG......;;........GGGGG..T',
-    'T..#WDW#......;;........#WDW#..T',
-    'T....;....KKKKKKKKKK......;....T',
-    'T....;....KKKKKKKKKK......;....T',
-    'T....;....KKKKKKKKKK......;....T',
-    'T....;....VVVVVVVVVV......;....T',
-    'T....;....NQNNddNNQN......;....T',
-    'T....;....I.S.;;.S.I......;....T',
-    'T....;;;;;;;;;;;;;;;;;;;;;;....T',
-    'T.............;;...............T',
-    'T..S..........;;..........S....T',
+    '^..8.*T....o..;;..EEEEEEEE...R.^',
+    '^.............;;..#WWDDWW#.....^',
+    '^.TGGGGG......;;.S.............^',
+    '^R.GGGGG......;;........GGGGGo.^',
+    '^..#WDW#......;;........#WDW#..^',
+    '^....;....KKKKKKKKKK......;....^',
+    '^....;....KKKKKKKKKK......;....^',
+    '^....;....KKKKKKKKKK......;..T.^',
+    '^....;....VVVVVVVVVV......;....^',
+    '^....;....NQNNddNNQN......;....^',
+    '^....;....I.S.;;.S.I......;....^',
+    '^....;;;;;;;;;;;;;;;;;;;;;;....^',
+    '^..o....8.....;;...o.......8...^',
+    '^..S.....8..R.;;........T.S....^',
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
 
@@ -3142,12 +3411,12 @@ const OREBURGH = defineMap('oreburgh', {
         },
         {
           when: { badges: 1 },
-          lines: ['Steward: The Circuit wants all {leagueBadges} badges before it will hear\nyour name. You have {badges}.',
+          lines: ['Steward: The Circuit wants all {leagueBadges} badges.\nYou have {badges}.',
             'Steward: Not a judgement. It is just the door I am paid to hold.'],
         },
         {
           lines: ['Steward: Battle Hall. Circuit members only.',
-            'Steward: Come back with all {leagueBadges} Gym badges and the door is yours.'],
+            'Steward: Come back with all {leagueBadges} Gym badges\nand the door is yours.'],
         },
       ],
     },
@@ -3330,26 +3599,26 @@ const SANDGEM = defineMap('sandgem', {
     'TTTTTTTTTTTT::TTTTTTTTTTTTTTTTTT',
     'T...........::.................T',
     'T..AAAAAAA..::.....BBBBBB......T',
-    'T..AAAAAAA..::.....BBBBBB......T',
+    'T..AAAAAAAT.::.....BBBBBB......T',
     'T..VVVVVVV..::.....VVVVVV......T',
     'T..#WFFDFW..::.....#WJDJW......T',
     'T......:....::........:........T',
     'T......:....::........:........T',
     'T.....::::::::::::::::::::::...T',
     'T.....:.....::........:........T',
-    'T..S..:.....::........:........T',
+    'T.TS..:.....::........:.....T..T',
     'T.....:.....::.GGGGG..:........T',
     'T.....:.....::.GGGGG..:........T',
-    'T.....:.....::.#WDW#..:........T',
+    'T.....:.....::.#WDW#..:.T......T',
     'T.....:.....::...:....:........T',
     'T.....::::::::::::::::::::::...T',
-    'T...........::.......ssssssssssT',
-    'T...........::.....sssssssssss.T',
-    'T...........::...sssssss~~~~~~~~',
-    'T..OOO......::..ssss~~~~~~~~~~~~',
-    'T...........::..ss~~~~~~~~~~~~~~',
-    'T..S........::..ss~~~~~~~~~~~~~~',
-    'T...........::..sss............T',
+    'T...........::......sssssssssssT',
+    'T.T.........::....ssssssssssss.T',
+    'T...........::...sssssss~~j~~~~~',
+    'T./OOO/.....::.sssssjjjjjjj~~~~~',
+    'T........T..::.sss~~~~~~~~j~~~~~',
+    'T..S........::.sss~~~~~~~~~~~~~~',
+    'T....T......::.ssssssssssssssssT',
     'TTTTTTTTTTTT::TTTTTTTTTTTTTTTTTT',
   ],
 
@@ -3448,38 +3717,42 @@ const SANDGEM = defineMap('sandgem', {
 const JUBILIFE = defineMap('jubilife', {
   name: 'Jubilife City', kind: 'town', music: 'city',
   tiles: [
-    'TTTTTTTTTTTTqqTTTTTTTTTTTTTTT....T',
-    'T...........qq...................T',
-    'T..AAAAAAAA.qq......BBBBBBBB.....T',
-    'T..AAAAAAAA.qq......BBBBBBBB.....T',
-    'T..VVVVVVVV.qq......VVVVVVVV.....T',
-    'T..#WFFDFFW.qq......#WJJDJJW.....T',
-    'T.....q.....qq..........q........T',
+    'TTTTTTTTTTTTqqTTTTTTTTTTTTTTTTTTTT',
+    'T...........lq...................T',
+    'T..AAAAAAAA.qqqtqqtqBBBBBBBB...T.T',
+    'T..AAAAAAAA.qqqq0qqqBBBBBBBB.....T',
+    'T..VVVVVVVV.qqqyqqyqVVVVVVVV..T..T',
+    'T..#WFFDFFW.qqqqqqqq#WJJDJJW.....T',
+    'T.....q.....qlqqlqqq....q........T',
     'q.....qqqqqqqqqqqqqqqqqqqqqqq....q',
-    'q.....q.....qq..........qqqqq....q',
-    'T..S..q.....qq..........q........T',
-    'T.....q.EEEEEEEEEEEE....q........T',
-    'T.....q.EEEEEEEEEEEE....q........T',
-    'T.....q.VVVVVVVVVVVV....q........T',
-    'T.....q.#WW#WWDDWW#WW...q........T',
-    'T.....q........qq.......q........T',
+    'q...T.q.....qq..........qqyq9....q',
+    'T..S..q.T...qq..T...T...qqqqqqql.T',
+    'T.....q.EEEEEEEEEEEE....q.(((((.TT',
+    'T.T...q.EEEEEEEEEEEE....q.(~~~(..T',
+    'T.....q.VVVVVVVVVVVV..T.q.(~~~(..T',
+    'T.....q.#WW#WWDDWW#WW...q.(((((..T',
+    'T.....qqqtqqqqqqqqqtq...q.......TT',
     'T.....qqqqqqqqqqqqqqqqqqqq.......T',
-    'T..............qq................T',
-    'T..hihih.......qq....hihih.......T',
-    'T..hhihh.......qq....hhihh.......T',
+    'T.........T....qq.T..............T',
+    'T..hihih.......lq....hihih.......T',
+    'TT.hhihh.......qq....hhihh...T...T',
     'T..#WDW#.......qq....#WDW#.......T',
-    'T.....q........qq......q.........T',
-    'T.....qqqqqqqqqqqqqqqqqq.........T',
-    'T..S...........qq...........S....T',
-    'T.qqqqqqqq..........qqqqqqqq.....T',
-    'T.hhihhihh..........hhihhihh.....T',
-    'T.#WDW#WDW..........#WDW#WDW.....T',
-    'T.qq.qq.qq..........qq.qq.qq.....T',
-    'TTTTTTTTTTTTqqqqqqTTTTTTTTTTT....T',
+    'T.T...q.....T..qq...T..q.........T',
+    'T.....qqqqqqqqqqqqqqqqqq.......T.T',
+    'T..S.....T.....qq....T......S....T',
+    'T.qqqqqqqqqqqqqqqqqqqqqqqqqq.....T',
+    'T.hhihhihhqtqqqqqqtqhhihhihh.....T',
+    'T.#WDW#WDWqqyq0qqyqq#WDW#WDW..T..T',
+    'T.qq.qq.qqqqqqqqqqqqqq.qq.qq.....T',
+    'TTTTTTTTTTTTqqqqqqTTTTTTTTTTTTTTTT',
   ],
-
-
-
+  // The pond in the park behind the Mart. A city park pond is stocked, and
+  // an audit rule says a stretch of water you can cast into has to have
+  // something living in it.
+  encounters: {
+    fish: { min: 8, max: 14, table: [[129, 50], [118, 26], [119, 14], [283, 10]] },
+    surf: { min: 8, max: 14, table: [[129, 60], [118, 24], [119, 16]] },
+  },
   warps: [
     { x: 12, y: 0, to: 'route204', tx: 12, ty: 22, dir: 'up', edge: true },
     { x: 13, y: 0, to: 'route204', tx: 13, ty: 22, dir: 'up', edge: true },
@@ -5371,21 +5644,21 @@ const FLOAROMA = defineMap('floaroma', {
     'TTTTTTTTTTTT;;TTTTTTTTTTTT',
     'T..**..**...;;...**..**..T',
     'T..**..**...;;...**..**..T',
-    'T...........;;...........T',
+    'TT......**..;;...**.....TT',
     'T..AAAAAAAA.;;.....GGGGG.T',
     'T..AAAAAAAA.;;.....GGGGG.T',
     'T..VVVVVVVV.;;.....#WDW#.T',
     'T..#WFFDFFW.;;.......;...T',
-    'T.....;.....;;.......;...T',
+    'TT....;.....;;.**....;..TT',
     'T.....;;;;;;;;;;;;;;;....T',
-    'T.....;.....;;...........T',
-    'T..S..;..**.;;..**...**..T',
-    'T.....;..**.;;..**...**..T',
-    'T.....;.....;;...........T',
+    'T.**..;.....;;...........T',
+    'T..S..;.(**(;;.(**(.(**(.T',
+    'T.....;.(**(;;.(**(.(**(.T',
+    'T.....;.....;;.......**..T',
     'T..OOO;.....;;....OOO....T',
-    'T.....;.....;;...........T',
+    'TT**..;.OOO.;;........**.T',
     'T.....;;;;;;;;...........T',
-    'T...........;;..........ST',
+    'T..........T;;..........ST',
     'TTTTTTTTTTTT;;TTTTTTTTTTTT',
   ],
 
@@ -5633,22 +5906,22 @@ const ETERNA = defineMap('eterna', {
     'Y.....zzzzzzzzzzzzzzzzzzzzzzz...',
     'Y.....z...................z....Y',
     'Y..S..z....II.........II..z....Y',
-    'Y.....z...................z....Y',
+    'Y.....z.............88....z....Y',
     'Y.....z...KKKKKKKKKK......z....Y',
     'Y.....z...KKKKKKKKKK......z....Y',
     'Y.....z...VVVVVVVVVV......z....Y',
     'Y.....z...NQNNddNNQN......z....Y',
     'Y.....z...I.S....S.I......z....Y',
     'Y.....zzzzzzzzzzzzzzzzzzzzz....Y',
-    'Y..............................Y',
+    'Y............................Y.Y',
     'Y..OOO....**......**.....OOO...Y',
-    'Y.........**......**...........Y',
+    'Y.........**......**....Y......Y',
     'Y............zz................Y',
-    'Y..............................Y',
-    'Y..............................Y',
-    'Y..............................Y',
-    'Y..............................Y',
-    'YYYYYYYYYYYYzzYYYYYYYYYYYYYYY..Y',
+    'Y..Y.....((((.............Y....Y',
+    'Y........(OO(.Y................Y',
+    'Y.......Y((((.......Y..........Y',
+    'Y.Y..............Y.............Y',
+    'YYYYYYYYYYYYzzYYYYYYYYYYYYYYYYYY',
   ],
 
 
@@ -6219,30 +6492,30 @@ const HEARTHOME = defineMap('hearthome', {
     'TTTTTTTTTTTTqqTTTTTTTTTTTTTTTTTTTT',
     'T................................T',
     'T..AAAAAAAA..........BBBBBBBB....T',
-    'T..AAAAAAAA..........BBBBBBBB....T',
+    'T..AAAAAAAA..........BBBBBBBB.T..T',
     'T..VVVVVVVV..........VVVVVVVV....T',
     'T..#WFFDFFW..........#WJJDJJW....T',
     'T.....q....................q.....T',
     'T.....qqqqqqqqqqqqqqqqqqqqqq.....T',
-    'T.....q....................q.....T',
-    'T..S..q...GGGGGGGG.........q.....T',
+    'T.T...q....................q.....T',
+    'T..S..q.T.GGGGGGGG.........q...T.T',
     'T.....q...GGGGGGGG.........q.....T',
     'T.....q...VVVVVVVV.........q.....T',
     'qqqqqqqqqq#WWDDWW#.........q.....T',
-    'T.....q....................q.....T',
-    'T.....q...KKKKKKKKKK.......q.....T',
-    'T.....q...KKKKKKKKKK.......q.....T',
-    'T.....q...KKKKKKKKKK.......q.....T',
+    'T.....q.T.............T....q.....T',
+    'T.T...q...KKKKKKKKKK.......q.....T',
+    'T.....q...KKKKKKKKKK.......q.T...T',
+    'T.....q.T.KKKKKKKKKK....T..q.....T',
     'T.....q...VVVVVVVVVV.......q.....T',
-    'T.....q...NQNNddNNQN.......q.....T',
+    'T.T...q...NQNNddNNQN.......q.....T',
     'T.....q...I.S....S.I.......q.....T',
-    'T.....qqqqqqqqqqqqqqqqqqqqq......T',
-    'T...........qq...................T',
-    'T.EEEEEEEE..qq.........**....S...T',
-    'T.EEEEEEEE..qq.........**........T',
-    'T.VVVVVVVV..qq...................T',
-    'T.#WWDDWW#..qq...................T',
-    'T...........qq...................T',
+    'T.....qqqqqqqqqqqqqqqqqqqqq....T.T',
+    'T...........lq...................T',
+    'T.EEEEEEEE..qq.tq9q9qt(**(...S...T',
+    'T.EEEEEEEE..qq.qqq0qqq(**(.......T',
+    'T.VVVVVVVV..qq.qqqqqqq...........T',
+    'T.#WWDDWW#..qq.qyqqqyq...........T',
+    'T...........ql................T..T',
     'TTTTTTTTTTTTqqTTTTTTTTTTTTTTTTTTTT',
   ],
 
@@ -6795,17 +7068,17 @@ const SOLACEON = defineMap('solaceon', {
     'T..AAAAAAAA.;;.....GGGGG.T',
     'T..VVVVVVVV.;;.....#WDW#.T',
     'T..#WFFDFFW.;;.......;...T',
-    'T.....;.....;;.......;...T',
+    'T...T.;.....;;.......;...T',
     'T.....;;;;;;;;;;;;;;;....T',
-    'T.....;.....;;...........T',
+    'T.T...;.....;;..........TT',
     'T..S..;..OOO;;....**.....T',
-    'T.....;.....;;....**.....T',
-    'T.....;.....;;...........T',
+    'T.....;/.../;;....**.....T',
+    'T.....;/OOO/;;.........)TT',
     'T.....;.....;;..BBBBBB...T',
     'T.....;.....;;..BBBBBB...T',
-    'T.....;.....;;..VVVVVV...T',
+    'T...).;.....;;..VVVVVV...T',
     'T.....;;;;;;;;..#WWDWW...T',
-    'T...........;;..........ST',
+    'T.T........T;;..........ST',
     'TTTTTTTTTTTT;;TTTTTTTTTTTT',
   ],
 
@@ -7064,17 +7337,17 @@ const VEILSTONE = defineMap('veilstone', {
   tiles: [
     '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^',
     '^................................^',
-    '^....EEEEEEEE..........EEEEEE....^',
+    '^....EEEEEEEE..........EEEEEE..T.^',
     '^....EEEEEEEE..........EEEEEE....^',
     '^....EEEEEEEE..........VVVVVV....^',
     '^....VVVVVVVV..........#WWDWW....^',
     '^....#WWDDWW#..............q.....^',
-    '^.......qq.................q.....^',
-    '^.......qq.................q.....^',
+    '^.......lq.................q.....^',
+    '^.T.....qq.................q.....^',
     '^..S....qqqqqqqqqqqqqqqqqqqqqqqqq.',
     '^.......qq.................q.....^',
-    '^.......qq.................q.....^',
-    '^..AAAAAAAA................q.....^',
+    '^.......ql..88.............q.....^',
+    '^..AAAAAAAA.8..............q...T.^',
     '^..AAAAAAAA................q.....^',
     '^..VVVVVVVV......KKKKKKKKKKq.....^',
     '^..#WFFDFFW......KKKKKKKKKKq.....^',
@@ -7083,12 +7356,12 @@ const VEILSTONE = defineMap('veilstone', {
     '^.....q..........NQNNddNNQNq.....^',
     '^.....q..........I.S....S.Iq.....^',
     '^.....qqqqqqqqqqqqqqqqqqqqqq.....^',
-    '^................................^',
-    '^..BBBBBB....................S...^',
-    '^..BBBBBB........................^',
+    '^.T.........................T....^',
+    '^..BBBBBB.T.........o........S...^',
+    '^..BBBBBB....................o...^',
     '^..VVVVVV........................^',
-    '^..#WWDWW........................^',
-    '^................................^',
+    '^..#WWDWW......T.................^',
+    '^........o....o.........T........^',
     '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^',
   ],
 
@@ -7560,25 +7833,25 @@ const PASTORIA = defineMap('pastoria', {
     'TTTTTTTTTTTTjjTTTTTTTTTTTTTTTT',
     'T...........jj...............T',
     'T..AAAAAAAA.jj......EEEEEE...T',
-    'T..AAAAAAAA.jj......EEEEEE...T',
+    'T.TAAAAAAAA.jj......EEEEEE.T.T',
     'T..VVVVVVVV.jj......VVVVVV...T',
     'T..#WFFDFFW.jj......#WWDWW...T',
     'T.....j.....jj..........j....T',
     'T.....jjjjjjjjjjjjjjjjjjjjjjjj',
     'T.....j.....jj..........j....T',
-    'T..S..j.....jj..........j....T',
+    'T.TS..j.....jj..........j...TT',
     'T.....j..KKKKKKKKKK.....j....T',
     'T.....j..KKKKKKKKKK.....j....T',
     'T.....j..VVVVVVVVVV.....j....T',
     'T.....j..NQNNddNNQN.....j....T',
     'T.....j..I.S....S.I.....j....T',
     'T.....jjjjjjjjjjjjjjjjjjjj...T',
-    'T...........jj...............T',
-    'T..~~~~~....jj....~~~~~~~~...T',
-    'T.~~~~~~~...jj...~~~~~~~~~~..T',
-    'T..~~~~~....jj....~~~~~~~~...T',
-    'T...........jj...............T',
-    'T..S........jj..............ST',
+    'T........8..jj.............8.T',
+    'T..~~j~~....jj....~~~j~~~~...T',
+    'T.~~~j~~~...jj...~~~~j~~~~~..T',
+    'T..~~j~~....jj....~~~j~~~~...T',
+    'T.8......T..jj...............T',
+    'T..S........jj..T...........ST',
     'TTTTTTTTTTTTjjTTTTTTTTTTTTTTTT',
   ],
 
@@ -8189,24 +8462,24 @@ const CELESTIC = defineMap('celestic', {
     '^^^^^^^^^^^^^^^^^^^^^^^^^^',
     '^^^^^^^^^^^IIII^^^^^^^^^^^',
     '^^^^^^^^^^^IDDI^^^^^^^^^^^',
-    '^...........zz...........^',
+    '^.........I.zz.I.........^',
     '^..AAAAA....zz....AAAAA..^',
     '^..AAAAA....zz....AAAAA..^',
     '^..VVVVV....zz....VVVVV..^',
     '^..#WDW#....zz....#WDW#..^',
     '^....z......zz......z....^',
     '^....zzzzzzzzzzzzzzzz....^',
-    '^...........zz...........^',
+    '^.R.........zz.........R.^',
     '^.S.........zz.........S.^',
     'zzzzzzzzzzzzzz...........^',
-    '^...........zz...........^',
+    '^....R......zz......R....^',
     '^..,,,,.....zz.....,,,,..^',
     '^..,,,,.....zz.....,,,,..^',
-    '^...........zz...........^',
+    '^.o...o.....zz.....o...o.^',
     '^..~~~~~....zz....~~~~~..^',
     '^..~~~~~....zz....~~~~~..^',
-    '^...........zz...........^',
-    '^.........S.zz...........^',
+    '^.......R...zz...R.......^',
+    '^..R......S.zz........R..^',
     '^^^^^^^^^^^^zz^^^^^^^^^^^^',
   ],
 
@@ -8584,26 +8857,26 @@ const CANALAVE = defineMap('canalave', {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
     'T...............~~...............T',
     'T..AAAAA........~~.....kkkkkkk...T',
-    'T..AAAAA........~~.....kkkkkkk...T',
+    'T..AAAAA.....T..~~..T..kkkkkkk...T',
     'T..VVVVV........~~.....VVVVVVV...T',
     'T..#WDW#........~~.....#WWDWW#...T',
     'T....q..........~~........q......T',
     'T....qqqqqqqqqq.~~.qqqqqqq.......T',
-    'T....q.........q==q.......q......q',
+    'T.T..q.........q==q.......q....T.q',
     'T....q..........~~........q......T',
-    'T..NNNNNNN......~~....AAAAAAA....T',
-    'T..NQdNQNN......~~....VVVVVVV....T',
-    'T....q..........~~....#WWDWW#....T',
-    'T....q..........~~........q......T',
-    'T....q..........~~........q......T',
-    'T....q..........~~........q......T',
-    'T....q...S......~~...S....q......T',
+    'T..NNNNNNN.....j~~j...AAAAAAA....T',
+    'T..NQdNQNN.....j~~j...VVVVVVV....T',
+    'T....q.........j~~j...#WWDWW#....T',
+    'T....q.........j~~j.......q......T',
+    'T....q...T.....j~~j.......q......T',
+    'T.T..q.........j~~j.......q....T.T',
+    'T....q...S.....j~~j..S....q......T',
     'T....q..........~~........q......T',
     'T....qqqqqqqqqq.==.qqqqqqq.......T',
     'T...............~~...............T',
     'T..ssssssssss...~~...ssssssssss..T',
     'T..ssssssssss...~~...ssssssssss..T',
-    'T...............~~...............T',
+    'T........T......~~........T......T',
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
   ],
 
@@ -18314,7 +18587,10 @@ const { serializeCleared, reviveCleared } = __req('game/fieldmoves.js');
 
 
 
-const MAX_PARTY = 6;
+// Five to a team. Six is what the licensed games use; five is what this one
+// uses, so a party fits one screen on a phone and there is a genuine reason
+// to keep the boxes — you cannot carry everything you catch.
+const MAX_PARTY = 5;
 const BOX_COUNT = 8;
 const BOX_SIZE = 30;
 
@@ -19000,7 +19276,7 @@ const { serializeState } = __req('game/state.js');
 
 
 
-const FILENAME = 'caribou-monster-save.json';
+const FILENAME = 'pokemon-sammy-and-matt-save.json';
 
 /** The same payload shape the storage layer writes, as text. */
 function exportText(state) {
@@ -20219,6 +20495,29 @@ class AudioEngine {
       this.sfxGain = this.ctx.createGain();
       this.sfxGain.gain.value = this.enabled ? this.sfxVolume : 0;
       this.sfxGain.connect(this.master);
+
+      // A room for the sound to happen in.
+      //
+      // Every effect was going straight to the speaker completely dry, which
+      // is what makes small synthesised sounds feel like a webpage rather than
+      // a game. This is a short feedback delay — two taps of about a tenth of
+      // a second, rolled off at the top — mixed in well under the dry signal.
+      // It is not a reverb and is not trying to be: it is the difference
+      // between a beep and a beep in a place.
+      this.echo = this.ctx.createDelay(0.5);
+      this.echo.delayTime.value = 0.105;
+      const echoBack = this.ctx.createGain();
+      echoBack.gain.value = 0.28;
+      const echoTone = this.ctx.createBiquadFilter();
+      echoTone.type = 'lowpass';
+      echoTone.frequency.value = 2600;
+      this.echoSend = this.ctx.createGain();
+      this.echoSend.gain.value = 0.16;
+      this.echoSend.connect(this.echo);
+      this.echo.connect(echoTone);
+      echoTone.connect(echoBack);
+      echoBack.connect(this.echo);
+      echoTone.connect(this.master);
       this._buildWaves();
       this.unlocked = true;
       if (this.ctx.state === 'suspended') this.ctx.resume();
@@ -20359,10 +20658,29 @@ class AudioEngine {
       osc.frequency.setValueAtTime(f0, t);
       osc.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + d);
       const gn = this.ctx.createGain();
-      gn.gain.setValueAtTime(g, t);
+      // A few milliseconds of attack. Starting a gain at full value is a step
+      // discontinuity, which is a click, and every slide in the game had one
+      // on the front of it.
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.linearRampToValueAtTime(g, t + 0.006);
       gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
-      osc.connect(gn); gn.connect(G);
+      osc.connect(gn);
+      gn.connect(G);
+      if (this.echoSend) gn.connect(this.echoSend);
       osc.start(t); osc.stop(t + d + 0.02);
+    };
+    // A fanfare with something underneath it. A run of bare pulse tones is
+    // thin; a fifth below and a shimmer above turns the same notes into a
+    // chord that sounds like it means something.
+    const fanfare = (notes, step = 0.11, dur = 0.2, g = 0.24) => {
+      notes.forEach((f, i) => {
+        const at = t + i * step;
+        this._tone(at, dur, f, 'half', g, G);
+        this._tone(at, dur * 1.4, f / 2, 'tri', g * 0.5, G);
+        if (i === notes.length - 1) {
+          this._tone(at + 0.05, dur * 1.8, f * 2, 'eighth', g * 0.3, G);
+        }
+      });
     };
 
     switch (name) {
@@ -20370,27 +20688,29 @@ class AudioEngine {
       case 'select':   beep(1180, 0.07, 'quarter', 0.22); break;
       case 'back':     beep(420, 0.07, 'quarter', 0.18); break;
       case 'deny':     beep(200, 0.13, 'half', 0.22); break;
-      case 'text':     beep(1500, 0.014, 'eighth', 0.07); break;
+      case 'text':     beep(1420 + ((this._textTick = (this._textTick | 0) + 1) % 5) * 34, 0.014, 'eighth', 0.07); break;
       case 'bump':     beep(150, 0.06, 'half', 0.16); break;
       case 'step':     this._noise(t, 0.04, 300, 0.05, G); break;
       case 'encounter': slide(300, 1400, 0.28, 'half', 0.3); break;
-      case 'hit':      this._noise(t, 0.12, 500, 0.35, G); slide(500, 120, 0.14, 'half', 0.22); break;
-      case 'supereffective': this._noise(t, 0.2, 900, 0.4, G); slide(900, 200, 0.24, 'half', 0.3); break;
+      case 'hit':      this._noise(t, 0.12, 500, 0.35, G); slide(500, 120, 0.14, 'half', 0.22);
+        this._tone(t, 0.09, 90, 'tri', 0.3, G); break;
+      case 'supereffective': this._noise(t, 0.22, 900, 0.42, G); slide(900, 200, 0.26, 'half', 0.3);
+        this._tone(t, 0.16, 70, 'tri', 0.34, G); this._tone(t + 0.05, 0.2, 1760, 'eighth', 0.14, G); break;
       case 'weak':     this._noise(t, 0.09, 240, 0.16, G); break;
       case 'faint':    slide(700, 90, 0.55, 'half', 0.3); break;
-      case 'heal':     [660, 880, 1100].forEach((f, i) => this._tone(t + i * 0.09, 0.1, f, 'quarter', 0.2, G)); break;
-      case 'levelup':  [523, 659, 784, 1047].forEach((f, i) => this._tone(t + i * 0.08, 0.13, f, 'half', 0.22, G)); break;
+      case 'heal':     fanfare([660, 880, 1100], 0.09, 0.13, 0.2); break;
+      case 'levelup':  fanfare([523, 659, 784, 1047], 0.085, 0.16, 0.22); break;
       case 'ball':     slide(900, 300, 0.16, 'quarter', 0.25); break;
       case 'wobble':   beep(300, 0.08, 'half', 0.2); break;
-      case 'caught':   [784, 988, 1175, 1568].forEach((f, i) => this._tone(t + i * 0.11, 0.18, f, 'half', 0.24, G)); break;
+      case 'caught':   fanfare([784, 988, 1175, 1568], 0.11, 0.2, 0.24); break;
       case 'escape':   slide(600, 1200, 0.18, 'quarter', 0.22); break;
-      case 'evolve':   [440, 554, 659, 880, 1109].forEach((f, i) => this._tone(t + i * 0.14, 0.2, f, 'quarter', 0.2, G)); break;
-      case 'badge':    [659, 784, 988, 1319, 1568].forEach((f, i) => this._tone(t + i * 0.12, 0.24, f, 'half', 0.26, G)); break;
+      case 'evolve':   fanfare([440, 554, 659, 880, 1109], 0.14, 0.24, 0.21); break;
+      case 'badge':    fanfare([659, 784, 988, 1319, 1568], 0.12, 0.26, 0.26); break;
       case 'save':     [880, 1320].forEach((f, i) => this._tone(t + i * 0.1, 0.12, f, 'quarter', 0.2, G)); break;
       case 'buy':      [1047, 1319].forEach((f, i) => this._tone(t + i * 0.07, 0.09, f, 'quarter', 0.22, G)); break;
       case 'door':     this._noise(t, 0.16, 260, 0.18, G); break;
       case 'warp':     slide(200, 1600, 0.4, 'eighth', 0.24); break;
-      case 'join':     [784, 1047, 1319].forEach((f, i) => this._tone(t + i * 0.09, 0.12, f, 'quarter', 0.24, G)); break;
+      case 'join':     fanfare([784, 1047, 1319], 0.09, 0.14, 0.22); break;
       case 'leave':    [1047, 784, 523].forEach((f, i) => this._tone(t + i * 0.09, 0.12, f, 'quarter', 0.2, G)); break;
       default: break;
     }
@@ -21869,7 +22189,8 @@ class CreditsScreen extends Screen {
     const them = buddyOf(st);
     const f = st.flags || {};
     const out = [
-      L('CARIBOU MONSTER', { big: true }),
+      L('POK\u00e9MON', { big: true }),
+      L('FOR SAMMY & MATT', { big: true }),
       L('Sinnoh Region'),
       L(''),
       L('— what happened —', { dim: true }),
@@ -22771,7 +23092,7 @@ const CSS = `
 function validate(text) {
   let raw;
   try { raw = JSON.parse(String(text).trim()); } catch { return { ok: false, text: 'That is not readable as a save.' }; }
-  if (!raw || !raw.state || !raw.meta) return { ok: false, text: 'That is not a Caribou Monster save.' };
+  if (!raw || !raw.state || !raw.meta) return { ok: false, text: 'That is not a save from this game.' };
   const who = raw.meta.name || 'Trainer';
   const badges = raw.meta.badges || 0;
   return { ok: true, raw, text: `Found ${who}, ${badges} badge${badges === 1 ? '' : 's'}.` };
@@ -22799,7 +23120,7 @@ function openRestorePanel() {
     root.innerHTML = `
       <div class="cbm-restore-card">
         <h2>LOAD BACKUP</h2>
-        <p>Pick the <b>caribou-monster-save.json</b> you saved from this game.</p>
+        <p>Pick the <b>pokemon-sammy-and-matt-save.json</b> you saved from this game.</p>
         <label class="cbm-file">CHOOSE FILE<input type="file" accept="application/json,.json,text/plain"></label>
         <div class="cbm-note"></div>
         <hr>
@@ -23091,8 +23412,8 @@ class TitleScreen extends Screen {
     const cx = W / 2;
     drawTextCentered(ctx, 'POK\u00e9MON', cx - 1, 20, { color: '#0a0e18', scale: 3 });
     drawTextCentered(ctx, 'POK\u00e9MON', cx, 18, { color: '#f8e070', scale: 3 });
-    drawTextCentered(ctx, 'CARIBOU VERSION', cx - 1, 42, { color: '#0a0e18', scale: 1 });
-    drawTextCentered(ctx, 'CARIBOU VERSION', cx, 41, { color: '#e8f4ff', scale: 1 });
+    drawTextCentered(ctx, 'FOR SAMMY & MATT', cx - 1, 42, { color: '#0a0e18', scale: 1 });
+    drawTextCentered(ctx, 'FOR SAMMY & MATT', cx, 41, { color: '#e8f4ff', scale: 1 });
     drawTextCentered(ctx, 'S I N N O H   R E G I O N', cx, 54, { color: '#9ab8ff' });
 
     const { x, y, w } = this._menuBox();
@@ -23114,7 +23435,7 @@ class TitleScreen extends Screen {
       labelDim(ctx, `Badges ${meta.badges}`, 9, H - 27);
       labelDim(ctx, `Time ${formatPlayTime(meta.playTimeMs || 0)}`, 9, H - 18);
     }
-    drawTextCentered(ctx, 'A private fan project for two.', cx, H - 12, { color: '#5a6a94' });
+    drawTextCentered(ctx, 'A private fan project, for the two of us.', cx, H - 12, { color: '#5a6a94' });
   }
 }
 
@@ -26114,6 +26435,34 @@ function drawWorld(ctx, world, camera, viewW, viewH, opts = {}) {
     }
   }
 
+  // --- the street lamps come on ---
+  // Painted over the night tint rather than under it, so a lamp is a light
+  // and not just a slightly paler patch of dark. Only the lamp posts glow:
+  // a town where every window blazes reads as a fire, not as an evening.
+  if (map.kind !== 'cave' && map.kind !== 'indoor') {
+    const tint = tintFor();
+    if (tint.alpha > 0.12) {
+      const strength = Math.min(1, (tint.alpha - 0.12) / 0.35);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          if (map.tiles[y][x] !== 'l') continue;
+          const cx = x * TILE - camera.x + 8;
+          const cy = y * TILE - camera.y + 4;
+          const r = 30;
+          const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, r);
+          g.addColorStop(0, `rgba(255,226,150,${0.42 * strength})`);
+          g.addColorStop(0.45, `rgba(255,206,120,${0.16 * strength})`);
+          g.addColorStop(1, 'rgba(255,200,110,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        }
+      }
+      ctx.restore();
+    }
+  }
+
   // --- caves are lit only near the player ---
   if (map.kind === 'cave' && opts.caveLight !== false) {
     const p = world.renderPos(world.player);
@@ -26731,12 +27080,14 @@ const { spend, formatMoney: money } = __req('game/inventory.js');
 const { FLAGS } = __req('game/storyflags.js');
 const { CASS, ROWAN, MARS, EVERLIGHT, DOCUMENTS, BANDIT, cassLook } = __req('data/story.js');
 const { playerByLook, buddyOf, playerOf, buddyPlayerOf } = __req('game/players.js');
+const { MAX_PARTY } = __req('game/state.js');
 // Story scripts.
 //
 // A script is an async function that receives a small `ctx` of primitives —
 // say, ask, battle, give, wait, move — and awaits them. Writing cutscenes as
 // straight-line async code keeps them readable, and keeps the sequencing out
 // of the render loop entirely.
+
 
 
 
@@ -27185,7 +27536,7 @@ SCRIPTS.daycare = async (ctx) => {
       const yes = await ctx.ask(`Day-Care Lady: ${name} has come on nicely.\fThat will be ${money(fee)}.`, ['Pay', 'Not now']);
       if (yes !== 0) continue;
       if (st.inventory.money < fee) { await ctx.say('Day-Care Lady: You are a bit short, I am afraid.'); continue; }
-      if (st.party.length >= 6) { await ctx.say('Day-Care Lady: Your team is full. Make room first.'); continue; }
+      if (st.party.length >= MAX_PARTY) { await ctx.say('Day-Care Lady: Your team is full. Make room first.'); continue; }
       spend(st.inventory, fee);
       const mon = withdraw(d, which);
       st.party.push(mon);
@@ -27195,7 +27546,7 @@ SCRIPTS.daycare = async (ctx) => {
     }
 
     if (pick === 'Take the Egg') {
-      if (st.party.length >= 6) { await ctx.say('Day-Care Lady: You have no room for it. Come back.'); continue; }
+      if (st.party.length >= MAX_PARTY) { await ctx.say('Day-Care Lady: You have no room for it. Come back.'); continue; }
       const egg = collectEgg(d, st.player);
       st.party.push(egg);
       ctx.sfx('caught');
@@ -27722,6 +28073,13 @@ SCRIPTS.oldRod = async (ctx) => {
 SCRIPTS.fish = async (ctx) => {
   const table = ctx.fishTable();
   if (!table) { await ctx.say('You cast the line.\f...Nothing lives in this water.'); return; }
+  // Walking into grass with a fainted team is already refused. Casting a
+  // line was not, and a bite you cannot fight is a battle that ends the
+  // moment it starts.
+  if (ctx.canBattle && !ctx.canBattle()) {
+    await ctx.say('You reach for the rod.\f...Not with everyone in this state. Find a\nPokémon Center first.');
+    return;
+  }
 
   ctx.sfx('select');
   await ctx.say('You cast the Old Rod into the water.');
@@ -30487,6 +30845,12 @@ class OverworldScreen extends Screen {
       here: () => ({ map: screen.world.mapId, x: screen.world.player.x, y: screen.world.player.y }),
 
       fishTable: () => (screen.world.map.encounters && screen.world.map.encounters.fish) || null,
+
+      // Whether anybody in the bag could actually take a bite. Grass and
+      // trainers already ask this before they start anything; fishing did
+      // not, which meant a rod and a fainted team could open a battle
+      // nobody could fight.
+      canBattle: () => screen.world.canBattle(),
 
       // Hands the player a wall of rock and resolves with what came out of
       // it. The screen above owns the minigame; this just awaits its answer.
@@ -33747,7 +34111,7 @@ const { activeOf, resolveTurn, needsSwitch, forceSwitch, hpFraction, activeWeath
 const { chooseAiAction, chooseAiSwitch } = __req('game/battle/ai.js');
 const { maxHp, displayName, isFainted, expProgress, learnMove, knowsMove, typesOf } = __req('game/monster.js');
 const { removeItem, battleUsable } = __req('game/inventory.js');
-const { receiveMonster } = __req('game/state.js');
+const { receiveMonster, MAX_PARTY } = __req('game/state.js');
 const { recordSeen, recordCaught } = __req('game/pokedex.js');
 const { battleMusic, battleMusicKey, MUSIC } = __req('data/music.js');
 const { evolveNow, evolutionFor } = __req('game/evolution.js');
@@ -33832,6 +34196,11 @@ class BattleScreen extends Screen {
     this.flash = [0, 0];
     this.slide = [1, 1];        // 0 = off-screen, 1 = in place
     this.faintDrop = [0, 0];
+    // A hit that lands: the attacker leans in, the ground jolts, and pixels
+    // come off. Without these a move is a white flash and a number.
+    this.lunge = [0, 0];
+    this.hitBits = [];
+    this.jolt = 0;
     this.ballAnim = null;
     this.introT = 0;
     this.learnData = null;
@@ -33906,8 +34275,10 @@ class BattleScreen extends Screen {
     if (!isTop) return;
     this.introT += dt;
     this.t = (this.t || 0) + dt;
+    this._tickHitBits(dt);
     for (let i = 0; i < 2; i++) {
       if (this.shake[i] > 0) this.shake[i] = Math.max(0, this.shake[i] - dt * 4);
+      if (this.lunge[i] > 0) this.lunge[i] = Math.max(0, this.lunge[i] - dt * 6);
       if (this.flash[i] > 0) this.flash[i] = Math.max(0, this.flash[i] - dt * 5);
       if (this.slide[i] < 1) this.slide[i] = Math.min(1, this.slide[i] + dt * 4.5);
     }
@@ -33991,11 +34362,18 @@ class BattleScreen extends Screen {
         this.msgHold = 0;
         break;
       case 'sfx': audio.sfx(e.s); this.current = null; break;
-      case 'hit':
+      case 'hit': {
         this.shake[e.side] = 1;
         this.flash[e.side] = 1;
+        // Whoever threw it leans in. It is the difference between a sprite
+        // that is hit and two sprites in a fight.
+        this.lunge[e.side === this.mySide ? this.foeSide : this.mySide] = 1;
+        const power = e.eff >= 2 ? 1.6 : e.eff > 0 && e.eff < 1 ? 0.5 : 1;
+        this.jolt = Math.max(this.jolt, e.eff >= 2 ? 1 : 0.35);
+        this._spawnHitBits(e.side, power);
         e.dur = e.eff >= 2 ? 0.32 : 0.22;
         break;
+      }
       case 'hp': e.dur = 0.05; break;
       case 'faint':
         this.faintDrop[e.side] = 1;
@@ -34511,7 +34889,12 @@ class BattleScreen extends Screen {
       if (this.game.save) this.game.save.touch(st);
       if (newEntry) this.queue.push({ t: 'text', s: `${displayName(mon)}'s data was added to the Pokédex.` });
       if (dest && dest.where === 'box') {
-        this.queue.push({ t: 'text', s: `Your party is full, so ${displayName(mon)}\nwas sent to ${dest.boxName}.` });
+        // Say where it went AND how to get it back. A monster that vanishes
+        // into a named box the player has never heard of is a monster the
+        // player thinks they have lost.
+        this.queue.push({ t: 'text', s: `You are already carrying ${MAX_PARTY}, so ${displayName(mon)}\nwas sent to ${dest.boxName}.\fUse the PC in any Pokémon Center to swap who comes\nwith you.` });
+      } else if (!dest) {
+        this.queue.push({ t: 'text', s: `There is no room anywhere — every box is full.\n${displayName(mon)} had to be let go.` });
       }
       // The moment it stops being a species and becomes yours.
       this.queue.push({ t: 'nickname', mon });
@@ -34634,7 +35017,9 @@ class BattleScreen extends Screen {
       const art = getSpecies(foe.species).art;
       const img = renderMonster(art, { size: MON, shiny: foe.shiny });
       const p = this._platforms(W, H).foe;
-      const sx = p.x - MON / 2 + this._shakeOffset(this.foeSide) + (1 - this.slide[this.foeSide]) * 60;
+      const sx = p.x - MON / 2 + this._shakeOffset(this.foeSide) + this._joltOffset()
+        + (1 - this.slide[this.foeSide]) * 60
+        - this.lunge[this.foeSide] * 10;
       const sy = p.y - spriteFoot(art.key, false, MON) + this.faintDrop[this.foeSide] * 34;
       this._drawSprite(ctx, img, sx, sy, this.flash[this.foeSide], this.faintDrop[this.foeSide]);
     }
@@ -34642,10 +35027,13 @@ class BattleScreen extends Screen {
       const art = getSpecies(me.species).art;
       const img = renderMonster(art, { size: MON, back: true, shiny: me.shiny });
       const p = this._platforms(W, H).player;
-      const sx = p.x - MON / 2 + this._shakeOffset(this.mySide) - (1 - this.slide[this.mySide]) * 80;
+      const sx = p.x - MON / 2 + this._shakeOffset(this.mySide) + this._joltOffset()
+        - (1 - this.slide[this.mySide]) * 80
+        + this.lunge[this.mySide] * 10;
       const sy = p.y - spriteFoot(art.key, true, MON) + this.faintDrop[this.mySide] * 40;
       this._drawSprite(ctx, img, sx, sy, this.flash[this.mySide], this.faintDrop[this.mySide]);
     }
+    this._drawHitBits(ctx);
     if (this.ballAnim) this._drawBall(ctx, W, H);
   }
 
@@ -34725,6 +35113,57 @@ class BattleScreen extends Screen {
       ctx.fillRect(x, y, img.width, img.height);
     }
     ctx.restore();
+  }
+
+  /** A burst of pixels off whoever just took it. */
+  _spawnHitBits(side, power) {
+    const { width: W, height: H } = this.game.display;
+    const p = this._platforms(W, H)[side === this.foeSide ? 'foe' : 'player'];
+    const n = Math.round(10 + power * 12);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = (24 + Math.random() * 70) * power;
+      this.hitBits.push({
+        x: p.x + (Math.random() - 0.5) * 26,
+        y: p.y - 26 + (Math.random() - 0.5) * 26,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 24,
+        life: 0.24 + Math.random() * 0.22,
+        t: 0,
+        big: power > 1.2 && i % 3 === 0,
+      });
+    }
+    if (this.hitBits.length > 160) this.hitBits.splice(0, this.hitBits.length - 160);
+  }
+
+  _tickHitBits(dt) {
+    if (this.jolt > 0) this.jolt = Math.max(0, this.jolt - dt * 5);
+    for (let i = this.hitBits.length - 1; i >= 0; i--) {
+      const b = this.hitBits[i];
+      b.t += dt;
+      if (b.t >= b.life) { this.hitBits.splice(i, 1); continue; }
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.vy += 260 * dt;          // they fall
+      b.vx *= 0.96;
+    }
+  }
+
+  _drawHitBits(ctx) {
+    for (const b of this.hitBits) {
+      const k = 1 - b.t / b.life;
+      ctx.globalAlpha = Math.max(0, k);
+      ctx.fillStyle = b.big ? '#fff4c0' : '#ffffff';
+      const s = b.big ? 3 : 2;
+      ctx.fillRect(Math.round(b.x), Math.round(b.y), s, s);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** How far the whole field is thrown by the last impact. */
+  _joltOffset() {
+    if (this.jolt <= 0) return 0;
+    return Math.round(Math.sin(this.jolt * 52) * this.jolt * 3);
   }
 
   _shakeOffset(side) {
@@ -36261,7 +36700,7 @@ const { renderMonster } = __req('render/monsterart.js');
 const { drawBackChip } = __req('ui/controls.js');
 const { getSpecies } = __req('data/species.js');
 const { maxHp, displayName, isFainted, natureOf } = __req('game/monster.js');
-const { partyToBox, boxToParty, releaseFromBox, BOX_SIZE } = __req('game/state.js');
+const { partyToBox, boxToParty, releaseFromBox, BOX_SIZE, MAX_PARTY } = __req('game/state.js');
 // Monster storage — the PC boxes.
 
 
@@ -36285,7 +36724,7 @@ class PCScreen extends Screen {
     this.pane = 'box';        // box | party
     this.partyIdx = 0;
     this.held = null;         // { from:'box'|'party', index }
-    this.message = 'Move Pokémon between your party and the boxes.';
+    this.message = 'Pick one up, then choose where it goes.';
     this.confirmRelease = null;
   }
 
@@ -36335,6 +36774,7 @@ class PCScreen extends Screen {
   _changeBox(d) {
     const n = this.game.state.boxes.length;
     this.box = (this.box + d + n) % n;
+    this.cursorIdx = Math.min(this.cursorIdx, Math.max(0, this.boxData.mons.length - 1));
     audio.sfx('cursor');
   }
 
@@ -36347,7 +36787,12 @@ class PCScreen extends Screen {
         if (box.mons.length >= BOX_SIZE) { audio.sfx('deny'); this.message = 'This box is full.'; return; }
         if (this.game.state.party.length <= 1) { audio.sfx('deny'); this.message = 'You need at least one Pokémon with you!'; return; }
         partyToBox(this.game.state, this.held.index, this.box);
-        this.message = 'Stored.';
+        // A box fills from the front, so the one you just put down is at the
+        // end of the row and not under the cursor you dropped it with. Move
+        // the cursor onto it: a player who cannot see where their monster
+        // went assumes it is gone.
+        this.cursorIdx = Math.max(0, box.mons.length - 1);
+        this.message = `Stored in ${box.name}, space ${this.cursorIdx + 1}.`;
       } else {
         this.message = 'Put it back.';
       }
@@ -36358,7 +36803,9 @@ class PCScreen extends Screen {
     }
     if (!mon) { audio.sfx('deny'); return; }
     audio.sfx('select');
-    this.held = { from: 'box', index: this.cursorIdx };
+    // Remember which box it came out of, not just which space: changing box
+    // while carrying one used to take a different monster out of the new box.
+    this.held = { from: 'box', index: this.cursorIdx, box: this.box };
     this.message = `${displayName(mon)} picked up. Choose a party slot.`;
     this.pane = 'party';
   }
@@ -36367,9 +36814,15 @@ class PCScreen extends Screen {
     const st = this.game.state;
     if (this.held) {
       if (this.held.from === 'box') {
-        if (st.party.length >= 6) { audio.sfx('deny'); this.message = 'Your party is full.'; return; }
-        boxToParty(st, this.box, this.held.index);
-        this.message = 'Added to your party.';
+        if (st.party.length >= MAX_PARTY) { audio.sfx('deny'); this.message = `Your team is full — ${MAX_PARTY} is the most you can carry.`; return; }
+        const from = this.held.box === undefined ? this.box : this.held.box;
+        boxToParty(st, from, this.held.index);
+        // Taking one out closes the gap behind it, so a cursor left where the
+        // monster used to be is now pointing past the end of the row.
+        const left = st.boxes[from].mons.length;
+        if (from === this.box) this.cursorIdx = Math.min(this.cursorIdx, Math.max(0, left - 1));
+        this.partyIdx = st.party.length - 1;
+        this.message = 'Added to your team.';
         this.held = null;
         audio.sfx('select');
         if (this.game.save) this.game.save.markDirty();
@@ -36426,7 +36879,7 @@ class PCScreen extends Screen {
 
   _partyCell(i) {
     const { height: H } = this.game.display;
-    return { x: 8 + i * 24, y: H - 30, w: 22, h: 26 };
+    return { x: 8 + i * 24, y: H - 28, w: 22, h: 26 };
   }
 
   render(ctx) {
@@ -36441,8 +36894,8 @@ class PCScreen extends Screen {
     drawTextCentered(ctx, '<', g.prevX + 7, g.tabY + 2);
     rect(ctx, g.nextX, g.tabY, 14, 11, PAL.uiBgAlt);
     drawTextCentered(ctx, '>', g.nextX + 7, g.tabY + 2);
-    drawTextCentered(ctx, this.boxData.name, (g.prevX + g.nextX) / 2 + 7, g.tabY + 2,
-      { color: PAL.uiTextLight, shadow: PAL.black });
+    drawTextCentered(ctx, `${this.boxData.name}  ${this.boxData.mons.length}/${BOX_SIZE}`,
+      (g.prevX + g.nextX) / 2 + 7, g.tabY + 2, { color: PAL.uiTextLight, shadow: PAL.black });
 
     // Box grid.
     const rows = Math.ceil(BOX_SIZE / COLS);
@@ -36458,16 +36911,21 @@ class PCScreen extends Screen {
       }
     }
 
-    // Party strip.
-    window9(ctx, 4, H - 34, W - 8, 32);
-    st.party.forEach((m, i) => {
+    // The team, along the bottom. Every slot is drawn, empty ones included:
+    // five is the rule the whole box system exists for, and a player should
+    // be able to see it rather than discover it when something is refused.
+    window9(ctx, 4, H - 42, W - 8, 40);
+    labelDim(ctx, `YOUR TEAM  ${st.party.length}/${MAX_PARTY}`, 8, H - 38);
+    for (let i = 0; i < MAX_PARTY; i++) {
+      const m = st.party[i];
       const c = this._partyCell(i);
       const sel = this.pane === 'party' && i === this.partyIdx;
-      rect(ctx, c.x, c.y, c.w, c.h, sel ? PAL.uiHighlight : PAL.uiBgAlt);
+      rect(ctx, c.x, c.y, c.w, c.h, sel ? PAL.uiHighlight : m ? PAL.uiBgAlt : shade(PAL.uiBgAlt, -0.12));
+      if (!m) { drawTextCentered(ctx, '-', c.x + c.w / 2, c.y + 8, { color: PAL.uiTextDim }); continue; }
       const img = renderMonster(getSpecies(m.species).art, { size: 20, shiny: m.shiny, egg: m.isEgg });
       ctx.drawImage(img, c.x + 1, c.y + 1);
       hpBar(ctx, c.x + 2, c.y + 22, 18, m.hp / maxHp(m), { h: 2 });
-    });
+    }
 
     // Info panel for whatever is under the cursor.
     const focus = this.pane === 'box' ? this.boxData.mons[this.cursorIdx] : st.party[this.partyIdx];
@@ -36491,7 +36949,10 @@ class PCScreen extends Screen {
 
     // Held monster follows the cursor.
     if (this.held) {
-      const src = this.held.from === 'box' ? this.boxData.mons[this.held.index] : st.party[this.held.index];
+      const heldBox = this.held.box === undefined ? this.box : this.held.box;
+      const src = this.held.from === 'box'
+        ? (st.boxes[heldBox] || this.boxData).mons[this.held.index]
+        : st.party[this.held.index];
       if (src) {
         const c = this.pane === 'box' ? this._cell(this.cursorIdx) : this._partyCell(this.partyIdx);
         const img = renderMonster(getSpecies(src.species).art, { size: 20, shiny: src.shiny, egg: src.isEgg });
@@ -39141,31 +39602,90 @@ class TownMapScreen extends Screen {
     };
   }
 
-  render(ctx) {
-    const L = this._layout();
-    const { W, H } = L;
-    rect(ctx, 0, 0, W, H, '#2f4f73');
-    for (let y = 0; y < H; y += 6) rect(ctx, 0, y, W, 3, '#2a4869');
-
-    const seen = (id) => this._known(id);
-
-    // Roads first, so the places sit on top of them. A road between two
-    // places you have not walked is drawn faintly: the region is all there,
-    // but only the parts you have been through are drawn in ink.
+  /**
+   * Every road on the paper, as pairs of screen points.
+   *
+   * Used twice — once to grow the land under them, once to ink them in — so
+   * the coastline and the roads can never disagree about where the region is.
+   */
+  _roads(L) {
+    const out = [];
     for (const p of this.places) {
       const a = this._at(L, p);
       for (const [, to] of linksOf(p.id)) {
         const q = this.places.find((n) => n.id === to);
         if (!q) continue;
-        const b = this._at(L, q);
-        const walked = seen(p.id) && seen(to);
-        ctx.strokeStyle = walked ? '#d9c290' : '#3d5f86';
-        ctx.lineWidth = walked ? 2 : 1;
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
+        out.push([a, this._at(L, q), p.id, to]);
       }
+    }
+    return out;
+  }
+
+  /**
+   * The land.
+   *
+   * Sinnoh is not a constellation of dots in the sea, and drawing it as one
+   * was the single thing that stopped this screen reading as a map. The
+   * coast is grown out of the graph rather than drawn by hand: a fat round
+   * stroke along every road and a blob at every place, painted first in the
+   * shore colour and then, a little thinner, in the land colour. It cannot
+   * disagree with the world, because it IS the world, thickened.
+   */
+  _drawLand(ctx, L) {
+    const roads = this._roads(L);
+    const pass = (width, colour, radius) => {
+      ctx.strokeStyle = colour;
+      ctx.fillStyle = colour;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (const [a, b] of roads) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+      ctx.stroke();
+      for (const p of this.places) {
+        const { x, y } = this._at(L, p);
+        const r = radius + (p.kind === 'city' ? 4 : p.kind === 'town' ? 2 : 0);
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+    pass(34, '#dcc79a', 17);   // the shallows and the shore
+    pass(27, '#7fae63', 13);   // grass
+    pass(17, '#8fbc6e', 9);    // the lighter inland
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
+  }
+
+  render(ctx) {
+    const L = this._layout();
+    const { W, H } = L;
+    rect(ctx, 0, 0, W, H, '#2f4f73');
+    for (let y = 0; y < H; y += 6) rect(ctx, 0, y, W, 3, '#2a4869');
+    // A few longer swells, so the sea is not a striped wallpaper.
+    ctx.fillStyle = '#3a5c85';
+    for (let i = 0; i < 14; i++) {
+      const x = (i * 977) % W;
+      const y = ((i * 613) % (H - 20)) + 10;
+      ctx.fillRect(x, y, 9, 1);
+      ctx.fillRect(x + 3, y + 2, 6, 1);
+    }
+
+    this._drawLand(ctx, L);
+
+    const seen = (id) => this._known(id);
+
+    // Roads on top of the land. A road between two places you have not
+    // walked is drawn faintly: the region is all there, but only the parts
+    // you have been through are drawn in ink.
+    for (const [a, b, from, to] of this._roads(L)) {
+      const walked = seen(from) && seen(to);
+      ctx.strokeStyle = walked ? '#d9c290' : '#6f9159';
+      ctx.lineWidth = walked ? 2 : 1;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
     }
 
     const hereId = this.game.state.player.map;
@@ -39194,8 +39714,12 @@ class TownMapScreen extends Screen {
     }
 
     const knownCount = this.places.filter((p) => seen(p.id)).length;
-    drawText(ctx, 'SINNOH', 6, 4, { color: '#f8f4e4', shadow: '#1b2a40' });
-    drawTextRight(ctx, `${knownCount}/${this.places.length}`, W - 44, 4, { color: '#a8c4e4' });
+    // The title sits on its own band. Written straight onto the sea it was
+    // legible; written over the coast, which is where it lands on a narrow
+    // phone, it was not.
+    rect(ctx, 0, 0, W, 13, 'rgba(16,28,46,0.72)');
+    drawText(ctx, 'SINNOH', 6, 3, { color: '#f8f4e4', shadow: '#1b2a40' });
+    drawText(ctx, `${knownCount}/${this.places.length} walked`, 52, 3, { color: '#a8c4e4', shadow: '#1b2a40' });
     drawBackChip(ctx, W - 40, 3, 'CLOSE');
 
     // The plate along the bottom: what the cursor is on, and how to leave it.
@@ -40845,7 +41369,7 @@ const { resolveDialogue, worldSnapshot } = __req('game/overworld/gossip.js');
 const { NicknameScreen, TextEntryScreen } = __req('ui/naming.js');
 const { JournalScreen } = __req('ui/journal.js');
 const journalApi = __req('game/journal.js');
-const { createGameState, healParty, setStoryFlag, awardBadge } = __req('game/state.js');
+const { createGameState, healParty, setStoryFlag, awardBadge, receiveMonster } = __req('game/state.js');
 const { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } = __req('game/monster.js');
 const { createBattle } = __req('game/battle/engine.js');
 const { getSpecies } = __req('data/species.js');
@@ -41233,12 +41757,15 @@ class Game {
   // the integration tests both need a way to hand the player something.
   debugGiveItem(id, qty = 1) { return addItem(this.state.inventory, id, qty); }
 
-  // Adds a monster to the party — used by the debug menu and by tools/coop.mjs.
+  // Adds a monster — used by the debug menu and by tools/coop.mjs. It goes
+  // through the same door a caught one does, so the five-to-a-team rule and
+  // the boxes hold here too: a debug tool that can build an illegal party is
+  // a debug tool that hides the bug you were looking for.
   debugGive(speciesId, level = 5) {
     const mon = createMonster(speciesId, level);
     mon.ot = this.state.player.name;
     mon.otId = this.state.player.id;
-    if (this.state.party.length < 6) this.state.party.push(mon);
+    receiveMonster(this.state, mon);
     return mon;
   }
 

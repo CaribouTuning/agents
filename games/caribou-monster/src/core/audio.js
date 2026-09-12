@@ -64,6 +64,29 @@ class AudioEngine {
       this.sfxGain = this.ctx.createGain();
       this.sfxGain.gain.value = this.enabled ? this.sfxVolume : 0;
       this.sfxGain.connect(this.master);
+
+      // A room for the sound to happen in.
+      //
+      // Every effect was going straight to the speaker completely dry, which
+      // is what makes small synthesised sounds feel like a webpage rather than
+      // a game. This is a short feedback delay — two taps of about a tenth of
+      // a second, rolled off at the top — mixed in well under the dry signal.
+      // It is not a reverb and is not trying to be: it is the difference
+      // between a beep and a beep in a place.
+      this.echo = this.ctx.createDelay(0.5);
+      this.echo.delayTime.value = 0.105;
+      const echoBack = this.ctx.createGain();
+      echoBack.gain.value = 0.28;
+      const echoTone = this.ctx.createBiquadFilter();
+      echoTone.type = 'lowpass';
+      echoTone.frequency.value = 2600;
+      this.echoSend = this.ctx.createGain();
+      this.echoSend.gain.value = 0.16;
+      this.echoSend.connect(this.echo);
+      this.echo.connect(echoTone);
+      echoTone.connect(echoBack);
+      echoBack.connect(this.echo);
+      echoTone.connect(this.master);
       this._buildWaves();
       this.unlocked = true;
       if (this.ctx.state === 'suspended') this.ctx.resume();
@@ -204,10 +227,29 @@ class AudioEngine {
       osc.frequency.setValueAtTime(f0, t);
       osc.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + d);
       const gn = this.ctx.createGain();
-      gn.gain.setValueAtTime(g, t);
+      // A few milliseconds of attack. Starting a gain at full value is a step
+      // discontinuity, which is a click, and every slide in the game had one
+      // on the front of it.
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.linearRampToValueAtTime(g, t + 0.006);
       gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
-      osc.connect(gn); gn.connect(G);
+      osc.connect(gn);
+      gn.connect(G);
+      if (this.echoSend) gn.connect(this.echoSend);
       osc.start(t); osc.stop(t + d + 0.02);
+    };
+    // A fanfare with something underneath it. A run of bare pulse tones is
+    // thin; a fifth below and a shimmer above turns the same notes into a
+    // chord that sounds like it means something.
+    const fanfare = (notes, step = 0.11, dur = 0.2, g = 0.24) => {
+      notes.forEach((f, i) => {
+        const at = t + i * step;
+        this._tone(at, dur, f, 'half', g, G);
+        this._tone(at, dur * 1.4, f / 2, 'tri', g * 0.5, G);
+        if (i === notes.length - 1) {
+          this._tone(at + 0.05, dur * 1.8, f * 2, 'eighth', g * 0.3, G);
+        }
+      });
     };
 
     switch (name) {
@@ -215,27 +257,29 @@ class AudioEngine {
       case 'select':   beep(1180, 0.07, 'quarter', 0.22); break;
       case 'back':     beep(420, 0.07, 'quarter', 0.18); break;
       case 'deny':     beep(200, 0.13, 'half', 0.22); break;
-      case 'text':     beep(1500, 0.014, 'eighth', 0.07); break;
+      case 'text':     beep(1420 + ((this._textTick = (this._textTick | 0) + 1) % 5) * 34, 0.014, 'eighth', 0.07); break;
       case 'bump':     beep(150, 0.06, 'half', 0.16); break;
       case 'step':     this._noise(t, 0.04, 300, 0.05, G); break;
       case 'encounter': slide(300, 1400, 0.28, 'half', 0.3); break;
-      case 'hit':      this._noise(t, 0.12, 500, 0.35, G); slide(500, 120, 0.14, 'half', 0.22); break;
-      case 'supereffective': this._noise(t, 0.2, 900, 0.4, G); slide(900, 200, 0.24, 'half', 0.3); break;
+      case 'hit':      this._noise(t, 0.12, 500, 0.35, G); slide(500, 120, 0.14, 'half', 0.22);
+        this._tone(t, 0.09, 90, 'tri', 0.3, G); break;
+      case 'supereffective': this._noise(t, 0.22, 900, 0.42, G); slide(900, 200, 0.26, 'half', 0.3);
+        this._tone(t, 0.16, 70, 'tri', 0.34, G); this._tone(t + 0.05, 0.2, 1760, 'eighth', 0.14, G); break;
       case 'weak':     this._noise(t, 0.09, 240, 0.16, G); break;
       case 'faint':    slide(700, 90, 0.55, 'half', 0.3); break;
-      case 'heal':     [660, 880, 1100].forEach((f, i) => this._tone(t + i * 0.09, 0.1, f, 'quarter', 0.2, G)); break;
-      case 'levelup':  [523, 659, 784, 1047].forEach((f, i) => this._tone(t + i * 0.08, 0.13, f, 'half', 0.22, G)); break;
+      case 'heal':     fanfare([660, 880, 1100], 0.09, 0.13, 0.2); break;
+      case 'levelup':  fanfare([523, 659, 784, 1047], 0.085, 0.16, 0.22); break;
       case 'ball':     slide(900, 300, 0.16, 'quarter', 0.25); break;
       case 'wobble':   beep(300, 0.08, 'half', 0.2); break;
-      case 'caught':   [784, 988, 1175, 1568].forEach((f, i) => this._tone(t + i * 0.11, 0.18, f, 'half', 0.24, G)); break;
+      case 'caught':   fanfare([784, 988, 1175, 1568], 0.11, 0.2, 0.24); break;
       case 'escape':   slide(600, 1200, 0.18, 'quarter', 0.22); break;
-      case 'evolve':   [440, 554, 659, 880, 1109].forEach((f, i) => this._tone(t + i * 0.14, 0.2, f, 'quarter', 0.2, G)); break;
-      case 'badge':    [659, 784, 988, 1319, 1568].forEach((f, i) => this._tone(t + i * 0.12, 0.24, f, 'half', 0.26, G)); break;
+      case 'evolve':   fanfare([440, 554, 659, 880, 1109], 0.14, 0.24, 0.21); break;
+      case 'badge':    fanfare([659, 784, 988, 1319, 1568], 0.12, 0.26, 0.26); break;
       case 'save':     [880, 1320].forEach((f, i) => this._tone(t + i * 0.1, 0.12, f, 'quarter', 0.2, G)); break;
       case 'buy':      [1047, 1319].forEach((f, i) => this._tone(t + i * 0.07, 0.09, f, 'quarter', 0.22, G)); break;
       case 'door':     this._noise(t, 0.16, 260, 0.18, G); break;
       case 'warp':     slide(200, 1600, 0.4, 'eighth', 0.24); break;
-      case 'join':     [784, 1047, 1319].forEach((f, i) => this._tone(t + i * 0.09, 0.12, f, 'quarter', 0.24, G)); break;
+      case 'join':     fanfare([784, 1047, 1319], 0.09, 0.14, 0.22); break;
       case 'leave':    [1047, 784, 523].forEach((f, i) => this._tone(t + i * 0.09, 0.12, f, 'quarter', 0.2, G)); break;
       default: break;
     }
