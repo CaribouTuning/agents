@@ -19467,6 +19467,19 @@ const GLYPHS = {
   '&': '.##..' + '#..#.' + '#.#..' + '.#...' + '#.#.#' + '#..#.' + '.##.#',
   $: '..#..' + '.####' + '#.#..' + '.###.' + '..#.#' + '####.' + '..#..',
   '_': '.....' + '.....' + '.....' + '.....' + '.....' + '.....' + '#####',
+  // The rest of printable ASCII. Nothing in the game is supposed to reach
+  // for these, but "Sammy @ Sandgem" did — the link badge builds its line at
+  // runtime, and a character the font has never heard of comes out as a
+  // question mark in the middle of a sentence. Cheaper to be able to draw
+  // them all than to keep discovering which one is missing.
+  '@': '.###.' + '#...#' + '#.##.' + '#.#.#' + '#.##.' + '#....' + '.###.',
+  '^': '..#..' + '.#.#.' + '#...#' + '.....' + '.....' + '.....' + '.....',
+  '~': '.....' + '.....' + '.##.#' + '#..##' + '.....' + '.....' + '.....',
+  '|': '..#..' + '..#..' + '..#..' + '..#..' + '..#..' + '..#..' + '..#..',
+  '\\': '#....' + '#....' + '.#...' + '..#..' + '...#.' + '....#' + '....#',
+  '{': '..##.' + '..#..' + '..#..' + '.#...' + '..#..' + '..#..' + '..##.',
+  '}': '.##..' + '..#..' + '..#..' + '...#.' + '..#..' + '..#..' + '.##..',
+  '`': '.#...' + '..#..' + '.....' + '.....' + '.....' + '.....' + '.....',
   '\u00e9': '..#..' + '.#...' + '.###.' + '#...#' + '#####' + '#....' + '.###.',
   // Symbols the UI leans on.
   '♂': '...##' + '....#' + '..###' + '.###.' + '#...#' + '#...#' + '.###.', // male
@@ -37357,7 +37370,7 @@ class MultiplayerScreen extends Screen {
       out.push({ k: 'trade', text: 'TRADE' });
     }
     if (this.snap.transport === 'offline') out.push({ k: 'retry', text: 'RETRY CONNECTION' });
-    out.push({ k: 'info', text: 'HOW LINKING WORKS' });
+    out.push({ k: 'info', text: 'HOW IT WORKS' });
     out.push({ k: 'back', text: 'BACK' });
     return out;
   }
@@ -37575,24 +37588,32 @@ class MultiplayerScreen extends Screen {
       window9(ctx, 10, 46, W - 144, 30, { bg: PAL.uiBgAlt });
       labelDim(ctx, 'ROOM CODE', 16, 49);
       drawText(ctx, s.code, 16, 60, { color: PAL.uiText, scale: 2 });
-      labelDim(ctx, s.isHost ? 'You created this room' : 'You joined this room', 10, 80);
+      labelDim(ctx, s.isHost ? 'You made this room' : 'You joined this room', 10, 80);
     } else {
       labelDim(ctx, 'Not in a room yet.', 10, 50);
     }
 
     const py = s.code ? 92 : 64;
+    // Everything on the left has the menu beside it, so it gets clipped to
+    // the gap rather than written across it. At 256 logical pixels that gap
+    // is about twenty characters, and a sentence that ignores it comes out
+    // underneath the options.
+    const room = Math.max(12, Math.floor((this._menuBox().x - 16) / 6));
+    const fit = (t) => (t.length > room ? `${t.slice(0, room - 1)}\u2026` : t);
     if (s.partner) {
       drawText(ctx, '●', 10, py, { color: PAL.hpGreen });
-      label(ctx, `${s.partner.name} connected`, 20, py);
+      label(ctx, fit(`${s.partner.name} connected`), 20, py);
       const pr = s.partner.presence;
       if (pr) {
         // Where they actually are, so the two of you can decide to meet.
         const place = (MAPS[pr.map] && MAPS[pr.map].name) || 'somewhere';
-        labelDim(ctx, `${pr.badges} badge${pr.badges === 1 ? '' : 's'}  ·  ${pr.party} in party  ·  ${place}`, 10, py + 10);
-        // And the one thing about co-op that is worth saying out loud, because
-        // being at different points in the story is normal and fine.
-        labelDim(ctx, 'You each keep your own story. The link shares the world,', 10, py + 22);
-        labelDim(ctx, 'not the plot — neither of you can skip the other ahead.', 10, py + 32);
+        labelDim(ctx, fit(place), 10, py + 10);
+        labelDim(ctx, fit(`${pr.badges} badge${pr.badges === 1 ? '' : 's'} \u00b7 ${pr.party} with them`), 10, py + 20);
+        // And the one thing about co-op worth saying out loud, because being
+        // at different points in the story is normal and fine.
+        labelDim(ctx, fit('You each keep your own'), 10, py + 32);
+        labelDim(ctx, fit('story. The link shares'), 10, py + 41);
+        labelDim(ctx, fit('the world, not the plot.'), 10, py + 50);
       }
     } else if (s.code) {
       labelDim(ctx, 'Waiting for your partner to join...', 10, py);
@@ -37600,7 +37621,12 @@ class MultiplayerScreen extends Screen {
       labelDim(ctx, dots, 10, py + 10);
     }
 
-    if (this.notice) labelDim(ctx, this.notice, 10, H - 16);
+    // The notice runs the full width — nothing is beside it down there.
+    if (this.notice) {
+      const wide = Math.max(16, Math.floor((W - 20) / 6));
+      const t = this.notice.length > wide ? `${this.notice.slice(0, wide - 1)}\u2026` : this.notice;
+      labelDim(ctx, t, 10, H - 16);
+    }
 
     // Menu.
     const box = this._menuBox();
@@ -37611,7 +37637,8 @@ class MultiplayerScreen extends Screen {
       if (i === this.index) cursor(ctx, box.x + 4, y);
       label(ctx, o.text, box.x + 12, y, { color: o.k === 'back' ? PAL.uiTextDim : PAL.uiText });
     });
-    drawTextRight(ctx, 'LINK', W - 6, 8, { color: '#9ee0a0', shadow: PAL.black });
+    // The panel already says LINK across its top-left; a second one up here
+    // only ever printed underneath the BACK chip.
     // A thumb needs something to aim at: on a phone there is no B key.
     drawBackChip(ctx, W - 52, 2);
   }

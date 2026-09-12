@@ -1489,6 +1489,32 @@ function checkNobodyFightsAPlaceholder() {
 // the Gym Leaders make the same speech — but it reads as live content, and
 // somebody editing it would be editing text that never reaches the screen.
 
+/**
+ * The alphabet itself.
+ *
+ * Every other text rule checks strings the game ships. This one checks the
+ * font, because the strings that broke were the ones built at runtime — the
+ * game's own name gained an ampersand and could not draw it, and the link
+ * badge wrote "Sammy @ Sandgem" and put a question mark in the middle of it.
+ * Anything a keyboard can type has to come out as the character that was
+ * typed.
+ */
+function checkTheFontKnowsItsAlphabet() {
+  const missing = [];
+  for (let c = 32; c < 127; c++) {
+    const ch = String.fromCharCode(c);
+    if (unrenderable(ch).length) missing.push(ch);
+  }
+  if (missing.length) {
+    err('font', `cannot draw ${JSON.stringify(missing.join(''))} — printable ASCII the game may be asked to write`);
+  }
+  // And the two strings that have already caught this.
+  for (const line of ['POK\u00e9MON FOR SAMMY & MATT', 'Sammy @ Sandgem', 'A private fan project, for the two of us.']) {
+    const bad = unrenderable(line);
+    if (bad.length) err('font', `cannot draw ${JSON.stringify(bad)} in "${line}"`);
+  }
+}
+
 function checkNoTextIsStranded() {
   const stranded = [];
   for (const map of Object.values(MAPS)) {
@@ -1592,6 +1618,7 @@ function checkNowhereStrandsYou() {
 
 checkNowhereStrandsYou();
 checkEveryGymFightIsWalkableTo();
+checkTheFontKnowsItsAlphabet();
 checkNoTextIsStranded();
 // ---- the first fight is a fair fight ---------------------------------------
 // The player owns exactly one Pokemon when Cass stops them on Route 201, and
