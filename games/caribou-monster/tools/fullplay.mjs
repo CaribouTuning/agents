@@ -796,9 +796,27 @@ for (const gym of GYMS) {
     if (met === null) { found('GYM EMPTY', `${gym.leader} is not standing in ${gym.map}`); continue; }
     await clear(400);
   }
-  const after = (await at()).badges;
+  let after = (await at()).badges;
   if (after <= before) {
-    found('NO BADGE', `beating ${gym.leader} did not hand over the ${gym.badge}`);
+    // Walking up to them and pressing A did not produce a fight — the walker
+    // got next to the wrong tile, or a lift moved them, or the tap landed on
+    // a box that was already open. Whatever it was, it is about getting
+    // there, and the question here is whether beating them pays. Run the
+    // fight where they stand and ask again.
+    const ran = await page.evaluate((t) => {
+      const w = window.CARIBOU.overworld.world;
+      const npc = (w.entities || []).find((e) => e.data && e.data.trainer === t);
+      if (!npc) return false;
+      window.CARIBOU.overworld.runScript('gymLeader', npc);
+      return true;
+    }, gym.trainer);
+    if (ran) await clear(400);
+    after = (await at()).badges;
+    if (after <= before) {
+      found('NO BADGE', `beating ${gym.leader} did not hand over the ${gym.badge}`);
+    } else {
+      found('GYM WALK', `could not reach ${gym.leader} on foot in ${gym.map}; the badge itself is fine`);
+    }
   }
 }
 
