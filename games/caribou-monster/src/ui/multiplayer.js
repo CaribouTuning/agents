@@ -2,6 +2,7 @@
 // honest account of what the current transport can and cannot do.
 import { Screen } from './screen.js';
 import { MAPS } from '../data/maps/index.js';
+import { TILES } from '../render/tiles.js';
 import { drawBackChip } from './controls.js';
 import { input } from '../core/input.js';
 import { audio } from '../core/audio.js';
@@ -43,6 +44,11 @@ export class MultiplayerScreen extends Screen {
       out.push({ k: 'join', text: 'JOIN ROOM' });
     }
     if (this.snap.partner) {
+      // The first thing two linked players want, and the thing that was
+      // missing: they each start in their own house, so the link comes up
+      // with the two of them on different maps and nothing on screen to say
+      // so or to do about it.
+      if (!this._together()) out.push({ k: 'goto', text: 'GO TO PARTNER' });
       out.push({ k: 'battle', text: 'BATTLE PARTNER' });
       out.push({ k: 'trade', text: 'TRADE' });
     }
@@ -80,8 +86,15 @@ export class MultiplayerScreen extends Screen {
     switch (k) {
       case 'create': {
         const r = net.createRoom();
-        this.notice = r.ok ? 'Room created. Share the code!' : 'No connection available.';
-        if (!r.ok) audio.sfx('deny'); else audio.sfx('join');
+        if (!r.ok) { audio.sfx('deny'); this.notice = 'No connection available.'; break; }
+        audio.sfx('join');
+        // A same-device fallback reaches other TABS and nothing else. Saying
+        // so here, rather than only on the info page, is the difference
+        // between "they are joining" and an hour of two people staring at a
+        // light that says everything is fine.
+        this.notice = net.crossDevice
+          ? 'Room created. Send the code to your partner.'
+          : 'Same-device link only — another PHONE cannot join this code.';
         break;
       }
       case 'join':
@@ -93,6 +106,7 @@ export class MultiplayerScreen extends Screen {
         this.notice = 'You left the room.';
         audio.sfx('leave');
         break;
+      case 'goto': this._goToPartner(); break;
       case 'battle':
         this.game.screens.pop();
         this.game.requestPvp();
@@ -110,6 +124,52 @@ export class MultiplayerScreen extends Screen {
       case 'info': this.mode = 'info'; break;
       default: this.game.screens.pop();
     }
+  }
+
+  /** True when the two of you are already standing in the same place. */
+  _together() {
+    const pr = this.snap.partner && this.snap.partner.presence;
+    return !!(pr && pr.map === this.game.state.player.map);
+  }
+
+  /**
+   * Walk over to wherever they are.
+   *
+   * Only to somewhere you have already been: a link is not a way past a door
+   * the story has not opened for you, and being dropped into the middle of
+   * an act you have not reached would ruin the game for the person behind.
+   * When you have not been there, it says so, which is the cue for the other
+   * one to come to you instead.
+   */
+  _goToPartner() {
+    const pr = this.snap.partner && this.snap.partner.presence;
+    if (!pr || !pr.map || !MAPS[pr.map]) { audio.sfx('deny'); this.notice = 'They are not anywhere you can reach.'; return; }
+    if (pr.busy && pr.busy !== 'free') {
+      audio.sfx('deny');
+      this.notice = `${this.snap.partner.name} is in the middle of something.`;
+      return;
+    }
+    const st = this.game.state;
+    const known = !!(st.visited && st.visited[pr.map]) || pr.map === st.player.map;
+    if (!known) {
+      audio.sfx('deny');
+      this.notice = `You have not been to ${MAPS[pr.map].name} yet. Ask them to come to you.`;
+      return;
+    }
+    // Land beside them rather than on them, and never inside scenery.
+    const map = MAPS[pr.map];
+    const solid = (x, y) => {
+      if (x < 0 || y < 0 || x >= map.width || y >= map.height) return true;
+      const def = TILES[map.tiles[y][x]];
+      return !def || def.solid;
+    };
+    let spot = null;
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      if (!solid(pr.x + dx, pr.y + dy)) { spot = { x: pr.x + dx, y: pr.y + dy }; break; }
+    }
+    audio.sfx('warp');
+    this.game.screens.pop();
+    this.game.teleport(pr.map, spot ? spot.x : null, spot ? spot.y : null);
   }
 
   _updateJoin() {
@@ -152,7 +212,9 @@ export class MultiplayerScreen extends Screen {
       return;
     }
     audio.sfx('join');
-    this.notice = `Joined room ${code}. Waiting for your partner...`;
+    this.notice = net.crossDevice
+      ? `Joined ${code}. Waiting for your partner...`
+      : `Same-device link only — you will not reach another phone.`;
     this.mode = 'menu';
     this.index = 0;
   }
@@ -201,6 +263,9 @@ export class MultiplayerScreen extends Screen {
         : s.transport === 'online' ? 'ONLINE' : 'LOCAL LINK';
     label(ctx, word, 20, 22);
     labelDim(ctx, transportLabel, 10, 33);
+    if (s.transport === 'local') {
+      drawTextRight(ctx, 'THIS DEVICE ONLY', W - 6, 33, { color: PAL.uiDanger });
+    }
 
     if (s.code) {
       window9(ctx, 10, 46, W - 144, 30, { bg: PAL.uiBgAlt });

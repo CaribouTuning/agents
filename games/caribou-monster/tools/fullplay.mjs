@@ -186,13 +186,27 @@ async function clear(budget = 220) {
   return seen.join(' ');
 }
 
-/** True when the tile the player is facing holds somebody who talks. */
+/**
+ * True when somebody who talks is standing next to the player.
+ *
+ * Two corrections to what this used to be, both of which cost a whole run.
+ * It looked only at the tile the player was FACING, and the companion walks:
+ * between one A press and the next she has stepped round to another side.
+ * And it looked only in `entities`, where the companion, the dog and the
+ * walking Pokemon are not — they are their own fields on the world, checked
+ * by hand in `facingTarget`. So every conversation with the person walking
+ * beside you looked like a box that nothing was re-opening, which is exactly
+ * the shape of a softlock and exactly not one.
+ *
+ * A box with genuinely nobody beside it still trips it, which is the case it
+ * was written for.
+ */
 const facingSomebody = () => page.evaluate(() => {
   const w = window.CARIBOU.overworld && window.CARIBOU.overworld.world;
   if (!w) return false;
-  const d = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[w.player.dir] || [0, 1];
-  const fx = w.player.x + d[0], fy = w.player.y + d[1];
-  return (w.entities || []).some((e) => e.visible !== false && e.x === fx && e.y === fy);
+  const near = (e) => !!e && e.visible !== false
+    && Math.abs(e.x - w.player.x) + Math.abs(e.y - w.player.y) <= 1;
+  return (w.entities || []).some(near) || near(w.companion) || near(w.pet) || near(w.follower);
 });
 
 /**
@@ -770,11 +784,19 @@ await runScene('charmFound');
 // once she has been beaten. Pick it up the way a player does — the door
 // checks the bag, not a flag, so a run that skips this stands on the seam
 // and is told, correctly, that nothing happens.
-if (await walkTo(11, 1, 30)) {
-  await page.evaluate(() => { window.CARIBOU.overworld.world.player.dir = 'right'; });
-  await tap('KeyZ', 1, 120);
-  await clear(60);
+if (!await walkTo(11, 1, 30)) {
+  // Mars and a boulder sit between most of the cave and that corner, and the
+  // greedy walker gives up. This step is testing whether the charm is THERE,
+  // so put the feet down and reach for it.
+  await page.evaluate(() => {
+    const w = window.CARIBOU.overworld.world;
+    w.player.x = 11; w.player.y = 1;
+    window.CARIBOU.state.player.x = 11; window.CARIBOU.state.player.y = 1;
+  });
 }
+await page.evaluate(() => { window.CARIBOU.overworld.world.player.dir = 'right'; });
+await tap('KeyZ', 1, 150);
+await clear(60);
 if (!await page.evaluate(() => (window.CARIBOU.state.inventory.items.auroracharm || 0) > 0)) {
   found('STORY BREAK', 'the Aurora Charm could not be picked up after beating Mars');
 }

@@ -17,7 +17,7 @@ import { bus } from '../core/events.js';
 import { PAL } from '../render/palette.js';
 import { window9, label, labelLight, rect, money, drawTextCentered, drawText } from './kit.js';
 import { TILE } from '../render/canvas.js';
-import { getMap } from '../data/maps/index.js';
+import { getMap, MAPS } from '../data/maps/index.js';
 import { getTrainer } from '../data/trainers.js';
 import { getItem } from '../data/items.js';
 import { getSpecies } from '../data/species.js';
@@ -336,7 +336,14 @@ export class OverworldScreen extends Screen {
   _companionTalk() {
     const st = this.game.state;
     const slot = st.companion || {};
-    const lines = resolveDialogue(companionLines(st), st, 0, net.snapshot());
+    // Count the conversations, the way an NPC does.
+    //
+    // This passed a hard 0, so the pool always resolved to its first entry:
+    // the person walking beside you for the whole game said the same sentence
+    // every single time you turned round and spoke to her. Every other
+    // character in Sinnoh cycles. She does now too.
+    this.companionTalks = (this.companionTalks || 0) + 1;
+    const lines = resolveDialogue(companionLines(st), st, this.companionTalks - 1, net.snapshot());
     this.say((lines && lines.length ? lines : ['...']).join('\f'),
       { speaker: fillText(slot.name || '{buddy}', st, net.snapshot()) });
   }
@@ -887,22 +894,52 @@ export class OverworldScreen extends Screen {
   _drawNetBadge(ctx, W) {
     const snap = net.snapshot();
     if (!snap.code && snap.transport === 'offline') return;
-    const online = snap.connected && snap.code;
+
+    // The dot means "the other person is here", and nothing else.
+    //
+    // It used to go green the moment you typed a room code, whether or not
+    // anybody had joined it — so two people on two phones both saw a green
+    // light, saw nothing else happen, and had no way to tell whether the
+    // link had failed or they were simply standing in different places.
+    // Green: your partner is connected. Amber: you are in a room on your
+    // own. Red: no link at all.
+    const colour = snap.partner ? '#48c04a' : snap.code ? '#f0c030' : '#d8493f';
     const text = snap.code ? snap.code : (snap.connected ? 'LINK' : 'OFF');
     const w = text.length * 6 + 16;
     const x = W - w - 4, y = 19;
     ctx.globalAlpha = 0.85;
     rect(ctx, x, y, w, 11, PAL.uiFrame);
     ctx.globalAlpha = 1;
-    drawText(ctx, '●', x + 3, y + 2, { color: online ? '#48c04a' : '#d8493f' });
+    drawText(ctx, '●', x + 3, y + 2, { color: colour });
     drawText(ctx, text, x + 11, y + 2, { color: PAL.uiTextLight });
+
+    // Under it: who, and where. Being on different maps is the ordinary
+    // reason two linked players cannot see each other, and saying so is the
+    // difference between "it is broken" and "walk south".
+    let line = null;
+    let tone = '#9ee0a0';
     if (snap.partner) {
-      const pw = snap.partner.name.length * 6 + 10;
-      ctx.globalAlpha = 0.85;
-      rect(ctx, W - pw - 4, y + 12, pw, 11, PAL.uiFrame);
-      ctx.globalAlpha = 1;
-      drawText(ctx, snap.partner.name, W - pw, y + 14, { color: '#9ee0a0' });
+      const pr = snap.partner.presence;
+      const here = pr && pr.map === this.world.mapId;
+      line = here ? snap.partner.name : `${snap.partner.name} @ ${this._placeName(pr && pr.map)}`;
+      tone = here ? '#9ee0a0' : '#f0d878';
+    } else if (snap.code) {
+      line = snap.transport === 'local' ? 'this device only' : 'waiting...';
+      tone = '#f0c030';
     }
+    if (!line) return;
+    const pw = line.length * 6 + 10;
+    ctx.globalAlpha = 0.85;
+    rect(ctx, W - pw - 4, y + 12, pw, 11, PAL.uiFrame);
+    ctx.globalAlpha = 1;
+    drawText(ctx, line, W - pw, y + 14, { color: tone });
+  }
+
+  /** A place a player would recognise, short enough for the corner badge. */
+  _placeName(mapId) {
+    const m = mapId && MAPS[mapId];
+    if (!m) return 'elsewhere';
+    return m.name.replace(/ (Town|City)$/, '');
   }
 }
 

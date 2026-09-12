@@ -237,7 +237,12 @@ export class TitleScreen extends Screen {
 
     // Where saves are going, said out loud. A storage problem should be
     // visible on the first screen, not discovered a day later.
-    labelDim(ctx, this._storageNote(), 9, H - 45);
+    //
+    // Along the top, where nothing else is drawn. It used to sit at the foot
+    // of the screen and run straight under the option box, so the first thing
+    // anybody saw on opening the game was two lines of text on top of each
+    // other.
+    labelDim(ctx, this._storageNote(), 6, 4);
     const meta = this.saveMeta;
     if (meta) {
       window9(ctx, 4, H - 40, 96, 36);

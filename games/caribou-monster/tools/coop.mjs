@@ -145,6 +145,50 @@ if (code) {
 
   await B.screenshot({ path: path.join(OUT, 'coop-01-both-in-world.png') });
 
+// --- two people who are not standing in the same place --------------------
+//
+// The reported failure, exactly: both phones showed a link, and neither
+// could see the other, because each player starts in their own house. The
+// link was working. Nothing on screen said where the other person was, and
+// there was no way to get to them.
+console.log('\n--- being in different places is not a dead end ---');
+if (code) {
+  await A.evaluate(() => { window.CARIBOU.teleport('matthew_house', 5, 5); });
+  await B.evaluate(() => { window.CARIBOU.teleport('sammy_house', 5, 5); });
+  await wait(1600);
+
+  const apart = await B.evaluate(() => {
+    const g = window.CARIBOU;
+    const s = g.netForTest.snapshot();
+    const w = g.overworld.world;
+    return {
+      partner: s.partner ? s.partner.name : null,
+      where: s.partner && s.partner.presence ? s.partner.presence.map : null,
+      onScreen: w.remotesHere().length,
+      mine: w.mapId,
+    };
+  });
+  check('the link still knows the partner is there', apart.partner === 'Matthew', String(apart.partner));
+  check('and knows which map they are on', apart.where === 'matthew_house', String(apart.where));
+  check('even though nobody is on screen', apart.onScreen === 0, `${apart.onScreen} on screen`);
+
+  // Both have stood in Twinleaf, so travelling to them is allowed.
+  await B.evaluate(() => { window.CARIBOU.state.visited.matthew_house = true; });
+  await B.evaluate(() => {
+    const g = window.CARIBOU;
+    const pr = g.netForTest.snapshot().partner.presence;
+    g.teleport(pr.map, pr.x, pr.y + 1);
+  });
+  await wait(1500);
+  // Read where you ended up AFTER the warp has run: teleport hands off to the
+  // screen stack, so the state still says the old map on the next line.
+  const went = await B.evaluate(() => window.CARIBOU.state.player.map);
+  const met = await B.evaluate(() => window.CARIBOU.overworld.world.remotesHere().length);
+  check('going to them puts you in the same map', went === 'matthew_house', went);
+  check('and then you can see each other', met === 1, `${met} on screen`);
+}
+
+
   // --- trade -------------------------------------------------------------
   const beforeA = await A.evaluate(() => window.CARIBOU.state.party.map((m) => m.species));
   const beforeB = await B.evaluate(() => window.CARIBOU.state.party.map((m) => m.species));

@@ -19462,6 +19462,9 @@ const GLYPHS = {
   '*': '.....' + '#.#.#' + '.###.' + '#####' + '.###.' + '#.#.#' + '.....',
   '#': '.#.#.' + '#####' + '.#.#.' + '.#.#.' + '#####' + '.#.#.' + '.....',
   '%': '##..#' + '##.#.' + '..#..' + '.#.##' + '#..##' + '.....' + '.....',
+  // The game is called "for Sammy & Matt", and the font could not draw the
+  // one character in the middle of its own name.
+  '&': '.##..' + '#..#.' + '#.#..' + '.#...' + '#.#.#' + '#..#.' + '.##.#',
   $: '..#..' + '.####' + '#.#..' + '.###.' + '..#.#' + '####.' + '..#..',
   '_': '.....' + '.....' + '.....' + '.....' + '.....' + '.....' + '#####',
   '\u00e9': '..#..' + '.#...' + '.###.' + '#...#' + '#####' + '#....' + '.###.',
@@ -23427,7 +23430,12 @@ class TitleScreen extends Screen {
 
     // Where saves are going, said out loud. A storage problem should be
     // visible on the first screen, not discovered a day later.
-    labelDim(ctx, this._storageNote(), 9, H - 45);
+    //
+    // Along the top, where nothing else is drawn. It used to sit at the foot
+    // of the screen and run straight under the option box, so the first thing
+    // anybody saw on opening the game was two lines of text on top of each
+    // other.
+    labelDim(ctx, this._storageNote(), 6, 4);
     const meta = this.saveMeta;
     if (meta) {
       window9(ctx, 4, H - 40, 96, 36);
@@ -30145,7 +30153,7 @@ const { bus } = __req('core/events.js');
 const { PAL } = __req('render/palette.js');
 const { window9, label, labelLight, rect, money, drawTextCentered, drawText } = __req('ui/kit.js');
 const { TILE } = __req('render/canvas.js');
-const { getMap } = __req('data/maps/index.js');
+const { getMap, MAPS } = __req('data/maps/index.js');
 const { getTrainer } = __req('data/trainers.js');
 const { getItem } = __req('data/items.js');
 const { getSpecies } = __req('data/species.js');
@@ -30501,7 +30509,14 @@ class OverworldScreen extends Screen {
   _companionTalk() {
     const st = this.game.state;
     const slot = st.companion || {};
-    const lines = resolveDialogue(companionLines(st), st, 0, net.snapshot());
+    // Count the conversations, the way an NPC does.
+    //
+    // This passed a hard 0, so the pool always resolved to its first entry:
+    // the person walking beside you for the whole game said the same sentence
+    // every single time you turned round and spoke to her. Every other
+    // character in Sinnoh cycles. She does now too.
+    this.companionTalks = (this.companionTalks || 0) + 1;
+    const lines = resolveDialogue(companionLines(st), st, this.companionTalks - 1, net.snapshot());
     this.say((lines && lines.length ? lines : ['...']).join('\f'),
       { speaker: fillText(slot.name || '{buddy}', st, net.snapshot()) });
   }
@@ -31052,22 +31067,52 @@ class OverworldScreen extends Screen {
   _drawNetBadge(ctx, W) {
     const snap = net.snapshot();
     if (!snap.code && snap.transport === 'offline') return;
-    const online = snap.connected && snap.code;
+
+    // The dot means "the other person is here", and nothing else.
+    //
+    // It used to go green the moment you typed a room code, whether or not
+    // anybody had joined it — so two people on two phones both saw a green
+    // light, saw nothing else happen, and had no way to tell whether the
+    // link had failed or they were simply standing in different places.
+    // Green: your partner is connected. Amber: you are in a room on your
+    // own. Red: no link at all.
+    const colour = snap.partner ? '#48c04a' : snap.code ? '#f0c030' : '#d8493f';
     const text = snap.code ? snap.code : (snap.connected ? 'LINK' : 'OFF');
     const w = text.length * 6 + 16;
     const x = W - w - 4, y = 19;
     ctx.globalAlpha = 0.85;
     rect(ctx, x, y, w, 11, PAL.uiFrame);
     ctx.globalAlpha = 1;
-    drawText(ctx, '●', x + 3, y + 2, { color: online ? '#48c04a' : '#d8493f' });
+    drawText(ctx, '●', x + 3, y + 2, { color: colour });
     drawText(ctx, text, x + 11, y + 2, { color: PAL.uiTextLight });
+
+    // Under it: who, and where. Being on different maps is the ordinary
+    // reason two linked players cannot see each other, and saying so is the
+    // difference between "it is broken" and "walk south".
+    let line = null;
+    let tone = '#9ee0a0';
     if (snap.partner) {
-      const pw = snap.partner.name.length * 6 + 10;
-      ctx.globalAlpha = 0.85;
-      rect(ctx, W - pw - 4, y + 12, pw, 11, PAL.uiFrame);
-      ctx.globalAlpha = 1;
-      drawText(ctx, snap.partner.name, W - pw, y + 14, { color: '#9ee0a0' });
+      const pr = snap.partner.presence;
+      const here = pr && pr.map === this.world.mapId;
+      line = here ? snap.partner.name : `${snap.partner.name} @ ${this._placeName(pr && pr.map)}`;
+      tone = here ? '#9ee0a0' : '#f0d878';
+    } else if (snap.code) {
+      line = snap.transport === 'local' ? 'this device only' : 'waiting...';
+      tone = '#f0c030';
     }
+    if (!line) return;
+    const pw = line.length * 6 + 10;
+    ctx.globalAlpha = 0.85;
+    rect(ctx, W - pw - 4, y + 12, pw, 11, PAL.uiFrame);
+    ctx.globalAlpha = 1;
+    drawText(ctx, line, W - pw, y + 14, { color: tone });
+  }
+
+  /** A place a player would recognise, short enough for the corner badge. */
+  _placeName(mapId) {
+    const m = mapId && MAPS[mapId];
+    if (!m) return 'elsewhere';
+    return m.name.replace(/ (Town|City)$/, '');
   }
 }
 
@@ -37225,6 +37270,7 @@ __exports(__x, { ShopScreen: () => ShopScreen });
 __defs['ui/multiplayer.js'] = function (__x, __req) {
 const { Screen } = __req('ui/screen.js');
 const { MAPS } = __req('data/maps/index.js');
+const { TILES } = __req('render/tiles.js');
 const { drawBackChip } = __req('ui/controls.js');
 const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
@@ -37234,6 +37280,7 @@ const { net } = __req('net/NetworkManager.js');
 const { normaliseRoomCode } = __req('net/protocol.js');
 // The LINK screen: create or join a room, see who is connected, and read an
 // honest account of what the current transport can and cannot do.
+
 
 
 
@@ -37275,6 +37322,11 @@ class MultiplayerScreen extends Screen {
       out.push({ k: 'join', text: 'JOIN ROOM' });
     }
     if (this.snap.partner) {
+      // The first thing two linked players want, and the thing that was
+      // missing: they each start in their own house, so the link comes up
+      // with the two of them on different maps and nothing on screen to say
+      // so or to do about it.
+      if (!this._together()) out.push({ k: 'goto', text: 'GO TO PARTNER' });
       out.push({ k: 'battle', text: 'BATTLE PARTNER' });
       out.push({ k: 'trade', text: 'TRADE' });
     }
@@ -37312,8 +37364,15 @@ class MultiplayerScreen extends Screen {
     switch (k) {
       case 'create': {
         const r = net.createRoom();
-        this.notice = r.ok ? 'Room created. Share the code!' : 'No connection available.';
-        if (!r.ok) audio.sfx('deny'); else audio.sfx('join');
+        if (!r.ok) { audio.sfx('deny'); this.notice = 'No connection available.'; break; }
+        audio.sfx('join');
+        // A same-device fallback reaches other TABS and nothing else. Saying
+        // so here, rather than only on the info page, is the difference
+        // between "they are joining" and an hour of two people staring at a
+        // light that says everything is fine.
+        this.notice = net.crossDevice
+          ? 'Room created. Send the code to your partner.'
+          : 'Same-device link only — another PHONE cannot join this code.';
         break;
       }
       case 'join':
@@ -37325,6 +37384,7 @@ class MultiplayerScreen extends Screen {
         this.notice = 'You left the room.';
         audio.sfx('leave');
         break;
+      case 'goto': this._goToPartner(); break;
       case 'battle':
         this.game.screens.pop();
         this.game.requestPvp();
@@ -37342,6 +37402,52 @@ class MultiplayerScreen extends Screen {
       case 'info': this.mode = 'info'; break;
       default: this.game.screens.pop();
     }
+  }
+
+  /** True when the two of you are already standing in the same place. */
+  _together() {
+    const pr = this.snap.partner && this.snap.partner.presence;
+    return !!(pr && pr.map === this.game.state.player.map);
+  }
+
+  /**
+   * Walk over to wherever they are.
+   *
+   * Only to somewhere you have already been: a link is not a way past a door
+   * the story has not opened for you, and being dropped into the middle of
+   * an act you have not reached would ruin the game for the person behind.
+   * When you have not been there, it says so, which is the cue for the other
+   * one to come to you instead.
+   */
+  _goToPartner() {
+    const pr = this.snap.partner && this.snap.partner.presence;
+    if (!pr || !pr.map || !MAPS[pr.map]) { audio.sfx('deny'); this.notice = 'They are not anywhere you can reach.'; return; }
+    if (pr.busy && pr.busy !== 'free') {
+      audio.sfx('deny');
+      this.notice = `${this.snap.partner.name} is in the middle of something.`;
+      return;
+    }
+    const st = this.game.state;
+    const known = !!(st.visited && st.visited[pr.map]) || pr.map === st.player.map;
+    if (!known) {
+      audio.sfx('deny');
+      this.notice = `You have not been to ${MAPS[pr.map].name} yet. Ask them to come to you.`;
+      return;
+    }
+    // Land beside them rather than on them, and never inside scenery.
+    const map = MAPS[pr.map];
+    const solid = (x, y) => {
+      if (x < 0 || y < 0 || x >= map.width || y >= map.height) return true;
+      const def = TILES[map.tiles[y][x]];
+      return !def || def.solid;
+    };
+    let spot = null;
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      if (!solid(pr.x + dx, pr.y + dy)) { spot = { x: pr.x + dx, y: pr.y + dy }; break; }
+    }
+    audio.sfx('warp');
+    this.game.screens.pop();
+    this.game.teleport(pr.map, spot ? spot.x : null, spot ? spot.y : null);
   }
 
   _updateJoin() {
@@ -37384,7 +37490,9 @@ class MultiplayerScreen extends Screen {
       return;
     }
     audio.sfx('join');
-    this.notice = `Joined room ${code}. Waiting for your partner...`;
+    this.notice = net.crossDevice
+      ? `Joined ${code}. Waiting for your partner...`
+      : `Same-device link only — you will not reach another phone.`;
     this.mode = 'menu';
     this.index = 0;
   }
@@ -37433,6 +37541,9 @@ class MultiplayerScreen extends Screen {
         : s.transport === 'online' ? 'ONLINE' : 'LOCAL LINK';
     label(ctx, word, 20, 22);
     labelDim(ctx, transportLabel, 10, 33);
+    if (s.transport === 'local') {
+      drawTextRight(ctx, 'THIS DEVICE ONLY', W - 6, 33, { color: PAL.uiDanger });
+    }
 
     if (s.code) {
       window9(ctx, 10, 46, W - 144, 30, { bg: PAL.uiBgAlt });
