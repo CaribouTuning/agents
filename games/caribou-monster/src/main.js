@@ -37,7 +37,7 @@ import { resolveDialogue, worldSnapshot } from './game/overworld/gossip.js';
 import { NicknameScreen, TextEntryScreen } from './ui/naming.js';
 import { JournalScreen } from './ui/journal.js';
 import * as journalApi from './game/journal.js';
-import { createGameState, healParty, setStoryFlag } from './game/state.js';
+import { createGameState, healParty, setStoryFlag, awardBadge } from './game/state.js';
 import { createMonster, healFully, isFainted, learnMove, knowsMove, canLearnTm } from './game/monster.js';
 import { createBattle } from './game/battle/engine.js';
 import { getSpecies } from './data/species.js';
@@ -610,6 +610,9 @@ function start() {
   // The input layer, so the menu suite can push a screen that answers only the
   // B key — which is exactly the shape the six trapped screens had.
   game.inputForTest = input;
+  // Awards a badge through the real path, so the test sees whatever awarding
+  // one actually does — including opening the Battle Hall's door.
+  game.awardBadgeForTest = (n, name) => awardBadge(game.state, n, name);
   game.fillForTest = (t) => fillText(String(t), game.state, net.snapshot());
   game.healPartyForTest = () => { for (const m of game.state.party) healFully(m); };
   game.bestMoveForTest = (screen) => {

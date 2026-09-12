@@ -5,6 +5,7 @@
 // This screen supplies the primitives they await, and blocks player input for
 // as long as one is running.
 import { Screen, FADE } from './screen.js';
+import { evolutionFor } from '../game/evolution.js';
 import { World, DIRS } from '../game/overworld/world.js';
 import { Camera, drawWorld, drawLocationBanner, drawGuideBar } from '../render/worldrender.js';
 import { drawControls, hintBar, computeLayout } from './controls.js';
@@ -19,7 +20,7 @@ import { getMap } from '../data/maps/index.js';
 import { getTrainer } from '../data/trainers.js';
 import { getItem } from '../data/items.js';
 import { getSpecies } from '../data/species.js';
-import { partnerLine } from '../game/monster.js';
+import { partnerLine, displayName } from '../game/monster.js';
 import { BANDIT, companionLines } from '../data/story.js';
 import { acceptShared, shareable, GOODS } from '../game/underground/base.js';
 import { refusalText } from '../game/fieldmoves.js';
@@ -353,9 +354,38 @@ export class OverworldScreen extends Screen {
     this.say(warp.refuse || 'You should not go this way yet.');
   }
 
+  /**
+   * Says something when a Pokemon is ready to evolve.
+   *
+   * Evolution used to happen only at the end of a battle, so it announced
+   * itself. One that comes back from the Day Care already past its level, or
+   * one whose evolution was stopped with B, just sits in the party being the
+   * wrong shape and nothing anywhere says so — the player has no reason ever
+   * to open the menu and look. So the character notices out loud, once per
+   * Pokemon, the way a person would.
+   */
+  _noticeEvolutions() {
+    if (this.script || dialogue.visible) return;
+    const st = this.game.state;
+    if (!st.noticedEvolve) st.noticedEvolve = {};
+    for (const mon of st.party) {
+      if (!mon || mon.isEgg) continue;
+      const e = evolutionFor(mon, 'level');
+      const key = `${mon.id || mon.species}:${mon.species}`;
+      if (!e) { delete st.noticedEvolve[key]; continue; }
+      if (st.noticedEvolve[key]) continue;
+      st.noticedEvolve[key] = true;
+      audio.sfx('select');
+      this.say(`${displayName(mon)} looks like it is about to change.`
+        + `\fOpen the party menu and choose EVOLVE when you are ready.`);
+      return;
+    }
+  }
+
   _handleWorldEvents() {
     const w = this.world;
     if (this.script) return;
+    this._noticeEvolutions();
 
     if (w.pendingWarp) { const warp = w.pendingWarp; w.pendingWarp = null; this._doWarp(warp); return; }
     // A door the story has not opened yet. Say why, and step the player back

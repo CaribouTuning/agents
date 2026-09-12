@@ -230,6 +230,13 @@ console.log('\n--- the spine ---');
       }
     }
     for (const g of built) if (seen.has(g.map)) flags[`badge${g.n}`] = true;
+    // The last badge opens the Battle Hall, which is the League's building.
+    // `awardBadge` does this in the game; the model has to do it too, or the
+    // Hall looks like a room nothing can ever walk into.
+    if (built.every((g) => flags[`badge${g.n}`]) && !flags.leagueOpen) {
+      flags.leagueOpen = true;
+      grew = true;
+    }
     if (!grew) break;
   }
   for (const g of built) {

@@ -3,6 +3,8 @@
 // Every screen here follows the same rules: D-pad or a direct tap both work,
 // B always goes back, and nothing ever traps the player.
 import { Screen } from './screen.js';
+import { evolutionFor } from '../game/evolution.js';
+import { EvolveScreen } from './evolve.js';
 import { input } from '../core/input.js';
 import { audio } from '../core/audio.js';
 import { PAL, shade, typeColor } from '../render/palette.js';
@@ -180,8 +182,17 @@ export class PartyScreen extends Screen {
     }
     // A Pokémon holding something offers TAKE; one with free hands offers GIVE.
     const mon = party[this.index];
-    this.sub = ['SUMMARY', 'SWITCH', 'ITEM',
-      mon && mon.heldItem ? 'TAKE ITEM' : 'GIVE ITEM', 'CANCEL'];
+    // And one that is ready to evolve offers that, first, because it is the
+    // thing the player came in here to do. Only the battle screen could ever
+    // evolve anything before this, so a Pokemon that came back from the Day
+    // Care already past its level — or one whose evolution was stopped with B
+    // — had no way of ever evolving at all.
+    const ready = mon ? evolutionFor(mon, 'level') : null;
+    this.sub = [
+      ...(ready ? ['EVOLVE'] : []),
+      'SUMMARY', 'SWITCH', 'ITEM',
+      mon && mon.heldItem ? 'TAKE ITEM' : 'GIVE ITEM', 'CANCEL',
+    ];
     this.subIndex = 0;
   }
 
@@ -201,10 +212,20 @@ export class PartyScreen extends Screen {
     if (input.pressed('b')) { audio.sfx('back'); this.sub = null; }
   }
 
+  /** Plays the evolution, then leaves the party list looking at the result. */
+  _evolve() {
+    const mon = this.game.state.party[this.index];
+    if (!mon) return;
+    const e = evolutionFor(mon, 'level');
+    if (!e) return;
+    this.game.screens.push(new EvolveScreen(this.game, mon, e.into));
+  }
+
   _runSub(i) {
     const label_ = this.sub[i];
     this.sub = null;
-    if (label_ === 'SUMMARY') this.detail = { page: 0 };
+    if (label_ === 'EVOLVE') this._evolve();
+    else if (label_ === 'SUMMARY') this.detail = { page: 0 };
     else if (label_ === 'SWITCH') this.swapFrom = this.index;
     else if (label_ === 'ITEM') this.game.screens.push(new BagScreen(this.game, {
       mode: 'use', target: this.index,

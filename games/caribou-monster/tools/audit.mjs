@@ -1076,6 +1076,10 @@ function checkFlagsJoinUp() {
   // reports three quarters of the game as broken.
   for (const m of src.matchAll(/setFlag\(\s*'([A-Za-z0-9_]+)'/g)) set.add(m[1]);
   for (const m of src.matchAll(/setStoryFlag\([^,]+,\s*'([A-Za-z0-9_]+)'/g)) set.add(m[1]);
+  // `setFlag` is also called with the flag BAG first — setFlag(st.flags, 'x')
+  // — which is how state.js writes them. Missing this shape reported a flag
+  // that is set on every badge as never set by anything.
+  for (const m of src.matchAll(/setFlag\([^,'`]+,\s*'([A-Za-z0-9_]+)'/g)) set.add(m[1]);
   for (const m of src.matchAll(/setFlag\(\s*FLAGS\.([A-Z0-9_]+)/g)) {
     if (FLAGS[m[1]]) set.add(FLAGS[m[1]]);
   }

@@ -329,8 +329,13 @@ export const OREBURGH = defineMap('oreburgh', {
     { x: 26, y: 14, to: 'oreburgh_house2', tx: 5, ty: 6, dir: 'up' },
     { x: 14, y: 19, to: 'oreburgh_gym', tx: 7, ty: 14, dir: 'up' },
     { x: 15, y: 19, to: 'oreburgh_gym', tx: 8, ty: 14, dir: 'up' },
-    { x: 21, y: 11, to: 'oreburgh_hall', tx: 7, ty: 8, dir: 'up' },
-    { x: 22, y: 11, to: 'oreburgh_hall', tx: 8, ty: 8, dir: 'up' },
+    // The Battle Hall is the League's building, and the League takes the
+    // badges. It used to be open from the first afternoon, so a player could
+    // walk in at level eight and be offered the Finals.
+    { x: 21, y: 11, to: 'oreburgh_hall', tx: 7, ty: 8, dir: 'up', requires: 'leagueOpen',
+      refuse: 'A steward is on the door.\fSteward: Circuit members only, and the Circuit wants every badge\nSinnoh has. Come back with them.' },
+    { x: 22, y: 11, to: 'oreburgh_hall', tx: 8, ty: 8, dir: 'up', requires: 'leagueOpen',
+      refuse: 'A steward is on the door.\fSteward: Circuit members only, and the Circuit wants every badge\nSinnoh has. Come back with them.' },
   ],
   labels: [
     { x: 3, y: 5, w: 8, text: 'POKéMON CENTER' },
@@ -356,6 +361,28 @@ export const OREBURGH = defineMap('oreburgh', {
     { x: 17, y: 20, text: 'WIN AND CLAIM THE COAL BADGE\nA Gym Badge is proof you beat a Leader.\n{leagueBadges} of them opens the League.' },
   ],
   npcs: [
+    // The steward on the Battle Hall door, so the closed door has a reason
+    // standing next to it rather than being a wall that talks.
+    {
+      id: 'bh_steward', x: 21, y: 12, look: 'scientist', name: 'Steward',
+      movement: 'still', facing: 'down',
+      dialogue: [
+        {
+          when: { flag: 'leagueOpen' },
+          lines: ['Steward: Every badge in Sinnoh. Go on in — they are expecting you.',
+            'Steward: The Finals are through the far doors. Good luck.'],
+        },
+        {
+          when: { badges: 1 },
+          lines: ['Steward: The Circuit wants all {leagueBadges} badges before it will hear\nyour name. You have {badges}.',
+            'Steward: Not a judgement. It is just the door I am paid to hold.'],
+        },
+        {
+          lines: ['Steward: Battle Hall. Circuit members only.',
+            'Steward: Come back with all {leagueBadges} Gym badges and the door is yours.'],
+        },
+      ],
+    },
     {
       id: 'al_clerkgirl', x: 10, y: 9, look: 'lass', name: 'Odie', movement: 'wander', facing: 'down',
       dialogue: [

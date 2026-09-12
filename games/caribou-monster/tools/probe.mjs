@@ -21,26 +21,25 @@ await page.evaluate(() => {
   const g = window.CARIBOU;
   g.startNewGame({ name: 'Matthew', look: 'matthew', difficulty: 'easy' });
   g.state.flags.gotStarter = true;
-  g.debugGive(387, 20);
+  g.debugGive(387, 20);   // a Turtwig well past its evolution level
 });
-await wait(900);
-// The title-side screens, and the circuit ones.
-for (const [what, how] of [
-  ['TitleOptionsScreen', () => window.CARIBOU.openOptions && window.CARIBOU.screens.push(new (window.CARIBOU.screens.top.constructor)(window.CARIBOU))],
-  ['CircuitScreen', () => window.CARIBOU.openCircuit()],
-  ['MultiplayerScreen', () => window.CARIBOU.openMultiplayer()],
-  ['PCScreen', () => window.CARIBOU.openPC()],
-  ['JournalScreen', () => window.CARIBOU.openJournal()],
-]) {
-  await page.evaluate(() => { while (window.CARIBOU.screens.stack.length > 1) window.CARIBOU.screens.pop(); });
-  await wait(200);
-  try { await page.evaluate(how); } catch { /* skip */ }
-  await wait(450);
-  const r = await page.evaluate(() => {
-    const g = window.CARIBOU;
-    const c = g.controlsForTest && g.controlsForTest.backChip();
-    return { top: g.screens.top.constructor.name, chip: !!c, x: c && Math.round(c.x), y: c && Math.round(c.y) };
-  });
-  console.log(`  ${String(r.top).padEnd(20)} chip=${r.chip ? `yes (${r.x},${r.y})` : 'NO'}`);
+await wait(1500);
+console.log('does the character notice?', JSON.stringify(await page.evaluate(() => {
+  const d = window.CARIBOU.dialogueForTest;
+  return { visible: d.visible, text: (d.pages || []).flat().join(' ').slice(0, 90) };
+})));
+// Clear it, then use the party menu to evolve.
+for (let i = 0; i < 12; i++) { await page.keyboard.press('KeyZ'); await wait(90); }
+await page.evaluate(() => window.CARIBOU.openParty());
+await wait(500);
+await page.keyboard.press('KeyZ'); await wait(400);
+console.log('party actions:', JSON.stringify(await page.evaluate(() => window.CARIBOU.screens.top.sub)));
+await page.keyboard.press('KeyZ'); await wait(500);
+console.log('after choosing the first action:', await page.evaluate(() => window.CARIBOU.screens.top.constructor.name));
+for (let i = 0; i < 90; i++) {
+  const t = await page.evaluate(() => window.CARIBOU.screens.top.constructor.name);
+  if (t !== 'EvolveScreen') break;
+  await wait(120);
 }
+console.log('party now:', JSON.stringify(await page.evaluate(() => window.CARIBOU.state.party.map(m => `${m.species}@${m.level}`))));
 await browser.close(); server.close();

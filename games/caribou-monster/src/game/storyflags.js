@@ -54,6 +54,9 @@ export const FLAGS = {
   // The cool-down, and then the League, and then what comes after it.
   ROWAN_DEBRIEFED: 'rowanDebriefed',
   WENT_HOME: 'wentHome',
+  // Set by `awardBadge` the moment the last one lands. It is what opens the
+  // Battle Hall's door, which is the League's building.
+  LEAGUE_OPEN: 'leagueOpen',
   WON_FINALS: 'wonFinals',
   POST_GAME: 'postGame',
 };

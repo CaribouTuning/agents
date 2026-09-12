@@ -5,6 +5,8 @@
 // co-op players each own a completely separate GameState — only the room and
 // the shared story milestones are common.
 import { createInventory, addItem } from './inventory.js';
+import { leagueBadges } from '../data/campaign.js';
+import { MAPS } from '../data/maps/index.js';
 import { PLAYERS, playerByLook, playerByName } from './players.js';
 import { createDex, recordSeen, recordCaught } from './pokedex.js';
 import { createFlags, setFlag, getFlag, FLAGS, storyProgress } from './storyflags.js';
@@ -160,6 +162,12 @@ export function awardBadge(st, n, name) {
   st.badges.push(n);
   st.badges.sort((a, b) => a - b);
   setFlag(st.flags, `badge${n}`, true);
+  // The last badge is what opens the Battle Hall's door. The Hall is the
+  // League's building and the League takes the badges — it used to stand open
+  // from the first afternoon, so a player could walk in at level eight and be
+  // offered the Finals.
+  if (st.badges.length >= leagueBadges(MAPS)) setFlag(st.flags, 'leagueOpen', true);
+  void name;
   return true;
 }
 
