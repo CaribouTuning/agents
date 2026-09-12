@@ -392,12 +392,17 @@ export class World {
     if (!c) return;
     const slot = this.state.pet;
     // Bandit walks with whoever is holding the phone, because she is Sammy's
-    // dog and Sammy is either the player or the person beside them. The one
-    // case she must NOT be drawn is when she is already the lead Pokemon and
-    // the party follower is drawing her — two Bandits is worse than none.
-    const alreadyDrawn = !!(slot && this.follower && this.follower.visible
-      && this.follower.mon && this.follower.mon.species === slot.species);
-    c.visible = !!(slot && slot.active && slot.species) && !this.linkedNow() && !alreadyDrawn;
+    // dog and Sammy is either the player or the person beside them.
+    //
+    // The stand-in for the other protagonist hides the moment a real second
+    // player is on the link — a stand-in walking around while the person it
+    // stands in for is also on screen is the worst thing co-op can do. The
+    // dog is not a stand-in for anybody. When Sammy is a real player she
+    // still has her dog at her heel, on her own screen, exactly as she does
+    // playing alone; hiding her too meant that the moment the two of them
+    // linked up, Bandit vanished from the world for both of them.
+    const iAmHerOwner = (this.state.player && this.state.player.look) === 'sammy';
+    c.visible = !!(slot && slot.active && slot.species) && (iAmHerOwner || !this.linkedNow());
     c.species = slot ? slot.species : null;
     c.name = slot ? slot.name : null;
     if (!c.visible) { c.trail = []; return; }

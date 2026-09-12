@@ -190,6 +190,47 @@ for (const who of ['matthew', 'sammy']) {
   check(!worstOverlap, `${who}: nobody ends a step standing inside anybody else`, worstOverlap || '');
 }
 
+// --- and when the two of them are actually linked ---------------------------
+//
+// The stand-in for the other protagonist hides the moment a real second
+// player is on the link, which is right: a stand-in walking about while the
+// person it stands in for is also on screen is the worst thing co-op can do.
+// The dog is not a stand-in for anybody, and hiding her on the same rule
+// meant that the moment the two of them linked up Bandit vanished from the
+// world for both of them.
+console.log('\n--- with a real second player on the link ---');
+for (const who of ['sammy', 'matthew']) {
+  await page.evaluate((look) => {
+    const g = window.CARIBOU;
+    g.startNewGame({ name: look === 'sammy' ? 'Sammy' : 'Matthew', look, difficulty: 'easy' });
+    g.state.flags.gotStarter = true;
+  }, who);
+  await wait(800);
+  await page.evaluate(() => window.CARIBOU.teleport('route201'));
+  await wait(800);
+  await page.evaluate(() => {
+    const w = window.CARIBOU.overworld.world;
+    w.companionJoin({ look: 'rivalGirl', name: 'Buddy', key: 'buddy' });
+    w.petJoin({ species: 449, name: 'Bandit' });
+    // The other one is really here now.
+    window.CARIBOU.state.link = { connected: true, partner: 'the other one' };
+    w.refreshCompanion();
+    w.refreshPet();
+  });
+  await wait(400);
+  const linked = await page.evaluate(() => {
+    const w = window.CARIBOU.overworld.world;
+    return { companion: !!(w.companion && w.companion.visible), pet: !!(w.pet && w.pet.visible) };
+  });
+  check(!linked.companion, `${who}: the stand-in steps aside for the real player`);
+  if (who === 'sammy') {
+    check(linked.pet, 'sammy: but she still has her dog with her on the link');
+  } else {
+    check(!linked.pet, "matthew: and Bandit is with the real Sammy, not with him");
+  }
+  await page.evaluate(() => { window.CARIBOU.state.link = null; });
+}
+
 // And nobody a script conjures up arrives standing inside the player.
 console.log('\n--- somebody a scene puts in front of you ---');
 await page.evaluate(() => {
