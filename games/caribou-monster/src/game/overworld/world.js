@@ -151,6 +151,14 @@ export class World {
     }
     for (const obj of this.map.objects) {
       if (this.state.flags[`item_${obj.id}`]) continue;
+      // A ball the story has not put there yet.
+      //
+      // The Aurora Charm sits on the tile behind Mars, and the top corridor
+      // of Oreburgh Gate runs right past her: you could walk round, pick it
+      // up without fighting her, and open the Everlight door before the act
+      // that is supposed to end with it. An object may now name the flag
+      // that puts it on the floor.
+      if (obj.requires && !this.state.flags[obj.requires]) continue;
       this.entities.push(makeEntity({
         ...obj, kind: 'item', look: null, movement: 'still', solid: true,
       }));

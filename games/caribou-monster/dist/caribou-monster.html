@@ -4286,7 +4286,7 @@ const OREBURGH_GATE = defineMap('oreburgh_gate', {
     { id: 'sf_escape', x: 2, y: 1, item: 'escaperope', qty: 1 },
     { id: 'sf_revive', x: 21, y: 3, item: 'revive', qty: 1 },
     { id: 'sf_hm06', x: 2, y: 9, item: 'hm06', qty: 1 },
-    { id: 'sf_charm', x: 12, y: 1, item: 'auroracharm', qty: 1, story: true },
+    { id: 'sf_charm', x: 12, y: 1, item: 'auroracharm', qty: 1, requires: 'beatCommander' },
   ],
   events: [
     // Picking the charm up is the turn. The tile under it does the work.
@@ -25433,6 +25433,14 @@ class World {
     }
     for (const obj of this.map.objects) {
       if (this.state.flags[`item_${obj.id}`]) continue;
+      // A ball the story has not put there yet.
+      //
+      // The Aurora Charm sits on the tile behind Mars, and the top corridor
+      // of Oreburgh Gate runs right past her: you could walk round, pick it
+      // up without fighting her, and open the Everlight door before the act
+      // that is supposed to end with it. An object may now name the flag
+      // that puts it on the floor.
+      if (obj.requires && !this.state.flags[obj.requires]) continue;
       this.entities.push(makeEntity({
         ...obj, kind: 'item', look: null, movement: 'still', solid: true,
       }));

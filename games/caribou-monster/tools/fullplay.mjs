@@ -765,6 +765,19 @@ if ((await talkTo('cave_commander')) === null) {
 const hasCharm = await page.evaluate(() => !!window.CARIBOU.state.flags.beatCommander);
 if (!hasCharm) found('STORY BREAK', 'beating Mars did not set beatCommander');
 await runScene('charmFound');
+
+// The charm is a ball on the floor behind her, and it is only on the floor
+// once she has been beaten. Pick it up the way a player does — the door
+// checks the bag, not a flag, so a run that skips this stands on the seam
+// and is told, correctly, that nothing happens.
+if (await walkTo(11, 1, 30)) {
+  await page.evaluate(() => { window.CARIBOU.overworld.world.player.dir = 'right'; });
+  await tap('KeyZ', 1, 120);
+  await clear(60);
+}
+if (!await page.evaluate(() => (window.CARIBOU.state.inventory.items.auroracharm || 0) > 0)) {
+  found('STORY BREAK', 'the Aurora Charm could not be picked up after beating Mars');
+}
 await runScene('everlight');
 await wait(400);
 await clear();
@@ -784,7 +797,7 @@ await talkToEveryone(8);
 // Three volumes, and then the man at the far table who has read two of them
 // four times each. Two volumes and no conversation is not the revelation.
 for (const volume of [1, 2, 3]) {
-  await page.evaluate((v) => window.CARIBOU.overworld.runScript('libraryBook', { volume }), volume);
+  await page.evaluate((v) => window.CARIBOU.overworld.runScript('libraryBook', { volume: v }), volume);
   await wait(200);
   await inspect(await clear(120));
 }

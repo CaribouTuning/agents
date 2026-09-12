@@ -144,7 +144,7 @@ export const OREBURGH_GATE = defineMap('oreburgh_gate', {
     { id: 'sf_escape', x: 2, y: 1, item: 'escaperope', qty: 1 },
     { id: 'sf_revive', x: 21, y: 3, item: 'revive', qty: 1 },
     { id: 'sf_hm06', x: 2, y: 9, item: 'hm06', qty: 1 },
-    { id: 'sf_charm', x: 12, y: 1, item: 'auroracharm', qty: 1, story: true },
+    { id: 'sf_charm', x: 12, y: 1, item: 'auroracharm', qty: 1, requires: 'beatCommander' },
   ],
   events: [
     // Picking the charm up is the turn. The tile under it does the work.
