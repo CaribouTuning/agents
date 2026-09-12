@@ -689,7 +689,7 @@ export const JUBILIFE = defineMap('jubilife', {
   name: 'Jubilife City', kind: 'town', music: 'city',
   tiles: [
     'TTTTTTTTTTTTqqTTTTTTTTTTTTTTTTTTTT',
-    'T...........lq...................T',
+    'T...........qq...................T',
     'T..AAAAAAAA.qqqtqqtqBBBBBBBB...T.T',
     'T..AAAAAAAA.qqqq0qqqBBBBBBBB.....T',
     'T..VVVVVVVV.qqqyqqyqVVVVVVVV..T..T',
@@ -697,7 +697,7 @@ export const JUBILIFE = defineMap('jubilife', {
     'T.....q.....qlqqlqqq....q........T',
     'q.....qqqqqqqqqqqqqqqqqqqqqqq....q',
     'q...T.q.....qq..........qqyq9....q',
-    'T..S..q.T...qq..T...T...qqqqqqql.T',
+    'T..S..q.T...ql..T...T...qqqqqqql.T',
     'T.....q.EEEEEEEEEEEE....q.(((((.TT',
     'T.T...q.EEEEEEEEEEEE....q.(~~~(..T',
     'T.....q.VVVVVVVVVVVV..T.q.(~~~(..T',

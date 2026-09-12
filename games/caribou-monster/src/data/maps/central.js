@@ -160,9 +160,9 @@ export const HEARTHOME = defineMap('hearthome', {
     'T...........lq...................T',
     'T.EEEEEEEE..qq.tq9q9qt(**(...S...T',
     'T.EEEEEEEE..qq.qqq0qqq(**(.......T',
-    'T.VVVVVVVV..qq.qqqqqqq...........T',
+    'T.VVVVVVVV..lq.qqqqqqq...........T',
     'T.#WWDDWW#..qq.qyqqqyq...........T',
-    'T...........ql................T..T',
+    'T...........qq................T..T',
     'TTTTTTTTTTTTqqTTTTTTTTTTTTTTTTTTTT',
   ],
 

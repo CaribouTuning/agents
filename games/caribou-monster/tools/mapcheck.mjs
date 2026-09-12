@@ -19,6 +19,30 @@ const passable = (ch) => {
 
 let bad = 0;
 const only = process.argv.slice(2);
+
+// Where every door puts you down, checked in the map it puts you down IN.
+//
+// This is the one thing a per-map reachability walk cannot see: a decoration
+// dropped on a perfectly ordinary tile is fine until you notice that tile is
+// where the Department Store spits you out. Three lamp posts got planted on
+// three landing tiles before this existed.
+{
+  for (const from of Object.values(MAPS)) {
+    for (const w of from.warps || []) {
+      const to = MAPS[w.to];
+      if (!to || w.tx == null || w.ty == null) continue;
+      if (only.length && !only.includes(to.id)) continue;
+      const row = to.tiles[w.ty];
+      const ch = row && row[w.tx];
+      const def = ch && TILES[ch];
+      if (!def) { console.log(`  BAD LANDING  ${from.id} -> ${to.id} lands off the map at ${w.tx},${w.ty}`); bad++; continue; }
+      if (def.solid && !def.field && !def.water) {
+        console.log(`  BAD LANDING  ${from.id} -> ${to.id} lands on a solid '${def.name}' at ${w.tx},${w.ty}`);
+        bad++;
+      }
+    }
+  }
+}
 for (const map of Object.values(MAPS)) {
   if (only.length && !only.includes(map.id)) continue;
   const at = (x, y) => (y >= 0 && y < map.height && x >= 0 && x < map.width ? map.tiles[y][x] : null);
