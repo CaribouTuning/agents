@@ -162,6 +162,19 @@ async function clear(budget = 220) {
       return null;
     });
     if (asked) { await wait(140); continue; }
+
+    // Standing next to the person who walks with you, every A press shuts
+    // her box and opens it again — she has something new to say each time
+    // now, so the text keeps changing and the repeat detector below never
+    // fires. The loop would run its whole budget and report a softlock that
+    // is really a conversation. After a fair few presses in a row with a
+    // box up and somebody beside us, turn away and walk on.
+    if (i > 24 && await facingSomebody()) {
+      await page.evaluate(() => window.CARIBOU.dialogueForTest.hide());
+      await wait(120);
+      if (!await busy()) return seen.join(' ');
+    }
+
     if (t && t === last) same++; else { same = 0; last = t; }
     if (same > 8) {
       // Standing nose-to-nose with somebody, every A press closes their box

@@ -72,11 +72,20 @@ export class DialogueBox {
   }
 
   hide() {
-    // A question that is never answered is a script that never finishes, and
-    // a script that never finishes is a player who can never move again. So
-    // closing the box while something is waiting on an answer gives it one —
-    // the last option, which is the same answer B gives and is always the
-    // safe one. Nothing that asks is ever left waiting.
+    // Closing the box never abandons whoever was waiting on it.
+    //
+    // A scene is a chain of awaits: `await ctx.say(...)`, then the next line,
+    // then the flag that ends it. Both halves of that chain used to be
+    // droppable here. A question closed with no answer left its `ask` pending
+    // for ever, and — the half this comment used to miss — a plain line
+    // closed mid-sentence dropped `onDone` on the floor with a `void`, so the
+    // script stopped between two sentences and the world never became
+    // walkable again. `teleport` closes the box, so any scene that warped you
+    // while it was still talking would strand you where it put you.
+    //
+    // So: an unanswered question is given the last option, which is the same
+    // answer B gives and always the safe one, and an unfinished line is
+    // completed. Nothing is ever left waiting.
     const unanswered = this.choice || this.pendingChoice;
     this.visible = false;
     this.pages = [];
@@ -84,8 +93,8 @@ export class DialogueBox {
     this.pendingChoice = null;
     const done = this.onDone;
     this.onDone = null;
-    void done;
     if (unanswered && unanswered.onPick) unanswered.onPick(unanswered.options.length - 1);
+    else if (done) done();
   }
 
   get busy() { return this.visible; }

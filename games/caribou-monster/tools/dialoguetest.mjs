@@ -11,6 +11,7 @@
 import { MAPS } from '../src/data/maps/index.js';
 import { builtGyms } from '../src/data/campaign.js';
 import { createGameState, serializeState, deserializeState } from '../src/game/state.js';
+import { DialogueBox } from '../src/ui/dialogue.js';
 import { createMonster } from '../src/game/monster.js';
 import { resolveDialogue, worldSnapshot, matches, fill } from '../src/game/overworld/gossip.js';
 import { createCircuit } from '../src/game/circuit/circuit.js';
@@ -425,6 +426,37 @@ check(dead === 0, `${dead} unreachable dialogue branch(es)`);
     const lines = resolveDialogue(tam.dialogue, build(), 0);
     console.log(`  [${label}]\n    ${lines.join('\n    ')}`);
   }
+}
+
+// ---- closing the box never strands the scene -------------------------------
+//
+// A scene is a chain of awaits. `hide()` used to take the callback the chain
+// was waiting on and throw it away with a `void`, so a box closed between two
+// sentences stopped the script for good and the world never became walkable
+// again. `teleport` closes the box, so any scene that warped you while it was
+// still talking left you standing there for ever.
+{
+  console.log('\n--- closing the box mid-sentence ---');
+  const d = new DialogueBox();
+  let finished = false;
+  d.show('One line.\fAnd a second.', { onDone: () => { finished = true; } });
+  d.hide();
+  check(finished, 'a line closed part-way still finishes its scene');
+
+  let picked = null;
+  const d2 = new DialogueBox();
+  d2.ask('Well?', ['Yes', 'No'], (i) => { picked = i; });
+  d2.hide();
+  check(picked === 1, 'and an unanswered question still gets the safe answer', String(picked));
+
+  // And the ordinary path is unchanged: finishing normally fires it once.
+  let count = 0;
+  const d3 = new DialogueBox();
+  d3.show('Just the one.', { onDone: () => { count++; } });
+  d3.shown = d3.currentText.length;
+  d3.advance();
+  d3.hide();
+  check(count === 1, 'a scene that ends properly is not finished twice', `${count}`);
 }
 
 console.log(fails ? `\n${fails} failure(s)` : '\ndialogue: all checks passed');
