@@ -29767,6 +29767,7 @@ __exports(__x, { NET_STATUS: () => NET_STATUS, net: () => net, MSG: () => MSG, T
 
 __defs['ui/overworld.js'] = function (__x, __req) {
 const { Screen, FADE } = __req('ui/screen.js');
+const { BEATS } = __req('data/campaign.js');
 const { evolutionFor } = __req('game/evolution.js');
 const { World, DIRS } = __req('game/overworld/world.js');
 const { Camera, drawWorld, drawLocationBanner, drawGuideBar } = __req('render/worldrender.js');
@@ -29802,6 +29803,7 @@ const { net } = __req('net/NetworkManager.js');
 // Cutscenes are written as async functions (see game/overworld/scripts.js).
 // This screen supplies the primitives they await, and blocks player input for
 // as long as one is running.
+
 
 
 
@@ -29890,12 +29892,25 @@ class OverworldScreen extends Screen {
         audio.sfx('leave');
       }),
       bus.on('story:partnerMilestone', ({ key }) => {
-        // Keep the two saves compatible: adopt a milestone the partner has
-        // reached so neither player gets stuck behind a door the other opened.
-        if (!this.game.state.flags[key]) {
-          setStoryFlag(this.game.state, key, true);
-          this.toast('Story synced with your partner');
-        }
+        // NEWS, NOT PROGRESS.
+        //
+        // This used to ADOPT the partner's milestone into your own save, to
+        // "keep the two saves compatible". What it actually did was hand the
+        // player who is behind the story they have not played yet: link up
+        // with somebody a long way ahead, watch them beat a Gym, and your own
+        // game quietly marks that Gym beaten, your guide bar jumps to the
+        // endgame, and the five chapters in between are gone. For two people
+        // playing this through together for the first time that is the worst
+        // thing it could possibly do.
+        //
+        // Neither of you joins the other's story. You each keep your own, at
+        // your own pace, and the link tells you what the other one just did —
+        // which is the good part, and costs nothing.
+        const beat = BEATS.find((b) => b.flag === key);
+        const snap = net.snapshot() || {};
+        const who = (snap.partner && snap.partner.name) || 'Your partner';
+        this.toast(beat ? `${who}: ${beat.text}` : `${who} reached a milestone.`);
+        audio.sfx('select');
       }),
       // A partner's Secret Base arrives whole. It is another player's data, so
       // it is rebuilt field by field before anything in this game touches it.
@@ -36734,6 +36749,7 @@ __exports(__x, { ShopScreen: () => ShopScreen });
 
 __defs['ui/multiplayer.js'] = function (__x, __req) {
 const { Screen } = __req('ui/screen.js');
+const { MAPS } = __req('data/maps/index.js');
 const { drawBackChip } = __req('ui/controls.js');
 const { input } = __req('core/input.js');
 const { audio } = __req('core/audio.js');
@@ -36743,6 +36759,7 @@ const { net } = __req('net/NetworkManager.js');
 const { normaliseRoomCode } = __req('net/protocol.js');
 // The LINK screen: create or join a room, see who is connected, and read an
 // honest account of what the current transport can and cannot do.
+
 
 
 
@@ -36956,7 +36973,15 @@ class MultiplayerScreen extends Screen {
       drawText(ctx, '●', 10, py, { color: PAL.hpGreen });
       label(ctx, `${s.partner.name} connected`, 20, py);
       const pr = s.partner.presence;
-      if (pr) labelDim(ctx, `${pr.badges} badge${pr.badges === 1 ? '' : 's'}  ·  ${pr.party} in party`, 10, py + 10);
+      if (pr) {
+        // Where they actually are, so the two of you can decide to meet.
+        const place = (MAPS[pr.map] && MAPS[pr.map].name) || 'somewhere';
+        labelDim(ctx, `${pr.badges} badge${pr.badges === 1 ? '' : 's'}  ·  ${pr.party} in party  ·  ${place}`, 10, py + 10);
+        // And the one thing about co-op that is worth saying out loud, because
+        // being at different points in the story is normal and fine.
+        labelDim(ctx, 'You each keep your own story. The link shares the world,', 10, py + 22);
+        labelDim(ctx, 'not the plot — neither of you can skip the other ahead.', 10, py + 32);
+      }
     } else if (s.code) {
       labelDim(ctx, 'Waiting for your partner to join...', 10, py);
       const dots = '.'.repeat(1 + Math.floor(this.t * 2) % 3);
@@ -41450,6 +41475,9 @@ function start() {
   // The input layer, so the menu suite can push a screen that answers only the
   // B key — which is exactly the shape the six trapped screens had.
   game.inputForTest = input;
+  // The event bus, so the co-op suite can deliver a partner's milestone the
+  // same way the network does.
+  game.busForTest = bus;
   // Awards a badge through the real path, so the test sees whatever awarding
   // one actually does — including opening the Battle Hall's door.
   game.awardBadgeForTest = (n, name) => awardBadge(game.state, n, name);

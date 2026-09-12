@@ -1,6 +1,7 @@
 // The LINK screen: create or join a room, see who is connected, and read an
 // honest account of what the current transport can and cannot do.
 import { Screen } from './screen.js';
+import { MAPS } from '../data/maps/index.js';
 import { drawBackChip } from './controls.js';
 import { input } from '../core/input.js';
 import { audio } from '../core/audio.js';
@@ -215,7 +216,15 @@ export class MultiplayerScreen extends Screen {
       drawText(ctx, '●', 10, py, { color: PAL.hpGreen });
       label(ctx, `${s.partner.name} connected`, 20, py);
       const pr = s.partner.presence;
-      if (pr) labelDim(ctx, `${pr.badges} badge${pr.badges === 1 ? '' : 's'}  ·  ${pr.party} in party`, 10, py + 10);
+      if (pr) {
+        // Where they actually are, so the two of you can decide to meet.
+        const place = (MAPS[pr.map] && MAPS[pr.map].name) || 'somewhere';
+        labelDim(ctx, `${pr.badges} badge${pr.badges === 1 ? '' : 's'}  ·  ${pr.party} in party  ·  ${place}`, 10, py + 10);
+        // And the one thing about co-op that is worth saying out loud, because
+        // being at different points in the story is normal and fine.
+        labelDim(ctx, 'You each keep your own story. The link shares the world,', 10, py + 22);
+        labelDim(ctx, 'not the plot — neither of you can skip the other ahead.', 10, py + 32);
+      }
     } else if (s.code) {
       labelDim(ctx, 'Waiting for your partner to join...', 10, py);
       const dots = '.'.repeat(1 + Math.floor(this.t * 2) % 3);

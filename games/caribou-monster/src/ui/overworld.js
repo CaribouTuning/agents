@@ -5,6 +5,7 @@
 // This screen supplies the primitives they await, and blocks player input for
 // as long as one is running.
 import { Screen, FADE } from './screen.js';
+import { BEATS } from '../data/campaign.js';
 import { evolutionFor } from '../game/evolution.js';
 import { World, DIRS } from '../game/overworld/world.js';
 import { Camera, drawWorld, drawLocationBanner, drawGuideBar } from '../render/worldrender.js';
@@ -92,12 +93,25 @@ export class OverworldScreen extends Screen {
         audio.sfx('leave');
       }),
       bus.on('story:partnerMilestone', ({ key }) => {
-        // Keep the two saves compatible: adopt a milestone the partner has
-        // reached so neither player gets stuck behind a door the other opened.
-        if (!this.game.state.flags[key]) {
-          setStoryFlag(this.game.state, key, true);
-          this.toast('Story synced with your partner');
-        }
+        // NEWS, NOT PROGRESS.
+        //
+        // This used to ADOPT the partner's milestone into your own save, to
+        // "keep the two saves compatible". What it actually did was hand the
+        // player who is behind the story they have not played yet: link up
+        // with somebody a long way ahead, watch them beat a Gym, and your own
+        // game quietly marks that Gym beaten, your guide bar jumps to the
+        // endgame, and the five chapters in between are gone. For two people
+        // playing this through together for the first time that is the worst
+        // thing it could possibly do.
+        //
+        // Neither of you joins the other's story. You each keep your own, at
+        // your own pace, and the link tells you what the other one just did —
+        // which is the good part, and costs nothing.
+        const beat = BEATS.find((b) => b.flag === key);
+        const snap = net.snapshot() || {};
+        const who = (snap.partner && snap.partner.name) || 'Your partner';
+        this.toast(beat ? `${who}: ${beat.text}` : `${who} reached a milestone.`);
+        audio.sfx('select');
       }),
       // A partner's Secret Base arrives whole. It is another player's data, so
       // it is rebuilt field by field before anything in this game touches it.

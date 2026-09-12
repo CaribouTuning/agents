@@ -9,6 +9,7 @@
 // somewhere in a real career (dead dialogue is dead content), that nobody ever
 // falls silent, and that no line ever escapes with an unfilled slot in it.
 import { MAPS } from '../src/data/maps/index.js';
+import { builtGyms } from '../src/data/campaign.js';
 import { createGameState, serializeState, deserializeState } from '../src/game/state.js';
 import { createMonster } from '../src/game/monster.js';
 import { resolveDialogue, worldSnapshot, matches, fill } from '../src/game/overworld/gossip.js';
@@ -253,6 +254,8 @@ function afterTheEnd(st) {
   return st;
 }
 
+const BUILT_GYMS = builtGyms(MAPS);
+
 const STAGES = [
   ['fresh save', () => baseState()],
   ['got a starter', () => withStarter(baseState())],
@@ -308,6 +311,11 @@ for (const [stageLabel, build] of STAGES) {
  for (const [linkLabel, link] of LINKS) {
   const label = stageLabel + linkLabel;
   const st = build();
+  // `awardBadge` opens the Battle Hall the moment the last badge lands, and
+  // these stages set the badge flags directly rather than going through it.
+  // Without mirroring that, the steward on the Hall door has a line that no
+  // stage can ever reach and the suite calls it dead text.
+  if (BUILT_GYMS.every((g) => st.flags[`badge${g.n}`])) st.flags.leagueOpen = true;
   const snap = worldSnapshot(st, link);
   check(!!snap.champion, `[${label}] snapshot has no champion`);
 

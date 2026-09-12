@@ -610,6 +610,9 @@ function start() {
   // The input layer, so the menu suite can push a screen that answers only the
   // B key — which is exactly the shape the six trapped screens had.
   game.inputForTest = input;
+  // The event bus, so the co-op suite can deliver a partner's milestone the
+  // same way the network does.
+  game.busForTest = bus;
   // Awards a badge through the real path, so the test sees whatever awarding
   // one actually does — including opening the Battle Hall's door.
   game.awardBadgeForTest = (n, name) => awardBadge(game.state, n, name);

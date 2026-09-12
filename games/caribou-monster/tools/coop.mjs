@@ -349,6 +349,7 @@ if (code) {
 
   // --- disconnect safety ---------------------------------------------------
   const partyBeforeDrop = await A.evaluate(() => window.CARIBOU.state.party.map((m) => `${m.species}:${m.hp}`));
+
   await B.close();
   await wait(5200);   // longer than the presence sweep
   const afterDrop = await A.evaluate(() => ({
@@ -384,7 +385,59 @@ if (code) {
     !!ranked.headline && ranked.headline.includes('Robin'), ranked.headline);
 }
 
+// --- neither of you joins the other's story --------------------------------
+//
+// The link used to ADOPT a partner's milestone into your own save, to "keep
+// the two saves compatible". What it did was hand the player who is behind
+// the story they have not played yet: link up with somebody five badges
+// ahead, watch them beat a Gym, and your own game marks that Gym beaten, your
+// guide bar jumps to the endgame, and the five chapters in between are gone.
+//
+// Two people playing this through together for the first time will not be at
+// the same point, and that has to be FINE. So the link carries the world and
+// the news, never the plot. Its own tab, because it starts a new game.
+console.log('\n--- a partner five badges ahead cannot drag you forward ---');
+{
+  const C = await openTab('C');
+  const before = await C.evaluate(() => {
+    const g = window.CARIBOU;
+    g.startNewGame({ name: 'Sammy', look: 'sammy', difficulty: 'easy' });
+    g.state.flags.gotStarter = true;
+    return {
+      flags: Object.keys(g.state.flags).filter((k) => g.state.flags[k]).sort(),
+      badges: g.state.badges.length,
+    };
+  });
+  await wait(700);
+  // Everything the partner might reach while you are still on Route 201.
+  await C.evaluate(() => {
+    const g = window.CARIBOU;
+    for (const key of ['badge1', 'badge2', 'badge3', 'badge4', 'badge5', 'badge6',
+      'beatCommander', 'lakeValor', 'canalaveTruth', 'everlightResolved', 'leagueOpen']) {
+      g.busForTest.emit('story:partnerMilestone', { key });
+    }
+  });
+  await wait(500);
+  const after = await C.evaluate(() => {
+    const g = window.CARIBOU;
+    return {
+      flags: Object.keys(g.state.flags).filter((k) => g.state.flags[k]).sort(),
+      badges: g.state.badges.length,
+      bar: g.objectiveForTest(),
+    };
+  });
+  check('eleven of their milestones change none of your flags',
+    JSON.stringify(after.flags) === JSON.stringify(before.flags),
+    `${before.flags.length} -> ${after.flags.length}`);
+  check('and none of your badges', after.badges === before.badges,
+    `${before.badges} -> ${after.badges}`);
+  check('and your guide bar is still on your own chapter',
+    /Twinleaf|Route 201|Sandgem|Jubilife|Oreburgh|Rowan/i.test(after.bar), after.bar);
+  await C.close();
+}
+
 console.log(errs.length ? `\nERRORS:\n${errs.slice(0, 12).join('\n')}` : '\nno page errors');
+
 console.log(failures ? `\n${failures} CHECK(S) FAILED` : '\nall checks passed');
 await browser.close();
 server.close();
