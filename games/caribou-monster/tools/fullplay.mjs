@@ -233,10 +233,18 @@ const facingSomebody = () => page.evaluate(() => {
  * party standing so the run is testing scenes rather than a level curve.
  */
 async function fightToTheEnd() {
+  // Four minutes, not two.
+  //
+  // The last two Gym battles genuinely run longer than two minutes at the
+  // rate this thing can press a key through a browser, and the old budget
+  // made it walk out of a fight it was winning and report that the Leader
+  // had not handed a badge over. The stall detector below is the real check:
+  // twenty seconds with nothing moving is a stuck fight, and a long one is
+  // just a long one. (`gymtest` answers the badge question on its own.)
   const started = Date.now();
   let lastProgress = Date.now();
   let mark = '';
-  while (Date.now() - started < 120000) {
+  while (Date.now() - started < 240000) {
     const s = await page.evaluate(() => {
       const g = window.CARIBOU;
       const top = g.screens.top;
@@ -273,9 +281,9 @@ async function fightToTheEnd() {
       found('BATTLE', `a battle stopped making progress — ${JSON.stringify(detail)}`);
       return;
     }
-    for (let k = 0; k < 5; k++) { await page.keyboard.press('KeyZ'); await wait(30); }
+    for (let k = 0; k < 8; k++) { await page.keyboard.press('KeyZ'); await wait(15); }
   }
-  found('BATTLE', 'a battle ran for two minutes without finishing');
+  found('BATTLE', 'a battle ran for four minutes without finishing');
 }
 
 /**

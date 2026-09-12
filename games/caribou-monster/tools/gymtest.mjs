@@ -1,4 +1,12 @@
 // Every Gym leader, fought to the end, badge checked.
+//
+// The whole-game harness plays each Gym as a player would and gives each
+// battle two minutes; the last two leaders run longer than that, so it
+// reported "no badge" for fights it had simply walked away from. This suite
+// answers the narrower question the report was really about — does beating
+// this leader hand the badge over — with a team that plainly outclasses them,
+// so nothing here depends on how long a fight takes.
+
 import { chromium } from 'playwright';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 const MIME={'.html':'text/html','.js':'text/javascript'};
@@ -18,7 +26,7 @@ const GYMS = await p.evaluate(()=>{
   const M = window.CARIBOU.mapsForTest.MAPS;
   const out = [];
   for (const m of Object.values(M)) for (const n of (m.npcs||[]))
-    if (n.script === 'gymLeader' && n.trainer) out.push({map:m.id, npc:n.id, trainer:n.trainer});
+    if (n.trainer && /_leader$/.test(n.trainer)) out.push({map:m.id, npc:n.id, trainer:n.trainer});
   return out;
 });
 console.log('gym leaders found:', GYMS.map(g=>g.trainer).join(', '));
