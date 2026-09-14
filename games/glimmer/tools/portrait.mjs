@@ -32,18 +32,24 @@ await p.waitForTimeout(700);
 await p.evaluate(() => {
   const g = window.GLIMMER;
   g.loop.stop();
-  g.portrait = (yaw, camYaw) => {
+  g.portrait = (yaw) => {
     const h = g.hero;
-    h.yaw = yaw;
+    // Park the partner out of shot, and drive the camera by hand. The game
+    // camera frames BOTH characters, so moving her away swings the lens onto
+    // empty sky — a portrait needs its own camera, not the gameplay one.
+    g.partner.a.x = 900; g.partner.a.z = 900;
+    // Her hands and boots are springs chasing her body, so moving the body
+    // alone leaves four of them lying about the meadow behind her.
+    for (const l of g.partner.hands.concat(g.partner.boots)) {
+      l.x = g.partner.a.x; l.y = g.partner.a.y; l.z = g.partner.a.z;
+    }
     h.a.vx = h.a.vz = 0;
-    // Settle the springs so the limbs are where they belong, not mid-flight.
-    for (let i = 0; i < 200; i++) g.updateHeroFrame(1 / 60);
     h.yaw = yaw;
-    g.camYaw = camYaw;
-    g.camDist = 2.6;
-    g.camPitch = 0.12;
-    g.camHeight = 0.55;
-    g.snapCamera();
+    for (let i = 0; i < 240; i++) { g.updateHeroFrame(1 / 60); h.yaw = yaw; }
+    const a = h.a;
+    const s = g.scene;
+    s.target[0] = a.x; s.target[1] = a.y + 0.86; s.target[2] = a.z;
+    s.eye[0] = a.x; s.eye[1] = a.y + 1.15; s.eye[2] = a.z + 2.9;
     g.render();
   };
 });
@@ -56,7 +62,7 @@ for (const look of ['matt', 'sam']) {
     // The camera stays put and the CHARACTER turns. Orbiting both together
     // shows the same side four times, which is how the first pass of this
     // tool reported a head it had never actually looked at the back of.
-    await p.evaluate(([yaw]) => window.GLIMMER.portrait(yaw, Math.PI), [a]);
+    await p.evaluate(([yaw]) => window.GLIMMER.portrait(yaw), [a]);
     await p.screenshot({ path: `/tmp/claude-0/p-${look}-${name}.png` });
   }
 }

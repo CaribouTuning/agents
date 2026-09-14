@@ -45,6 +45,7 @@ uniform vec3 uBounce;
 uniform vec3 uFog;
 uniform vec2 uFogRange;
 uniform float uAlpha;
+uniform float uEmissive;
 void main() {
   vec3 n = normalize(vNormal);
   // Three lights, none of them a point: a sun, a sky dome that only lights
@@ -59,11 +60,16 @@ void main() {
   lit += uSky * pow(1.0 - max(n.z, 0.0), 3.0) * 0.04;
   float fog = clamp((vDepth - uFogRange.x) / (uFogRange.y - uFogRange.x), 0.0, 1.0);
   fog *= fog;
+  // Some things in this world make their own light. Without this a
+  // collectible is just a pale rock: it takes the same sun as the grass it is
+  // lying on, so the one object on screen that has to catch the eye is the one
+  // object shaded to blend in with everything around it.
+  lit = mix(lit, vColor * 1.18, uEmissive);
   gl_FragColor = vec4(mix(lit, uFog, fog), uAlpha);
 }`;
 
 const UNIFORMS = ['uProj', 'uView', 'uModel', 'uNormal', 'uLightDir', 'uSun',
-  'uSky', 'uBounce', 'uFog', 'uFogRange', 'uAlpha'];
+  'uSky', 'uBounce', 'uFog', 'uFogRange', 'uAlpha', 'uEmissive'];
 const ATTRIBS = ['aPos', 'aNormal', 'aColor'];
 
 export class Scene {
@@ -117,6 +123,10 @@ export class Scene {
     gl.uniform3fv(this.u.uFog, this.fog);
     gl.uniform2f(this.u.uFogRange, this.fogNear, this.fogFar);
     gl.uniform1f(this.u.uAlpha, 1);
+    gl.uniform1f(this.u.uEmissive, 0);
+    this.lastEmissive = 0;
+    gl.depthMask(true);
+    this.depthWrite = true;
     this.bound = null;
   }
 
@@ -130,7 +140,24 @@ export class Scene {
     gl.uniformMatrix4fv(this.u.uModel, false, this.model);
     gl.uniformMatrix3fv(this.u.uNormal, false, this.nrm);
     if (alpha !== this.lastAlpha) { gl.uniform1f(this.u.uAlpha, alpha); this.lastAlpha = alpha; }
+    // A see-through thing must not write depth. It looks like a subtlety and
+    // is not: a translucent hull that writes depth hides whatever is behind
+    // it INCLUDING the solid object it is wrapped around, so every glowing
+    // collectible came out as a flat grey pane with its own core behind it.
+    const solid = alpha >= 0.999;
+    if (solid !== this.depthWrite) { gl.depthMask(solid); this.depthWrite = solid; }
     drawMesh(mesh);
+  }
+
+  /**
+   * How much the next things drawn light themselves. Set once per batch — it
+   * is a uniform, not a per-draw argument, so switching it per object would
+   * cost more than the objects do.
+   */
+  emissive(v) {
+    if (v === this.lastEmissive) return;
+    this.gl.uniform1f(this.u.uEmissive, v);
+    this.lastEmissive = v;
   }
 
   /** Where a world point lands on screen, for name tags and markers. */

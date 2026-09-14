@@ -9,6 +9,7 @@
 
 import { Builder, box, sphere, tube, groundPatch } from '../gl/shapes.js';
 import { Collision, solid } from './actor.js';
+import { makeSet, line, arc, ring, single } from './glimmers.js';
 
 const PALETTE = {
   grass: '#63b246', grassLit: '#86cf5c', grassDeep: '#3f8a36',
@@ -129,32 +130,105 @@ export function buildTestWorld() {
   // The main meadow.
   island(b, world, 0, 0, 0, 11, 9);
 
-  // A stair of platforms up to a lookout on the left.
-  platform(b, world, -7, 1.6, -6, 1.4, 1.4);
-  platform(b, world, -9.5, 3.0, -9, 1.3, 1.3);
-  island(b, world, -13, 4.4, -12, 3.5, 3.0, { depth: 1.6 });
-  menhir(b, world, -13, 4.4, -13.5, 3.4);
+  // A stair of platforms up to a lookout on the left. The lookout has to be
+  // the HIGHEST thing here, because everything else on this side of the world
+  // is reached by gliding down from it — and you cannot glide upward. The
+  // first draft put the shelf above the lookout, which made the shelf, and
+  // every glimmer hanging round it, unreachable by anything.
+  // Every step is 1.2, because the jump lifts 1.5 and no further. The first
+  // three drafts of this stair rose 1.6 to 1.8 a step: the whole west side of
+  // the world, the lookout, the shelf and forty of the glimmers were behind a
+  // climb that nothing in the movement set could make.
+  platform(b, world, -6.5, 1.2, -5.5, 1.4, 1.4);
+  platform(b, world, -8.0, 2.4, -7.2, 1.2, 1.2);
+  platform(b, world, -9.2, 3.6, -7.8, 1.1, 1.1);
+  island(b, world, -13, 4.8, -12, 3.5, 3.0, { depth: 1.6 });
+  menhir(b, world, -13, 4.8, -13.5, 3.4);
 
   // Stepping stones out across a gap. The last one is far enough that only
   // the helicopter reaches it, which is the one thing this field is for.
   platform(b, world, 8, 0.9, 2, 1.2, 1.2);
   platform(b, world, 12, 1.4, 3.5, 1.1, 1.1);
   platform(b, world, 16.5, 1.8, 5, 1.0, 1.0);
-  island(b, world, 24, 1.2, 7, 5, 4.5, { depth: 1.8 });
+  // Far enough out that the jump cannot make it. A standing jump carries 4.7
+  // metres; this gap is 5.5, so it is the glide or nothing — which is the one
+  // thing this whole eastern run exists to teach.
+  island(b, world, 28, 0.9, 8, 5, 4.5, { depth: 1.8 });
 
-  // A high shelf you can only reach by gliding down from the lookout.
-  island(b, world, 4, 6.5, -14, 3.2, 2.6, { depth: 1.4 });
-  menhir(b, world, 4, 6.5, -15.4, 2.2);
+  // A shelf you can only reach by gliding down from the lookout. The glide
+  // falls about a third of a metre for every metre it covers, so at ten
+  // metres out this has to sit roughly three below where you jumped from.
+  island(b, world, 4, 3.2, -14, 3.2, 2.6, { depth: 1.4 });
+  menhir(b, world, 4, 3.2, -15.4, 2.2);
 
-  // Trees, scattered but never where you land.
-  for (const [tx, tz, s] of [[-5, 3, 1], [-8, 0.5, 0.85], [6, -4, 1.1], [3, 5, 0.9],
-    [-2, -7, 1.05], [9, -1, 0.8], [23, 9, 0.95], [26, 5, 1.1], [-13, -10, 0.8]]) {
-    const gy = tz > 4 && tx > 19 ? 1.2 : (tx < -10 ? 4.4 : 0);
+  // Trees, scattered but never where you land. Each one carries the height of
+  // the ground it stands on: working it out from the position with a chain of
+  // conditionals meant every time an island moved, a tree stayed behind and
+  // floated.
+  for (const [tx, gy, tz, s] of [
+    [-5, 0, 3, 1], [-8, 0, 0.5, 0.85], [6, 0, -4, 1.1], [3, 0, 5, 0.9],
+    [-2, 0, -7, 1.05], [9, 0, -1, 0.8],
+    [26, 0.9, 10, 0.95], [30, 0.9, 6, 1.1],
+    [-13, 4.8, -10.5, 0.8],
+  ]) {
     tree(b, world, tx, gy, tz, s);
   }
 
   const mesh = b.build();
-  return { world, mesh, spawn: { x: 0, y: 1.2, z: 4 }, vertexCount: b.size };
+  return { world, mesh, glimmers: placeGlimmers(), spawn: { x: 0, y: 1.2, z: 4 },
+    vertexCount: b.size };
+}
+
+/**
+ * Where the glimmers go, which is the level design.
+ *
+ * Every group here is a sentence. The first line is "come this way". The arcs
+ * over the platforms are "that jump works". The long shallow descent over the
+ * gap is the only way to explain the glide without a tutorial box, because it
+ * is shaped like the thing it is asking you to do — falling slowly, forward,
+ * for a long way.
+ */
+function placeGlimmers() {
+  const g = makeSet();
+
+  // Out of the spawn and into the meadow. The first thing you see.
+  line(g, 0.5, 1.1, 2.6, 3.4, 1.1, -1.4, 5);
+
+  // Round the tree you would otherwise walk straight past, so the first thing
+  // you learn about this world is that it is worth going round things.
+  ring(g, -5, 1.15, 3, 2.1, 7);
+
+  // The stair up to the lookout, one arc per jump, on the real trajectory.
+  arc(g, -3.8, 1.0, -3.0, -6.5, 2.2, -5.5, 0.9, 5);
+  arc(g, -6.5, 2.3, -5.5, -8.0, 3.4, -7.2, 0.7, 4);
+  arc(g, -8.0, 3.5, -7.2, -9.2, 4.6, -7.8, 0.6, 4);
+  arc(g, -9.2, 4.7, -7.8, -11.5, 5.7, -10.2, 0.6, 5);
+
+  // The reward for getting up there: a ring round the standing stone, which
+  // from below reads as a crown and is visible from the whole meadow.
+  ring(g, -13, 5.9, -13.5, 1.9, 8);
+
+  // The stepping stones east. Tighter arcs — these are small jumps.
+  arc(g, 5.6, 1.1, 0.4, 8, 2.0, 2, 0.7, 4);
+  arc(g, 8, 2.0, 2, 12, 2.5, 3.5, 0.8, 5);
+  arc(g, 12, 2.5, 3.5, 16.5, 2.9, 5, 0.8, 5);
+
+  // The gap. A long shallow DESCENT, because that is what a glide looks like,
+  // and the last few hang out over nothing until you are already committed.
+  line(g, 17.2, 3.0, 5.2, 23.8, 1.9, 7.0, 9);
+
+  // The far island, so arriving is worth something.
+  ring(g, 28, 2.0, 8, 3.2, 9);
+
+  // And the shelf, which you can only get to by gliding down from the
+  // lookout. This run is drawn ON the glide slope — it has to descend, and at
+  // the rate a glide actually descends, or it is a row of lights leading
+  // somewhere the player cannot follow.
+  single(g, -8.6, 5.4, -12.6);
+  line(g, -7.4, 5.1, -12.8, 0.6, 3.9, -13.8, 8);
+  ring(g, 4, 4.3, -15.4, 1.6, 6);
+
+  return g;
 }
 
 export { PALETTE };

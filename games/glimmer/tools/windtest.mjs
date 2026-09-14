@@ -10,7 +10,7 @@
 // three corners, and check it agrees with the normal the shader will use. If
 // they disagree the face is inside out.
 
-import { Builder, box, sphere, tube, groundPatch, disc } from '../src/gl/shapes.js';
+import { Builder, box, sphere, tube, groundPatch, disc, gem } from '../src/gl/shapes.js';
 
 function check(name, build) {
   const b = new Builder();
@@ -48,6 +48,7 @@ pass &= check('sphere squash', (b) => sphere(b, 1, '#ffffff', 6, 8, 0.4));
 pass &= check('cylinder', (b) => tube(b, 1, 1, 2, '#ffffff', 10, true));
 pass &= check('cone', (b) => tube(b, 1, 0.02, 2, '#ffffff', 8, false));
 pass &= check('disc', (b) => disc(b, 1, '#ffffff', 14, 0));
+pass &= check('gem', (b) => gem(b, 0.3, 0.44, '#ffffff', 6));
 pass &= check('groundPatch', (b) => groundPatch(b, 4, 4, 4, 4,
   (x, z) => Math.sin(x) * 0.1, () => [1, 1, 1]));
 

@@ -22,6 +22,15 @@
     image-rendering: crisp-edges;
     touch-action: none;
   }
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 0;
+    pointer-events: none; z-index: 5;
+    color: #fdf8e7; font-size: 15px; letter-spacing: 2px;
+    text-shadow: 0 2px 0 rgba(20, 28, 44, 0.55);
+  }
+  #hud b { font-weight: 700; color: #ffe98a; }
   #rotate {
     position: fixed; inset: 0; display: none;
     align-items: center; justify-content: center; flex-direction: column;
@@ -30,10 +39,20 @@
   }
   #rotate span { font-size: 30px; }
   @media (orientation: portrait) and (max-height: 520px) {
-    #rotate { display: flex; }
+    #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 0;
+    pointer-events: none; z-index: 5;
+    color: #fdf8e7; font-size: 15px; letter-spacing: 2px;
+    text-shadow: 0 2px 0 rgba(20, 28, 44, 0.55);
+  }
+  #hud b { font-weight: 700; color: #ffe98a; }
+  #rotate { display: flex; }
   }
 </style>
 <canvas id="game"></canvas>
+<div id="hud"><span>&#9670;</span><b id="lums">0</b></div>
 <div id="rotate"><span>&#8635;</span>TURN YOUR PHONE SIDEWAYS</div>
 <script>
 (function () {
@@ -374,6 +393,7 @@ uniform vec3 uBounce;
 uniform vec3 uFog;
 uniform vec2 uFogRange;
 uniform float uAlpha;
+uniform float uEmissive;
 void main() {
   vec3 n = normalize(vNormal);
   // Three lights, none of them a point: a sun, a sky dome that only lights
@@ -388,11 +408,16 @@ void main() {
   lit += uSky * pow(1.0 - max(n.z, 0.0), 3.0) * 0.04;
   float fog = clamp((vDepth - uFogRange.x) / (uFogRange.y - uFogRange.x), 0.0, 1.0);
   fog *= fog;
+  // Some things in this world make their own light. Without this a
+  // collectible is just a pale rock: it takes the same sun as the grass it is
+  // lying on, so the one object on screen that has to catch the eye is the one
+  // object shaded to blend in with everything around it.
+  lit = mix(lit, vColor * 1.18, uEmissive);
   gl_FragColor = vec4(mix(lit, uFog, fog), uAlpha);
 }`;
 
 const UNIFORMS = ['uProj', 'uView', 'uModel', 'uNormal', 'uLightDir', 'uSun',
-  'uSky', 'uBounce', 'uFog', 'uFogRange', 'uAlpha'];
+  'uSky', 'uBounce', 'uFog', 'uFogRange', 'uAlpha', 'uEmissive'];
 const ATTRIBS = ['aPos', 'aNormal', 'aColor'];
 
 class Scene {
@@ -446,6 +471,10 @@ class Scene {
     gl.uniform3fv(this.u.uFog, this.fog);
     gl.uniform2f(this.u.uFogRange, this.fogNear, this.fogFar);
     gl.uniform1f(this.u.uAlpha, 1);
+    gl.uniform1f(this.u.uEmissive, 0);
+    this.lastEmissive = 0;
+    gl.depthMask(true);
+    this.depthWrite = true;
     this.bound = null;
   }
 
@@ -459,7 +488,24 @@ class Scene {
     gl.uniformMatrix4fv(this.u.uModel, false, this.model);
     gl.uniformMatrix3fv(this.u.uNormal, false, this.nrm);
     if (alpha !== this.lastAlpha) { gl.uniform1f(this.u.uAlpha, alpha); this.lastAlpha = alpha; }
+    // A see-through thing must not write depth. It looks like a subtlety and
+    // is not: a translucent hull that writes depth hides whatever is behind
+    // it INCLUDING the solid object it is wrapped around, so every glowing
+    // collectible came out as a flat grey pane with its own core behind it.
+    const solid = alpha >= 0.999;
+    if (solid !== this.depthWrite) { gl.depthMask(solid); this.depthWrite = solid; }
     drawMesh(mesh);
+  }
+
+  /**
+   * How much the next things drawn light themselves. Set once per batch — it
+   * is a uniform, not a per-draw argument, so switching it per object would
+   * cost more than the objects do.
+   */
+  emissive(v) {
+    if (v === this.lastEmissive) return;
+    this.gl.uniform1f(this.u.uEmissive, v);
+    this.lastEmissive = v;
   }
 
   /** Where a world point lands on screen, for name tags and markers. */
@@ -1009,7 +1055,7 @@ class AudioEngine {
   }
 
   // ---- sound effects -------------------------------------------------
-  sfx(name) {
+  sfx(name, arg = 0) {
     if (!this.unlocked || !this.enabled) return;
     const t = this.ctx.currentTime;
     const G = this.sfxGain;
@@ -1046,6 +1092,18 @@ class AudioEngine {
     };
 
     switch (name) {
+      // Picking one up climbs a scale while you keep picking them up, and
+      // drops back when you stop. A fixed pickup tone is the difference
+      // between collecting things and pressing a button sixty times.
+      case 'glimmer': {
+        const STEPS = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+        const k = STEPS[Math.min(arg, STEPS.length - 1)];
+        const f = 587 * Math.pow(2, k / 12);
+        beep(f, 0.075, 'quarter', 0.17);
+        this._tone(t + 0.015, 0.13, f * 2, 'eighth', 0.055, G);
+        break;
+      }
+      case 'allglimmers': fanfare([784, 988, 1175, 1568], 0.11, 0.24, 0.26); break;
       case 'cursor':   beep(880, 0.05, 'quarter', 0.18); break;
       case 'select':   beep(1180, 0.07, 'quarter', 0.22); break;
       case 'back':     beep(420, 0.07, 'quarter', 0.18); break;
@@ -1317,7 +1375,43 @@ function disc(b, r, colour, segs = 14, y = 0) {
   for (let j = 0; j < segs; j++) b.face(mid, ring[j + 1], ring[j]);
 }
 
-__exports(__x, { Builder: () => Builder, box: () => box, sphere: () => sphere, tube: () => tube, groundPatch: () => groundPatch, disc: () => disc });
+/**
+ * A faceted gem: a ring of vertices with a point above and below.
+ *
+ * Every face gets its own three vertices and its true normal, so the facets
+ * catch the light separately and the thing glitters as it turns. That is the
+ * entire reason a collectible is this shape and not a ball.
+ */
+function gem(b, r, h, colour, segs = 6) {
+  const c = typeof colour === 'string' ? rgb(colour) : colour;
+  const ring = [];
+  for (let j = 0; j < segs; j++) {
+    const th = (j / segs) * Math.PI * 2;
+    ring.push([Math.cos(th) * r, 0, Math.sin(th) * r]);
+  }
+  const tri = (A, B, C, tint) => {
+    const u = [B[0] - A[0], B[1] - A[1], B[2] - A[2]];
+    const v = [C[0] - A[0], C[1] - A[1], C[2] - A[2]];
+    let nx = u[1] * v[2] - u[2] * v[1];
+    let ny = u[2] * v[0] - u[0] * v[2];
+    let nz = u[0] * v[1] - u[1] * v[0];
+    const l = Math.hypot(nx, ny, nz) || 1;
+    nx /= l; ny /= l; nz /= l;
+    const cc = [Math.min(1, c[0] * tint), Math.min(1, c[1] * tint), Math.min(1, c[2] * tint)];
+    const i0 = b.vert(A[0], A[1], A[2], nx, ny, nz, cc);
+    const i1 = b.vert(B[0], B[1], B[2], nx, ny, nz, cc);
+    const i2 = b.vert(C[0], C[1], C[2], nx, ny, nz, cc);
+    b.face(i0, i1, i2);
+  };
+  const top = [0, h, 0], bot = [0, -h * 0.72, 0];
+  for (let j = 0; j < segs; j++) {
+    const a = ring[j], d = ring[(j + 1) % segs];
+    tri(d, a, top, 1.12);
+    tri(a, d, bot, 0.82);
+  }
+}
+
+__exports(__x, { Builder: () => Builder, box: () => box, sphere: () => sphere, tube: () => tube, groundPatch: () => groundPatch, disc: () => disc, gem: () => gem });
 
 };
 
@@ -1520,9 +1614,137 @@ __exports(__x, { PHYS: () => PHYS, solid: () => solid, Collision: () => Collisio
 
 };
 
+__defs['game/glimmers.js'] = function (__x, __req) {
+
+// The things you are out here for.
+//
+// A collectible in an exploration game is not a score. It is a sentence in the
+// only language the level designer can speak while you are playing: a curve of
+// them hanging over a gap says "this is a jump, it will work, go"; a single one
+// out over nothing says "there is something out there you cannot reach yet".
+// You follow them before you have decided to, which is the whole feeling this
+// game is chasing.
+//
+// So the placement helpers here are the important part of this file. Arcs
+// trace the exact parabola a jump makes, rings mark a thing worth walking
+// round, and a line draws a path. None of them are decoration.
+
+const REACH = 1.05;      // how close you have to be to take one
+const BOB = 0.16;
+
+function makeSet() {
+  return { items: [], got: 0, chain: 0, chainT: 0, lastY: 0 };
+}
+
+function add(set, x, y, z) {
+  set.items.push({
+    x, y, z,
+    got: false,
+    pop: 0,
+    // Each one bobs on its own clock, so a row of them ripples instead of
+    // pulsing in unison like a row of warning lights.
+    phase: (x * 1.7 + z * 2.3 + y * 0.9) % 6.283,
+  });
+  return set;
+}
+
+/** A straight run of them, for a path you want walked. */
+function line(set, x0, y0, z0, x1, y1, z1, n) {
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    add(set, x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, z0 + (z1 - z0) * t);
+  }
+  return set;
+}
+
+/**
+ * The shape a jump makes.
+ *
+ * `lift` is how high above the straight line the middle rides. Hang these on
+ * the real trajectory and a player reads the whole jump before taking it —
+ * which is the difference between a leap of faith and a leap.
+ */
+function arc(set, x0, y0, z0, x1, y1, z1, lift, n) {
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    const h = 4 * lift * t * (1 - t);      // a parabola, zero at both ends
+    add(set, x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + h, z0 + (z1 - z0) * t);
+  }
+  return set;
+}
+
+/** A ring, for something worth circling — a stone, a tree, a lookout. */
+function ring(set, cx, cy, cz, r, n) {
+  for (let i = 0; i < n; i++) {
+    const th = (i / n) * Math.PI * 2;
+    add(set, cx + Math.cos(th) * r, cy, cz + Math.sin(th) * r);
+  }
+  return set;
+}
+
+/** One on its own. Used sparingly: a lone one reads as a promise. */
+function single(set, x, y, z) { return add(set, x, y, z); }
+
+/**
+ * Collecting.
+ *
+ * Both of you pick them up. She is not carrying a second score — there is one
+ * count between you, because the premise of this game is that you are doing
+ * this together, and a partner who walks through the things you are collecting
+ * without taking them is a partner who is not really there.
+ */
+function updateGlimmers(set, chars, dt, onGot) {
+  set.chainT = Math.max(0, set.chainT - dt);
+  if (set.chainT <= 0) set.chain = 0;
+
+  for (const g of set.items) {
+    g.phase += dt * 2.1;
+    if (g.got) {
+      if (g.pop > 0) g.pop = Math.max(0, g.pop - dt * 2.6);
+      continue;
+    }
+    for (const c of chars) {
+      const a = c.a;
+      const dx = a.x - g.x;
+      const dy = (a.y + 0.72) - g.y;      // the middle of them, not their feet
+      const dz = a.z - g.z;
+      if (dx * dx + dy * dy + dz * dz > REACH * REACH) continue;
+      g.got = true;
+      g.pop = 1;
+      set.got++;
+      set.chain++;
+      set.chainT = 1.1;
+      if (onGot) onGot(g, c, set.chain);
+      break;
+    }
+  }
+}
+
+function remaining(set) { return set.items.length - set.got; }
+
+/** Where one is drawn this frame: bobbing, spinning, and popping when taken. */
+function glimmerPose(g, t) {
+  const bob = Math.sin(g.phase) * BOB;
+  if (!g.got) {
+    return { x: g.x, y: g.y + bob, z: g.z, yaw: t * 1.7 + g.phase, scale: 1, alpha: 1 };
+  }
+  // Taken: it swells and fades on the spot, so the eye gets told it worked
+  // even when the pickup happened behind the character.
+  const k = 1 - g.pop;
+  return {
+    x: g.x, y: g.y + bob + k * 0.7, z: g.z,
+    yaw: t * 5.5 + g.phase, scale: 1 + k * 1.6, alpha: g.pop * 0.85,
+  };
+}
+
+__exports(__x, { makeSet: () => makeSet, line: () => line, arc: () => arc, ring: () => ring, single: () => single, updateGlimmers: () => updateGlimmers, remaining: () => remaining, glimmerPose: () => glimmerPose });
+
+};
+
 __defs['game/world3d.js'] = function (__x, __req) {
 const { Builder, box, sphere, tube, groundPatch } = __req('gl/shapes.js');
 const { Collision, solid } = __req('game/actor.js');
+const { makeSet, line, arc, ring, single } = __req('game/glimmers.js');
 // A place to be.
 //
 // The world is authored as a short list of parts — islands, platforms, trees,
@@ -1531,6 +1753,7 @@ const { Collision, solid } = __req('game/actor.js');
 // whole trick: there is no way for the thing you can see and the thing you
 // can stand on to drift apart, which in a 3D platformer is the bug that eats
 // a week.
+
 
 
 
@@ -1654,32 +1877,105 @@ function buildTestWorld() {
   // The main meadow.
   island(b, world, 0, 0, 0, 11, 9);
 
-  // A stair of platforms up to a lookout on the left.
-  platform(b, world, -7, 1.6, -6, 1.4, 1.4);
-  platform(b, world, -9.5, 3.0, -9, 1.3, 1.3);
-  island(b, world, -13, 4.4, -12, 3.5, 3.0, { depth: 1.6 });
-  menhir(b, world, -13, 4.4, -13.5, 3.4);
+  // A stair of platforms up to a lookout on the left. The lookout has to be
+  // the HIGHEST thing here, because everything else on this side of the world
+  // is reached by gliding down from it — and you cannot glide upward. The
+  // first draft put the shelf above the lookout, which made the shelf, and
+  // every glimmer hanging round it, unreachable by anything.
+  // Every step is 1.2, because the jump lifts 1.5 and no further. The first
+  // three drafts of this stair rose 1.6 to 1.8 a step: the whole west side of
+  // the world, the lookout, the shelf and forty of the glimmers were behind a
+  // climb that nothing in the movement set could make.
+  platform(b, world, -6.5, 1.2, -5.5, 1.4, 1.4);
+  platform(b, world, -8.0, 2.4, -7.2, 1.2, 1.2);
+  platform(b, world, -9.2, 3.6, -7.8, 1.1, 1.1);
+  island(b, world, -13, 4.8, -12, 3.5, 3.0, { depth: 1.6 });
+  menhir(b, world, -13, 4.8, -13.5, 3.4);
 
   // Stepping stones out across a gap. The last one is far enough that only
   // the helicopter reaches it, which is the one thing this field is for.
   platform(b, world, 8, 0.9, 2, 1.2, 1.2);
   platform(b, world, 12, 1.4, 3.5, 1.1, 1.1);
   platform(b, world, 16.5, 1.8, 5, 1.0, 1.0);
-  island(b, world, 24, 1.2, 7, 5, 4.5, { depth: 1.8 });
+  // Far enough out that the jump cannot make it. A standing jump carries 4.7
+  // metres; this gap is 5.5, so it is the glide or nothing — which is the one
+  // thing this whole eastern run exists to teach.
+  island(b, world, 28, 0.9, 8, 5, 4.5, { depth: 1.8 });
 
-  // A high shelf you can only reach by gliding down from the lookout.
-  island(b, world, 4, 6.5, -14, 3.2, 2.6, { depth: 1.4 });
-  menhir(b, world, 4, 6.5, -15.4, 2.2);
+  // A shelf you can only reach by gliding down from the lookout. The glide
+  // falls about a third of a metre for every metre it covers, so at ten
+  // metres out this has to sit roughly three below where you jumped from.
+  island(b, world, 4, 3.2, -14, 3.2, 2.6, { depth: 1.4 });
+  menhir(b, world, 4, 3.2, -15.4, 2.2);
 
-  // Trees, scattered but never where you land.
-  for (const [tx, tz, s] of [[-5, 3, 1], [-8, 0.5, 0.85], [6, -4, 1.1], [3, 5, 0.9],
-    [-2, -7, 1.05], [9, -1, 0.8], [23, 9, 0.95], [26, 5, 1.1], [-13, -10, 0.8]]) {
-    const gy = tz > 4 && tx > 19 ? 1.2 : (tx < -10 ? 4.4 : 0);
+  // Trees, scattered but never where you land. Each one carries the height of
+  // the ground it stands on: working it out from the position with a chain of
+  // conditionals meant every time an island moved, a tree stayed behind and
+  // floated.
+  for (const [tx, gy, tz, s] of [
+    [-5, 0, 3, 1], [-8, 0, 0.5, 0.85], [6, 0, -4, 1.1], [3, 0, 5, 0.9],
+    [-2, 0, -7, 1.05], [9, 0, -1, 0.8],
+    [26, 0.9, 10, 0.95], [30, 0.9, 6, 1.1],
+    [-13, 4.8, -10.5, 0.8],
+  ]) {
     tree(b, world, tx, gy, tz, s);
   }
 
   const mesh = b.build();
-  return { world, mesh, spawn: { x: 0, y: 1.2, z: 4 }, vertexCount: b.size };
+  return { world, mesh, glimmers: placeGlimmers(), spawn: { x: 0, y: 1.2, z: 4 },
+    vertexCount: b.size };
+}
+
+/**
+ * Where the glimmers go, which is the level design.
+ *
+ * Every group here is a sentence. The first line is "come this way". The arcs
+ * over the platforms are "that jump works". The long shallow descent over the
+ * gap is the only way to explain the glide without a tutorial box, because it
+ * is shaped like the thing it is asking you to do — falling slowly, forward,
+ * for a long way.
+ */
+function placeGlimmers() {
+  const g = makeSet();
+
+  // Out of the spawn and into the meadow. The first thing you see.
+  line(g, 0.5, 1.1, 2.6, 3.4, 1.1, -1.4, 5);
+
+  // Round the tree you would otherwise walk straight past, so the first thing
+  // you learn about this world is that it is worth going round things.
+  ring(g, -5, 1.15, 3, 2.1, 7);
+
+  // The stair up to the lookout, one arc per jump, on the real trajectory.
+  arc(g, -3.8, 1.0, -3.0, -6.5, 2.2, -5.5, 0.9, 5);
+  arc(g, -6.5, 2.3, -5.5, -8.0, 3.4, -7.2, 0.7, 4);
+  arc(g, -8.0, 3.5, -7.2, -9.2, 4.6, -7.8, 0.6, 4);
+  arc(g, -9.2, 4.7, -7.8, -11.5, 5.7, -10.2, 0.6, 5);
+
+  // The reward for getting up there: a ring round the standing stone, which
+  // from below reads as a crown and is visible from the whole meadow.
+  ring(g, -13, 5.9, -13.5, 1.9, 8);
+
+  // The stepping stones east. Tighter arcs — these are small jumps.
+  arc(g, 5.6, 1.1, 0.4, 8, 2.0, 2, 0.7, 4);
+  arc(g, 8, 2.0, 2, 12, 2.5, 3.5, 0.8, 5);
+  arc(g, 12, 2.5, 3.5, 16.5, 2.9, 5, 0.8, 5);
+
+  // The gap. A long shallow DESCENT, because that is what a glide looks like,
+  // and the last few hang out over nothing until you are already committed.
+  line(g, 17.2, 3.0, 5.2, 23.8, 1.9, 7.0, 9);
+
+  // The far island, so arriving is worth something.
+  ring(g, 28, 2.0, 8, 3.2, 9);
+
+  // And the shelf, which you can only get to by gliding down from the
+  // lookout. This run is drawn ON the glide slope — it has to descend, and at
+  // the rate a glide actually descends, or it is a row of lights leading
+  // somewhere the player cannot follow.
+  single(g, -8.6, 5.4, -12.6);
+  line(g, -7.4, 5.1, -12.8, 0.6, 3.9, -13.8, 8);
+  ring(g, 4, 4.3, -15.4, 1.6, 6);
+
+  return g;
 }
 
 
@@ -1706,159 +2002,234 @@ const { Builder, sphere, box, tube, disc } = __req('gl/shapes.js');
 
 const LOOKS = {
   matt: {
-    skin: '#f0c49a', skinDark: '#cf9b70',
-    hair: '#3b2a1d', hairLit: '#5a4230',
-    coat: '#d9503c', coatDark: '#a5382a',
-    scarf: '#f5efe2', scarfDark: '#d8d0bd',
-    glove: '#fbfbf6', boot: '#4a5568', bootDark: '#333c4d',
+    skin: '#f6c9a0', skinWarm: '#ffd9b4', skinDark: '#cf9268',
+    hair: '#38271a', hairLit: '#5d422c',
+    coat: '#e04a34', coatDark: '#9e2f20', coatTrim: '#f7a08a',
+    scarf: '#fbf4e2', scarfDark: '#cfc3aa',
+    glove: '#fffdf6', gloveDark: '#d9d2c0',
+    boot: '#3f4a63', bootDark: '#252d40', sole: '#e6e0cf',
     hairStyle: 'short',
   },
   sam: {
-    skin: '#f5cba4', skinDark: '#d4a279',
-    hair: '#a9602c', hairLit: '#c8814a',
-    coat: '#4f9ad8', coatDark: '#356fa6',
-    scarf: '#ffd6e6', scarfDark: '#e0aec2',
-    glove: '#fbfbf6', boot: '#57506b', bootDark: '#3c3750',
+    skin: '#fbd2ac', skinWarm: '#ffe2c4', skinDark: '#d69b72',
+    hair: '#b35d24', hairLit: '#d9853f',
+    coat: '#3d92dd', coatDark: '#22629f', coatTrim: '#9ed2f6',
+    scarf: '#ffd3e4', scarfDark: '#dfa0ba',
+    glove: '#fffdf6', gloveDark: '#d9d2c0',
+    boot: '#5a4d75', bootDark: '#362d4b', sole: '#e6e0cf',
     hairStyle: 'bob',
   },
 };
 
+// Characters are built smoother than the world they stand in. The landscape is
+// deliberately faceted; if the people are faceted to match, they sink into it.
+// The extra bands cost nothing at this scale and they are what makes a
+// character read as the thing on screen that is alive.
+const FINE = [14, 20];
+
 /**
- * The head: a ball of hair with a face pushed forward out of it.
+ * The head.
  *
- * The obvious way — a skin ball with a squashed hair ball sitting on top —
- * does not survive being looked at. Two spheres of similar size intersect in
- * a scalloped circle, so the hairline comes out as a row of triangular teeth
- * with forehead showing between them, and any tuft built from a cone reads as
- * a horn. Offsetting the FACE forward instead makes the boundary a clean
- * circle running behind the cheeks, which is a haircut.
+ * Not a ball with a face painted on the front — that was the first version and
+ * it is why these two looked dead. A head needs VOLUME below the eyes: a cheek
+ * and jaw mass pushed down and forward off the cranium, so the face turns a
+ * corner instead of being a decal on a sphere. The eyes get a highlight, which
+ * is one extra sphere each and does more for whether anybody is home behind
+ * them than everything else in this file put together.
  *
- * Eyes are geometry rather than a texture — two white spheres sunk into the
- * skull with a dark one in front of each. At this polygon count that is
- * cheaper than a texture atlas and it means the eyes catch the light.
+ * The whole head is then scaled down at the end. It was as wide as the entire
+ * torso, which is not a style — it is a proportion nobody chose.
  */
 function buildHead(look) {
   const b = new Builder();
+  b.push(0, 0, 0, 0.88);
 
-  // The hair, which is the whole head from behind.
-  b.push(0, 0.03, -0.05);
-  sphere(b, 0.44, look.hair, 10, 14, 0.97);
+  // Hair shell, which is the whole head from behind.
+  b.push(0, 0.05, -0.05);
+  sphere(b, 0.44, look.hair, FINE[0], FINE[1], 0.97);
   b.pop();
 
-  // A longer cut falls past the jaw at the sides and gathers at the nape.
   if (look.hairStyle === 'bob') {
     for (const sx of [-1, 1]) {
       b.push(sx * 0.31, -0.2, -0.11);
-      sphere(b, 0.145, look.hair, 7, 9, 1.7);
+      sphere(b, 0.15, look.hair, 8, 10, 1.7);
       b.pop();
-      b.push(sx * 0.26, -0.4, -0.13);
-      sphere(b, 0.1, look.hairLit, 6, 8, 1.1);
+      b.push(sx * 0.26, -0.42, -0.13);
+      sphere(b, 0.105, look.hairLit, 7, 9, 1.1);
       b.pop();
     }
-    b.push(0, -0.18, -0.26);
-    sphere(b, 0.17, look.hair, 7, 9, 1.15);
+    b.push(0, -0.18, -0.27);
+    sphere(b, 0.18, look.hair, 8, 10, 1.15);
     b.pop();
   } else {
-    b.push(0, -0.1, -0.26);
-    sphere(b, 0.19, look.hair, 7, 9, 0.9);
+    b.push(0, -0.1, -0.27);
+    sphere(b, 0.2, look.hair, 8, 10, 0.9);
     b.pop();
   }
 
-  // The face, pushed forward so the hairline is a clean circle behind it.
-  b.push(0, -0.035, 0.1);
-  sphere(b, 0.4, look.skin, 10, 14);
+  // The face, forward of the hair so the hairline is a clean curve.
+  b.push(0, -0.03, 0.11);
+  sphere(b, 0.4, look.skin, FINE[0], FINE[1]);
+  b.pop();
+  // Cheeks and jaw: the mass that stops the face being a flat disc. Lower and
+  // further forward than the cranium, and a shade warmer so the light breaks
+  // across the join instead of gliding over it.
+  b.push(0, -0.19, 0.16);
+  sphere(b, 0.33, look.skinWarm, 12, 16, 0.82);
+  b.pop();
+  b.push(0, -0.3, 0.13);
+  sphere(b, 0.21, look.skin, 10, 12, 0.78);
   b.pop();
 
-  // A fringe: three soft blobs sitting on the hairline, swept to one side.
-  // Spheres, not cones — a cone here is a horn, every time.
-  const sweep = [[-0.19, 0.27, 0.24, 0.15], [0.03, 0.31, 0.26, 0.17],
-    [0.24, 0.27, 0.2, 0.14]];
-  for (const [x, y, z, r] of sweep) {
+  // A fringe sitting on the hairline, swept across.
+  for (const [x, y, z, r] of [[-0.2, 0.28, 0.24, 0.155], [0.02, 0.32, 0.27, 0.175],
+    [0.24, 0.28, 0.21, 0.145]]) {
     b.push(x, y, z);
-    sphere(b, r, look.hairLit, 7, 9, 0.72);
+    sphere(b, r, look.hairLit, 9, 11, 0.72);
     b.pop();
   }
-  // Sideburns, which stop the face reading as a mask stuck on a ball.
   for (const sx of [-1, 1]) {
-    b.push(sx * 0.33, 0.02, 0.12);
-    sphere(b, 0.13, look.hair, 6, 8, 1.25);
+    b.push(sx * 0.34, 0.02, 0.12);
+    sphere(b, 0.13, look.hair, 8, 10, 1.25);
     b.pop();
   }
 
-  // Eyes, facing +Z. The face is 0.1 forward, so these are too.
+  // Eyes. Big, set into the face, each with a dark pupil and a highlight
+  // catching the sun from the same side the world is lit from.
   for (const s of [-1, 1]) {
-    b.push(s * 0.16, 0.02, 0.38);
-    sphere(b, 0.145, '#ffffff', 8, 10);
+    b.push(s * 0.155, 0.05, 0.39);
+    sphere(b, 0.165, '#ffffff', 12, 14);
     b.pop();
-    b.push(s * 0.17, 0.02, 0.49);
-    sphere(b, 0.06, '#1b1426', 6, 8);
+    b.push(s * 0.168, 0.04, 0.51);
+    sphere(b, 0.072, '#221a2e', 10, 12);
     b.pop();
-    // A brow, which is most of the expression at this size. It has to sit ON
-    // the forehead, not in front of it: pushed out to meet the eyes it clears
-    // the cheek entirely and floats beside the head in three-quarter view.
-    b.push(s * 0.17, 0.185, 0.355);
-    box(b, 0.1, 0.026, 0.05, look.hair);
+    b.push(s * 0.21, 0.105, 0.53);
+    sphere(b, 0.032, '#ffffff', 6, 8);
+    b.pop();
+    // A brow, seated ON the forehead — pushed out to meet the eyes it clears
+    // the cheek and floats beside the head in three-quarter view.
+    b.push(s * 0.175, 0.225, 0.36);
+    box(b, 0.105, 0.03, 0.05, look.hair);
     b.pop();
   }
-  // Nose.
-  b.push(0, -0.1, 0.47);
-  sphere(b, 0.07, look.skinDark, 6, 8);
+  b.push(0, -0.12, 0.47);
+  sphere(b, 0.062, look.skinDark, 8, 10);
+  b.pop();
+
   b.pop();
   return b.build();
 }
 
-/** The body: a rounded torso in a coat, wearing a scarf that hides the neck. */
+/**
+ * The body: a flared tunic with shoulders on top of it.
+ *
+ * The first version was a sphere, and a sphere has no silhouette — it is the
+ * same shape from every angle and it told you nothing about which way the
+ * character was facing or where their shoulders were. A cone does both for the
+ * same number of triangles: narrow at the top, wide at the hem, so the eye
+ * gets a direction and the coat gets a hang to it.
+ */
 function buildBody(look) {
   const b = new Builder();
-  b.push(0, 0.02, 0);
-  sphere(b, 0.34, look.coat, 9, 12, 1.15);
+
+  // The tunic. Only a gentle taper — a steep one is a traffic cone, and a
+  // traffic cone has no shoulders, which is what the second attempt at this
+  // shipped: a smooth red funnel with a stripe down it.
+  b.push(0, -0.24, 0);
+  tube(b, 0.40, 0.34, 0.57, look.coat, 16, false);
   b.pop();
-  b.push(0, -0.18, 0);
-  sphere(b, 0.29, look.coatDark, 7, 10, 0.7);
+  // A darker hem, which separates the coat from the legs below it.
+  b.push(0, -0.29, 0);
+  tube(b, 0.42, 0.41, 0.07, look.coatDark, 16, false);
   b.pop();
-  // The scarf: a fat ring at the shoulders and a tail trailing behind.
-  // It has to be WIDER than the head is at that height or it vanishes inside
-  // it, which is how the first pass shipped a character with no scarf.
-  b.push(0, 0.3, 0);
-  sphere(b, 0.35, look.scarf, 8, 14, 0.4);
+  b.push(0, -0.29, 0);
+  disc(b, 0.42, look.coatDark, 16, 0);
   b.pop();
-  // The tail. Three blobs tapering down and back, because a scarf is cloth
-  // and cloth is not a rectangle — the flat card this replaced read as a
-  // luggage label pinned to her back.
-  for (const [ty, tz, tr, tc] of [[0.2, -0.3, 0.14, look.scarf],
-    [0.02, -0.36, 0.11, look.scarfDark], [-0.14, -0.38, 0.08, look.scarf]]) {
+
+  // Shoulders. WIDER than the top of the tunic, which is the entire point:
+  // the step out from the body is what the eye reads as a pair of shoulders,
+  // and without it a character has a neck going straight into a skirt.
+  b.push(0, 0.33, 0);
+  sphere(b, 0.37, look.coat, 13, 18, 0.6);
+  b.pop();
+  for (const sx of [-1, 1]) {
+    b.push(sx * 0.3, 0.29, 0);
+    sphere(b, 0.15, look.coatDark, 9, 11, 0.85);
+    b.pop();
+  }
+  // A trim stripe down the front, so there is a front.
+  b.push(0, -0.04, 0.3);
+  box(b, 0.05, 0.26, 0.05, look.coatTrim);
+  b.pop();
+
+  // The scarf, wide enough to clear the jaw above it and read as a ring.
+  b.push(0, 0.43, 0);
+  sphere(b, 0.40, look.scarf, 12, 18, 0.4);
+  b.pop();
+  b.push(0, 0.38, 0);
+  sphere(b, 0.32, look.scarfDark, 10, 14, 0.38);
+  b.pop();
+  // The tail: blobs tapering down and back, because cloth is not a rectangle.
+  for (const [ty, tz, tr, tc] of [[0.3, -0.34, 0.15, look.scarf],
+    [0.1, -0.4, 0.12, look.scarfDark], [-0.08, -0.43, 0.085, look.scarf]]) {
     b.push(0, ty, tz);
-    sphere(b, tr, tc, 6, 9, 1.25);
+    sphere(b, tr, tc, 8, 11, 1.25);
     b.pop();
   }
   return b.build();
 }
 
-/** A hand: a mitten with a cuff. Drawn facing +Z, turned by the caller. */
+/**
+ * A hand: a mitten with a thumb and a cuff.
+ *
+ * A bare sphere is not a hand. It has no front, so it cannot point, and with
+ * nothing to catch the light it reads as a dropped ball rather than something
+ * attached to a person. The thumb gives it a direction and the cuff gives the
+ * arm that is not there somewhere to have ended.
+ */
 function buildHand(look) {
   const b = new Builder();
-  sphere(b, 0.15, look.glove, 7, 10);
-  b.push(0, 0, -0.13);
-  sphere(b, 0.115, look.coat, 6, 8, 0.8);
+  b.push(0, -0.02, 0.03);
+  sphere(b, 0.155, look.glove, 11, 14, 1.12);
   b.pop();
-  // A thumb, so a hand has a direction.
-  b.push(0.1, 0.06, 0.05);
-  sphere(b, 0.06, look.glove, 5, 6);
+  // A groove suggesting fingers, one shade down.
+  b.push(0, -0.12, 0.07);
+  sphere(b, 0.115, look.gloveDark, 9, 11, 0.62);
+  b.pop();
+  b.push(0.115, 0.02, 0.07);
+  sphere(b, 0.062, look.glove, 8, 10, 1.15);
+  b.pop();
+  // The cuff, in the coat colour, so the hands belong to the outfit.
+  b.push(0, 0.13, -0.03);
+  sphere(b, 0.125, look.coat, 10, 12, 0.6);
+  b.pop();
+  b.push(0, 0.18, -0.03);
+  sphere(b, 0.1, look.coatDark, 8, 10, 0.45);
   b.pop();
   return b.build();
 }
 
-/** A boot: a squashed ball with a sole and a turned-up toe. */
+/**
+ * A boot: a rounded shell with a turned-up toe and a pale sole.
+ *
+ * The sole is the point. Two grey lumps under a character are two grey lumps;
+ * the same lumps with a light band along the bottom read as footwear, and they
+ * separate from the ground instead of melting into it.
+ */
 function buildBoot(look) {
   const b = new Builder();
-  b.push(0, 0.02, 0.02);
-  sphere(b, 0.18, look.boot, 7, 10, 0.68);
+  b.push(0, 0.06, 0);
+  sphere(b, 0.185, look.boot, 11, 13, 0.78);
   b.pop();
-  b.push(0, -0.06, 0.06);
-  sphere(b, 0.165, look.bootDark, 6, 8, 0.35);
+  b.push(0, 0.02, 0.15);
+  sphere(b, 0.145, look.boot, 10, 12, 0.72);
   b.pop();
-  b.push(0, 0.0, 0.16);
-  sphere(b, 0.1, look.boot, 5, 8, 0.8);
+  b.push(0, -0.055, 0.04);
+  sphere(b, 0.185, look.sole, 10, 13, 0.3);
+  b.pop();
+  // A cuff at the ankle, dark, which caps the leg that is not there.
+  b.push(0, 0.19, -0.01);
+  sphere(b, 0.135, look.bootDark, 9, 11, 0.55);
   b.pop();
   return b.build();
 }
@@ -1914,7 +2285,7 @@ function drawCharacter(scene, art, pose) {
   }
 
   scene.draw(art.body, x, y + 0.62 * sy, z, yaw, sxz, sy, sxz);
-  scene.draw(art.head, x, y + 1.24 * sy, z, yaw, sxz, sy, sxz);
+  scene.draw(art.head, x, y + 1.42 * sy, z, yaw, sxz, sy, sxz);
 }
 
 /**
@@ -2106,41 +2477,41 @@ function updateLimbs(h, dt) {
   const step = Math.sin(h.t * 15 * (0.45 + run * 0.8));
 
   // [sideways, up, forward] in body space.
-  let hand = [[-0.46, 0.66, 0.02], [0.46, 0.66, 0.02]];
-  let boot = [[-0.19, 0.12, 0], [0.19, 0.12, 0]];
+  let hand = [[-0.52, 0.88, 0.04], [0.52, 0.88, 0.04]];
+  let boot = [[-0.24, 0.12, 0], [0.24, 0.12, 0]];
   let stiff = 16;
 
   switch (h.state) {
     case STATE.RUN:
-      hand = [[-0.44, 0.7 + step * 0.1, -step * 0.26], [0.44, 0.7 - step * 0.1, step * 0.26]];
+      hand = [[-0.5, 0.9 + step * 0.12, -step * 0.32], [0.5, 0.9 - step * 0.12, step * 0.32]];
       boot = [[-0.19, 0.12 + Math.max(0, step) * 0.26, step * 0.3],
         [0.19, 0.12 + Math.max(0, -step) * 0.26, -step * 0.3]];
       stiff = 20;
       break;
     case STATE.GLIDE:
       // Hands up, holding on. Everything else hangs.
-      hand = [[-0.3, 1.5, 0.02], [0.3, 1.5, 0.02]];
+      hand = [[-0.34, 1.56, 0.04], [0.34, 1.56, 0.04]];
       boot = [[-0.17, -0.12, -0.12], [0.17, -0.12, -0.12]];
       stiff = 11;
       break;
     case STATE.JUMP:
-      hand = [[-0.5, 0.95, 0.06], [0.5, 0.95, 0.06]];
+      hand = [[-0.56, 1.18, 0.08], [0.56, 1.18, 0.08]];
       boot = [[-0.2, 0.26, 0.08], [0.2, 0.2, -0.04]];
       stiff = 15;
       break;
     case STATE.FALL:
-      hand = [[-0.56, 0.78, -0.04], [0.56, 0.78, -0.04]];
+      hand = [[-0.62, 1.0, -0.04], [0.62, 1.0, -0.04]];
       boot = [[-0.2, 0.0, -0.06], [0.2, 0.04, -0.02]];
       stiff = 10;
       break;
     case STATE.HURT:
-      hand = [[-0.5, 1.1, -0.1], [0.5, 1.1, -0.1]];
+      hand = [[-0.58, 1.26, -0.1], [0.58, 1.26, -0.1]];
       boot = [[-0.22, 0.2, -0.14], [0.22, 0.2, -0.14]];
       stiff = 13;
       break;
     default: {
       const idle = Math.sin(h.t * 2.1) * 0.03;
-      hand = [[-0.46, 0.66 + idle, 0.02], [0.46, 0.66 - idle, 0.02]];
+      hand = [[-0.52, 0.88 + idle, 0.04], [0.52, 0.88 - idle, 0.04]];
       stiff = 12;
     }
   }
@@ -2431,6 +2802,8 @@ const { buildTestWorld } = __req('game/world3d.js');
 const { buildCharacter, buildRotor, drawCharacter } = __req('render/heroart3d.js');
 const { makeHero, updateHero, heroPose, STATE } = __req('game/hero3d.js');
 const { makePartner, updatePartner, makeTrail, pushCrumb, replacePartner } = __req('game/partner3d.js');
+const { updateGlimmers, glimmerPose, remaining } = __req('game/glimmers.js');
+const { Builder, gem } = __req('gl/shapes.js');
 const { clamp, angleDelta } = __req('gl/math.js');
 // Glimmer — entry point.
 //
@@ -2438,6 +2811,8 @@ const { clamp, angleDelta } = __req('gl/math.js');
 // built from spheres, and a camera. Nothing to collect and nowhere to go,
 // because the first question is still the only question — is running around
 // it, jumping, and catching yourself on the way down a pleasure?
+
+
 
 
 
@@ -2478,6 +2853,9 @@ class Game {
     this.stick = { x: 0, z: 0, active: false, id: null, ox: 0, oy: 0 };
     this.showHelp = 6;
     this.fps = 60;
+    this.glimmers = null;
+    this.t = 0;
+    this.allDone = false;
   }
 
   boot(canvas) {
@@ -2507,6 +2885,20 @@ class Game {
     this.hero = makeHero(built.spawn.x, built.spawn.y, built.spawn.z, 'matt');
     this.partner = makePartner(built.spawn.x - 1.3, built.spawn.y, built.spawn.z, 'sam');
     this.trail = makeTrail();
+    this.glimmers = built.glimmers;
+
+    // Two meshes for one collectible: a solid core and a bigger translucent
+    // shell around it. The shell is the glow — with no post-processing and no
+    // textures, an outer hull at low alpha is what makes a small bright object
+    // read as lit rather than merely pale.
+    const core = new Builder();
+    gem(core, 0.25, 0.38, '#ffd45c', 6);
+    this.gemCore = core.build();
+    const halo = new Builder();
+    gem(halo, 0.44, 0.66, '#fff0a8', 6);
+    this.gemHalo = halo.build();
+    this.hudEl = document.getElementById('lums');
+    this.updateHud();
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -2631,7 +3023,15 @@ class Game {
     return { mx: clamp(mx, -1, 1), mz: clamp(mz, -1, 1), jump, jumpHeld, camYaw: this.camYaw };
   }
 
+  updateHud() {
+    if (!this.hudEl) return;
+    const g = this.glimmers;
+    const txt = `${g.got}/${g.items.length}`;
+    if (txt !== this.hudTxt) { this.hudEl.textContent = txt; this.hudTxt = txt; }
+  }
+
   update(dt) {
+    this.t += dt;
     const h = this.hero;
     const was = h.state;
     updateHero(h, this.world, this.readInput(), dt);
@@ -2652,6 +3052,15 @@ class Game {
     const pWas = this.partner.state;
     updatePartner(this.partner, h, this.trail, this.world, dt);
     if (this.partner.a.justLanded && pWas !== this.partner.state) audio.sfx('cursor');
+
+    updateGlimmers(this.glimmers, [h, this.partner], dt, (g, by, chain) => {
+      audio.sfx('glimmer', chain - 1);
+      this.updateHud();
+    });
+    if (!this.allDone && remaining(this.glimmers) === 0) {
+      this.allDone = true;
+      audio.sfx('allglimmers');
+    }
 
     this.followCamera(dt);
     if (this.showHelp > 0) this.showHelp -= dt;
@@ -2715,6 +3124,23 @@ class Game {
     s.clear(this.w, this.h);
     s.begin(this.w, this.h);
     s.draw(this.worldMesh, 0, 0, 0, 0, 1, 1, 1);
+
+    // Cores first, then every halo — grouped by mesh so the whole field of
+    // them costs two buffer binds however many are left out there.
+    const items = this.glimmers.items;
+    s.emissive(0.8);
+    for (const g of items) {
+      if (g.got && g.pop <= 0) continue;
+      const q = glimmerPose(g, this.t);
+      s.draw(this.gemCore, q.x, q.y, q.z, q.yaw, q.scale, q.scale, q.scale, q.alpha);
+    }
+    for (const g of items) {
+      if (g.got && g.pop <= 0) continue;
+      const q = glimmerPose(g, this.t);
+      s.draw(this.gemHalo, q.x, q.y, q.z, -q.yaw * 0.6, q.scale, q.scale, q.scale,
+        q.alpha * 0.22);
+    }
+    s.emissive(0);
 
     for (const [c, art, rot] of [[this.partner, this.partnerArt, this.rotors[this.partner.look]],
       [this.hero, this.art, this.rotor]]) {

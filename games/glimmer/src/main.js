@@ -14,6 +14,8 @@ import { buildTestWorld } from './game/world3d.js';
 import { buildCharacter, buildRotor, drawCharacter } from './render/heroart3d.js';
 import { makeHero, updateHero, heroPose, STATE } from './game/hero3d.js';
 import { makePartner, updatePartner, makeTrail, pushCrumb, replacePartner } from './game/partner3d.js';
+import { updateGlimmers, glimmerPose, remaining } from './game/glimmers.js';
+import { Builder, gem } from './gl/shapes.js';
 import { clamp, angleDelta } from './gl/math.js';
 
 const DPR_CAP = 2;
@@ -44,6 +46,9 @@ class Game {
     this.stick = { x: 0, z: 0, active: false, id: null, ox: 0, oy: 0 };
     this.showHelp = 6;
     this.fps = 60;
+    this.glimmers = null;
+    this.t = 0;
+    this.allDone = false;
   }
 
   boot(canvas) {
@@ -73,6 +78,20 @@ class Game {
     this.hero = makeHero(built.spawn.x, built.spawn.y, built.spawn.z, 'matt');
     this.partner = makePartner(built.spawn.x - 1.3, built.spawn.y, built.spawn.z, 'sam');
     this.trail = makeTrail();
+    this.glimmers = built.glimmers;
+
+    // Two meshes for one collectible: a solid core and a bigger translucent
+    // shell around it. The shell is the glow — with no post-processing and no
+    // textures, an outer hull at low alpha is what makes a small bright object
+    // read as lit rather than merely pale.
+    const core = new Builder();
+    gem(core, 0.25, 0.38, '#ffd45c', 6);
+    this.gemCore = core.build();
+    const halo = new Builder();
+    gem(halo, 0.44, 0.66, '#fff0a8', 6);
+    this.gemHalo = halo.build();
+    this.hudEl = document.getElementById('lums');
+    this.updateHud();
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -197,7 +216,15 @@ class Game {
     return { mx: clamp(mx, -1, 1), mz: clamp(mz, -1, 1), jump, jumpHeld, camYaw: this.camYaw };
   }
 
+  updateHud() {
+    if (!this.hudEl) return;
+    const g = this.glimmers;
+    const txt = `${g.got}/${g.items.length}`;
+    if (txt !== this.hudTxt) { this.hudEl.textContent = txt; this.hudTxt = txt; }
+  }
+
   update(dt) {
+    this.t += dt;
     const h = this.hero;
     const was = h.state;
     updateHero(h, this.world, this.readInput(), dt);
@@ -218,6 +245,15 @@ class Game {
     const pWas = this.partner.state;
     updatePartner(this.partner, h, this.trail, this.world, dt);
     if (this.partner.a.justLanded && pWas !== this.partner.state) audio.sfx('cursor');
+
+    updateGlimmers(this.glimmers, [h, this.partner], dt, (g, by, chain) => {
+      audio.sfx('glimmer', chain - 1);
+      this.updateHud();
+    });
+    if (!this.allDone && remaining(this.glimmers) === 0) {
+      this.allDone = true;
+      audio.sfx('allglimmers');
+    }
 
     this.followCamera(dt);
     if (this.showHelp > 0) this.showHelp -= dt;
@@ -281,6 +317,23 @@ class Game {
     s.clear(this.w, this.h);
     s.begin(this.w, this.h);
     s.draw(this.worldMesh, 0, 0, 0, 0, 1, 1, 1);
+
+    // Cores first, then every halo — grouped by mesh so the whole field of
+    // them costs two buffer binds however many are left out there.
+    const items = this.glimmers.items;
+    s.emissive(0.8);
+    for (const g of items) {
+      if (g.got && g.pop <= 0) continue;
+      const q = glimmerPose(g, this.t);
+      s.draw(this.gemCore, q.x, q.y, q.z, q.yaw, q.scale, q.scale, q.scale, q.alpha);
+    }
+    for (const g of items) {
+      if (g.got && g.pop <= 0) continue;
+      const q = glimmerPose(g, this.t);
+      s.draw(this.gemHalo, q.x, q.y, q.z, -q.yaw * 0.6, q.scale, q.scale, q.scale,
+        q.alpha * 0.22);
+    }
+    s.emissive(0);
 
     for (const [c, art, rot] of [[this.partner, this.partnerArt, this.rotors[this.partner.look]],
       [this.hero, this.art, this.rotor]]) {

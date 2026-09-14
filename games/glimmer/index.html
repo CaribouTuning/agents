@@ -26,6 +26,15 @@
     image-rendering: crisp-edges;
     touch-action: none;
   }
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 0;
+    pointer-events: none; z-index: 5;
+    color: #fdf8e7; font-size: 15px; letter-spacing: 2px;
+    text-shadow: 0 2px 0 rgba(20, 28, 44, 0.55);
+  }
+  #hud b { font-weight: 700; color: #ffe98a; }
   #rotate {
     position: fixed; inset: 0; display: none;
     align-items: center; justify-content: center; flex-direction: column;
@@ -34,12 +43,22 @@
   }
   #rotate span { font-size: 30px; }
   @media (orientation: portrait) and (max-height: 520px) {
-    #rotate { display: flex; }
+    #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 0;
+    pointer-events: none; z-index: 5;
+    color: #fdf8e7; font-size: 15px; letter-spacing: 2px;
+    text-shadow: 0 2px 0 rgba(20, 28, 44, 0.55);
+  }
+  #hud b { font-weight: 700; color: #ffe98a; }
+  #rotate { display: flex; }
   }
 </style>
 </head>
 <body>
   <canvas id="game"></canvas>
+  <div id="hud"><span>&#9670;</span><b id="lums">0</b></div>
   <div id="rotate"><span>&#8635;</span>TURN YOUR PHONE SIDEWAYS</div>
   <script type="module" src="./src/main.js"></script>
 </body>

@@ -216,7 +216,7 @@ class AudioEngine {
   }
 
   // ---- sound effects -------------------------------------------------
-  sfx(name) {
+  sfx(name, arg = 0) {
     if (!this.unlocked || !this.enabled) return;
     const t = this.ctx.currentTime;
     const G = this.sfxGain;
@@ -253,6 +253,18 @@ class AudioEngine {
     };
 
     switch (name) {
+      // Picking one up climbs a scale while you keep picking them up, and
+      // drops back when you stop. A fixed pickup tone is the difference
+      // between collecting things and pressing a button sixty times.
+      case 'glimmer': {
+        const STEPS = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+        const k = STEPS[Math.min(arg, STEPS.length - 1)];
+        const f = 587 * Math.pow(2, k / 12);
+        beep(f, 0.075, 'quarter', 0.17);
+        this._tone(t + 0.015, 0.13, f * 2, 'eighth', 0.055, G);
+        break;
+      }
+      case 'allglimmers': fanfare([784, 988, 1175, 1568], 0.11, 0.24, 0.26); break;
       case 'cursor':   beep(880, 0.05, 'quarter', 0.18); break;
       case 'select':   beep(1180, 0.07, 'quarter', 0.22); break;
       case 'back':     beep(420, 0.07, 'quarter', 0.18); break;

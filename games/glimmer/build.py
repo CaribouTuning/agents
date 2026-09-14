@@ -200,6 +200,7 @@ def main() -> int:
 <meta name="theme-color" content="#0d1020">
 <style>{style}</style>
 <canvas id="game"></canvas>
+<div id="hud"><span>&#9670;</span><b id="lums">0</b></div>
 <div id="rotate"><span>&#8635;</span>TURN YOUR PHONE SIDEWAYS</div>
 <script>
 (function () {{

@@ -202,3 +202,39 @@ export function disc(b, r, colour, segs = 14, y = 0) {
   }
   for (let j = 0; j < segs; j++) b.face(mid, ring[j + 1], ring[j]);
 }
+
+/**
+ * A faceted gem: a ring of vertices with a point above and below.
+ *
+ * Every face gets its own three vertices and its true normal, so the facets
+ * catch the light separately and the thing glitters as it turns. That is the
+ * entire reason a collectible is this shape and not a ball.
+ */
+export function gem(b, r, h, colour, segs = 6) {
+  const c = typeof colour === 'string' ? rgb(colour) : colour;
+  const ring = [];
+  for (let j = 0; j < segs; j++) {
+    const th = (j / segs) * Math.PI * 2;
+    ring.push([Math.cos(th) * r, 0, Math.sin(th) * r]);
+  }
+  const tri = (A, B, C, tint) => {
+    const u = [B[0] - A[0], B[1] - A[1], B[2] - A[2]];
+    const v = [C[0] - A[0], C[1] - A[1], C[2] - A[2]];
+    let nx = u[1] * v[2] - u[2] * v[1];
+    let ny = u[2] * v[0] - u[0] * v[2];
+    let nz = u[0] * v[1] - u[1] * v[0];
+    const l = Math.hypot(nx, ny, nz) || 1;
+    nx /= l; ny /= l; nz /= l;
+    const cc = [Math.min(1, c[0] * tint), Math.min(1, c[1] * tint), Math.min(1, c[2] * tint)];
+    const i0 = b.vert(A[0], A[1], A[2], nx, ny, nz, cc);
+    const i1 = b.vert(B[0], B[1], B[2], nx, ny, nz, cc);
+    const i2 = b.vert(C[0], C[1], C[2], nx, ny, nz, cc);
+    b.face(i0, i1, i2);
+  };
+  const top = [0, h, 0], bot = [0, -h * 0.72, 0];
+  for (let j = 0; j < segs; j++) {
+    const a = ring[j], d = ring[(j + 1) % segs];
+    tri(d, a, top, 1.12);
+    tri(a, d, bot, 0.82);
+  }
+}

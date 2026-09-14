@@ -160,41 +160,41 @@ export function updateLimbs(h, dt) {
   const step = Math.sin(h.t * 15 * (0.45 + run * 0.8));
 
   // [sideways, up, forward] in body space.
-  let hand = [[-0.46, 0.66, 0.02], [0.46, 0.66, 0.02]];
-  let boot = [[-0.19, 0.12, 0], [0.19, 0.12, 0]];
+  let hand = [[-0.52, 0.88, 0.04], [0.52, 0.88, 0.04]];
+  let boot = [[-0.24, 0.12, 0], [0.24, 0.12, 0]];
   let stiff = 16;
 
   switch (h.state) {
     case STATE.RUN:
-      hand = [[-0.44, 0.7 + step * 0.1, -step * 0.26], [0.44, 0.7 - step * 0.1, step * 0.26]];
+      hand = [[-0.5, 0.9 + step * 0.12, -step * 0.32], [0.5, 0.9 - step * 0.12, step * 0.32]];
       boot = [[-0.19, 0.12 + Math.max(0, step) * 0.26, step * 0.3],
         [0.19, 0.12 + Math.max(0, -step) * 0.26, -step * 0.3]];
       stiff = 20;
       break;
     case STATE.GLIDE:
       // Hands up, holding on. Everything else hangs.
-      hand = [[-0.3, 1.5, 0.02], [0.3, 1.5, 0.02]];
+      hand = [[-0.34, 1.56, 0.04], [0.34, 1.56, 0.04]];
       boot = [[-0.17, -0.12, -0.12], [0.17, -0.12, -0.12]];
       stiff = 11;
       break;
     case STATE.JUMP:
-      hand = [[-0.5, 0.95, 0.06], [0.5, 0.95, 0.06]];
+      hand = [[-0.56, 1.18, 0.08], [0.56, 1.18, 0.08]];
       boot = [[-0.2, 0.26, 0.08], [0.2, 0.2, -0.04]];
       stiff = 15;
       break;
     case STATE.FALL:
-      hand = [[-0.56, 0.78, -0.04], [0.56, 0.78, -0.04]];
+      hand = [[-0.62, 1.0, -0.04], [0.62, 1.0, -0.04]];
       boot = [[-0.2, 0.0, -0.06], [0.2, 0.04, -0.02]];
       stiff = 10;
       break;
     case STATE.HURT:
-      hand = [[-0.5, 1.1, -0.1], [0.5, 1.1, -0.1]];
+      hand = [[-0.58, 1.26, -0.1], [0.58, 1.26, -0.1]];
       boot = [[-0.22, 0.2, -0.14], [0.22, 0.2, -0.14]];
       stiff = 13;
       break;
     default: {
       const idle = Math.sin(h.t * 2.1) * 0.03;
-      hand = [[-0.46, 0.66 + idle, 0.02], [0.46, 0.66 - idle, 0.02]];
+      hand = [[-0.52, 0.88 + idle, 0.04], [0.52, 0.88 - idle, 0.04]];
       stiff = 12;
     }
   }
