@@ -13,6 +13,7 @@ import { audio } from './core/audio.js';
 import { buildTestWorld } from './game/world3d.js';
 import { buildCharacter, buildRotor, drawCharacter } from './render/heroart3d.js';
 import { makeHero, updateHero, heroPose, STATE } from './game/hero3d.js';
+import { makePartner, updatePartner, makeTrail, pushCrumb, replacePartner } from './game/partner3d.js';
 import { clamp, angleDelta } from './gl/math.js';
 
 const DPR_CAP = 2;
@@ -26,6 +27,8 @@ class Game {
 
     this.world = null;
     this.hero = null;
+    this.partner = null;
+    this.trail = null;
     this.arts = {};
     this.rotors = {};
 
@@ -33,7 +36,8 @@ class Game {
     // is heading — it follows the character round rather than snapping.
     this.camYaw = 0;
     this.camPitch = 0.30;
-    this.camDist = 7.0;
+    this.camDist = 7.6;
+    this.camDistNow = 7.6;
     this.camHeight = 2.1;
     this.camLook = { x: 0, y: 0, z: 0 };
     this.dragging = null;
@@ -67,6 +71,8 @@ class Game {
       this.rotors[look] = buildRotor(look);
     }
     this.hero = makeHero(built.spawn.x, built.spawn.y, built.spawn.z, 'matt');
+    this.partner = makePartner(built.spawn.x - 1.3, built.spawn.y, built.spawn.z, 'sam');
+    this.trail = makeTrail();
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -87,10 +93,12 @@ class Game {
   setLook(look) {
     if (!this.arts[look]) return;
     this.hero.look = look;
+    this.partner.look = look === 'matt' ? 'sam' : 'matt';
   }
 
   get art() { return this.arts[this.hero.look]; }
   get rotor() { return this.rotors[this.hero.look]; }
+  get partnerArt() { return this.arts[this.partner.look]; }
 
   /** One physics frame with no input — for settling the character to a pose. */
   updateHeroFrame(dt) {
@@ -196,11 +204,20 @@ class Game {
     if (was !== STATE.GLIDE && h.state === STATE.GLIDE) audio.sfx('select');
     if (h.a.justLanded) audio.sfx('cursor');
 
-    // Fell off the world.
+    // Fell off the world. She goes where you go — put back on the meadow on
+    // your own and she is still falling, ten metres below a player who has no
+    // idea he has lost her.
     if (h.a.y < -25) {
       h.a.x = 0; h.a.y = 3; h.a.z = 4;
       h.a.vx = h.a.vy = h.a.vz = 0;
+      this.trail.pts.length = 0; this.trail.len = 0;
+      replacePartner(this.partner, h, this.trail);
     }
+
+    pushCrumb(this.trail, h.a.x, h.a.y, h.a.z, h.a.onGround);
+    const pWas = this.partner.state;
+    updatePartner(this.partner, h, this.trail, this.world, dt);
+    if (this.partner.a.justLanded && pWas !== this.partner.state) audio.sfx('cursor');
 
     this.followCamera(dt);
     if (this.showHelp > 0) this.showHelp -= dt;
@@ -211,32 +228,51 @@ class Game {
    * The camera drifts round to sit behind the hero when they are running, and
    * stays put when they are not — so it never fights a player who has just
    * turned the view on purpose.
+   *
+   * It frames BOTH of them. A camera locked to the player alone puts whoever
+   * is following directly under the lens whenever they drop behind, so the
+   * person you are playing this with spends the game as a head in the corner
+   * of the screen. Leaning the look-at point toward her and easing back as
+   * they separate keeps the pair of them in the picture, which is the entire
+   * subject of this game.
    */
   followCamera(dt) {
     const h = this.hero;
     const a = h.a;
+    const q = this.partner ? this.partner.a : a;
     const moving = Math.hypot(a.vx, a.vz) > 1.2;
     if (moving && !this.dragging) {
       this.camYaw += angleDelta(this.camYaw, h.yaw) * Math.min(1, 1.1 * dt);
     }
+
+    // Weighted toward the player, because they are the one steering.
+    const W = 0.26;
+    const sep = Math.min(Math.hypot(a.x - q.x, a.z - q.z), 9);
+    const fx = a.x + (q.x - a.x) * W;
+    const fz = a.z + (q.z - a.z) * W;
     const lookY = a.y + 0.9;
-    this.camLook.x += (a.x - this.camLook.x) * Math.min(1, 9 * dt);
+    this.camLook.x += (fx - this.camLook.x) * Math.min(1, 9 * dt);
     this.camLook.y += (lookY - this.camLook.y) * Math.min(1, 5 * dt);
-    this.camLook.z += (a.z - this.camLook.z) * Math.min(1, 9 * dt);
+    this.camLook.z += (fz - this.camLook.z) * Math.min(1, 9 * dt);
+
+    const want = this.camDist + clamp(sep - 2.2, 0, 6.8) * 0.62;
+    this.camDistNow += (want - this.camDistNow) * Math.min(1, 2.4 * dt);
 
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
+    const d = this.camDistNow;
     const s = this.scene;
     s.target[0] = this.camLook.x;
     s.target[1] = this.camLook.y;
     s.target[2] = this.camLook.z;
-    s.eye[0] = this.camLook.x - Math.sin(this.camYaw) * this.camDist * cp;
-    s.eye[1] = this.camLook.y + this.camHeight + sp * this.camDist * 0.6;
-    s.eye[2] = this.camLook.z - Math.cos(this.camYaw) * this.camDist * cp;
+    s.eye[0] = this.camLook.x - Math.sin(this.camYaw) * d * cp;
+    s.eye[1] = this.camLook.y + this.camHeight + sp * d * 0.6;
+    s.eye[2] = this.camLook.z - Math.cos(this.camYaw) * d * cp;
   }
 
   snapCamera() {
     const a = this.hero.a;
     this.camLook.x = a.x; this.camLook.y = a.y + 0.9; this.camLook.z = a.z;
+    this.camDistNow = this.camDist;
     this.followCamera(1);
   }
 
@@ -246,11 +282,12 @@ class Game {
     s.begin(this.w, this.h);
     s.draw(this.worldMesh, 0, 0, 0, 0, 1, 1, 1);
 
-    const h = this.hero;
-    drawCharacter(s, this.art, heroPose(h));
-
-    if (h.state === STATE.GLIDE || h.rotor > 0.3) {
-      s.draw(this.rotor, h.a.x, h.a.y + 1.62, h.a.z, h.rotor, 1, 1, 1);
+    for (const [c, art, rot] of [[this.partner, this.partnerArt, this.rotors[this.partner.look]],
+      [this.hero, this.art, this.rotor]]) {
+      drawCharacter(s, art, heroPose(c));
+      if (c.state === STATE.GLIDE || c.rotor > 0.3) {
+        s.draw(rot, c.a.x, c.a.y + 1.74, c.a.z, c.rotor, 1, 1, 1);
+      }
     }
   }
 }

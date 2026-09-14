@@ -14,7 +14,13 @@ export const STATE = {
   GLIDE: 'glide', HURT: 'hurt',
 };
 
-export function makeHero(x, y, z, look = 'matt') {
+/**
+ * The shape of a character. The hero and whoever is walking with you are the
+ * same object with different things driving them — which is the only reason
+ * the partner animates as well as the player does, because there is no second
+ * implementation to fall behind.
+ */
+export function makeCharacter(x, y, z, look = 'matt') {
   const a = makeActor(x, y, z, 0.33, 1.15);
   const limb = () => ({ x, y, z, vx: 0, vy: 0, vz: 0 });
   return {
@@ -36,6 +42,10 @@ export function makeHero(x, y, z, look = 'matt') {
     invuln: 0,
     can: { glide: true, fist: false, climb: false, swim: false },
   };
+}
+
+export function makeHero(x, y, z, look = 'matt') {
+  return makeCharacter(x, y, z, look);
 }
 
 /**
@@ -142,7 +152,7 @@ export function updateHero(h, world, input, dt) {
  * world, so a hand that should be "out to the left" stays out to the left
  * whichever way he is facing.
  */
-function updateLimbs(h, dt) {
+export function updateLimbs(h, dt) {
   const a = h.a;
   const c = Math.cos(h.yaw), s = Math.sin(h.yaw);
   const speed = Math.hypot(a.vx, a.vz);
