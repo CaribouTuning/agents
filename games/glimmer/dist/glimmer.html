@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Pokemon for Sammy &amp; Matt</title>
+<title>Glimmer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1419,12 +1419,26 @@ function boxHitsSolid(level, x, y, w, h) {
  * straight through a floor between two frames, and the bug only shows up on
  * the one jump in the level that is high enough.
  */
-function moveBody(level, b) {
+/**
+ * Call once at the top of a body's frame, before anything touches it.
+ *
+ * This used to live at the top of `moveBody`, which was wrong in a way that
+ * hid itself: a jump sets `onGround = false` so the state machine reads
+ * right, and that happens BEFORE the body moves — so by the time moveBody
+ * snapshotted `wasOnGround` it was already false, and `justLeftGround` could
+ * never fire for a jump. Only for walking off a ledge. Every takeoff cue
+ * hung on that flag — the dust, the sound — would simply never have happened,
+ * and nobody would have known why.
+ */
+function beginBodyFrame(b) {
   b.wasOnGround = b.onGround;
   b.justLanded = false;
   b.justLeftGround = false;
   b.hitCeiling = false;
   b.againstWall = 0;
+}
+
+function moveBody(level, b) {
 
   const steps = Math.max(1, Math.ceil(Math.max(Math.abs(b.vx), Math.abs(b.vy)) / (TILE - 1)));
   const sx = b.vx / steps;
@@ -1515,12 +1529,12 @@ function ledgeInFront(level, b, facing) {
 
 
 
-__exports(__x, { MOVE: () => MOVE, makeBody: () => makeBody, boxHitsSolid: () => boxHitsSolid, moveBody: () => moveBody, groundBelow: () => groundBelow, ledgeInFront: () => ledgeInFront, tileAt: () => tileAt });
+__exports(__x, { MOVE: () => MOVE, makeBody: () => makeBody, boxHitsSolid: () => boxHitsSolid, beginBodyFrame: () => beginBodyFrame, moveBody: () => moveBody, groundBelow: () => groundBelow, ledgeInFront: () => ledgeInFront, tileAt: () => tileAt });
 
 };
 
 __defs['game/hero.js'] = function (__x, __req) {
-const { makeBody, moveBody, groundBelow, MOVE } = __req('game/physics.js');
+const { makeBody, moveBody, beginBodyFrame, groundBelow, MOVE } = __req('game/physics.js');
 const { TILE } = __req('render/canvas.js');
 const { hurtAt, climbAt, waterAt } = __req('data/tiles.js');
 // The hero.
@@ -1597,6 +1611,7 @@ function heroCentre(h) {
 function updateHero(h, level, input, dt) {
   h.t += dt;
   const b = h.body;
+  beginBodyFrame(b);
 
   if (h.invuln > 0) h.invuln--;
   if (h.fistCooldown > 0) h.fistCooldown--;
